@@ -1,16 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import {
   BarChartIcon,
   Button,
-  CheckCircleIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ClockIcon,
   Dialog,
   ErrorState,
   FileTextIcon,
@@ -22,19 +19,13 @@ import {
   SendIcon,
   SideSheet,
   Skeleton,
-  Sparkline,
-  UsersIcon,
-  XCircleIcon,
-  ZapIcon,
-  chartColor,
   cn,
   useToast,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import { CARD, TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
-import { deltaText, firstName } from "@/lib/ent/consultant-ws/home";
+import { CARD, TONES } from "@/components/ent/dashboard/parts";
+import PageHeader from "@/components/ent/shell/ShellContext";
+import { BASE, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
 import {
   ACCEPT_COPY,
   EMPTY_QUERY,
@@ -57,21 +48,19 @@ import {
   negotiateOffer,
   noteProblem,
   rangeText,
-  relativeTime,
   stampLabel,
   statusInfo,
   toggleSelection,
   workModeInfo,
   type Fetched,
-  type OfferActivity,
   type OfferDetail,
   type OfferPage,
   type OfferQuery,
   type OfferRow,
-  type OfferTile,
   type OffersView,
   type SortKey,
   type WriteResult,
+  relativeTime,
 } from "@/lib/ent/consultant-ws/offers";
 
 /**
@@ -81,66 +70,6 @@ import {
  * client from here, money is a record in minor units, and accepting starts the placement when the offer is linked to a client. Rows flagged `sample` are demo stand-ins for the
  * employer side that makes offers.
  */
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: keyof OffersView["tiles"];
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "total", title: "Total Offers", icon: FileTextIcon, tone: "accent" },
-  { key: "pending", title: "Pending Review", icon: ClockIcon, tone: "amber" },
-  { key: "accepted", title: "Accepted", icon: CheckCircleIcon, tone: "green" },
-  { key: "negotiation", title: "Negotiation", icon: UsersIcon, tone: "violet" },
-  { key: "declined", title: "Declined", icon: XCircleIcon, tone: "coral" },
-];
-
-function Tile({ spec, tile, index }: { spec: TileSpec; tile: OfferTile | null; index: number }) {
-  const Icon = spec.icon;
-  const d = tile ? deltaText(tile.deltaPct) : null;
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-[14px]", TONES[spec.tone])}>
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[14px] font-bold leading-tight text-ink">{spec.title}</h3>
-        {tile ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[30px] font-extrabold leading-none tabular-nums text-ink">
-                {tile.value}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 w-[42%] max-w-[84px] flex-none">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              {d ? (
-                <>
-                  <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                    {d.dir === "up" ? "↑" : d.dir === "down" ? "↓" : "-"} {d.dir === "flat" ? "no change" : d.text}
-                  </span>
-                  {d.dir === "flat" ? null : <span>vs last month</span>}
-                </>
-              ) : null}
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── small pieces ───────────────────────────────────────────────────────────────────── */
 
@@ -371,7 +300,7 @@ function YourOffers({ orgId, view, selected, a, notice }: { orgId: number; view:
   return (
     <Panel
       id="offers-list"
-      title={`Your Offers (${total})`}
+      title={`Your offers (${total})`}
       icon={FileTextIcon}
       extra={
         filtered ? (
@@ -388,6 +317,31 @@ function YourOffers({ orgId, view, selected, a, notice }: { orgId: number; view:
         ) : null
       }
     >
+      <div role="group" aria-label="Filter offers by status" data-offers-chips className="mb-3 flex flex-wrap gap-2">
+        {(
+          [
+            { status: "PENDING_REVIEW", label: "Pending", n: view.tiles.pending.value },
+            { status: "NEGOTIATION", label: "Negotiation", n: view.tiles.negotiation.value },
+            { status: "ACCEPTED", label: "Accepted", n: view.tiles.accepted.value },
+            { status: "DECLINED", label: "Declined", n: view.tiles.declined.value },
+          ] as const
+        ).map((c) => {
+          const on = query.status === c.status;
+          return (
+            <button
+              key={c.status}
+              type="button"
+              data-chip={c.status}
+              aria-pressed={on}
+              onClick={() => set({ status: on ? "" : c.status })}
+              className={cn("inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold", on ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink hover:bg-paper-2")}
+            >
+              {c.label}
+              <span className="tabular-nums text-muted">{c.n}</span>
+            </button>
+          );
+        })}
+      </div>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(0,1.3fr)]">
         <PillSelect label="Sort offers" value={query.sort} onChange={(v) => set({ sort: v as SortKey })} options={SORT_OPTIONS.map((o, i) => ({ value: o.value, label: i === 0 ? `All Offers (${total})` : o.label }))} />
         <PillSelect label="Filter by status" value={query.status} onChange={(v) => set({ status: v })} options={STATUS_FILTERS} />
@@ -542,7 +496,7 @@ function ComparePanel({ view, selected, comparing, setComparing, onClear, capNot
   return (
     <Panel
       id="offers-compare"
-      title="Compare Offers"
+      title="Compare offers"
       subtitle={`Select up to ${MAX_COMPARE} offers to compare key details side by side.`}
       icon={BarChartIcon}
       extra={
@@ -561,7 +515,7 @@ function ComparePanel({ view, selected, comparing, setComparing, onClear, capNot
   );
 }
 
-/* ── recent activity ────────────────────────────────────────────────────────────────── */
+/* ── the activity timeline (inside the detail sheet) ─── */
 
 const DOT: Record<string, string> = { RECEIVED: "text-v2-amber-ink", UPDATED: "text-v2-violet-ink", NEGOTIATING: "text-v2-violet-ink", ACCEPTED: "text-v2-green-ink", DECLINED: "text-v2-coral-ink" };
 
@@ -579,66 +533,6 @@ function ActivityList({ items, now, withTime = true }: { items: { label: string;
         </li>
       ))}
     </ol>
-  );
-}
-
-function ActivityCard({ items, now }: { items: OfferActivity[]; now: number }) {
-  return (
-    <Card id="offers-activity" title="Recent Offer Activity" icon={ClockIcon}>
-      {items.length === 0 ? (
-        <Empty>No activity yet.</Empty>
-      ) : (
-        <ActivityList now={now} items={items.map((e) => ({ label: e.label, kind: e.kind, occurredAt: e.occurredAt, sub: [e.company, e.role].filter(Boolean).join(" - ") }))} />
-      )}
-    </Card>
-  );
-}
-
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-function QuickActions({ firstOpen, firstAny, a }: { firstOpen: OfferRow | null; firstAny: OfferRow | null; a: Actions }) {
-  const tile = "flex h-full min-h-[64px] w-full items-center gap-2.5 rounded-xl border border-line bg-paper p-2.5 text-left hover:bg-paper-2/60 disabled:cursor-not-allowed disabled:opacity-60";
-  const body = (Icon: ComponentType<IconProps>, label: string, hint: string) => (
-    <>
-      <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES.accent)}>
-        <Icon size={18} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-[13px] font-bold leading-tight text-ink">{label}</span>
-        <span className="block text-[11.5px] leading-snug text-muted">{hint}</span>
-      </span>
-    </>
-  );
-  return (
-    <Card id="offers-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        <li className="min-w-0">
-          <button type="button" data-quick="details" disabled={!firstAny} onClick={() => firstAny && a.view(firstAny)} className={tile}>
-            {body(FileTextIcon, "View Offer Details", "See full offer information")}
-          </button>
-        </li>
-        <li className="min-w-0">
-          <button
-            type="button"
-            data-quick="compare"
-            onClick={() => document.getElementById("offers-compare")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-            className={tile}
-          >
-            {body(SearchIcon, "Compare Offers", "Compare multiple offers")}
-          </button>
-        </li>
-        <li className="min-w-0">
-          <Link href={`${BASE}/marketer`} data-quick="marketer" className={tile}>
-            {body(MessageIcon, "Ask My Marketer", "Get personalized advice")}
-          </Link>
-        </li>
-        <li className="min-w-0">
-          <button type="button" data-quick="respond" disabled={!firstOpen} onClick={() => firstOpen && a.respond(firstOpen)} className={tile}>
-            {body(SendIcon, "Respond to Offer", "Accept, negotiate or decline")}
-          </button>
-        </li>
-      </ul>
-    </Card>
   );
 }
 
@@ -725,7 +619,7 @@ function DetailSheet({ row, detail, busy, onClose, onRespond, now }: { row: Offe
             )}
           </section>
           {!live.canRespond && r.status === "EXPIRED" ? <p className="text-[13px] text-v2-coral-ink">The deadline has passed, so this offer can no longer be answered here. Ask your marketer.</p> : null}
-          <p className="text-[12px] text-muted">Your answer is recorded in Kiwiply only. Nothing is signed, sent to the client or paid from here. Accepting starts your placement when the offer is linked to a client.</p>
+          <p className="text-[12px] text-muted">Your answer is only recorded here. Nothing is signed, sent to the client or paid from here. Accepting starts your placement when the offer is linked to a client.</p>
         </div>
       )}
     </SideSheet>
@@ -824,14 +718,13 @@ type DetailState = { id: number; result: Fetched<OfferDetail> } | null;
 
 export interface OffersPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
 }
 
-export default function ConsultantOffersPage({ orgId, firstName: first }: OffersPageProps) {
+export default function ConsultantOffersPage({ orgId }: OffersPageProps) {
   const router = useRouter();
   const toast = useToast();
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchOffers(orgId), [orgId]));
-  const loading = status === "loading";
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<number[]>([]);
@@ -888,7 +781,7 @@ export default function ConsultantOffersPage({ orgId, firstName: first }: Offers
     setBusy(true);
     const run = async () => {
       try {
-        if (r.kind === "accept") await finish(await acceptOffer(orgId, r.row.id), { title: "Offer accepted", description: "Your answer is recorded. Nothing was signed or sent to the client by Kiwiply; your marketer takes the next steps." });
+        if (r.kind === "accept") await finish(await acceptOffer(orgId, r.row.id), { title: "Offer accepted", description: "Your answer is recorded. Nothing was signed or sent to the client from here; your marketer takes the next steps." });
         else if (r.kind === "decline") await finish(await declineOffer(orgId, r.row.id, note), { title: "Offer declined", description: "Your answer is recorded." });
         else await finish(await negotiateOffer(orgId, r.row.id, note), { title: "Negotiation requested", description: "Your marketer will see what you would like to discuss." });
       } finally {
@@ -915,49 +808,25 @@ export default function ConsultantOffersPage({ orgId, firstName: first }: Offers
   if (status === "denied") return <ErrorState what="your workspace" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
 
   const detail = state && state.id === viewId ? state.result : null;
-  const firstOpen = view?.compare.find(isOpen) ?? null;
-  const firstAny = view?.compare[0] ?? null;
 
   return (
     <div data-consultant-offers data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Offers" subtitle="Review and manage your job offers. Compare opportunities, get guidance, and take the next step in your career." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="Offers" subtitle="Offers on the table. Compare, negotiate, decide." />
 
       {status === "failed" ? (
         <ErrorState what="your offers" description="Your offers didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <>
-          <section aria-label="Key numbers" data-offers-tiles className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
-            {TILE_SPECS.map((s, i) => (
-              <Tile key={s.key} spec={s} tile={loading || !view ? null : view.tiles[s.key]} index={i} />
-            ))}
-          </section>
-          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.3fr)]">
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
-              {view ? (
-                <YourOffers orgId={orgId} view={view} selected={selected} a={actions} notice={notice} />
-              ) : (
-                <div className="grid gap-4" aria-busy="true">
-                  <Skeleton className="h-72 w-full" />
-                </div>
-              )}
-            </div>
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-              <BeeCard
-                name={firstName(first)}
-                title="Review your offers with confidence!"
-                body="Take time to evaluate the full offer package, including compensation, benefits, work arrangements, and growth opportunities. I'm here to help you understand your options and make the best decision for your career."
-              />
-              <QuickActions firstOpen={firstOpen} firstAny={firstAny} a={actions} />
-            </div>
-          </div>
           {view ? (
-            <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+            <>
+              <YourOffers orgId={orgId} view={view} selected={selected} a={actions} notice={notice} />
               <ComparePanel view={view} selected={selected} comparing={comparing} setComparing={setComparing} onClear={() => { setSelected([]); setComparing(false); setCapNotice(false); }} capNotice={capNotice} a={actions} />
-              <ActivityCard items={view.activity} now={now} />
+            </>
+          ) : (
+            <div className="grid gap-4" aria-busy="true">
+              <Skeleton className="h-72 w-full" />
             </div>
-          ) : null}
+          )}
         </>
       )}
 

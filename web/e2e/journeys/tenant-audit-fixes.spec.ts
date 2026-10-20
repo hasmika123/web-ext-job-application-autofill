@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * The P0 fixes of the 2026-10-16 enterprise role audit against the REAL stack (Spring API + MySQL + `next start`; see
  * docs/enterprise-v2/real-stack-runbook.md): the Resume Builder opens inside the tenant shell (D1), Gamma's consultants are linked so a marketer can prepare a
- * resume for them and they approve it (D2/D3), the marketer's Job Discovery is mounted (D5), and the new-resume chooser reads the organization's records (D10).
+ * resume for them and they approve it (D2/D3), the marketer's Jobs page is mounted (D5), and the new-resume chooser reads the organization's records (D10).
  *
  *   E2E_REAL_PORT=3210 PW_CHANNEL=chrome npx playwright test -c playwright.real.config.ts tenant-audit-fixes
  *
@@ -70,7 +70,7 @@ test.describe("enterprise audit fixes (real stack)", () => {
     await expect(page.locator("[data-builder-frame]")).toBeVisible();
   });
 
-  test("D5: the marketer's Job Discovery is the real page, not 'on the way'", async ({ page }) => {
+  test("D5: the marketer's Jobs page is the real page, not 'on the way'", async ({ page }) => {
     await demoSignIn(page, "Omar Haddad");
     await page.goto(`${acme}/w/marketing/jobs`);
     await expect(page.getByText("This page is on the way")).toHaveCount(0);
@@ -126,25 +126,25 @@ test.describe("enterprise audit fixes (real stack)", () => {
     await demoSignIn(page, "Omar Haddad");
     await page.locator("[data-account-menu]").click();
     await page.getByRole("menuitem", { name: "Connect extension" }).click();
-    await expect(page.getByText("Install the Kiwiply extension first")).toBeVisible();
+    await expect(page.getByText("Install the browser extension first")).toBeVisible();
     await expect(page.locator("[data-install-extension]")).toHaveAttribute("href", /^https:/);
   });
 
-  test("D15 + D9: tenant 404 is the organization's own, one icon link, unbuilt admin pages read Soon", async ({ page }) => {
+  test("D15 + D9: tenant 404 is the organization's own, one icon link, the unbuilt admin page reads Soon", async ({ page }) => {
     await demoSignIn(page, "Sarah Chen");
     await page.goto(`${acme}/definitely-not-a-page`);
     await expect(page.locator("[data-tenant-page-not-found]")).toBeVisible();
     await expect(page).toHaveTitle(/Page not found · Acme/);
     await expect(page.getByText(/Kiwiply/)).toHaveCount(0);
     await page.goto(`${acme}/w/admin`);
-    await expect(page.locator("[data-nav-item=reports] [data-soon-chip]")).toBeVisible();
-    await expect(page.locator("[data-nav-item=domains] [data-soon-chip]")).toBeVisible();
+    await expect(page.locator("[data-nav-item=billing] [data-soon-chip]")).toBeVisible();
+    await expect(page.locator("[data-nav-item=reports] [data-soon-chip]")).toHaveCount(0);
     await expect(page.locator("[data-nav-item=employees] [data-soon-chip]")).toHaveCount(0);
     await page.waitForTimeout(800);
     expect(await page.locator('head link[rel~="icon"]').count()).toBe(1);
   });
 
-  test("D9: Audit Logs is a real page: who did what, filter by kind", async ({ page }) => {
+  test("D9: Audit Log is a real page: who did what, filter by kind", async ({ page }) => {
     await demoSignIn(page, "Sarah Chen");
     await page.goto(`${acme}/w/admin/audit`);
     await expect(page.locator("[data-audit-page]")).toBeVisible();
@@ -158,12 +158,12 @@ test.describe("enterprise audit fixes (real stack)", () => {
     await demoSignIn(page, "Anika Rao");
     await page.goto(`${acme}/w/consultant/marketer`);
     await expect(page.locator("#marketer-card")).toBeVisible();
-    await expect(page.locator("#marketer-messages [data-sample], #marketer-plan [data-sample], #marketer-notes [data-sample]")).toHaveCount(0);
+    await expect(page.locator("#marketer-messages [data-sample], #marketer-notes [data-sample]")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Send Message" }).first()).toBeDisabled();
     await expect(page.getByText(/until the marketing workspace/)).toHaveCount(0);
   });
 
-  test("Job Discovery: a consultant on a project is listed disabled with the reason and cannot be assigned", async ({ page }) => {
+  test("Jobs: a consultant on a project is listed disabled with the reason and cannot be assigned", async ({ page }) => {
     await demoSignIn(page, "Omar Haddad");
     await page.goto(`${acme}/w/marketing/jobs`);
     await expect(page.locator("[data-jobs-page]")).toBeVisible();

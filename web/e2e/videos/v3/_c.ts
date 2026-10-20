@@ -41,7 +41,7 @@ export async function orgId(page: Page): Promise<number> {
   return r.json.org.id;
 }
 
-/** The ids of the marketers and a consultant, from the Marketing Assignments page's own API. */
+/** The ids of the marketers and a consultant, from the Assignments page's own API. */
 export async function assignmentFacts(page: Page, org: number, consultantName: string) {
   const c = await bffCall<{ items: { consultantId: number; name: string; marketer: { memberId: number; name: string } | null }[] }>(page, `/api/orgs/${org}/marketing-assignments/consultants?q=${encodeURIComponent(consultantName)}`);
   const item = c.json?.items.find((i) => i.name === consultantName);

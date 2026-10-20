@@ -65,7 +65,7 @@ describe("helpers", () => {
   });
 
   it("the routes are the tenant-bound ones and take the organization from the page", () => {
-    expect(inboxEndpoints(7)).toEqual({ connect: "/api/orgs/7/me-workspace/inbox", notify: "/api/orgs/7/me-workspace/inbox/notify" });
+    expect(inboxEndpoints(7)).toEqual({ connect: "/api/orgs/7/me-workspace/inbox", notify: "/api/orgs/7/me-workspace/inbox/notify", checkNow: "/api/orgs/7/me-workspace/inbox/check-now" });
   });
 
   it("tones", () => {

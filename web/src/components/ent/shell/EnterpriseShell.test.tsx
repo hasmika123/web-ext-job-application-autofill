@@ -78,8 +78,8 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     expect(container.querySelector("[data-shell-scroll]")!.className).toContain("overflow-y-auto");
     expect(container.querySelector("[data-shell-sidebar] [data-tenant-logo=\"image\"] img")?.getAttribute("src")).toContain("/tenant-assets/logo");
     const labels = Array.from(aside.querySelectorAll("[data-nav-item]")).map((a) => a.textContent?.trim());
-    expect(labels.slice(0, 6)).toEqual(["Dashboard", "Employees", "Invitations", "Teams", "Departments", "Roles & Permissions"]);
-    expect(labels).toContain("Organization Branding");
+    expect(labels.slice(0, 4)).toEqual(["Dashboard", "Employees", "Teams & Departments", "Roles"]);
+    expect(labels).toContain("Branding");
   });
 
   it("highlights the active item with aria-current and leaves the others plain", () => {
@@ -87,7 +87,7 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     const { container } = mount("owner@acme.com");
     const current = container.querySelectorAll("[data-shell-sidebar] [aria-current=\"page\"]");
     expect(current).toHaveLength(1);
-    expect(current[0].textContent).toContain("Roles & Permissions");
+    expect(current[0].textContent).toContain("Roles");
   });
 
   it("landmarks and the skip link: header, nav, main, a skip link to #main-content", () => {
@@ -101,7 +101,7 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
   it("shows the page's own title and subtitle in the top bar, the menu label until it mounts", () => {
     nav.pathname = "/w/admin/teams";
     const { container } = mount("owner@acme.com");
-    expect(container.querySelector("[data-page-header] h1")!.textContent).toBe("Teams");
+    expect(container.querySelector("[data-page-header] h1")!.textContent).toBe("Teams & Departments");
     cleanup();
     mount("owner@acme.com", { children: <PageHeader title="Organization Dashboard" subtitle="Welcome back! Here's what's happening at Acme today." /> });
     expect(screen.getAllByText("Organization Dashboard").length).toBeGreaterThan(0);
@@ -111,7 +111,7 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
   it("the global search is honest: board placeholder, results only from pages the member can open, and it says so", () => {
     const { container } = mount("owner@acme.com");
     const box = container.querySelector<HTMLInputElement>("[data-shell-search] input")!;
-    expect(box.placeholder).toBe("Search pages");
+    expect(box.placeholder).toBe("Jump to a page (Ctrl+K)");
     fireEvent.focus(box);
     fireEvent.change(box, { target: { value: "empl" } });
     const opts = screen.getAllByRole("option");
@@ -131,25 +131,38 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     expect(side.querySelector("[data-shell-scroll] nav")).toBeTruthy();
   });
 
-  it("a page's own help card still opens the shared help panel that says there is no assistant yet", () => {
+  it("Help & support opens the shared help panel, which only lists people and pages", () => {
     mount("owner@acme.com");
     act(() => openHelpPanel());
-    expect(screen.getByRole("dialog").textContent).toContain("isn't switched on yet");
+    expect(screen.getByRole("dialog").textContent).toContain("These reach a person.");
+    expect(screen.getByRole("dialog").textContent).not.toContain("assistant");
     expect(screen.getByRole("dialog").querySelector('a[href="mailto:it@acme.com"]')).toBeTruthy();
   });
 
-  it("the menu is separated into the board's three groups by rules", () => {
+  it("the menu is drawn in labelled groups, each a named group for assistive tech", () => {
     const { container } = mount("owner@acme.com");
-    const nav = container.querySelector("[data-shell-sidebar] nav")!;
-    const sections = nav.querySelectorAll("[data-nav-section]");
-    expect(sections.length).toBeGreaterThanOrEqual(3);
-    expect(nav.querySelectorAll("hr.ent-nav-sep").length).toBe(sections.length - 1);
-    expect(sections[0].textContent).toContain("Dashboard");
-    expect(sections[0].textContent).toContain("Placements");
-    expect(sections[1].textContent).toContain("Subscription Overview");
-    expect(sections[1].textContent).toContain("Reports");
-    expect(sections[2].textContent).toContain("Organization Branding");
-    expect(sections[2].textContent).toContain("Settings");
+    const menu = container.querySelector("[data-shell-sidebar] nav") as HTMLElement;
+    const labels = [...menu.querySelectorAll("[data-nav-group-label]")].map((l) => l.textContent);
+    expect(labels).toEqual(["People", "Talent", "Pipeline", "Organization"]);
+    expect(within(menu).getByRole("group", { name: "People" }).textContent).toContain("Employees");
+    expect(within(menu).getByRole("group", { name: "Pipeline" }).textContent).toContain("Placements");
+    expect(menu.querySelector("[data-nav-section=main]")!.textContent).toContain("Dashboard");
+  });
+
+  it("the sidebar can be collapsed from its foot at desktop width, and expanded again", () => {
+    const { container } = mount("owner@acme.com");
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(container.querySelector("[data-shell-sidebar]")!.getAttribute("data-rail")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(container.querySelector("[data-shell-sidebar]")!.getAttribute("data-rail")).toBe("false");
+  });
+
+  it("a home page has no eyebrow and no handwritten note (D7)", () => {
+    nav.pathname = "/w/admin";
+    const { container } = mount("owner@acme.com");
+    expect(container.querySelector(".ent-hero-eyebrow")).toBeNull();
+    expect(container.querySelector(".ent-hero-note")).toBeNull();
+    expect(container.textContent).not.toContain("make today count");
   });
 
   it("the profile chip names the member and a short role (Org Admin, from the role's own name)", () => {
@@ -167,6 +180,7 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     const items = screen.getAllByRole("menuitem").map((i) => i.textContent);
     expect(items[0]).toContain("My profile");
     expect(items[items.length - 1]).toContain("Sign out");
+    expect(items.join("|")).toContain("Help & support");
     expect(items.join("|")).not.toContain("Switch workspace"); // owner holds one workspace
   });
 
@@ -174,6 +188,16 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     const { container } = mount("owner@acme.com");
     for (const name of ["Search", "Open menu"]) expect(screen.getAllByLabelText(name, { exact: false }).length, name).toBeGreaterThan(0);
     expect(container.querySelector("[data-shell-bell] button")!.getAttribute("aria-label")).toContain("Notifications");
+  });
+
+  it("the bell panel ends with a See all link to the Consultant Activity page, only for a member who has that workspace", () => {
+    const { container } = mount("consultant@acme.com");
+    fireEvent.click(container.querySelector("[data-shell-bell] button")!);
+    expect(container.querySelector("[data-bell-see-all]")!.getAttribute("href")).toBe("/w/consultant/activity");
+    cleanup();
+    const other = mount("marketer@acme.com");
+    fireEvent.click(other.container.querySelector("[data-shell-bell] button")!);
+    expect(other.container.querySelector("[data-bell-see-all]")).toBeNull();
   });
 });
 
@@ -258,7 +282,7 @@ describe("phone: top bar, menu sheet, bottom tabs (< md)", () => {
   it("bottom bar = the first four tabs of the workspace + More", () => {
     const { container } = mount("owner@acme.com");
     const tabs = container.querySelector("[data-shell-tabs]")!;
-    expect(Array.from(tabs.querySelectorAll("a")).map((a) => a.textContent)).toEqual(["Dashboard", "Employees", "Consultants", "Billing"]);
+    expect(Array.from(tabs.querySelectorAll("a")).map((a) => a.textContent)).toEqual(["Dashboard", "Employees", "Consultants", "Applications"]);
     expect(tabs.textContent).toContain("More");
   });
 
@@ -266,10 +290,10 @@ describe("phone: top bar, menu sheet, bottom tabs (< md)", () => {
     mount("owner@acme.com");
     fireEvent.click(screen.getByLabelText("Open menu"));
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByText("Organization Branding")).toBeTruthy();
+    expect(within(sheet).getByText("Branding")).toBeTruthy();
     expect(within(sheet).getByText("My profile")).toBeTruthy();
     expect(within(sheet).getByText("Sign out")).toBeTruthy();
-    fireEvent.click(within(sheet).getByText("Billing"));
+    fireEvent.click(within(sheet).getByText("Reports"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 

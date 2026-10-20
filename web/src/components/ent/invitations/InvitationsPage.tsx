@@ -9,12 +9,9 @@ import {
   FilterBar,
   MailIcon,
   MinusCircleIcon,
-  PlusIcon,
   SendIcon,
   CalendarIcon,
   Select,
-  UploadIcon,
-  useMediaQuery,
   useNarrow,
   useToast,
   type DataTableColumn,
@@ -22,7 +19,6 @@ import {
 } from "@kiwiply/ui";
 import { InviteAvatar, InviteStatusPill } from "./InviteBits";
 import { undoToast } from "@/lib/undo-toast";
-import PageHeader, { ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import {
   RANGES,
   STATUSES,
@@ -37,16 +33,8 @@ import {
   type InviteStatus,
   type RangeKey,
 } from "@/lib/ent/invitations";
-import ActivityFeed from "./ActivityFeed";
-import BulkInviteSheet from "./BulkInviteSheet";
-import HelpInvitesCard from "./HelpInvitesCard";
-import InvitePanel, { type Sent } from "./InvitePanel";
-import KpiTiles from "./KpiTiles";
 import RevokeConfirm from "./RevokeConfirm";
-import Sheet from "./Sheet";
 import { useInvitations } from "./useInvitations";
-
-const WIDE = "(min-width: 1280px)"; // config-literal-ok: Tailwind `xl`; below it the invite panel is a sheet
 
 const canResend = (s: InviteStatus) => s === "PENDING" || s === "EXPIRED";
 const canRevoke = (s: InviteStatus) => s === "PENDING";
@@ -76,32 +64,45 @@ function Checkbox({ checked, indeterminate, label, onChange }: { checked: boolea
 }
 
 /**
- * The Invitations page (design/enterprise-admin/invitations.png), connected to the real API through the BFF: four counters, the
- * filtered and paged table with row and bulk actions, the invite panel (also the create form), the recent-activity feed and the help
- * card. Everything is undoable or confirmed: a single revoke acts at once and the toast offers Undo, a bulk revoke asks for the word.
- * The API is the gate for all of it; `canInvite` only decides what is drawn.
+ * The Invitations tab of Employees, connected to the real API through the BFF: the filtered and paged table with row and bulk
+ * actions. Adding a person is the Employees page's "Add employee" dialog (`onAdd` opens it; `reloadSignal` says it changed
+ * something). Everything is undoable or confirmed: a single revoke acts at once and the toast offers Undo, a bulk revoke asks for
+ * the word. The API is the gate for all of it; `canInvite` only decides what is drawn.
  */
-export default function InvitationsPage({ orgId, orgName, supportEmail, canInvite = true }: { orgId: number | string; orgName: string; supportEmail?: string | null; canInvite?: boolean }) {
+export default function InvitationsPage({
+  orgId,
+  canInvite = true,
+  onAdd,
+  reloadSignal = 0,
+  onPendingChange,
+}: {
+  orgId: number | string;
+  canInvite?: boolean;
+  /** Opens the Add employee dialog (the empty state's button). */
+  onAdd?: () => void;
+  /** Bump this number to reload the list and the counters (the dialog added someone). */
+  reloadSignal?: number;
+  /** The number of pending invitations, for the tab label. */
+  onPendingChange?: (pending: number) => void;
+}) {
   const toast = useToast();
   const narrow = useNarrow();
-  const wide = useMediaQuery(WIDE, false);
   const inv = useInvitations(orgId);
   const { query, list, options } = inv;
+  const { reload } = inv;
 
-  const [panelClosed, setPanelClosed] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [bulkOpen, setBulkOpen] = useState(false);
-  const [focusSignal, setFocusSignal] = useState(0);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [confirmRevoke, setConfirmRevoke] = useState(0);
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
 
-  const openInvite = () => {
-    if (wide) {
-      setPanelClosed(false);
-      setFocusSignal((n) => n + 1);
-    } else setSheetOpen(true);
-  };
+  useEffect(() => {
+    if (reloadSignal > 0) void reload();
+  }, [reloadSignal, reload]);
+
+  const pending = inv.counts?.counts.find((c) => c.status === "PENDING")?.count;
+  useEffect(() => {
+    if (pending !== undefined) onPendingChange?.(pending);
+  }, [pending, onPendingChange]);
 
   /* ── single-row actions ─────────────────────────────────────────────────────── */
 
@@ -123,7 +124,7 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
         ...(row.message ? { message: row.message } : {}),
       };
       const r = await invitationsApi.invite(orgId, body);
-      if (!r.ok || r.data.rows?.[0]?.status === "INVALID") toast({ title: "Couldn't bring the invitation back", description: r.ok ? "Invite them again from the panel." : problemText(r), variant: "error" });
+      if (!r.ok || r.data.rows?.[0]?.status === "INVALID") toast({ title: "Couldn't bring the invitation back", description: r.ok ? "Invite them again with Add employee." : problemText(r), variant: "error" });
       await inv.reload();
     },
     [orgId, toast, inv],
@@ -157,23 +158,6 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
     }
     undoToast(toast, { title: "Invitation revoked", description: row.email, onUndo: () => void reinvite(row) });
     await inv.refreshSide();
-  }
-
-  /** The Undo of "Invite sent": find the invitation that was just made (the API does not hand back its id) and revoke it. */
-  async function undoSent(sent: Sent) {
-    const found = await invitationsApi.list(orgId, { ...query, status: "PENDING", roleId: "", departmentGroupId: "", range: "all", q: sent.email, page: 1, size: 5 });
-    const row = found.ok ? found.data.items.find((i) => i.email.toLowerCase() === sent.email.toLowerCase()) : undefined;
-    const r = row ? await invitationsApi.revoke(orgId, row.id) : null;
-    if (!r || !r.ok) toast({ title: "Couldn't undo", description: "Revoke it from the table instead.", variant: "error" });
-    else toast({ title: "Invitation cancelled", description: sent.email });
-    await inv.reload();
-  }
-
-  function onSent(sent: Sent) {
-    setSheetOpen(false);
-    undoToast(toast, { title: "Invite sent", description: sent.email, onUndo: () => void undoSent(sent) });
-    inv.setFilter({ page: 1 });
-    void inv.reload();
   }
 
   /* ── bulk actions ───────────────────────────────────────────────────────────── */
@@ -245,7 +229,7 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
     { key: "email", header: "Email", className: "hidden @[900px]:table-cell", render: (r) => <span className="block max-w-56 truncate text-ink-soft">{r.email}</span> },
     { key: "roles", header: "Role", className: "max-w-44 whitespace-nowrap", render: (r) => <RolesCell row={r} withDept={!narrow} /> },
     { key: "department", header: "Department", className: "hidden whitespace-nowrap @[760px]:table-cell", render: (r) => r.department?.name ?? <span className="text-muted">—</span> },
-    { key: "invitedBy", header: "Invited By", className: "hidden whitespace-nowrap @[760px]:table-cell", render: (r) => r.invitedBy?.name ?? <span className="text-muted">—</span> },
+    { key: "invitedBy", header: "Invited by", className: "hidden whitespace-nowrap @[760px]:table-cell", render: (r) => r.invitedBy?.name ?? <span className="text-muted">—</span> },
     {
       key: "status",
       header: "Status",
@@ -256,7 +240,7 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
         </span>
       ),
     },
-    { key: "invitedAt", header: "Invited On", className: "whitespace-nowrap", render: (r) => (
+    { key: "invitedAt", header: "Invited on", className: "whitespace-nowrap", render: (r) => (
         <>
           {shortDate(r.invitedAt)}
           {!narrow && r.invitedBy?.name && <span className="block text-[12px] text-muted @[760px]:hidden">by {r.invitedBy.name}</span>}
@@ -281,153 +265,97 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
 
   const filterValues = { status: query.status, roleId: query.roleId, departmentGroupId: query.departmentGroupId, range: query.range === "all" ? "" : query.range };
   const empty = !list.loading && !list.error && inv.counts !== null && inv.counts.total === 0 && !inv.filtered;
-  const showPanel = canInvite && wide && !panelClosed;
   const from = list.total === 0 ? 0 : (query.page - 1) * query.size + 1;
   const to = Math.min(list.total, query.page * query.size);
 
   return (
-    <div data-invitations-page className="ent-page flex min-w-0 flex-col gap-4">
-      <PageHeader title="Invitations" subtitle="Invite and manage your organization's team members." />
-      <ClaimsMascot />
-
-      <KpiTiles counts={inv.counts} failed={inv.countsError} onRetry={() => void inv.refreshSide()} />
-
-      <div className={showPanel ? "grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_346px]" : "grid gap-4"}>
-        {empty ? (
-          <section aria-label="Employee Invitations" className="inv-card p-4 sm:p-5">
-            <EmptyState
-              mascotPose="empty"
-              title="No invitations yet"
-              description="Invite the people who will use this workspace. They get an email with a link to join."
-              action={
-                canInvite ? (
-                  <Button type="button" variant="accent" size="lg" onClick={openInvite}>
-                    <MailIcon aria-hidden size={18} />
-                    Invite your first teammate
-                  </Button>
-                ) : undefined
-              }
-            />
-          </section>
-        ) : (
-          <section aria-labelledby="inv-table-h" className="@container inv-card min-w-0 p-3 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 id="inv-table-h" className="text-[20px] font-bold text-ink">
-                Employee Invitations
-              </h2>
-              {canInvite && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" variant="ghost" onClick={() => setBulkOpen(true)} className="min-h-11 border-accent bg-paper text-accent-deep sm:min-h-0 sm:py-2.5">
-                    <UploadIcon aria-hidden size={16} />
-                    Bulk Invite
-                  </Button>
-                  <Button type="button" variant="accent" onClick={openInvite} className="min-h-11 sm:min-h-0 sm:py-2.5">
-                    <PlusIcon aria-hidden size={18} />
-                    Invite Employee
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            <FilterBar
-              className="mt-4"
-              query={query.q}
-              onQueryChange={(q) => inv.setFilter({ q })}
-              values={filterValues}
-              onFilterChange={(name, value) => inv.setFilter(name === "range" ? { range: (value || "all") as RangeKey } : ({ [name]: value } as Partial<typeof query>))}
-              search={{ placeholder: "Search by name, email, or role...", label: "Search invitations" }}
-              filters={[
-                { name: "status", label: "Status", allLabel: "All Statuses", options: STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })) },
-                { name: "roleId", label: "Role", allLabel: "All Roles", options: (options?.roles ?? []).map((r) => ({ value: String(r.id), label: r.name })) },
-                { name: "departmentGroupId", label: "Department", allLabel: "All Departments", options: (options?.departments ?? []).map((d) => ({ value: String(d.id), label: d.name })) },
-              ]}
-              actions={
-                <Select
-                  variant="pill"
-                  aria-label="Invited on"
-                  leadingIcon={<CalendarIcon aria-hidden size={16} />}
-                  value={query.range}
-                  onChange={(v) => inv.setFilter({ range: v as RangeKey })}
-                  options={RANGES.map((r) => ({ value: r.value, label: r.label.replace(/\b[a-z]/g, (c) => c.toUpperCase()) }))}
-                />
-              }
-            />
-
-            {selectedRows.length > 0 && canInvite && (
-              <div role="region" aria-label="Bulk actions" data-bulk-bar className="mt-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] border border-accent/40 bg-accent-soft/60 px-3 py-2">
-                <span className="mr-auto text-[13.5px] font-semibold text-accent-deep" aria-live="polite">
-                  {selectedRows.length} selected
-                </span>
-                <Button type="button" size="sm" variant="ghost" onClick={() => void bulkResend()} className="min-h-11 sm:min-h-0">
-                  <SendIcon aria-hidden size={14} />
-                  Resend selected
+    <div data-invitations-page className="flex min-w-0 flex-col gap-4">
+      {empty ? (
+        <section aria-label="Invitations" className="inv-card p-4 sm:p-5">
+          <EmptyState
+            mascotPose="empty"
+            title="No invitations yet"
+            description="Invite the people who will use this workspace. They get an email with a link to join."
+            action={
+              canInvite && onAdd ? (
+                <Button type="button" variant="accent" size="lg" onClick={onAdd}>
+                  <MailIcon aria-hidden size={18} />
+                  Invite your first teammate
                 </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmRevoke(selectedRows.length)} className="min-h-11 text-danger-text sm:min-h-0">
-                  <MinusCircleIcon aria-hidden size={14} />
-                  Revoke selected
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="min-h-11 sm:min-h-0">
-                  Clear
-                </Button>
-              </div>
-            )}
-
-            <p role="status" aria-live="polite" className="sr-only">
-              {list.loading || list.error ? "" : list.total === 0 ? "No invitations to show" : `Showing ${from}–${to} of ${list.total}`}
-            </p>
-            <DataTable
-              className="mt-3"
-              label="Invitations"
-              what="the invitations"
-              columns={columns}
-              rows={list.items}
-              rowKey={(r) => String(r.id)}
-              loading={list.loading && list.items.length === 0}
-              error={list.error}
-              onRetry={() => void inv.load(query)}
-              hasFilters={inv.filtered}
-              empty={<EmptyState variant="inline" title={inv.filtered ? "No invitations match" : "No invitations here"} description={inv.filtered ? "Try a different search or clear the filters." : undefined} />}
-              rowActions={rowActions}
-              actionsHeader="Actions"
-              actionsIcon="horizontal"
-              page={query.page}
-              pageCount={inv.pageCount}
-              onPage={(p) => inv.setFilter({ page: p })}
-            />
-          </section>
-        )}
-
-        {showPanel && (
-          <aside aria-label="Invite Employee" className="inv-card p-4 xl:sticky xl:top-4">
-            <InvitePanel orgId={orgId} options={options} onSent={onSent} onClose={() => setPanelClosed(true)} focusSignal={focusSignal} />
-          </aside>
-        )}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
-        <ActivityFeed items={inv.activity} />
-        <HelpInvitesCard orgName={orgName} supportEmail={supportEmail} bee={!empty} />
-      </div>
-
-      {canInvite && (
-        <>
-          <Sheet id="invitations-invite-sheet" open={sheetOpen && !wide} onClose={() => setSheetOpen(false)} title="Invite Employee">
-            <InvitePanel orgId={orgId} options={options} onSent={onSent} headingId="invite-sheet-h" />
-          </Sheet>
-          <BulkInviteSheet
-            open={bulkOpen}
-            onClose={() => setBulkOpen(false)}
-            orgId={orgId}
-            options={options}
-            onDone={(n) => {
-              toast({ title: `${n} ${n === 1 ? "invitation" : "invitations"} sent`, variant: "success" });
-              inv.setFilter({ page: 1 });
-              void inv.reload();
-            }}
+              ) : undefined
+            }
           />
-          <RevokeConfirm count={confirmRevoke} onClose={() => setConfirmRevoke(0)} onConfirm={bulkRevoke} />
-        </>
+        </section>
+      ) : (
+        <section aria-label="Invitations" className="@container inv-card min-w-0 p-3 sm:p-5">
+          <FilterBar
+            query={query.q}
+            onQueryChange={(q) => inv.setFilter({ q })}
+            values={filterValues}
+            onFilterChange={(name, value) => inv.setFilter(name === "range" ? { range: (value || "all") as RangeKey } : ({ [name]: value } as Partial<typeof query>))}
+            search={{ placeholder: "Search by name, email, or role...", label: "Search invitations" }}
+            filters={[
+              { name: "status", label: "Status", allLabel: "All statuses", options: STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })) },
+              { name: "roleId", label: "Role", allLabel: "All roles", options: (options?.roles ?? []).map((r) => ({ value: String(r.id), label: r.name })) },
+              { name: "departmentGroupId", label: "Department", allLabel: "All departments", options: (options?.departments ?? []).map((d) => ({ value: String(d.id), label: d.name })) },
+            ]}
+            actions={
+              <Select
+                variant="pill"
+                aria-label="Invited on"
+                leadingIcon={<CalendarIcon aria-hidden size={16} />}
+                value={query.range}
+                onChange={(v) => inv.setFilter({ range: v as RangeKey })}
+                options={RANGES.map((r) => ({ value: r.value, label: r.label }))}
+              />
+            }
+          />
+
+          {selectedRows.length > 0 && canInvite && (
+            <div role="region" aria-label="Bulk actions" data-bulk-bar className="mt-3 flex flex-wrap items-center gap-2 rounded-[var(--radius)] border border-accent/40 bg-accent-soft/60 px-3 py-2">
+              <span className="mr-auto text-[13.5px] font-semibold text-accent-deep" aria-live="polite">
+                {selectedRows.length} selected
+              </span>
+              <Button type="button" size="sm" variant="ghost" onClick={() => void bulkResend()} className="min-h-11 sm:min-h-0">
+                <SendIcon aria-hidden size={14} />
+                Resend selected
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmRevoke(selectedRows.length)} className="min-h-11 text-danger-text sm:min-h-0">
+                <MinusCircleIcon aria-hidden size={14} />
+                Revoke selected
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="min-h-11 sm:min-h-0">
+                Clear
+              </Button>
+            </div>
+          )}
+
+          <p role="status" aria-live="polite" className="sr-only">
+            {list.loading || list.error ? "" : list.total === 0 ? "No invitations to show" : `Showing ${from}–${to} of ${list.total}`}
+          </p>
+          <DataTable
+            className="mt-3"
+            label="Invitations"
+            what="the invitations"
+            columns={columns}
+            rows={list.items}
+            rowKey={(r) => String(r.id)}
+            loading={list.loading && list.items.length === 0}
+            error={list.error}
+            onRetry={() => void inv.load(query)}
+            hasFilters={inv.filtered}
+            empty={<EmptyState variant="inline" title={inv.filtered ? "No invitations match" : "No invitations here"} description={inv.filtered ? "Try a different search or clear the filters." : undefined} />}
+            rowActions={rowActions}
+            actionsHeader="Actions"
+            actionsIcon="horizontal"
+            page={query.page}
+            pageCount={inv.pageCount}
+            onPage={(p) => inv.setFilter({ page: p })}
+          />
+        </section>
       )}
+
+      {canInvite && <RevokeConfirm count={confirmRevoke} onClose={() => setConfirmRevoke(0)} onConfirm={bulkRevoke} />}
     </div>
   );
 }

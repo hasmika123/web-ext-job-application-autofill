@@ -2,51 +2,9 @@
 
 import { useState } from "react";
 import { BuildingIcon, ChevronDownIcon, ChevronRightIcon, cn } from "@kiwiply/ui";
-import { plural, TONE_TILE, toneOf, type Group, type Structure } from "@/lib/ent/groups";
-import { GROUP_ICON, GroupTile } from "./GroupVisuals";
+import { plural, type Group, type Structure } from "@/lib/ent/groups";
+import { GroupTile } from "./GroupVisuals";
 
-/** The organization as a small chart (the board's): the organization on top, a bar, then one pastel tile per department hanging from it. Used on the Departments page. */
-export function OrgChart({ structure, onOpen }: { structure: Structure; onOpen: (g: Group) => void }) {
-  const deps = structure.departments.map((d) => d.group);
-  return (
-    <div data-org-chart className="flex flex-col items-center gap-0 py-1">
-      <div className="inline-flex min-w-[150px] items-center justify-center gap-2.5 rounded-xl border border-accent/15 bg-accent-soft px-5 py-2.5 text-[15px] font-extrabold text-ink">
-        <span aria-hidden className="grid h-8 w-8 place-items-center rounded-[10px] bg-accent text-on-accent">
-          <BuildingIcon size={17} />
-        </span>
-        <span className="uppercase tracking-wide">{structure.organizationName}</span>
-      </div>
-      {deps.length === 0 ? (
-        <p className="mt-3 text-[13px] text-muted">No departments yet.</p>
-      ) : (
-        <>
-          <span aria-hidden className="h-5 w-px bg-line" />
-          <ul aria-label="Departments in the organization" className="grid w-full grid-cols-[repeat(auto-fit,minmax(60px,1fr))] gap-2 border-t border-line pt-5">
-            {deps.map((d) => {
-              const Icon = GROUP_ICON[d.icon ?? "building"] ?? BuildingIcon;
-              return (
-                <li key={d.id} className="relative">
-                  <span aria-hidden className="absolute -top-5 left-1/2 h-5 w-px bg-line" />
-                  <button
-                    type="button"
-                    onClick={() => onOpen(d)}
-                    title={`${d.name}: ${plural(d.activeCount, "employee")}`}
-                    className={cn("flex h-full w-full flex-col items-center gap-1.5 rounded-xl border border-current/10 px-1 py-2.5 text-center hover:brightness-95 focus-visible:outline-2 focus-visible:outline-accent", TONE_TILE[toneOf(d.color)], d.status === "INACTIVE" && "opacity-60")}
-                  >
-                    <Icon size={26} />
-                    <span className="w-full break-words text-[12px] font-semibold leading-tight text-ink">{d.name}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-    </div>
-  );
-}
-
-/** The full tree: organization, departments (open or closed), their teams, teams with no department, cohorts. Each row opens the group. */
 export function StructureTree({ structure, onOpen, withCohorts = true }: { structure: Structure; onOpen: (g: Group) => void; withCohorts?: boolean }) {
   const [closed, setClosed] = useState<Set<number>>(new Set());
   const toggle = (id: number) =>

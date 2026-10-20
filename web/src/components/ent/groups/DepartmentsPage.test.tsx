@@ -1,13 +1,22 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+const nav = vi.hoisted(() => ({ search: "", replace: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: nav.replace }),
+  usePathname: () => "/w/admin/teams",
+  useSearchParams: () => new URLSearchParams(nav.search),
+}));
 
 import { ToastProvider } from "@kiwiply/ui";
-import DepartmentsPage from "./DepartmentsPage";
+import TeamsDepartmentsPage from "./TeamsDepartmentsPage";
 import { CONSULTING, MARKETING, STRUCTURE, directory, stubGroupsFetch } from "./groups.fixtures";
 
+beforeEach(() => {
+  nav.search = "tab=departments";
+  nav.replace.mockClear();
+});
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -16,47 +25,52 @@ afterEach(() => {
 const mount = (canManage = true) =>
   render(
     <ToastProvider>
-      <DepartmentsPage orgId={2} canManage={canManage} />
+      <TeamsDepartmentsPage orgId={2} orgName="Acme" canManage={canManage} />
     </ToastProvider>,
   );
 
-describe("DepartmentsPage (X4.5)", () => {
-  it("shows the KPI tiles the API can count, the department cards with their leads, and no open-positions tile", async () => {
+describe("Departments tab (X4.5)", () => {
+  it("shows one line of counts and the directory, with no tiles, no card grid, no performance bars and no help card", async () => {
     stubGroupsFetch();
     mount();
-    const tiles = await screen.findByRole("region", { name: "Department numbers" });
-    expect(within(tiles).getByText("Total Departments")).toBeTruthy();
-    expect(within(tiles).getByText("Total Employees")).toBeTruthy();
-    expect(within(tiles).getByText("Department Leads")).toBeTruthy();
-    expect(within(tiles).getByText("Avg. Team Size")).toBeTruthy();
-    expect(within(tiles).getByText("9")).toBeTruthy();
-    expect(screen.queryByText(/open positions/i)).toBeNull(); // no recruiting data exists: no tile
+    expect((await screen.findByText("2 departments · 9 people")).closest("[data-group-counts]")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Department numbers" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Departments" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Employees per department" })).toBeNull();
+    expect(screen.queryByText("Department Performance")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Need help with departments?" })).toBeNull();
+    expect(screen.queryByText(/open positions/i)).toBeNull(); // no recruiting data exists
     expect(document.querySelector(".grp-page")).toBeTruthy(); // the board's scoped look
-    expect(screen.getByRole("region", { name: "Need help with departments?" })).toBeTruthy(); // the board's own help card
-    const cards = await screen.findByRole("list", { name: "Departments" });
-    const consulting = within(cards).getByText("Consulting").closest("button")!;
-    expect(consulting.textContent).toContain("3 employees");
-    expect(within(consulting).getByText("Amara Silva")).toBeTruthy();
-    expect(within(consulting).getByText("Account Manager")).toBeTruthy();
-    expect(within(cards).getByText("No lead yet")).toBeTruthy(); // Marketing
+    const table = await screen.findByRole("table", { name: "Departments" });
+    const row = within(table).getByText("Consulting").closest("tr")!;
+    expect(within(row).getByText("Amara Silva")).toBeTruthy();
+    expect(within(row).getByText("3")).toBeTruthy(); // employees
   });
 
-  it("draws employees per department as bars and the organization chart, from the same numbers", async () => {
+  it("draws the structure once, as a tree under the directory, with the teams inside each department", async () => {
     stubGroupsFetch();
     mount();
-    const bars = await screen.findByRole("list", { name: "Employees per department" });
-    expect(within(bars).getByRole("img", { name: "Consulting: 3 employees" })).toBeTruthy();
-    expect(within(bars).getByRole("img", { name: "Marketing: 0 employees" })).toBeTruthy();
-    const chart = await screen.findByRole("list", { name: "Departments in the organization" });
-    expect(within(chart).getByText("Marketing")).toBeTruthy();
-    expect(screen.getByText("Acme Staffing")).toBeTruthy();
+    const structure = await screen.findByRole("region", { name: "Structure" });
+    expect(within(structure).getByRole("heading", { name: "Structure" })).toBeTruthy();
+    expect(await within(structure).findByText("Consulting")).toBeTruthy();
+    expect(within(structure).getByText("Bench East")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /View full structure/i })).toBeNull();
+    expect(document.querySelector("[data-org-chart]")).toBeNull();
   });
 
-  it("creates a department with a name, lead, icon and colour (nothing is sent until the button)", async () => {
+  it("opens on the Departments tab from ?tab=departments, and the Teams tab click clears it from the address", async () => {
+    stubGroupsFetch();
+    mount();
+    expect(screen.getByRole("tab", { name: "Departments" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("tab", { name: "Teams" }));
+    expect(nav.replace).toHaveBeenCalledWith("/w/admin/teams", { scroll: false });
+  });
+
+  it("creates a department with a name, lead, icon and color (nothing is sent until the button)", async () => {
     const calls = stubGroupsFetch();
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: /Create Department/ }));
-    const sheet = await screen.findByRole("dialog", { name: "Create Department" });
+    fireEvent.click(await screen.findByRole("button", { name: "Create department" }));
+    const sheet = await screen.findByRole("dialog", { name: "Create department" });
     fireEvent.change(within(sheet).getByLabelText(/Department name/), { target: { value: "Legal" } });
     expect(calls.some((c) => c.method === "POST")).toBe(false);
     fireEvent.focus(within(sheet).getByRole("combobox", { name: "Department lead" }));
@@ -64,7 +78,7 @@ describe("DepartmentsPage (X4.5)", () => {
     fireEvent.click(within(option).getByRole("button"));
     fireEvent.click(within(sheet).getByRole("button", { name: "shield" }));
     fireEvent.click(within(sheet).getByRole("button", { name: "Amber" }));
-    fireEvent.click(within(sheet).getByRole("button", { name: "Create Department" }));
+    fireEvent.click(within(sheet).getByRole("button", { name: "Create department" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
     const post = calls.find((c) => c.method === "POST")!;
     expect(post.body).toMatchObject({ name: "Legal", kind: "DEPARTMENT", leadMemberId: 4, icon: "shield", color: "warning" });
@@ -114,8 +128,8 @@ describe("DepartmentsPage (X4.5)", () => {
   it("hides every control for a viewer without groups.manage but keeps the facts", async () => {
     stubGroupsFetch();
     mount(false);
-    await screen.findByRole("list", { name: "Departments" });
-    expect(screen.queryByRole("button", { name: /Create Department/ })).toBeNull();
+    await screen.findByRole("table", { name: "Departments" });
+    expect(screen.queryByRole("button", { name: /Create department/ })).toBeNull();
     const row = (await screen.findByRole("table", { name: "Departments" })).querySelector("tbody tr")!;
     fireEvent.click(within(row as HTMLElement).getByRole("button", { name: "Row actions" }));
     expect(screen.queryByRole("menuitem", { name: "Change lead" })).toBeNull();
@@ -138,7 +152,7 @@ describe("DepartmentsPage (X4.5)", () => {
     });
     mount();
     expect(await screen.findByText("Group people into departments and teams")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Create Department" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Create department" }).length).toBeGreaterThan(0);
   });
 
   it("shows the real reason when the list can not be loaded", async () => {

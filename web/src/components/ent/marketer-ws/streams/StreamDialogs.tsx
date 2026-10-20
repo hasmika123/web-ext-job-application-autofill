@@ -37,7 +37,7 @@ export function StreamDialog({ stream, onClose, onSave }: { stream: StreamRow | 
     <Dialog
       open
       onClose={onClose}
-      title={editing ? `Configure ${stream.sourceLabel}` : "Add Job Stream"}
+      title={editing ? `Configure ${stream.sourceLabel}` : "Add source"}
       description="Set where openings come from, how often to check, and which keywords to look for."
       footer={
         <>
@@ -45,7 +45,7 @@ export function StreamDialog({ stream, onClose, onSave }: { stream: StreamRow | 
             Cancel
           </Button>
           <Button variant="accent" size="sm" onClick={() => void submit()} disabled={busy}>
-            {editing ? "Save changes" : "Add Job Stream"}
+            {editing ? "Save changes" : "Add source"}
           </Button>
         </>
       }

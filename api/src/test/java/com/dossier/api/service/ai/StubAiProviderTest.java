@@ -127,6 +127,14 @@ class StubAiProviderTest {
     }
 
     @Test
+    void aDraftReadsAsWrittenForTheQuestionAsked() {
+        assertThat(ask(AiTask.DRAFT, "Why would you like to work at Northwind Labs?").text()).contains("Northwind Labs").startsWith("I'm drawn to");
+        assertThat(ask(AiTask.DRAFT, "When are you available to start?").text()).contains("two weeks");
+        assertThat(ask(AiTask.DRAFT, "Describe a difficult problem you solved").text()).contains("pipeline");
+        assertThat(ask(AiTask.DRAFT, "Anything else?").text()).isNotBlank();
+    }
+
+    @Test
     void theSensitiveProbeFiresOnlyWhenAValueReachedTheProvider() {
         assertThat(ask(AiTask.DRAFT, "Tell me about yourself").text()).doesNotContain(StubAiProvider.SAW_SENSITIVE);
         assertThat(ask(AiTask.DRAFT, "My SSN is 123-45-6789").text()).contains(StubAiProvider.SAW_SENSITIVE);

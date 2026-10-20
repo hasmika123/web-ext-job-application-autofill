@@ -1,7 +1,7 @@
 "use client";
 
-import { MemberAvatar, Tooltip, hasStateMap, registerStateMap, toneOf } from "@kiwiply/ui";
-import { rolesSorted, statusLabel, type PersonRef, type RoleRef } from "@/lib/ent/members";
+import { Tooltip, hasStateMap, registerStateMap, toneOf } from "@kiwiply/ui";
+import { rolesSorted, statusLabel, type RoleRef } from "@/lib/ent/members";
 
 /** The member status map of the StatePill (one chip for every enterprise domain): green Active, amber Invited, red Suspended, grey Offboarded. */
 if (!hasStateMap("member")) {
@@ -59,17 +59,6 @@ export function RoleChips({ roles, max = 1, className }: { roles: RoleRef[]; max
           </span>
         </Tooltip>
       )}
-    </span>
-  );
-}
-
-/** A manager as a small avatar and a name; a row seen only through a summary scope carries none, and that reads as a dash. */
-export function ManagerCell({ manager, size = 32 }: { manager: PersonRef | null; size?: number }) {
-  if (!manager) return <span className="text-muted">{"—"}</span>;
-  return (
-    <span className="flex min-w-0 items-center gap-2">
-      <MemberAvatar name={manager.name} size={size} src={manager.avatarUrl} />
-      <span className="truncate text-[13.5px] text-ink">{manager.name}</span>
     </span>
   );
 }

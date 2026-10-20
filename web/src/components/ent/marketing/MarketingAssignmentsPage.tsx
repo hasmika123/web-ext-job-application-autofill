@@ -45,8 +45,7 @@ function outcomeOf(r: ApiResult<BulkResult>): SubmitOutcome | null {
 
 export interface MarketingAssignmentsPageProps {
   orgId: number;
-  orgName: string;
-  /** The workspace slug (`admin`): Add Marketer points to `/w/{workspace}/invitations` for someone new. */
+  /** The workspace slug (`admin`): Add marketer points to Employees (the Invitations tab) for someone new. */
   workspace: string;
   /** `me.permissions` of the tenant session: decides which buttons are drawn (the API is the gate). */
   permissions: Record<string, string>;
@@ -65,12 +64,12 @@ type Dialogs =
   | { kind: "sheet"; consultant: Row; mode: SheetMode };
 
 /**
- * The Marketing Assignments board (design/enterprise-talent/marketing-assignments.png): four KPI tiles, the marketers with their
+ * The Assignments board (design/enterprise-talent/marketing-assignments.png): two attention tiles, the marketers with their
  * workload, and the selected marketer's consultants. Every change shows an Undo toast that sends the reverse call; there are no Save
  * buttons. The URL carries the selected marketer, filters, sort and page. A marketer prepares, requests and records: nothing here
  * submits an application or acts as a consultant.
  */
-export default function MarketingAssignmentsPage({ orgId, orgName, workspace, permissions, initialSearch }: MarketingAssignmentsPageProps) {
+export default function MarketingAssignmentsPage({ orgId, workspace, permissions, initialSearch }: MarketingAssignmentsPageProps) {
   const toast = useToast();
   const can = useCallback((k: string) => Object.prototype.hasOwnProperty.call(permissions, k), [permissions]);
   const mayManage = can("assignments.manage");
@@ -393,9 +392,9 @@ export default function MarketingAssignmentsPage({ orgId, orgName, workspace, pe
 
   return (
     <div data-marketing-assignments-page className="ent-fit space-y-[14px]">
-      <PageHeader title="Marketing Assignments" subtitle="Assign consultants to marketing specialists and manage workloads, coverage, and performance." />
+      <PageHeader title="Assignments" subtitle="Which marketer looks after each consultant, and how full their plate is." />
 
-      <KpiRow kpis={kpis.data} loading={kpis.status === "loading"} error={kpis.status === "error"} onRetry={() => void loadKpis()} orgName={orgName} />
+      <KpiRow kpis={kpis.data} loading={kpis.status === "loading"} error={kpis.status === "error"} onRetry={() => void loadKpis()} />
 
       <div className="grid grid-cols-1 items-start gap-[18px] min-[1200px]:grid-cols-[minmax(0,398fr)_minmax(0,765fr)]">
         <MarketersPanel
@@ -471,7 +470,7 @@ export default function MarketingAssignmentsPage({ orgId, orgName, workspace, pe
         open={dialog.kind === "add"}
         onClose={() => setDialog({ kind: "none" })}
         orgId={orgId}
-        inviteHref={can("members.invite") ? `/w/${workspace}/invitations?invite=1` : null}
+        inviteHref={can("members.invite") ? `/w/${workspace}/employees?tab=invitations` : null}
         onAdded={(name) => {
           toast({ title: `${name} is now a marketer`, variant: "success" });
           refresh();

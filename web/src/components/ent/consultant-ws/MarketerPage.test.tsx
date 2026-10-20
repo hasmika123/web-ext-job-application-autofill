@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/marketer" }));
@@ -81,7 +81,7 @@ afterEach(() => {
 async function mount() {
   const view = render(
     <ToastProvider>
-      <MarketerPage orgId={2} firstName="Anika Rao" />
+      <MarketerPage orgId={2} />
     </ToastProvider>,
   );
   await act(async () => {
@@ -93,21 +93,16 @@ async function mount() {
 const card = (id: string) => document.querySelector(`[data-home-card="${id}"]`) as HTMLElement;
 
 describe("My Marketer from real data", () => {
-  it("asks the BFF once and draws the marketer, focus opportunities and follow-ups", async () => {
+  it("asks the BFF once and draws the marketer card, the messages, the notes and the marketer's focus, and nothing else", async () => {
     await mount();
     expect(calls).toEqual(["/api/orgs/2/me-workspace/marketer"]);
     expect(document.querySelector("[data-marketer-name]")!.textContent).toBe("Emily Carter");
     expect(screen.getByText("Talent Marketing Specialist")).toBeTruthy();
-    const opps = [...document.querySelectorAll("[data-focus-opportunity]")] as HTMLElement[];
-    expect(opps).toHaveLength(2);
-    expect(within(opps[0]).getByText("Submitted")).toBeTruthy();
-    expect(within(opps[0]).getByText("High")).toBeTruthy();
-    expect(within(opps[0]).getByText("Client feedback")).toBeTruthy();
-    expect(within(opps[1]).getByText("Marketing")).toBeTruthy();
-    expect([...document.querySelectorAll("[data-followup]")].map((e) => e.getAttribute("data-followup"))).toEqual(["app-1", "task-2"]);
-    expect(within(card("marketer-followups")).getByText("Follow-up")).toBeTruthy();
-    expect(within(card("marketer-followups")).getByText("Task")).toBeTruthy();
     expect([...document.querySelectorAll("[data-focus-item]")].map((e) => e.getAttribute("data-focus-item"))).toEqual(["marketing", "skills"]);
+    for (const id of ["marketer-plan", "marketer-focus-opportunities", "marketer-followups", "marketer-quick", "help"]) expect(card(id)).toBeNull();
+    expect(document.querySelector("[data-focus-opportunity]")).toBeNull();
+    expect(document.querySelector("[data-followup]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question|Shared Action Plan|Current Focus Opportunities|Upcoming Follow-ups/)).toBeNull();
   });
 
   it("invents nothing for the marketer's half: no sample marks, no reply badge, honest empty cards", async () => {
@@ -121,14 +116,14 @@ describe("My Marketer from real data", () => {
 
   it("the messaging buttons are disabled with the reason as their tooltip and nothing opens or is sent", async () => {
     await mount();
-    for (const name of ["Send Message", "Schedule Call", "View Calendar"]) {
+    for (const name of ["Send Message", "Schedule Call"]) {
       const all = screen.getAllByRole("button", { name }) as HTMLButtonElement[];
       for (const b of all) {
         expect(b.disabled, name).toBe(true);
         expect(b.title).toContain("isn't available yet");
       }
     }
-    expect((screen.getByRole("button", { name: /Ask About Opportunity/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "View Calendar" })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.body.textContent).not.toContain("until the marketing workspace");
     expect(document.body.textContent).not.toContain("not connected");
@@ -140,9 +135,6 @@ describe("My Marketer from real data", () => {
     expect(screen.getByText(/No marketer assigned yet/)).toBeTruthy();
     expect(document.querySelector("[data-marketer-name]")).toBeNull();
     expect(screen.queryByRole("button", { name: "Send Message" })).toBeNull();
-    expect((screen.getByRole("button", { name: /Message Marketer/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/No opportunities in play right now/)).toBeTruthy();
-    expect(screen.getByText(/All caught up\. Follow-ups/)).toBeTruthy();
     expect(document.querySelector("[data-sample]")).toBeNull();
   });
 

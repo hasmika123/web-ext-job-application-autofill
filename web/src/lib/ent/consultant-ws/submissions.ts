@@ -314,7 +314,7 @@ export const CHECKLIST: readonly string[] = [
   "Reach out if you have any questions",
 ];
 
-export const APPROVE_COPY = "You're attesting this is accurate. Nothing is sent to the client by Kiwiply. Your marketer proceeds only after you approve.";
+export const APPROVE_COPY = "You're attesting this is accurate. Nothing is sent to the client from here. Your marketer proceeds only after you approve.";
 
 export const MIN_REASON = 3;
 export const MAX_REASON = 300;

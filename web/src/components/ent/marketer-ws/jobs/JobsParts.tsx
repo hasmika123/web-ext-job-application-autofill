@@ -11,7 +11,8 @@ import {
 } from "@/lib/ent/marketer-ws/jobs";
 import { DUPLICATE_WARNING, plainRefusal } from "@/lib/ent/marketer-ws/duplicate";
 import { DuplicateNotice, useDuplicateAsk } from "../DuplicateConfirm";
-import { TINTS } from "../parts";
+import { scoreText } from "@/lib/ent/marketer-ws/score";
+import { TINTS, withQuery } from "../parts";
 
 /** Small building blocks of the Job Discovery board: the square client logo chip, priority chip, delta text, filter boxes, and the View / Assign drawers. */
 
@@ -246,7 +247,7 @@ export function AssignSheet({
                     <span className="block truncate text-[12px] text-muted">{c.pausedReason ?? [c.title, c.availability && c.availability.toLowerCase().replace(/_/g, " ")].filter(Boolean).join(" - ")}</span>
                   </span>
                   {c.matchStatus === "ASSIGNED" ? <span className="rounded-md bg-v2-green-soft px-2 py-0.5 text-[11.5px] font-semibold text-v2-green-ink">Assigned</span> : null}
-                  {c.score !== null ? <span className={cn("rounded-full px-2.5 py-0.5 text-[12px] font-bold", c.score >= 80 ? TINTS.green : TINTS.amber)}>{c.score}%</span> : null}
+                  {c.score !== null ? <span className={cn("rounded-full px-2.5 py-0.5 text-[12px] font-bold", c.score >= 80 ? TINTS.green : TINTS.amber)}>{scoreText(c.score)}</span> : null}
                 </label>
               </li>
             ))}
@@ -290,7 +291,7 @@ export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign
       id={`job-${id}`} side="right" mode="overlay" open width={500} title={job.title} description={job.client.name} onClose={onClose}
       footer={
         <div className="flex items-center justify-end gap-2">
-          {matchesHref ? <Link href={`${matchesHref}?job=${job.id}`} className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-[13.5px] font-semibold text-accent-deep hover:bg-accent-soft">Match</Link> : null}
+          {matchesHref ? <Link href={withQuery(matchesHref, "job", job.id)} className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-[13.5px] font-semibold text-accent-deep hover:bg-accent-soft">Match</Link> : null}
           {canAssign && onSave ? <Button variant="ghost" onClick={onSave}>Save for a consultant</Button> : null}
           {canAssign ? <Button variant="accent" onClick={onAssign}>Assign</Button> : null}
         </div>
@@ -328,7 +329,7 @@ export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign
                     <MemberAvatar name={m.name} size={30} />
                     <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-ink">{m.name}</span>
                     {m.status === "ASSIGNED" ? <span className="rounded-md bg-v2-green-soft px-2 py-0.5 text-[11.5px] font-semibold text-v2-green-ink">Assigned</span> : null}
-                    <span className={cn("rounded-full px-2.5 py-0.5 text-[12px] font-bold", m.score >= 80 ? TINTS.green : TINTS.amber)}>{m.score}%</span>
+                    <span className={cn("rounded-full px-2.5 py-0.5 text-[12px] font-bold", m.score >= 80 ? TINTS.green : TINTS.amber)}>{scoreText(m.score)}</span>
                   </li>
                 ))}
               </ul>

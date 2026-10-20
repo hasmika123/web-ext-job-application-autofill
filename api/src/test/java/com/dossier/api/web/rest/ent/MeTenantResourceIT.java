@@ -247,7 +247,8 @@ class MeTenantResourceIT {
 
         JsonNode admin = ok(ACME_HOST, "admin");
         assertThat(keys(admin.path("workspaces"), "key")).containsExactly("admin");
-        assertThat(keys(workspace(admin, "admin").path("nav"), "key")).doesNotContain("finance-secret").contains("home", "licenses", "audit", "domains");
+        assertThat(keys(workspace(admin, "admin").path("nav"), "key")).doesNotContain("finance-secret").contains("home", "billing", "audit", "roles");
+        assertThat(keys(workspace(admin, "admin").path("groups"), "key")).containsExactly("people", "talent", "pipeline", "organization");
         assertThat(admin.path("permissions").has("org.close")).as("an admin can not close the org").isFalse();
 
         JsonNode marketer = ok(ACME_HOST, "marketer");
@@ -272,7 +273,7 @@ class MeTenantResourceIT {
         member(acme, "marketer2", OrgRole.MARKETER);
         modulesOn(false);
         JsonNode admin = ok(ACME_HOST, "admin2");
-        assertThat(keys(workspace(admin, "admin").path("nav"), "key")).doesNotContain("billing", "consultants", "roles", "domains").contains("employees", "settings");
+        assertThat(keys(workspace(admin, "admin").path("nav"), "key")).doesNotContain("billing", "consultants", "roles").contains("employees", "settings");
         JsonNode marketer = ok(ACME_HOST, "marketer2");
         assertThat(marketer.path("workspaces")).isEmpty();
         assertThat(marketer.path("landing").isNull()).isTrue();

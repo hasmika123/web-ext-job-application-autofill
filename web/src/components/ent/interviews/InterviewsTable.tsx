@@ -111,11 +111,11 @@ export function InterviewsTable(p: TableProps) {
             <SortHead label="Consultant" k="consultant" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[30%]" : "w-[15%]"} />
             <SortHead label="Client" k="client" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[10.5%] lg:table-cell"} />
             <SortHead label="Round" k="round" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[9%] lg:table-cell"} />
-            <SortHead label="Scheduled Date" k="scheduled" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[22%]" : "w-[11.5%]"} />
+            <SortHead label="Scheduled date" k="scheduled" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[22%]" : "w-[11.5%]"} />
             <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden w-[9%] xl:table-cell"}`}>Interviewer</th>
             <SortHead label="Mode" k="mode" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[8%] xl:table-cell"} />
             <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[22%]" : "w-[11%]"} />
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden w-[8%] xl:table-cell"}`}>Next Step</th>
+            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden w-[8%] xl:table-cell"}`}>Next step</th>
             <th scope="col" className={`${HEAD} w-[5.5%] min-w-12 text-center`}>Actions</th>
           </tr>
         </thead>

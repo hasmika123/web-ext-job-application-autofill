@@ -25,7 +25,7 @@ export default async function WorkspaceClientsRoute({ params }: { params: Promis
   const hrefOf = (key: string) => ws?.nav.find((n) => n.key === key)?.href ?? null;
   return (
     <Suspense fallback={null}>
-      <ClientsPage orgId={me.org.id} orgName={me.org.displayName} hrefs={{ jobs: hrefOf("jobs"), applications: hrefOf("applications"), placements: hrefOf("placements") }} supportEmail={null} />
+      <ClientsPage orgId={me.org.id} hrefs={{ jobs: hrefOf("jobs"), applications: hrefOf("applications"), placements: hrefOf("placements") }} />
     </Suspense>
   );
 }

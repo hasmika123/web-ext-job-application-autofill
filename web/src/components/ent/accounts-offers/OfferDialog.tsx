@@ -128,7 +128,7 @@ export default function OfferDialog({
       open={open}
       onClose={onClose}
       title={editing ? "Edit offer" : "Record an offer"}
-      description="This records an offer the client extended. Only the consultant can accept or decline it. Nothing is signed or sent by Kiwiply, and no money moves."
+      description="This records an offer the client extended. Only the consultant can accept or decline it. Nothing is signed or sent from here, and no money moves."
       footer={
         <>
           <Button type="button" variant="ghost" onClick={onClose}>

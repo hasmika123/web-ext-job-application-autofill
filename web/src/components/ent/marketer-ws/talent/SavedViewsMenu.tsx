@@ -34,7 +34,7 @@ export default function SavedViewsMenu({
           ref={t.ref}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-paper px-3 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft"
         >
-          Saved Views
+          Saved views
           <ChevronDownIcon size={14} aria-hidden />
         </button>
       )}

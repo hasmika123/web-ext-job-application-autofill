@@ -152,7 +152,7 @@ class WorkspaceDocSyncTest {
 
     @Test
     void aBrokenDefinitionRefusesToLoad() {
-        for (String resource : List.of("bad-unknown-permission", "bad-unknown-module", "bad-home", "bad-duplicate", "bad-href")) {
+        for (String resource : List.of("bad-unknown-permission", "bad-unknown-module", "bad-home", "bad-duplicate", "bad-href", "bad-unknown-group")) {
             assertThatThrownBy(() -> new WorkspaceDefinitions(new ObjectMapper(), "config/ent/test/" + resource + ".json")).as(resource).isInstanceOf(IllegalStateException.class);
         }
     }

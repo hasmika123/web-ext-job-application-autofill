@@ -199,7 +199,7 @@ const PERMS = { "placements.view": "ORG", "placements.manage": "ORG" };
 async function mount(over: { permissions?: Record<string, string> } = {}) {
   const out = render(
     <ToastProvider>
-      <PlacementsPage orgId={2} orgName="Acme Corp" workspace="admin" permissions={over.permissions ?? PERMS} consultantsHref="/w/admin/consultants" clientsHref="/w/admin/clients" supportEmail={null} />
+      <PlacementsPage orgId={2} workspace="admin" permissions={over.permissions ?? PERMS} consultantsHref="/w/admin/consultants" clientsHref="/w/admin/clients" />
     </ToastProvider>,
   );
   await settle(0);
@@ -244,12 +244,12 @@ afterEach(() => {
 });
 
 describe("Placements: the list", () => {
-  it("shows the four tiles, the four tabs with their counts, the table and the range like the board", async () => {
+  it("shows the four plain tiles, the four tabs with their counts, the table and the range, and no help card", async () => {
     await mount();
     expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["active", "startingSoon", "endingSoon", "pool"]);
     expect(document.querySelector("[data-kpi=active] [data-kpi-value]")?.textContent).toBe("142");
-    expect(document.querySelector("[data-kpi=active] [data-kpi-delta]")?.textContent).toContain("+12%");
-    expect(document.querySelector("[data-kpi=endingSoon] [data-kpi-delta]")?.textContent).toContain("-25%");
+    expect(document.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(document.querySelector("[data-kpi] [data-sparkline]")).toBeNull();
     expect(screen.getByRole("tab", { name: "Active (3)" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Upcoming (2)" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Completed (5)" })).toBeTruthy();
@@ -257,17 +257,11 @@ describe("Placements: the list", () => {
     expect(rows().map((r) => r.getAttribute("data-row-id"))).toEqual(["1", "2", "3"]);
     expect(screen.getByText("1-3 of 3 active placements")).toBeTruthy();
     expect(screen.getByText("1-3 of 3 placements")).toBeTruthy();
-    expect(document.querySelector("[data-help-card]")).toBeTruthy();
+    expect(document.querySelector("[data-help-card]")).toBeNull();
     const first = listCalls()[0];
     expect(first.params.get("tab")).toBe("active");
     expect(first.params.get("sort")).toBe("end,asc");
     expect(first.params.get("size")).toBe("10");
-  });
-
-  it("draws a delta from the API only: a tile with no history shows no delta", async () => {
-    await mount();
-    expect(document.querySelector("[data-kpi=pool] [data-kpi-delta]")).toBeNull();
-    expect(document.querySelector("[data-kpi=pool] [data-kpi-value]")?.textContent).toBe("24");
   });
 
   it("writes the Next Action pill with its tone and the recorded bill rate", async () => {
@@ -282,7 +276,7 @@ describe("Placements: the list", () => {
 
   it("hides the bill rate column and the add button from someone who may only read", async () => {
     await mount({ permissions: { "placements.view": "ORG" } });
-    expect(screen.queryByText("Bill Rate")).toBeNull();
+    expect(screen.queryByText("Bill rate")).toBeNull();
     expect(document.querySelector("[data-add-placement]")).toBeNull();
     expect(rows()).toHaveLength(3);
   });
@@ -381,7 +375,7 @@ describe("Placements: the drawer", () => {
     expect(url.get().get("pl")).toBe("1");
     const body = document.querySelector("[data-detail-body]") as HTMLElement;
     expect(body).toBeTruthy();
-    expect(within(body).getByText("Placement Details")).toBeTruthy();
+    expect(within(body).getByText("Placement details")).toBeTruthy();
     expect(body.querySelector("[data-field=client]")?.textContent).toContain("Acme Corp");
     expect(body.querySelector("[data-field=type]")?.textContent).toContain("Contract");
     expect(body.querySelector("[data-field=rate]")?.textContent).toContain("$125/hr");

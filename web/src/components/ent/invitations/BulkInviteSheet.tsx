@@ -91,7 +91,7 @@ export default function BulkInviteSheet({
 
   const failed = rows?.filter((r) => r.status !== "INVITED").length ?? 0;
   return (
-    <Sheet id="invitations-bulk-sheet" open={open} onClose={close} title="Bulk Invite" description="Invite several people at once. They all get the same roles.">
+    <Sheet id="invitations-bulk-sheet" open={open} onClose={close} title="Bulk invite" description="Invite several people at once. They all get the same roles.">
       {rows ? (
         <div data-bulk-result className="flex flex-col gap-3">
           <p role="status" className="text-[14px] font-semibold text-ink">

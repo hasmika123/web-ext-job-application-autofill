@@ -3,39 +3,40 @@
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { Button, ClockIcon, ErrorState, FileTextIcon, SearchIcon, Select, UsersIcon, cn } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
+import PageHeader from "@/components/ent/shell/ShellContext";
 import {
   DEFAULT_QUERY, KPI_KEYS, KPI_TITLES, PERIODS, STAGE_KEYS, STAGE_LABELS, fetchApplications, markFollowUpDone,
   type ApplicationsView, type BoardQuery, type KpiKey, type Period,
 } from "@/lib/ent/marketer-ws/applications";
 import { CARD, CardSkeleton, Empty, Head, KpiTile, type TintName } from "../parts";
 import type { MktPageProps } from "../parts";
-import { BeeCard, FunnelCard, OverdueCard, UpdatesCard } from "./BottomCards";
+import { OverdueCard } from "./BottomCards";
 import TrackerTable from "./TrackerTable";
 
 /**
- * Applications (Marketing workspace; design: Applications). One call draws the board; every card has its own empty state, never a
+ * Applications (Marketing workspace). One call draws the board; every card has its own empty state, never a
  * made-up row. The API owns scope (the consultants assigned to this marketer) and consent: a consultant who shares less than the full
  * detail shows the stage only. E1: the marketer's actions here are RECORDS (note, next action, follow-up done, a stage the consultant
  * reached); nothing submits an application or acts as a consultant.
  */
 
-const KPI_ICONS: Record<KpiKey, { icon: ComponentType<IconProps>; tint: TintName; spark: number }> = {
-  active: { icon: FileTextIcon, tint: "green", spark: 1 },
-  awaiting: { icon: ClockIcon, tint: "violet", spark: 3 },
-  interviewing: { icon: UsersIcon, tint: "amber", spark: 2 },
-  offers: { icon: FileTextIcon, tint: "pink", spark: 4 },
+const KPI_ICONS: Record<KpiKey, { icon: ComponentType<IconProps>; tint: TintName }> = {
+  active: { icon: FileTextIcon, tint: "green" },
+  awaiting: { icon: ClockIcon, tint: "violet" },
+  interviewing: { icon: UsersIcon, tint: "amber" },
+  offers: { icon: FileTextIcon, tint: "pink" },
 };
 const ALL = "all";
 const SEARCH_DEBOUNCE_MS = 300;
-const FILTER = "h-9 w-[150px] flex-none";
+// `w-[150px]!`: the Select's own trigger is `w-full` and its class names are joined, not merged, so without the important suffix `w-full` wins and
+// each filter ballooned to the width of the whole toolbar (the page scrolled 3000 px sideways).
+const FILTER = "h-9 w-[150px]! flex-none";
 
 export default function ApplicationsPage({ orgId, hrefs, selfMemberId }: MktPageProps) {
   const [query, setQuery] = useState<BoardQuery>(DEFAULT_QUERY);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ApplicationsView | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "failed" | "denied">("loading");
-  const [now, setNow] = useState(() => Date.now());
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [reloads, setReloads] = useState(0);
   const lastGood = useRef(false);
@@ -53,7 +54,6 @@ export default function ApplicationsPage({ orgId, hrefs, selfMemberId }: MktPage
       if (r.kind === "OK") {
         setView(r.view);
         setStatus("ready");
-        setNow(Date.now());
         lastGood.current = true;
       } else setStatus(r.kind === "DENIED" ? "denied" : lastGood.current ? "ready" : "failed");
     }, 0);
@@ -75,13 +75,7 @@ export default function ApplicationsPage({ orgId, hrefs, selfMemberId }: MktPage
   };
 
   if (status === "denied") return <ErrorState what="Applications" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
-  const header = (
-    <>
-      <PageHeader title="Applications" subtitle="Track all job applications for your assigned consultants and drive them towards successful placements." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-    </>
-  );
+  const header = <PageHeader title="Applications" subtitle="Where each consultant's applications stand." />;
   if (status === "failed")
     return (
       <div data-applications data-status="failed">
@@ -97,9 +91,9 @@ export default function ApplicationsPage({ orgId, hrefs, selfMemberId }: MktPage
   const pages = tr ? Math.max(1, Math.ceil(tr.total / Math.max(1, tr.size))) : 1;
   const from = tr && tr.total > 0 ? tr.page * tr.size + 1 : 0;
   const to = tr ? Math.min(tr.total, (tr.page + 1) * tr.size) : 0;
-  const consultantOptions = [{ value: ALL, label: "All Consultants" }, ...(tr?.filters.consultants ?? []).map((c) => ({ value: String(c.id), label: c.name }))];
-  const clientOptions = [{ value: ALL, label: "All Clients" }, ...(tr?.filters.clients ?? []).map((c) => ({ value: String(c.id), label: c.name }))];
-  const stageOptions = [{ value: ALL, label: "All Stages" }, ...STAGE_KEYS.map((k) => ({ value: k, label: STAGE_LABELS[k] }))];
+  const consultantOptions = [{ value: ALL, label: "All consultants" }, ...(tr?.filters.consultants ?? []).map((c) => ({ value: String(c.id), label: c.name }))];
+  const clientOptions = [{ value: ALL, label: "All clients" }, ...(tr?.filters.clients ?? []).map((c) => ({ value: String(c.id), label: c.name }))];
+  const stageOptions = [{ value: ALL, label: "All stages" }, ...STAGE_KEYS.map((k) => ({ value: k, label: STAGE_LABELS[k] }))];
   const filtered = query.q !== "" || query.consultantId !== "" || query.clientId !== "" || query.stage !== "all" || query.period !== "3m";
 
   return (
@@ -109,13 +103,13 @@ export default function ApplicationsPage({ orgId, hrefs, selfMemberId }: MktPage
       <section aria-label="Key numbers" data-app-tiles className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         {KPI_KEYS.map((key) => {
           const k = v?.kpis.find((x) => x.key === key);
-          const { icon, tint, spark } = KPI_ICONS[key];
-          return <KpiTile key={key} id={key} title={KPI_TITLES[key]} icon={icon} tint={tint} value={k ? k.value : null} deltaPct={k?.deltaPct ?? null} sparkline={k?.sparkline} sparkIndex={spark} loading={loading} layout="inline" />;
+          const { icon, tint } = KPI_ICONS[key];
+          return <KpiTile key={key} id={key} title={KPI_TITLES[key]} icon={icon} tint={tint} value={k ? k.value : null} loading={loading} layout="inline" />;
         })}
       </section>
 
       <section data-app-card="tracker" className={CARD}>
-        <Head icon={UsersIcon} title="Application Tracker">
+        <Head icon={UsersIcon} title="Applications">
           <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
             <label className="flex h-9 min-w-[220px] flex-1 items-center gap-2 rounded-[var(--radius)] border border-line bg-paper-2 px-3 text-[13px] lg:w-[300px] lg:flex-none">
               <SearchIcon size={15} aria-hidden className="flex-none text-muted" />
@@ -154,7 +148,7 @@ export default function ApplicationsPage({ orgId, hrefs, selfMemberId }: MktPage
                   on ? "border-accent bg-accent text-white" : "border-line bg-paper text-ink-soft hover:border-accent",
                 )}
               >
-                {t.label}
+                {t.key === "all" ? "All" : (STAGE_LABELS[t.key] ?? t.label)}
                 <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-bold", on ? "bg-white/25 text-white" : "bg-paper-2 text-ink-soft")}>{t.count}</span>
               </button>
             );
@@ -204,12 +198,7 @@ export default function ApplicationsPage({ orgId, hrefs, selfMemberId }: MktPage
         ) : null}
       </section>
 
-      <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1.15fr)_minmax(0,0.75fr)]">
-        <FunnelCard view={v} period={query.funnelPeriod} onPeriod={(p) => setQuery((q) => ({ ...q, funnelPeriod: p }))} loading={loading} />
-        <OverdueCard view={v} loading={loading} viewAll={hrefs.followups ?? null} canMark={perms.followups} onDone={(id) => void markDone(id)} />
-        <UpdatesCard view={v} loading={loading} viewAll={hrefs.activity ?? null} now={now} />
-        <BeeCard />
-      </div>
+      <OverdueCard view={v} loading={loading} viewAll={hrefs.followups ?? null} canMark={perms.followups} onDone={(id) => void markDone(id)} />
     </div>
   );
 }

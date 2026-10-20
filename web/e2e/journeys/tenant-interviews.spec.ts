@@ -42,15 +42,12 @@ test.describe("interviews (real stack)", () => {
     await signInAsSarah(page);
     await openBoard(page, "[data-interviews-page]");
 
-    // the real tiles, the first page of the table, the bee card and the first interview already open in the drawer
+    // the real tiles, the first page of the table and the first interview already open in the drawer
     await expect(kpi(page, "total")).not.toHaveText("");
     const total = await num(kpi(page, "total"));
     expect(total).toBeGreaterThanOrEqual(50);
     await expect(page.locator("tr[data-row-id]")).toHaveCount(10);
     await expect(page.locator("[data-showing]")).toContainText(`of ${total.toLocaleString("en-US")} interviews`);
-    await expect(page.locator("[data-kpi=total] [data-kpi-delta]")).toContainText("vs last month");
-    await expect(page.locator("[data-kpi=scheduledThisWeek] [data-kpi-delta]")).toContainText("vs last week");
-    await expect(page.locator("[data-help-bee]")).toBeVisible();
     await expect(dock(page).locator("[data-detail-body]")).toBeVisible({ timeout: 60_000 });
     await page.screenshot({ path: resolve(shots, "interviews-1448.png") });
 
@@ -132,7 +129,7 @@ test.describe("interviews (real stack)", () => {
     await expect(dock(page).locator("[data-feedback-list]")).toContainText("Strong communicator");
 
     // the calendar, the pipeline and the analytics
-    await page.getByRole("tab", { name: /Calendar View/ }).click();
+    await page.getByRole("tab", { name: /Calendar/ }).click();
     await expect(page.locator("[data-calendar]")).toBeVisible();
     await expect(page.locator("[data-calendar-chip]").first()).toBeVisible();
     await page.screenshot({ path: resolve(shots, "interviews-calendar-1448.png") });

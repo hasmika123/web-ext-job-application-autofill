@@ -98,16 +98,14 @@ export interface DashboardView {
 }
 
 /** The six board tiles, left to right. The first two are real today; the other four are modules that are not built. */
-export const TILE_KEYS = ["consultants.total", "employees.active", "applications.active", "interviews.upcoming", "placements", "finance.summary"] as const;
+export const TILE_KEYS = ["consultants.total", "applications.active", "interviews.upcoming", "placements"] as const;
 export type TileKey = (typeof TILE_KEYS)[number];
 
 export const TILE_TITLES: Record<TileKey, string> = {
-  "consultants.total": "Total Consultants",
-  "employees.active": "Active Staff", // staff only (consultants are Total Consultants): the Employees page counts everyone, so "Active Employees" here read 13 beside 15 there
-  "applications.active": "Open Applications",
-  "interviews.upcoming": "Upcoming Interviews",
-  placements: "Active Placements",
-  "finance.summary": "Monthly Spend",
+  "consultants.total": "Consultants",
+  "applications.active": "Open applications",
+  "interviews.upcoming": "Upcoming interviews",
+  placements: "Active placements",
 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -300,7 +298,7 @@ export function activityText(a: ActivityItem): { who: string; what: string; targ
 /** Where an activity row leads, by what it touched (never a guess: unknown kinds have no link). */
 export function activityHref(a: ActivityItem): string | null {
   if (a.source === "application") return "/w/admin/applications";
-  if (/^MEMBER_INVITE/.test(a.action)) return "/w/admin/invitations";
+  if (/^MEMBER_INVITE/.test(a.action)) return "/w/admin/employees?tab=invitations";
   if (/^(MEMBER|ASSIGNMENT|ROLE)_/.test(a.action)) return "/w/admin/employees";
   if (/^BRANDING_/.test(a.action)) return "/w/admin/branding";
   return null;

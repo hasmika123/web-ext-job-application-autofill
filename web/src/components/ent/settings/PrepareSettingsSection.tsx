@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckIcon, ClipboardCheckIcon, ErrorState, Field, Input, Skeleton, Switch, useToast } from "@kiwiply/ui";
+import { CheckIcon, ErrorState, Field, Input, Skeleton, Switch, useToast } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
 import {
   PREPARE_EXPLAINER,
@@ -17,7 +17,7 @@ import {
 } from "@/lib/ent/prepare-settings";
 
 /**
- * "Prepare selected openings" on Organization Settings (decision 2026-10-18: the Org Admin controls it). The organization opts in with one switch (off by
+ * "Autopilot" (prepare selected openings) on the Autopilot tab of Settings (decision 2026-10-18: the Org Admin controls it). The organization opts in with one switch (off by
  * default) and may lower the daily, monthly and per-batch limits; Kiwiply's own values are the maximum and are shown beside each field. It autosaves like the
  * rest of the page: the switch moves at once, a quiet check shows when the API has it, and an Undo toast gives the old value back; a limit saves when the field
  * is left. While Kiwiply's master switch is off the whole section is shown disabled. The API is the gate (permission, bounds, audit); this section draws what
@@ -125,7 +125,7 @@ export default function PrepareSettingsSection({ orgId }: { orgId: number }) {
 
   if (status === "loading") return <Skeleton className="h-56 w-full rounded-2xl" />;
   if (status === "denied") return null; // the page's own section already says it
-  if (status === "failed" || !data) return <ErrorState what="the Prepare selected openings settings" description="Please refresh in a moment." onRetry={() => void load()} />;
+  if (status === "failed" || !data) return <ErrorState what="the Autopilot settings" description="Please refresh in a moment." onRetry={() => void load()} />;
 
   const off = !data.platformEnabled;
   const { consultants: licensed, total, featureName } = data.licensed;
@@ -133,12 +133,9 @@ export default function PrepareSettingsSection({ orgId }: { orgId: number }) {
 
   return (
     <section aria-labelledby="org-set-prepare" className={`${CARD} p-5`} data-org-prepare>
-      <div className="flex items-center gap-2">
-        <ClipboardCheckIcon size={18} className="text-muted" />
-        <h2 id="org-set-prepare" className="text-[16px] font-bold text-ink">
-          Prepare selected openings
-        </h2>
-      </div>
+      <h2 id="org-set-prepare" className="text-[16px] font-bold text-ink">
+        Autopilot
+      </h2>
       <p className="mt-2 text-[13px] leading-snug text-ink-soft" data-prepare-explainer>
         {PREPARE_EXPLAINER}
       </p>
@@ -151,8 +148,8 @@ export default function PrepareSettingsSection({ orgId }: { orgId: number }) {
       <div className="mt-4 flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <Switch
-            label="Let my consultants prepare selected openings"
-            description="Off by default. Only consultants whose licence includes the add-on can use it."
+            label="Let consultants prepare selected openings"
+            description="Only consultants whose license includes the add-on."
             checked={data.enabled && !off}
             disabled={off}
             onCheckedChange={toggle}
@@ -196,12 +193,8 @@ export default function PrepareSettingsSection({ orgId }: { orgId: number }) {
         {total === 0
           ? "You have no active consultants yet."
           : licensed === 0
-            ? `No consultant's licence includes ${featureName} yet, so no one can use this until you add it.`
-            : `${licensed} of ${total} active ${person(total)} ${total === 1 ? "has" : "have"} ${featureName} on their licence.`}{" "}
-        <Link href="/w/admin/licenses" className="font-semibold text-accent underline-offset-2 hover:underline" data-prepare-licenses-link>
-          Consultant Licenses
-        </Link>
-        {" · "}
+            ? `No consultant's license includes ${featureName} yet, so no one can use this until you add it.`
+            : `${licensed} of ${total} active ${person(total)} ${total === 1 ? "has" : "have"} ${featureName} on their license.`}{" "}
         <Link href="/w/admin/consultants" className="font-semibold text-accent underline-offset-2 hover:underline" data-prepare-consultants-link>
           Consultants
         </Link>

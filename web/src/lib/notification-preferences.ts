@@ -47,6 +47,18 @@ export interface PrefsForm {
   tz: string;
 }
 
+/**
+ * The rows an organization member sees on a tenant host's My profile (UI refresh Phase 1, s7): the platform's own news kind is worded
+ * without the platform's name, and personal billing (an enterprise member has none) is not listed. Keyed by kind, never by the API's
+ * words; only the displayed list changes, so the saved matrix is exactly what the API sent.
+ */
+export function tenantPrefsView(v: NotificationPrefsView): NotificationPrefsView {
+  const kinds = v.kinds
+    .filter((k) => k.kind !== "BILLING")
+    .map((k) => (k.kind === "SYSTEM" ? { ...k, title: "Product news" } : k));
+  return { ...v, kinds };
+}
+
 export function formFromView(v: NotificationPrefsView): PrefsForm {
   const on = !!v.quietStart && !!v.quietEnd;
   return {

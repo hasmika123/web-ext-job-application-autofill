@@ -6,7 +6,7 @@ import { COLOR_LABEL, GROUP_COLORS, GROUP_ICONS, TONE_BAR, type Group, type Grou
 import { GROUP_ICON, GroupTile } from "./GroupVisuals";
 import PersonSearch from "./PersonSearch";
 
-/** The icon and colour pickers: a closed list of each (the API refuses anything else). Used by the create sheet and the detail sheet. */
+/** The icon and color pickers: a closed list of each (the API refuses anything else). Used by the create sheet and the detail sheet. */
 export function LookPicker({ icon, color, onIcon, onColor }: { icon: string | null; color: string | null; onIcon: (v: string) => void; onColor: (v: string) => void }) {
   return (
     <div className="flex flex-col gap-4">
@@ -36,8 +36,8 @@ export function LookPicker({ icon, color, onIcon, onColor }: { icon: string | nu
         </div>
       </div>
       <div>
-        <div className="mb-1.5 text-[13px] font-semibold text-ink">Colour</div>
-        <div role="group" aria-label="Colour" className="flex flex-wrap gap-2.5">
+        <div className="mb-1.5 text-[13px] font-semibold text-ink">Color</div>
+        <div role="group" aria-label="Color" className="flex flex-wrap gap-2.5">
           {GROUP_COLORS.map((c) => (
             <button
               key={c}
@@ -61,8 +61,8 @@ export function LookPicker({ icon, color, onIcon, onColor }: { icon: string | nu
 }
 
 /**
- * "Create Department" / "Create Team": name, (teams) the department it sits under, the lead, (teams) the first people, an icon and
- * a colour. Creating is an explicit act, so it has a button named for what it does; everything after that autosaves.
+ * "Create department" / "Create team": name, (teams) the department it sits under, the lead, (teams) the first people, an icon and
+ * a color. Creating is an explicit act, so it has a button named for what it does; everything after that autosaves.
  */
 export default function CreateGroupSheet({
   orgId,
@@ -121,7 +121,7 @@ export default function CreateGroupSheet({
       width={480}
       open={open}
       onClose={onClose}
-      title={`Create ${noun}`}
+      title={`Create ${noun.toLowerCase()}`}
       description={kind === "TEAM" ? "Group people who work together. A team can sit under a department." : "A department holds teams and the people who run them."}
       footer={
         <div className="flex items-center justify-end gap-2">
@@ -129,7 +129,7 @@ export default function CreateGroupSheet({
             Cancel
           </Button>
           <Button type="button" variant="accent" onClick={() => void submit()} disabled={!name.trim() || busy}>
-            {busy ? "Creating…" : `Create ${noun}`}
+            {busy ? "Creating…" : `Create ${noun.toLowerCase()}`}
           </Button>
         </div>
       }

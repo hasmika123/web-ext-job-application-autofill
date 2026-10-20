@@ -4,7 +4,7 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: 0.68.0 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
+> Current version: 0.69.1 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,

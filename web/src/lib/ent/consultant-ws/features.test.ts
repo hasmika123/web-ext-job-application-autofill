@@ -32,7 +32,7 @@ describe("parseFeatures", () => {
     expect(v.features).toHaveLength(1);
     expect(v.features[0].status).toBe("NOT_AVAILABLE");
     expect(v.features[0].tone).toBe("accent");
-    expect(v.features[0].href).toBe("/w/consultant/features");
+    expect(v.features[0].href).toBe("/w/consultant/settings?tab=features");
     expect(v.tiles.creditsLeft).toBeNull();
   });
 });
@@ -49,7 +49,7 @@ describe("usage helpers", () => {
   it("words the allowance cell", () => {
     expect(allowanceText(row({ allowance: 50, used: 32 }))).toEqual({ headline: "32 / 50 credits", detail: null });
     expect(allowanceText(row({ allowance: null, used: 18, usedNote: "viewed this month" }))).toEqual({ headline: "Unlimited", detail: "18 viewed this month" });
-    expect(allowanceText(row({ allowance: 20, used: null, unit: "sessions" })).detail).toMatch(/not|arrives/i);
+    expect(allowanceText(row({ allowance: 20, used: null, unit: "sessions" }))).toEqual({ headline: "20 sessions", detail: null });
     expect(allowanceText(row({ status: "DISABLED" })).headline).toBe("No allowance");
   });
 

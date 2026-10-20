@@ -3,6 +3,15 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/marketing/applications" }));
+// the shell draws the header from what the page declares; here it is drawn in place so the subtitle can be asserted
+vi.mock("@/components/ent/shell/ShellContext", () => ({
+  default: ({ title, subtitle }: { title: string; subtitle?: string }) => (
+    <header>
+      <h1>{title}</h1>
+      <p>{subtitle}</p>
+    </header>
+  ),
+}));
 
 import ApplicationsPage from "./ApplicationsPage";
 
@@ -67,10 +76,11 @@ afterEach(() => {
 });
 
 describe("ApplicationsPage", () => {
-  it("draws the title, subtitle and the four KPI tiles with value and delta", async () => {
+  it("draws the plan's subtitle and the four tiles with value only (no delta, no sparkline)", async () => {
     mount();
     await screen.findByText("Senior Java Developer");
-    for (const [key, title, value, delta] of [["active", "Active Applications", "142", "12%"], ["awaiting", "Awaiting Response", "68", "8%"], ["interviewing", "Interviewing", "28", "27%"], ["offers", "Offers", "12", "33%"]]) {
+    expect(screen.getByText("Where each consultant's applications stand.")).toBeTruthy();
+    for (const [key, title, value] of [["active", "Active applications", "142"], ["awaiting", "Awaiting response", "68"], ["interviewing", "Interviewing", "28"], ["offers", "Offers", "12"]]) {
       const tile = await waitFor(() => {
         const t = document.querySelector(`[data-stat-tile="${key}"]`);
         if (!t) throw new Error("no tile");
@@ -78,27 +88,27 @@ describe("ApplicationsPage", () => {
       });
       expect(within(tile).getByText(title)).toBeTruthy();
       expect(within(tile).getByText(value)).toBeTruthy();
-      expect(within(tile).getByText(delta)).toBeTruthy();
-      expect(within(tile).getByText("vs last month")).toBeTruthy();
+      expect(tile.textContent).not.toContain("%");
+      expect(tile.textContent).not.toContain("vs last month");
     }
   });
 
-  it("draws the Application Tracker card: search, the four selects, Clear and the stage tabs with counts", async () => {
+  it("draws the Applications card: search, the four selects, Clear and the stage tabs with counts", async () => {
     mount();
     await screen.findByText("Senior Java Developer");
-    expect(screen.getByText("Application Tracker")).toBeTruthy();
+    expect(within(document.querySelector("[data-app-card=tracker]") as HTMLElement).getByRole("heading", { name: "Applications" })).toBeTruthy();
     expect(screen.getByPlaceholderText("Search applications, consultants, or roles...")).toBeTruthy();
-    for (const label of ["All Consultants", "All Clients", "All Stages", "Last 3 Months"]) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    for (const label of ["All consultants", "All clients", "All stages", "Last 3 months"]) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Clear" })).toBeTruthy();
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["All Applications142", "Applied44", "Awaiting Response68", "Interviewing28", "Offer12", "Hired8", "Not Selected15"]);
-    expect(screen.getByRole("tab", { name: /All Applications/ }).getAttribute("aria-selected")).toBe("true");
+    expect(tabs.map((t) => t.textContent)).toEqual(["All142", "Applied44", "Awaiting response68", "Interviewing28", "Offer12", "Hired8", "Not selected15"]);
+    expect(screen.getByRole("tab", { name: /^All/ }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("draws every board column and the rows with logo source, date, stage chip, owner and a red due date", async () => {
     mount();
     await screen.findByText("Senior Java Developer");
-    for (const col of ["Consultant", "Applied Role", "Client", "Source", "Stage", "Owner", "Next Action"]) expect(screen.getAllByText(col).length).toBeGreaterThan(0);
+    for (const col of ["Consultant", "Applied role", "Client", "Source", "Stage", "Owner", "Next action"]) expect(screen.getAllByText(col).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Sort by application date" })).toBeTruthy();
     const first = document.querySelector('[data-app-row="1"]') as HTMLElement;
     expect(within(first).getByText("Alex Morgan")).toBeTruthy();
@@ -111,50 +121,38 @@ describe("ApplicationsPage", () => {
     expect(within(first).getByText("Prep for technical interview")).toBeTruthy();
     expect(within(first).getByText("Apr 18").className).toContain("text-danger-text");
     expect(document.querySelectorAll("[data-app-row]").length).toBe(5);
-    expect((document.querySelector('[data-app-row="8"] [data-stage]') as HTMLElement).textContent).toBe("Not Selected");
+    expect((document.querySelector('[data-app-row="8"] [data-stage]') as HTMLElement).textContent).toBe("Not selected");
     expect(screen.getByText("Showing 1-8 of 142")).toBeTruthy();
   });
 
-  it("draws Application Funnel with the legend counts and percents, Overdue Actions with red day counts, Recent Updates and the bee card", async () => {
+  it("keeps Overdue actions; the funnel, Recent updates and the bee card are gone", async () => {
     mount();
     await screen.findByText("Senior Java Developer");
-    expect(screen.getByText("Application Funnel")).toBeTruthy();
-    const funnel = document.querySelector('[data-app-card="funnel"]') as HTMLElement;
-    expect(within(funnel).getByText("Last 3 Months")).toBeTruthy();
-    const legend = funnel.querySelector('[data-funnel-row="awaiting"]') as HTMLElement;
-    expect(legend.textContent).toContain("Awaiting Response");
-    expect(legend.textContent).toContain("68");
-    expect(legend.textContent).toContain("48%");
-    expect(funnel.querySelectorAll("[data-funnel-stage]").length).toBe(5);
+    for (const c of ["funnel", "updates", "help"]) expect(document.querySelector(`[data-app-card="${c}"]`), c).toBeNull();
+    expect(screen.queryByText("Application Funnel")).toBeNull();
+    expect(screen.queryByText("Recent Updates")).toBeNull();
+    expect(screen.queryByText("Keep applications moving!")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ask a question" })).toBeNull();
 
     const overdue = document.querySelector('[data-app-card="overdue"]') as HTMLElement;
-    expect(within(overdue).getByText("Overdue Actions")).toBeTruthy();
+    expect(within(overdue).getByText("Overdue actions")).toBeTruthy();
     expect(within(overdue).getByText("Follow up with TechCorp")).toBeTruthy();
     expect(within(overdue).getByText("3 days").className).toContain("text-danger-text");
     expect(within(overdue).getByText("1 day")).toBeTruthy();
     expect(within(overdue).getByRole("link", { name: "View all" }).getAttribute("href")).toBe("/w/marketing/followups");
-
-    const updates = document.querySelector('[data-app-card="updates"]') as HTMLElement;
-    expect(within(updates).getByText("Recent Updates")).toBeTruthy();
-    expect(within(updates).getByText("moved to Offer")).toBeTruthy();
-    expect(within(updates).getByText("1 hour ago")).toBeTruthy();
-    expect(within(updates).getByText("3 hours ago")).toBeTruthy();
-    expect((updates.querySelector('[data-update-row="1"]') as HTMLElement).getAttribute("data-tone")).toBe("green");
-    expect(within(updates).getByRole("link", { name: "View all" }).getAttribute("href")).toBe("/w/marketing/activity");
-
-    expect(screen.getByText("Keep applications moving!")).toBeTruthy();
-    expect(screen.getByText("Follow up on pending applications and schedule interviews to help your consultants get placed.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Ask a question" })).toBeTruthy();
   });
 
-  it("a consultant who shares only a summary shows the stage, a Summary chip and dotted 'Not shared' cells", async () => {
+  it("a consultant who shares only a summary shows the stage and one 'Summary only' chip instead of four 'Not shared' cells", async () => {
     const summary = { id: 9, code: null, consultant: c(9, "Dana Summary", "SUMMARY"), role: null, client: null, source: null, appliedOn: null, stage: { key: "offer", label: "Offer" }, owner: sarah, nextAction: null, nextActionDue: null };
     vi.stubGlobal("fetch", reply(200, fixture({}, { items: [summary], total: 1 })));
     mount();
     await screen.findByText("Dana Summary");
     const r = document.querySelector('[data-app-row="9"]') as HTMLElement;
-    expect(within(r).getByText("Summary")).toBeTruthy();
-    expect(r.querySelectorAll("[data-not-shared]").length).toBe(5); // role, client, source, date, next action
+    expect(within(r).getByText("Summary only")).toBeTruthy();
+    expect(r.querySelectorAll("[data-summary-only]").length).toBe(1);
+    expect(r.querySelector("[data-not-shared]")).toBeNull();
+    expect(within(r).queryByText("Not shared")).toBeNull();
+    expect((r.querySelector("[data-summary-only]") as HTMLElement).closest("td")!.getAttribute("colspan")).toBe("4"); // role, client, source, date
     expect(within(r).getByText("Offer")).toBeTruthy();
     expect(within(r).queryByRole("button", { name: /More for/ })).toBeNull(); // no actions on a row that is not shared
   });
@@ -175,9 +173,7 @@ describe("ApplicationsPage", () => {
     );
     mount();
     expect(await screen.findByText("No applications for your consultants yet.")).toBeTruthy();
-    expect(screen.getByText("No applications in this period.")).toBeTruthy();
-    expect(screen.getByText("Nothing overdue. Nice.")).toBeTruthy();
-    expect(screen.getByText("Nothing has happened yet.")).toBeTruthy();
+    expect(screen.getByText("Nothing overdue.")).toBeTruthy();
     expect(screen.getAllByText("Nothing yet").length).toBe(4);
   });
 

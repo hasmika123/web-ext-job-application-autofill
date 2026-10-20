@@ -2,10 +2,9 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/opportunities" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/opportunities", useSearchParams: () => new URLSearchParams("") }));
 
 import { ToastProvider } from "@kiwiply/ui";
-import { OPEN_HELP_EVENT } from "@/components/ent/shell/ShellContext";
 import OpportunitiesPage from "./OpportunitiesPage";
 
 const tile = (value: number, deltaPct: number | null = null) => ({ value, previous: 1, deltaPct, sparkline: [0, 1, 2, 3, 4, value] });
@@ -90,20 +89,30 @@ async function mount() {
   await flush();
   return v;
 }
-const tileOf = (k: string) => document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement;
+const chipOf = (k: string) => document.querySelector(`[data-chip="${k}"]`) as HTMLElement;
+const rowAction = (id: number, title: string, name: string | RegExp) => {
+  fireEvent.click(within(rowOf(id)).getByRole("button", { name: `More actions for ${title}` }));
+  fireEvent.click(screen.getByRole("menuitem", { name }));
+};
+const itemOff = (name: RegExp) => {
+  const el = screen.getByRole("menuitem", { name });
+  return (el as HTMLButtonElement).disabled || el.getAttribute("aria-disabled") === "true";
+};
 const rowOf = (id: number) => document.querySelector(`tr[data-opp="${id}"]`) as HTMLElement;
 const writes = () => calls.filter((c) => c.method === "POST");
 
 describe("Assigned Opportunities from real data", () => {
-  it("draws the tiles and the table from the API", async () => {
+  it("draws a chip row with counts and the table from the API, with no tiles, deltas, Quick Actions or help card", async () => {
     await mount();
     expect(calls[0]).toEqual({ method: "GET", url: "/api/orgs/2/me-workspace/opportunities?sort=due&size=50", body: undefined });
-    expect(within(tileOf("total")).getByText("3")).toBeTruthy();
-    expect(within(tileOf("total")).getByText(/50%/)).toBeTruthy();
-    expect(within(tileOf("total")).getByText("vs last month")).toBeTruthy();
-    expect(within(tileOf("declined")).getByText("0")).toBeTruthy();
-    expect(tileOf("declined").textContent).not.toMatch(/%/);
-    expect(screen.getByRole("heading", { name: "My Assigned Opportunities" })).toBeTruthy();
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(screen.queryByText(/vs last month|Quick Actions|Ask a question/)).toBeNull();
+    expect(chipOf("all").textContent).toBe("All3");
+    expect(chipOf("needs").textContent).toBe("Needs response1");
+    expect(chipOf("review").textContent).toBe("In review1");
+    expect(chipOf("declined").textContent).toBe("Declined1");
+    expect(document.querySelector("[data-consultant-opportunities][data-status=ready]")).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Assigned opportunities" })).toBeTruthy();
     const r1 = rowOf(1);
     expect(within(r1).getByText("Java | Spring Boot")).toBeTruthy();
     expect(within(r1).getByText("New")).toBeTruthy();
@@ -131,7 +140,7 @@ describe("Assigned Opportunities from real data", () => {
     expect(within(d).getByText("Quick note from the marketer.")).toBeTruthy();
     expect(d.querySelector("[data-sample]")).not.toBeNull();
     expect(within(d).getByText("Marketer's job notes")).toBeTruthy();
-    expect(d.textContent).toMatch(/Apply on the source site with the Kiwiply extension/);
+    expect(d.textContent).toMatch(/Apply on the source site with the browser extension/);
     expect(within(d).getByRole("link", { name: /Open job link/ }).getAttribute("href")).toBe("https://jobs.example.com/acme/1");
   });
 
@@ -164,14 +173,14 @@ describe("Assigned Opportunities from real data", () => {
     await flush();
     expect(document.querySelector("[data-notice]")!.textContent).toContain("We never store");
     writeStatus = 200;
-    fireEvent.click(document.querySelector("[data-quick='interest']") as HTMLElement);
+    rowAction(1, "Senior Java Developer", /Express Interest/);
     await flush();
     expect(writes().map((c) => c.url)).toEqual(["/api/orgs/2/me-workspace/opportunities/1/express-interest", "/api/orgs/2/me-workspace/opportunities/1/express-interest"]);
   });
 
   it("Need More Info needs 3 characters and posts the message", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: /Need More Info/ }));
+    rowAction(1, "Senior Java Developer", /Need More Info/);
     const send = screen.getByRole("button", { name: "Send question" }) as HTMLButtonElement;
     expect(send.disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("What would you like to know?"), { target: { value: "Is the start date flexible?" } });
@@ -183,7 +192,7 @@ describe("Assigned Opportunities from real data", () => {
 
   it("Decline requires a reason, posts it and offers undo; a refusal stays in the dialog", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: /Decline Opportunity/ }));
+    rowAction(1, "Senior Java Developer", /Decline Opportunity/);
     fireEvent.change(screen.getByLabelText("Why is it not a fit?"), { target: { value: "Too far to commute" } });
     writeStatus = 422;
     writeBody = { error: "Please remove the date of birth" };
@@ -205,37 +214,37 @@ describe("Assigned Opportunities from real data", () => {
     expect(screen.getByRole("menuitem", { name: /Reopen/ })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: /Decline Opportunity/ })).toBeNull();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
-    fireEvent.click(screen.getByRole("button", { name: /Request Resume Update/ }));
+    rowAction(1, "Senior Java Developer", /Request Resume Update/);
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     await flush();
     expect(writes().at(-1)).toMatchObject({ url: "/api/orgs/2/me-workspace/opportunities/1/request-resume-update", body: "{}" });
   });
 
-  it("the right rail: next steps from the counts, quick actions on the selected row, and the bee", async () => {
+  it("the right rail is only the next steps, worked out from the counts", async () => {
     await mount();
     const steps = document.querySelector("[data-home-card='opps-steps']") as HTMLElement;
     expect(within(steps).getByText("Respond to 1 opportunity")).toBeTruthy();
     expect(within(steps).getByText("Update your resume")).toBeTruthy();
     expect(within(steps).getByText("Prepare for upcoming interviews")).toBeTruthy();
     expect(within(steps).getByRole("link", { name: /Discuss priorities with your marketer/ }).getAttribute("href")).toBe("/w/consultant/marketer");
-    expect(document.querySelector("[data-quick-target]")!.textContent).toBe("Acts on: Senior Java Developer");
-    fireEvent.click(within(rowOf(3)).getByRole("button", { name: "View Data Engineer" }));
-    await flush();
-    expect(document.querySelector("[data-quick-target]")!.textContent).toBe("Acts on: Data Engineer");
-    expect((document.querySelector("[data-quick='decline']") as HTMLButtonElement).disabled).toBe(true);
-    const heard = vi.fn();
-    window.addEventListener(OPEN_HELP_EVENT, heard);
-    fireEvent.click(screen.getByRole("button", { name: "Ask a question" }));
-    expect(heard).toHaveBeenCalled();
-    window.removeEventListener(OPEN_HELP_EVENT, heard);
+    expect(document.querySelector("[data-quick-target]")).toBeNull();
+    expect(document.querySelector("[data-home-card='help']")).toBeNull();
   });
 
-  it("honest empty states: zero tiles, a sentence, quick actions off", async () => {
+  it("the chips filter the rows", async () => {
+    await mount();
+    fireEvent.click(chipOf("declined"));
+    expect(document.querySelectorAll("tr[data-opp]")).toHaveLength(1);
+    expect(rowOf(3)).toBeTruthy();
+    fireEvent.click(chipOf("all"));
+    expect(document.querySelectorAll("tr[data-opp]")).toHaveLength(3);
+  });
+
+  it("honest empty states: a sentence and no next steps", async () => {
     current = page({ rows: [], total: 0, tiles: { total: tile(0), high: tile(0), awaiting: tile(0), inReview: tile(0), declined: tile(0) }, nextSteps: { toRespond: 0, soonestDueDays: null, resumeGaps: 0, upcomingInterviews: 0, hasMarketer: false } });
     await mount();
     expect(screen.getByText(/No opportunities are assigned to you yet/)).toBeTruthy();
-    expect(within(tileOf("total")).getByText("0")).toBeTruthy();
-    expect((document.querySelector("[data-quick='interest']") as HTMLButtonElement).disabled).toBe(true);
+    expect(chipOf("all").textContent).toBe("All0");
     expect(screen.queryByText(/Respond to/)).toBeNull();
   });
 
@@ -257,7 +266,7 @@ describe("one answer shared with the marketer", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "I applied" }));
     await flush();
     expect(writes()).toEqual([]);
-    expect(document.querySelector("[data-applied-confirm]")!.textContent).toMatch(/Kiwiply never applies or submits for you/);
+    expect(document.querySelector("[data-applied-confirm]")!.textContent).toMatch(/No one applies or submits for you/);
     fireEvent.click(screen.getByRole("button", { name: "Not yet" }));
     await flush();
     expect(writes()).toEqual([]);
@@ -276,21 +285,19 @@ describe("one answer shared with the marketer", () => {
     await mount();
     expect(within(rowOf(1)).getByText("Applied", { selector: "span:not(.block)" })).toBeTruthy();
     expect(within(rowOf(1)).getByText("Applied", { selector: "span.block" }).className).not.toContain("coral");
-    expect((document.querySelector("[data-quick='interest']") as HTMLButtonElement).disabled).toBe(true);
-    expect((document.querySelector("[data-quick='info']") as HTMLButtonElement).disabled).toBe(true);
-    expect((document.querySelector("[data-quick='resume']") as HTMLButtonElement).disabled).toBe(true);
-    expect((document.querySelector("[data-quick='decline']") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(rowOf(1)).getByRole("button", { name: "More actions for Senior Java Developer" }));
+    for (const n of [/Express Interest/, /Need More Info/, /Request Resume Update/, /Decline Opportunity/]) expect(itemOff(n)).toBe(true);
     expect(writes()).toEqual([]);
   });
 
   it("the buttons follow allowedActions: a closed job leaves only the resume note and Decline", async () => {
     current = page({ rows: [orow({ matchId: 1, allowedActions: ["RESUME_UPDATE", "DECLINE"] })] });
     await mount();
-    expect((document.querySelector("[data-quick='interest']") as HTMLButtonElement).disabled).toBe(true);
-    expect((document.querySelector("[data-quick='info']") as HTMLButtonElement).disabled).toBe(true);
-    expect((document.querySelector("[data-quick='resume']") as HTMLButtonElement).disabled).toBe(false);
-    expect((document.querySelector("[data-quick='decline']") as HTMLButtonElement).disabled).toBe(false);
-  });
+    fireEvent.click(within(rowOf(1)).getByRole("button", { name: "More actions for Senior Java Developer" }));
+    expect(itemOff(/Express Interest/)).toBe(true);
+    expect(itemOff(/Need More Info/)).toBe(true);
+    expect(itemOff(/Request Resume Update/)).toBe(false);
+    expect(itemOff(/Decline Opportunity/)).toBe(false);  });
 
   it("the marketer's answer to the question shows on the details, and the row says Answered", async () => {
     current = page({ rows: [orow({ matchId: 1, status: "AWAITING_RESPONSE", infoAnswered: true })] });

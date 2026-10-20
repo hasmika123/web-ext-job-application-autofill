@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { ArrowDownIcon, ArrowUpIcon, IconButton, Menu, MoreHorizontalIcon, PersonCell, Select, useNarrow } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import { formatDate, pageCount as pagesOf, PAGE_SIZES, relativeTime, showingText, type MemberRow, type SortDir, type SortKey } from "@/lib/ent/members";
-import { ManagerCell, MemberStatusPill, RoleChips } from "./parts";
+import { MemberStatusPill, RoleChips } from "./parts";
 
 export interface TableProps {
   rows: MemberRow[];
@@ -94,8 +94,6 @@ export function EmployeesTable(p: TableProps) {
               <dd className="truncate text-ink">{r.department?.name ?? "—"}</dd>
               <dt className="text-muted">Team</dt>
               <dd className="truncate text-ink">{r.team?.name ?? "—"}</dd>
-              <dt className="text-muted">Manager</dt>
-              <dd className="min-w-0"><ManagerCell manager={r.manager} /></dd>
               <dt className="text-muted">Joined</dt>
               <dd className="text-ink">{formatDate(r.joinedAt) || "—"}</dd>
             </dl>
@@ -117,7 +115,6 @@ export function EmployeesTable(p: TableProps) {
             <th scope="col" className={HEAD}>Role</th>
             <th scope="col" className={`${HEAD} hidden lg:table-cell`}>Department</th>
             <th scope="col" className={`${HEAD} hidden xl:table-cell`}>Team</th>
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>Manager</th>
             <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} />
             <SortHead label="Joined" k="joined" sort={p.sort} onSort={p.onSort} className="hidden md:table-cell" />
             <SortHead label="Last active" k="lastActive" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden 2xl:table-cell"} />
@@ -155,9 +152,6 @@ export function EmployeesTable(p: TableProps) {
                 </td>
                 <td className={`max-w-[10rem] truncate px-2.5 py-[6px] text-ink-soft hidden lg:table-cell`}>{r.department?.name ?? "—"}</td>
                 <td className={`max-w-[10rem] truncate px-2.5 py-[6px] text-ink-soft hidden xl:table-cell`}>{r.team?.name ?? "—"}</td>
-                <td className={`px-2.5 py-[6px] ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>
-                  <ManagerCell manager={r.manager} />
-                </td>
                 <td className="px-2.5 py-[6px]">
                   <MemberStatusPill status={r.status} />
                 </td>

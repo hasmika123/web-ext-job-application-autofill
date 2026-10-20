@@ -10,7 +10,6 @@ import {
   relativeDay,
   safeHttps,
   withCompleted,
-  RESOURCES,
 } from "./placements";
 
 const NOW = Date.parse("2026-10-13T12:00:00Z");
@@ -131,8 +130,5 @@ describe("checklist and note helpers", () => {
     expect(noteProblem("fine")).toBeNull();
     expect(noteProblem("x".repeat(300))).toBeNull();
     expect(noteProblem("x".repeat(301))).toMatch(/300/);
-  });
-  it("no helpful resource has a made-up link", () => {
-    expect(RESOURCES.every((r) => r.href === null)).toBe(true);
   });
 });

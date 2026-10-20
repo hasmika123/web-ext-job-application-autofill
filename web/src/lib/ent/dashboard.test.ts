@@ -101,7 +101,7 @@ describe("lists", () => {
   });
   it("activity links only for kinds that have a page", () => {
     const a = (action: string) => ({ id: 1, action, label: "", actorLogin: null, actorName: null, targetType: null, targetLogin: null, targetName: null, at: "", source: "audit", subject: null });
-    expect(activityHref(a("MEMBER_INVITE_RESEND"))).toBe("/w/admin/invitations");
+    expect(activityHref(a("MEMBER_INVITE_RESEND"))).toBe("/w/admin/employees?tab=invitations");
     expect(activityHref(a("MEMBER_ROLE"))).toBe("/w/admin/employees");
     expect(activityHref(a("BRANDING_PUBLISH"))).toBe("/w/admin/branding");
     expect(activityHref(a("ORG_SETTINGS"))).toBeNull();

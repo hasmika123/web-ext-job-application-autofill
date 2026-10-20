@@ -6,12 +6,12 @@ import { isoDay, menuAction, openPage, pageTitle, pick, stamp } from "./_helpers
  * to the consultant). Offers, the placement project data and the vacation approval status are seeded stand-ins (Sample marks).
  */
 
-test("CON-40 Anika reviews her Offers: tiles, status, deadlines, side-by-side compare and the offer's timeline", async ({ as }) => {
+test("CON-40 Anika reviews her Offers: status chips, deadlines, side-by-side compare and the offer's timeline", async ({ as }) => {
   const { page, go } = await as("anika");
   await narrate(page, "Anika opens Offers");
   await openPage(page, go, "offers");
   await expect(pageTitle(page)).toHaveText("Offers");
-  for (const key of ["total", "pending", "accepted", "negotiation", "declined"]) await expect(page.locator(`[data-offers-tiles] [data-stat-tile=${key}]`)).toBeVisible();
+  for (const status of ["PENDING_REVIEW", "NEGOTIATION", "ACCEPTED", "DECLINED"]) await expect(page.locator(`[data-offers-chips] [data-chip=${status}]`)).toBeVisible();
 
   const rows = page.locator("[data-offer]");
   await narrate(page, "Five seeded offers in different states: pending review, negotiation, accepted, declined");
@@ -52,7 +52,7 @@ test("CON-41 Anika opens 'Accept offer', reads what accepting means, and cancels
   await narrate(page, "Accept Offer asks for confirmation and explains that nothing is signed or sent to the client");
   await page.getByRole("button", { name: "Accept Offer" }).click();
   const dlg = page.getByRole("dialog", { name: "Accept this offer?" });
-  await expect(dlg.locator("[data-accept-copy]")).toContainText("Nothing is signed or sent to the client by Kiwiply");
+  await expect(dlg.locator("[data-accept-copy]")).toContainText("Nothing is signed or sent to the client from here");
   await dlg.getByRole("button", { name: "Cancel" }).click();
   await expect(dlg).toHaveCount(0);
   await expect(page.locator("[data-offer][data-status=PENDING_REVIEW]").first()).toBeVisible(); // unchanged
@@ -121,23 +121,19 @@ test("CON-44 Ben works his onboarding checklist (with Undo), posts a status upda
   await page.locator("[data-action=undo]").click();
   await expect(target).toHaveAttribute("aria-checked", was ?? "false");
 
-  await narrate(page, "Quick Action: View Client Details opens the client's non-sensitive details");
-  await page.locator("[data-quick=client]").click();
+  await narrate(page, "Client details opens the client's non-sensitive details");
+  await page.locator("[data-client-details-btn]").click();
   const client = page.getByRole("dialog", { name: "Client details" });
   await expect(client.locator("[data-client-details]")).toBeVisible();
   await client.getByRole("button", { name: /^Close/ }).first().click(); // the header's X and the footer's Close button
 
-  await narrate(page, "Update Status posts a short note to his placement activity");
-  await page.locator("[data-quick=status]").click();
+  await narrate(page, "Post an update adds a short note to his placement activity");
+  await page.locator("[data-post-update]").click();
   const dlg = page.getByRole("dialog", { name: "Update status" });
   await dlg.getByLabel("Status update").fill(`QA story ${stamp()}: onboarding is on track and the first sprint starts Monday.`);
   await dlg.getByRole("button", { name: "Post update" }).click();
   await expect(page.getByText("Update posted")).toBeVisible();
   await expect(page.locator("[data-activity]").first()).toBeVisible();
-
-  await narrate(page, "Download Documents is honest about not being available yet");
-  await page.locator("[data-quick=docs]").click();
-  await expect(page.locator("[data-docs-hint]")).toContainText("Documents arrive with the HR workspace");
 });
 
 test("CON-45 Anika (not on a project) sees the honest 'no active placement' state", async ({ as }) => {
@@ -145,16 +141,15 @@ test("CON-45 Anika (not on a project) sees the honest 'no active placement' stat
   await openPage(page, go, "placements");
   await narrate(page, "Anika is available, so there is no placement to show; the page says so instead of inventing one");
   await expect(page.locator("[data-no-placement]")).toBeVisible();
-  await expect(page.locator("[data-quick=status]")).toBeDisabled();
+  await expect(page.locator("[data-post-update]")).toHaveCount(0); // nothing to post an update about
 });
 
-test("CON-46 Anika reviews her Availability: tiles, calendar, work preferences and history", async ({ as }) => {
+test("CON-46 Anika reviews her Availability: summary line, calendar and history", async ({ as }) => {
   const { page, go } = await as("anika");
   await narrate(page, "Anika opens Availability");
   await openPage(page, go, "availability");
   await expect(pageTitle(page)).toHaveText("Availability");
-  for (const title of ["Available From", "Open Opportunities", "Preferred Work Mode", "Notice Period"]) await expect(page.locator(`[data-stat-tile="${title}"]`)).toBeVisible();
-  await expect(page.locator('[data-stat-tile^="Vacation Days"]')).toBeVisible();
+  await expect(page.locator("[data-avail-summary] [data-tile-value]")).not.toBeEmpty(); // "Available now · 2 weeks' notice · Hybrid"
 
   await narrate(page, "The month calendar paints time off and open-to-work days; she can step forward a month");
   await expect(page.locator("[data-calendar]")).toBeVisible();
@@ -163,12 +158,10 @@ test("CON-46 Anika reviews her Availability: tiles, calendar, work preferences a
   await expect(page.locator("[data-month-title]")).not.toHaveText(month);
   await page.getByRole("button", { name: "Previous month" }).click();
 
-  await narrate(page, "Work preferences (location, authorization, mode, rate, travel) and Availability History are real; approvals are marked Sample");
-  await expect(page.locator("[data-pref=authorization]")).toBeVisible();
-  await expect(page.locator("[data-pref=mode]")).toBeVisible();
+  await narrate(page, "Upcoming unavailable dates and Availability history are real; seeded approvals are marked Sample");
   await expect(page.locator("[data-block]").first()).toBeVisible();
   await expect(page.locator("[data-history]").first()).toBeVisible();
-  await expect(page.locator("[data-sample-note]").first()).toBeVisible();
+  await expect(page.locator("[data-block] [data-sample]").first()).toBeVisible();
 });
 
 test("CON-47 Anika adds a personal day off to her calendar, then removes it; a past date is refused", async ({ as }) => {
@@ -177,8 +170,8 @@ test("CON-47 Anika adds a personal day off to her calendar, then removes it; a p
   const reason = `QA day off ${stamp()}`;
   const day = isoDay(150 + (Date.now() % 90));
 
-  await narrate(page, "Quick Action: Add Blocked Dates");
-  await page.locator("[data-quick=blocked]").click();
+  await narrate(page, "She adds blocked dates");
+  await page.locator("[data-add-blocked]").click();
   const sheet = page.getByRole("dialog", { name: "Add blocked dates" });
   await pick(page, sheet.getByRole("button", { name: "Type" }), "Personal");
 
@@ -213,16 +206,16 @@ test("CON-48 Anika changes her availability status (it also updates her career p
   const select = page.locator("[data-profile-top]").getByRole("button", { name: "Availability" });
   const original = ((await select.innerText()) ?? "").trim();
 
-  await narrate(page, "On Availability she opens Update Availability and chooses 'On notice'");
+  await narrate(page, "On Availability she opens Update availability and chooses 'On notice'");
   await go("/w/consultant/availability");
   await expect(page.locator("[data-consultant-availability][data-status=ready]")).toBeVisible();
-  await page.locator("[data-quick=update]").click();
+  await page.locator("[data-update-availability]").click();
   let sheet = page.getByRole("dialog", { name: "Update availability" });
   await pick(page, sheet.getByRole("button", { name: "Status" }), "On notice");
   await sheet.getByRole("button", { name: "Save availability" }).click();
   await expect(page.getByText("Availability updated")).toBeVisible();
 
-  await narrate(page, "The same status shows on My Career Profile");
+  await narrate(page, "The same status shows on My Profile");
   await go("/w/consultant/profile");
   await expect(page.locator("[data-consultant-profile][data-status=ready]")).toBeVisible();
   await expect(page.locator("[data-profile-top]").getByRole("button", { name: "Availability" })).toContainText("On notice");
@@ -230,7 +223,7 @@ test("CON-48 Anika changes her availability status (it also updates her career p
   await narrate(page, "She sets it back");
   await go("/w/consultant/availability");
   await expect(page.locator("[data-consultant-availability][data-status=ready]")).toBeVisible();
-  await page.locator("[data-quick=update]").click();
+  await page.locator("[data-update-availability]").click();
   sheet = page.getByRole("dialog", { name: "Update availability" });
   await pick(page, sheet.getByRole("button", { name: "Status" }), original || "Available");
   await sheet.getByRole("button", { name: "Save availability" }).click();

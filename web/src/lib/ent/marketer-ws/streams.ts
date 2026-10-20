@@ -7,10 +7,10 @@
 export type KpiKey = "activeStreams" | "syncHealth" | "newOpenings" | "streamErrors";
 export const KPI_KEYS: KpiKey[] = ["activeStreams", "syncHealth", "newOpenings", "streamErrors"];
 export const KPI_TITLES: Record<KpiKey, string> = {
-  activeStreams: "Active Job Streams",
-  syncHealth: "Sync Health",
-  newOpenings: "New Openings Captured",
-  streamErrors: "Stream Errors",
+  activeStreams: "Active sources",
+  syncHealth: "Sync health",
+  newOpenings: "New openings captured",
+  streamErrors: "Source errors",
 };
 
 export type StreamStatus = "ACTIVE" | "PAUSED" | "ERROR";
@@ -18,10 +18,10 @@ export const STATUS_LABEL: Record<StreamStatus, string> = { ACTIVE: "Active", PA
 export type RuleKey = "DEFAULT_KEYWORDS" | "CLIENT_MAPPING" | "DUPLICATE_DETECTION" | "AUTO_PUBLISH";
 export const RULE_KEYS: RuleKey[] = ["DEFAULT_KEYWORDS", "CLIENT_MAPPING", "DUPLICATE_DETECTION", "AUTO_PUBLISH"];
 export const RULE_COPY: Record<RuleKey, { title: string; blurb: string }> = {
-  DEFAULT_KEYWORDS: { title: "Default Keywords", blurb: "Set global keyword filters for all streams" },
-  CLIENT_MAPPING: { title: "Client Mapping Rules", blurb: "Automatically assign jobs to clients" },
-  DUPLICATE_DETECTION: { title: "Duplicate Detection", blurb: "Prevent duplicate job postings" },
-  AUTO_PUBLISH: { title: "Auto-Publish", blurb: "Sync new openings to talent matches" },
+  DEFAULT_KEYWORDS: { title: "Default keywords", blurb: "Set global keyword filters for all sources" },
+  CLIENT_MAPPING: { title: "Client mapping rules", blurb: "Automatically assign openings to clients" },
+  DUPLICATE_DETECTION: { title: "Duplicate detection", blurb: "Prevent duplicate openings" },
+  AUTO_PUBLISH: { title: "Auto-publish", blurb: "Sync new openings to talent matches" },
 };
 
 export interface Kpi { key: KpiKey; value: number | null; deltaPct: number | null; sparkline: number[] }

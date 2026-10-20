@@ -54,15 +54,15 @@ test.describe("employees (real stack)", () => {
     });
     await page.reload();
 
-    // the seeded roster and the real KPI counts
+    // the seeded roster and the real KPI counts (three tiles: Active, Invited, Suspended; the total is the list's own count)
     await expect(page.locator("tr[data-row-id]")).toHaveCount(10); // first page of 12 seats (11 people + the owner seat)
     const kpi = (k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
-    await expect(kpi("total")).not.toHaveText("");
-    const total = Number((await kpi("total").innerText()).replace(/,/g, ""));
-    expect(total).toBeGreaterThanOrEqual(11);
+    await expect(kpi("active")).not.toHaveText("");
     await expect(kpi("invited")).toHaveText("1");
     await expect(kpi("suspended")).toHaveText("1");
-    await expect(page.locator("[data-showing]")).toContainText(`of ${total}`);
+    await expect(page.locator("[data-showing]")).toHaveText(/^Showing 1-10 of \d+ employees$/);
+    const total = Number(/of (\d+)/.exec(await page.locator("[data-showing]").innerText())![1]);
+    expect(total).toBeGreaterThanOrEqual(11);
     await page.screenshot({ path: resolve(shots, "employees-1440.png") });
 
     // search, then filter by status

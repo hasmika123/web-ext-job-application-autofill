@@ -1,36 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Button,
-  CalendarCheckIcon,
-  CalendarIcon,
   ChatIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
-  ClockIcon,
   ErrorState,
   FileTextIcon,
-  FunnelIcon,
   MoreVerticalIcon,
   Menu,
   SideSheet,
   Skeleton,
-  Sparkline,
-  TrophyIcon,
   VideoIcon,
-  XCircleIcon,
-  ZapIcon,
-  chartColor,
   cn,
 } from "@kiwiply/ui";
-import type { IconProps } from "@kiwiply/ui";
-import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
-import { deltaText, firstName } from "@/lib/ent/consultant-ws/home";
+import PageHeader from "@/components/ent/shell/ShellContext";
+import { BASE, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
 import InboxUndo from "@/components/inbox/InboxUndo";
 import { reviewEndpoints } from "@/lib/ent/consultant-ws/inbox";
 import { actorLine, type Viewer } from "@/lib/actors";
@@ -39,25 +25,18 @@ import { UpdatedMeta, seatViewer } from "@/components/ent/applications/changeAud
 import {
   ACTOR_LABELS,
   DEFAULT_QUERY,
-  FUNNEL_LABELS,
   SORT_OPTIONS,
-  barWidth,
   fetchApplications,
   fetchDetail,
   formatDate,
-  formatTime,
   nextStep,
-  percentText,
   sourceBadge,
   stageLabel,
   statusLabel,
-  updateText,
   type AppDetail,
   type AppRow,
-  type AppTile,
   type ApplicationsView,
   type Fetched,
-  type FunnelKey,
   type ListQuery,
   type SortKey,
 } from "@/lib/ent/consultant-ws/applications";
@@ -68,71 +47,6 @@ import {
  * the status filter, the sort and the paging all run in the API. The page is read-only: the marketer prepares and the consultant submits
  * outside Kiwiply, so there is nothing to edit and no submit button. Empty blocks say so in a sentence; there is no made-up number.
  */
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: keyof ApplicationsView["tiles"];
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-  /** More of this is not good news (rejections), so a rise is drawn in the warning colour. */
-  worseUp?: boolean;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "total", title: "Total Applications", icon: FileTextIcon, tone: "accent" },
-  { key: "underReview", title: "Under Review", icon: ClockIcon, tone: "accent" },
-  { key: "interviews", title: "Interviews Scheduled", icon: CalendarIcon, tone: "violet" },
-  { key: "rejected", title: "Rejected", icon: XCircleIcon, tone: "coral", worseUp: true },
-  { key: "offers", title: "Offers", icon: TrophyIcon, tone: "amber" },
-];
-
-function Tile({ spec, tile, index }: { spec: TileSpec; tile: AppTile | null; index: number }) {
-  const Icon = spec.icon;
-  const d = tile ? deltaText(tile.deltaPct) : null;
-  const good = d ? (d.dir === "flat" ? null : (d.dir === "up") !== !!spec.worseUp) : null;
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-[12px]", TONES[spec.tone])}>
-        <Icon size={22} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[13px] font-semibold leading-tight text-ink">{spec.title}</h3>
-        {tile ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[28px] font-extrabold leading-none tabular-nums text-ink">
-                {tile.value}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 w-[42%] max-w-[72px] flex-none">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              {d ? (
-                <>
-                  <span data-delta={d.dir} className={cn("font-bold", good === null ? "text-muted" : good ? "text-v2-green-ink" : "text-v2-coral-ink")}>
-                    {d.dir === "up" ? "↑" : d.dir === "down" ? "↓" : "→"} {d.text}
-                  </span>
-                  <span>vs last month</span>
-                </>
-              ) : (
-                <span>No change to compare yet</span>
-              )}
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── the applications table ─────────────────────────────────────────────────────────── */
 
@@ -151,7 +65,7 @@ function Applications({ view, query, onQuery, a, busy }: { view: ApplicationsVie
   return (
     <Card
       id="applications-list"
-      title="My Applications"
+      title="My applications"
       icon={FileTextIcon}
       extra={
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -191,9 +105,9 @@ function Applications({ view, query, onQuery, a, busy }: { view: ApplicationsVie
             {/* Submission Source only from 2xl: below it the card is too narrow and would clip the actions (it is in the details sheet) */}
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">
-                {["Company", "Role", "Applied Date", "Submission Source", "Current Stage", "Next Step", "Actions"].map((c) => (
-                  <th key={c} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2.5 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", c === "Submission Source" && "hidden 2xl:table-cell")}>
-                    {c}
+                {["Company", "Role", "Applied date", "Submission source", "Current stage", "Next step", ""].map((c, i) => (
+                  <th key={`${c}-${i}`} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2.5 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", c === "Submission source" && "hidden 2xl:table-cell")}>
+                    {c || <span className="sr-only">Actions</span>}
                   </th>
                 ))}
               </tr>
@@ -244,7 +158,7 @@ function Applications({ view, query, onQuery, a, busy }: { view: ApplicationsVie
                           items={[
                             { label: "View details", icon: <FileTextIcon size={15} />, onSelect: () => a.open(r) },
                             { label: "Ask my marketer", icon: <ChatIcon size={15} />, onSelect: () => a.go(`${BASE}/marketer`) },
-                            { label: "Prepare for interview", icon: <VideoIcon size={15} />, disabled: r.stage !== "INTERVIEWING", onSelect: () => a.go(`${BASE}/interview-prep`) },
+                            { label: "Prepare for interview", icon: <VideoIcon size={15} />, disabled: r.stage !== "INTERVIEWING", onSelect: () => a.go(`${BASE}/interviews?tab=prepare`) },
                           ]}
                         />
                       </span>
@@ -274,139 +188,6 @@ function Applications({ view, query, onQuery, a, busy }: { view: ApplicationsVie
           </span>
         </nav>
       ) : null}
-    </Card>
-  );
-}
-
-/* ── pipeline summary (plain CSS bars) ──────────────────────────────────────────────── */
-
-const FUNNEL_BAR: Record<FunnelKey, string> = {
-  TOTAL: "bg-accent",
-  UNDER_REVIEW: "bg-accent/60",
-  INTERVIEWING: "bg-v2-violet-ink/60",
-  OFFER: "bg-v2-green-ink/60",
-  REJECTED: "bg-v2-coral-ink/60",
-};
-
-function PipelineSummary({ view }: { view: ApplicationsView }) {
-  const total = view.funnel.find((s) => s.key === "TOTAL")?.count ?? 0;
-  return (
-    <Card id="applications-funnel" title="Application Pipeline Summary" icon={FunnelIcon}>
-      {total === 0 ? (
-        <Empty>Nothing in your pipeline yet. Applications will be counted here as they move along.</Empty>
-      ) : (
-        <ul className="space-y-2" aria-label="Pipeline steps">
-          {view.funnel.map((s) => (
-            <li key={s.key} data-funnel={s.key} className="grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_4.6rem] items-center gap-2 text-[13px] sm:grid-cols-[minmax(0,8rem)_minmax(0,1fr)_5rem]">
-              <span className="leading-tight text-ink-soft">{FUNNEL_LABELS[s.key]}</span>
-              <span role="img" aria-label={`${FUNNEL_LABELS[s.key]}: ${s.count}`} className="flex h-7 items-center justify-center">
-                {s.count > 0 ? (
-                  <span className={cn("block h-full", FUNNEL_BAR[s.key])} style={{ width: `${barWidth(s.count, total)}%`, clipPath: "polygon(0 0, 100% 0, 92% 100%, 8% 100%)" }} />
-                ) : (
-                  <span className="block h-0.5 w-6 rounded-full bg-line" />
-                )}
-              </span>
-              <span className="whitespace-nowrap text-right font-semibold tabular-nums text-ink">
-                {s.count}
-                {s.key !== "TOTAL" && s.percent !== null ? <span className="ml-1 font-normal text-muted">({percentText(s.percent)})</span> : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="mt-3 text-[11.5px] text-muted">Shares are of all your applications; closed ones other than rejected are only in the total.</p>
-    </Card>
-  );
-}
-
-/* ── recent status updates ──────────────────────────────────────────────────────────── */
-
-const UPDATE_TONE: Record<string, { icon: ComponentType<IconProps>; chip: string; title: string }> = {
-  blue: { icon: ClockIcon, chip: "bg-accent-soft text-accent-deep", title: "text-ink" },
-  violet: { icon: CalendarIcon, chip: "bg-v2-violet-soft text-v2-violet-ink", title: "text-ink" },
-  green: { icon: TrophyIcon, chip: "bg-v2-green-soft text-v2-green-ink", title: "text-v2-green-ink" },
-  red: { icon: XCircleIcon, chip: "bg-v2-coral-soft text-v2-coral-ink", title: "text-v2-coral-ink" },
-  slate: { icon: FileTextIcon, chip: "bg-paper-2 text-ink-soft", title: "text-ink" },
-};
-
-function RecentUpdates({ view }: { view: ApplicationsView }) {
-  return (
-    <Card id="applications-recent" title="Recent Status Updates" icon={ClockIcon}>
-      {view.recent.length === 0 ? (
-        <Empty>No status updates yet. Stage changes on your applications will show up here.</Empty>
-      ) : (
-        <ol className="space-y-3">
-          {view.recent.map((u) => {
-            const t = updateText(u);
-            const tone = UPDATE_TONE[t.tone];
-            const Icon = tone.icon;
-            return (
-              <li key={u.id} data-update={u.toStage} className="flex items-start gap-2.5">
-                <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-full", tone.chip)}>
-                  <Icon size={17} />
-                </span>
-                <span className="min-w-0 flex-1 text-[13px] leading-snug">
-                  <span className={cn("block font-bold", tone.title)}>{t.title}</span>
-                  <span className="block text-ink-soft">{t.body}</span>
-                  <span className="block text-[11.5px] text-muted">By {ACTOR_LABELS[u.by].toLowerCase()}</span>
-                </span>
-                <span className="flex-none text-right text-[11.5px] leading-snug text-muted">
-                  <span className="block whitespace-nowrap">{formatDate(u.at)}</span>
-                  <span className="block whitespace-nowrap">{formatTime(u.at)}</span>
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </Card>
-  );
-}
-
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-const QUICK: { key: string; label: string; hint: string; icon: ComponentType<IconProps>; href: string | null }[] = [
-  { key: "view-application", label: "View Application", hint: "Check the latest status and details", icon: FileTextIcon, href: null },
-  { key: "update-availability", label: "Update Availability", hint: "Keep your availability up to date", icon: CalendarCheckIcon, href: `${BASE}/profile` },
-  { key: "ask-marketer", label: "Ask Marketer", hint: "Get guidance from your marketer", icon: ChatIcon, href: `${BASE}/marketer` },
-  { key: "prepare-interview", label: "Prepare for Interview", hint: "Access resources and practice", icon: VideoIcon, href: `${BASE}/interview-prep` },
-];
-
-const QUICK_CLS = "flex min-h-[56px] w-full items-center gap-3 rounded-xl border border-line bg-paper p-2.5 text-left hover:bg-paper-2/60";
-
-function QuickActions({ onView, canView }: { onView: () => void; canView: boolean }) {
-  return (
-    <Card id="applications-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="space-y-2.5">
-        {QUICK.map((q) => {
-          const Icon = q.icon;
-          const body = (
-            <>
-              <span aria-hidden className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-accent-soft text-accent-deep">
-                <Icon size={18} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] font-bold leading-tight text-ink">{q.label}</span>
-                <span className="block text-[12px] leading-snug text-muted">{q.hint}</span>
-              </span>
-              <ChevronRightIcon size={16} className="flex-none text-muted" />
-            </>
-          );
-          return (
-            <li key={q.key}>
-              {q.href ? (
-                <Link href={q.href} data-quick={q.key} className={QUICK_CLS}>
-                  {body}
-                </Link>
-              ) : (
-                <button type="button" data-quick={q.key} disabled={!canView} onClick={onView} className={cn(QUICK_CLS, "disabled:opacity-60")}>
-                  {body}
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
     </Card>
   );
 }
@@ -449,7 +230,7 @@ function DetailSheet({ orgId, row, state, onClose, onRetry, go, me }: { orgId: n
               Ask my marketer
             </Button>
             {r.stage === "INTERVIEWING" ? (
-              <Button size="sm" onClick={() => go(`${BASE}/interview-prep`)}>
+              <Button size="sm" onClick={() => go(`${BASE}/interviews?tab=prepare`)}>
                 Prepare for interview
               </Button>
             ) : null}
@@ -513,7 +294,7 @@ function DetailSheet({ orgId, row, state, onClose, onRetry, go, me }: { orgId: n
               </ol>
             )}
           </section>
-          <p className="text-[11.5px] leading-snug text-muted">Applications are submitted by you, outside Kiwiply. This page only follows their progress. Your marketer&apos;s internal notes are not shown here.</p>
+          <p className="text-[11.5px] leading-snug text-muted">You submit applications yourself, on the employer&apos;s site. This page only follows their progress. Your marketer&apos;s internal notes are not shown here.</p>
         </div>
       ) : null}
     </SideSheet>
@@ -524,17 +305,16 @@ function DetailSheet({ orgId, row, state, onClose, onRetry, go, me }: { orgId: n
 
 export interface ApplicationsPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
   /** The consultant's own seat: "by you" in the timeline is decided by it. */
   selfMemberId?: number | null;
 }
 
-export default function ConsultantApplicationsPage({ orgId, firstName: first, selfMemberId }: ApplicationsPageProps) {
+export default function ConsultantApplicationsPage({ orgId, selfMemberId }: ApplicationsPageProps) {
   const router = useRouter();
   const [query, setQuery] = useState<ListQuery>(DEFAULT_QUERY);
   const fetcher = useCallback(() => fetchApplications(orgId, query), [orgId, query]);
   const { view, status, reload } = useWorkspaceData(fetcher);
-  const loading = status === "loading";
   const [open, setOpen] = useState<AppRow | null>(null);
   const [state, setState] = useState<DetailState>(null);
   const [attempt, setAttempt] = useState(0);
@@ -558,39 +338,20 @@ export default function ConsultantApplicationsPage({ orgId, firstName: first, se
 
   return (
     <div data-consultant-applications data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="My Applications" subtitle="Track your job applications, monitor progress, and stay on top of next steps in your career journey." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="My Applications" subtitle="Each application and its next step." />
 
       {status === "failed" ? (
         <ErrorState what="your applications" description="Your applications didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
-        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
-            <section aria-label="Key numbers" data-applications-tiles className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 2xl:grid-cols-5">
-              {TILE_SPECS.map((s, i) => (
-                <Tile key={s.key} spec={s} tile={loading || !view ? null : view.tiles[s.key]} index={i} />
-              ))}
-            </section>
             {view ? (
-              <>
-                <Applications view={view} query={query} onQuery={setQuery} a={actions} busy={busy} />
-                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5 lg:grid-cols-2">
-                  <PipelineSummary view={view} />
-                  <RecentUpdates view={view} />
-                </div>
-              </>
+              <Applications view={view} query={query} onQuery={setQuery} a={actions} busy={busy} />
             ) : (
               <div className="grid gap-4" aria-busy="true">
-                {[0, 1].map((i) => (
-                  <Skeleton key={i} className="h-56 w-full" />
-                ))}
+                <Skeleton className="h-56 w-full" />
               </div>
             )}
-          </div>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-            <BeeCard name={firstName(first)} body="Track your applications, get personalized tips, and prepare for your next interview. I'm here to support you at every step of your journey." />
-            <QuickActions canView={!!view && view.rows.length > 0} onView={() => view && view.rows[0] && setOpen(view.rows[0])} />
           </div>
         </div>
       )}

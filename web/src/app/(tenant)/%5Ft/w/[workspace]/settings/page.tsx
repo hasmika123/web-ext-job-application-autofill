@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import OrgSettingsPage from "@/components/ent/settings/OrgSettingsPage";
 import PageHeader from "@/components/ent/shell/ShellContext";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
@@ -8,7 +9,7 @@ import { catchAllPage } from "@/lib/ent/shell";
 import { can } from "@/lib/ent/workspaces";
 
 /**
- * Organization Settings at `/w/admin/settings`, inside the EnterpriseShell: the workspace layout draws the frame, this page takes the organization
+ * Settings at `/w/admin/settings` (General, Security, Autopilot, Resumes and Policies tabs), inside the EnterpriseShell: the workspace layout draws the frame, this page takes the organization
  * and the permission (`org.settings.manage`) from the tenant session. The menu lists Settings only for that permission; a member who types the URL
  * anyway gets "This isn't part of your role" (the API refuses the calls regardless). The Consultant workspace has its own Settings folder and wins
  * over this one; any other workspace keeps what the catch-all shows for `/settings`.
@@ -29,7 +30,9 @@ export default async function WorkspaceSettingsRoute({ params }: { params: Promi
   return (
     <>
       <PageHeader title="Settings" subtitle="Defaults and policies for your organization." />
-      <OrgSettingsPage orgId={me.org.id} />
+      <Suspense fallback={null}>
+        <OrgSettingsPage orgId={me.org.id} />
+      </Suspense>
     </>
   );
 }

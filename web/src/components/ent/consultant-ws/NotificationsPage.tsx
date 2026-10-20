@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
-  AlertIcon,
   BellIcon,
-  BarChartIcon,
   BriefcaseIcon,
   CalendarIcon,
   CheckCircleIcon,
@@ -15,45 +13,32 @@ import {
   ChevronRightIcon,
   ClipboardCheckIcon,
   ClockIcon,
-  ArchiveIcon,
   ErrorState,
-  EyeOffIcon,
   FileTextIcon,
-  GearIcon,
   HandshakeIcon,
   MailIcon,
   Menu,
   MoreVerticalIcon,
   SearchIcon,
   Skeleton,
-  Sparkline,
-  Switch,
   TrashIcon,
   VideoIcon,
   XIcon,
-  ZapIcon,
-  chartColor,
   cn,
   useToast,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BeeCard, Card, Empty, Pill, useWorkspaceData } from "./parts";
-import { deltaText, firstName } from "@/lib/ent/consultant-ws/home";
+import { Card, Empty, Pill, useWorkspaceData } from "./parts";
 import {
-  ARCHIVED,
   CATEGORIES,
   CATEGORY_LABEL,
   DEFAULT_FILTERS,
   PAGE_SIZE,
-  PERIOD_OPTIONS,
   PRIORITY_LABEL,
   PRIORITY_OPTIONS,
-  SMS_NOTE,
   STATUS_OPTIONS,
   TYPE_OPTIONS,
-  channelSummary,
   deleteNotifications,
   fetchNotifications,
   markAllRead,
@@ -65,18 +50,13 @@ import {
   relativeTime,
   resolveNotifications,
   restorePreferences,
-  savePreference,
-  signed,
   snoozeNotifications,
   snoozeUntil,
   withFilter,
   type Category,
-  type CategoryTile,
   type Filters,
   type NRow,
-  type NTile,
   type NotificationsView,
-  type Pref,
 } from "@/lib/ent/consultant-ws/notifications";
 
 /**
@@ -88,85 +68,6 @@ import {
  */
 
 const UNDO_MS = 6000;
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: keyof NotificationsView["tiles"];
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "unread", title: "Unread Notifications", icon: BellIcon, tone: "accent" },
-  { key: "highPriority", title: "High Priority", icon: AlertIcon, tone: "coral" },
-  { key: "today", title: "Today", icon: CalendarIcon, tone: "accent" },
-  { key: "upcomingReminders", title: "Upcoming Reminders", icon: ClockIcon, tone: "amber" },
-  { key: "resolvedThisWeek", title: "Resolved This Week", icon: CheckCircleIcon, tone: "green" },
-];
-
-/** What sits under the number: a plain count change for the open-item tiles, a percent for Resolved, a fixed phrase for Upcoming Reminders. */
-function TileNote({ spec, tile }: { spec: TileSpec; tile: NTile }) {
-  if (spec.key === "upcomingReminders") return <span className="text-muted">Next 7 days</span>;
-  if (spec.key === "resolvedThisWeek") {
-    const d = deltaText(tile.deltaPct);
-    if (!d) return <span className="text-muted">vs last week</span>;
-    return (
-      <>
-        <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-          {d.dir === "up" ? "↑" : d.dir === "down" ? "↓" : "→"} {d.text}
-        </span>
-        <span>vs last week</span>
-      </>
-    );
-  }
-  // more open items is a worry, more activity today is just a number
-  const good = spec.key === "today" ? tile.delta >= 0 : tile.delta <= 0;
-  return (
-    <>
-      <span data-delta className={cn("font-bold", tile.delta === 0 ? "text-muted" : good ? "text-v2-green-ink" : "text-v2-coral-ink")}>
-        {signed(tile.delta)}
-      </span>
-      <span>{tile.vs === "day" ? "from yesterday" : "since last week"}</span>
-    </>
-  );
-}
-
-function Tile({ spec, tile, index }: { spec: TileSpec; tile: NTile | null; index: number }) {
-  const Icon = spec.icon;
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-[14px]", TONES[spec.tone])}>
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[14px] font-bold leading-tight text-ink">{spec.title}</h3>
-        {tile ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[30px] font-extrabold leading-none tabular-nums text-ink">
-                {tile.value}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 w-[42%] max-w-[84px] flex-none">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              <TileNote spec={spec} tile={tile} />
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── category look ──────────────────────────────────────────────────────────────────── */
 
@@ -312,6 +213,8 @@ function NotificationRow({ row, selected, busy, now, a, onSelect }: { row: NRow;
 }
 
 interface FeedProps {
+  /** The two quick actions that are not reachable anywhere else (Mark all as read, Mute non-critical), drawn in the card header. */
+  headerExtra?: ReactNode;
   view: NotificationsView;
   f: Filters;
   setF: (f: Filters) => void;
@@ -325,7 +228,7 @@ interface FeedProps {
   bulk: { read: () => void; resolve: () => void; remove: () => void };
 }
 
-function Feed({ view, f, setF, q, setQ, selected, setSelected, hidden, busy, a, bulk }: FeedProps) {
+function Feed({ headerExtra, view, f, setF, q, setQ, selected, setSelected, hidden, busy, a, bulk }: FeedProps) {
   const parsed = Date.parse(view.generatedAt); // relative times are measured from the API's clock
   const now = Number.isNaN(parsed) ? 0 : parsed;
   const items = view.notifications.items.filter((r) => !hidden.has(r.id));
@@ -336,7 +239,7 @@ function Feed({ view, f, setF, q, setQ, selected, setSelected, hidden, busy, a, 
   const filtered = f.category !== "" || f.priority !== "" || f.q.trim() !== "" || f.status !== "ACTIVE";
   const tabs: { key: "" | Category; label: string }[] = [{ key: "", label: "All" }, ...CATEGORIES.map((c) => ({ key: c as "" | Category, label: CATEGORY_LABEL[c] }))];
   return (
-    <Card id="notifications-feed" title="All Notifications" icon={BellIcon} className="scroll-mt-4">
+    <Card id="notifications-feed" title="All notifications" icon={BellIcon} className="scroll-mt-4" extra={headerExtra}>
       <div role="tablist" aria-label="Notification types" className="-mx-1 flex gap-1 overflow-x-auto border-b border-line px-1">
         {tabs.map((t) => {
           const on = f.category === t.key;
@@ -450,172 +353,17 @@ function Feed({ view, f, setF, q, setQ, selected, setSelected, hidden, busy, a, 
   );
 }
 
-/* ── by category ────────────────────────────────────────────────────────────────────── */
-
-function CategoryCard({ view, period, onPeriod }: { view: NotificationsView; period: Filters["period"]; onPeriod: (p: Filters["period"]) => void }) {
-  const items: CategoryTile[] = view.categories.items;
-  return (
-    <Card
-      id="notifications-categories"
-      title="Notifications by Category"
-      icon={BarChartIcon}
-      extra={
-        <div className="w-[136px] flex-none">
-          <PillSelect label="Period" value={period} onChange={(v) => onPeriod(v as Filters["period"])} options={PERIOD_OPTIONS} />
-        </div>
-      }
-    >
-      <ul aria-label="Notifications by category" className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 2xl:grid-cols-3">
-        {items.map((c) => {
-          const d = deltaText(c.deltaPct);
-          return (
-            <li key={c.category} data-category-tile={c.category} className="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-paper p-3">
-              <CategoryMark category={c.category} size="sm" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[12.5px] font-semibold text-ink-soft">{CATEGORY_LABEL[c.category]}</p>
-                <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-[12px] text-muted">
-                  <span data-category-count className="text-[22px] font-extrabold leading-none tabular-nums text-ink">
-                    {c.count}
-                  </span>
-                  {d ? (
-                    <span>
-                      <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                        {d.dir === "up" ? "+" : d.dir === "down" ? "-" : ""}
-                        {d.text}
-                      </span>{" "}
-                      vs {view.categories.vs}
-                    </span>
-                  ) : c.count > 0 ? (
-                    <span>New this period</span>
-                  ) : (
-                    <span>None yet</span>
-                  )}
-                </p>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
-  );
-}
-
-/* ── the rail ───────────────────────────────────────────────────────────────────────── */
-
-interface QuickSpec {
-  key: string;
-  label: string;
-  hint: string;
-  icon: ComponentType<IconProps>;
-  disabled?: boolean;
-  onClick: () => void;
-}
-
-function QuickActions({ specs }: { specs: QuickSpec[] }) {
-  return (
-    <Card id="notifications-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        {specs.map((q) => {
-          const Icon = q.icon;
-          return (
-            <li key={q.key} className="min-w-0">
-              <button
-                type="button"
-                data-quick={q.key}
-                disabled={q.disabled}
-                onClick={q.onClick}
-                className="flex h-full min-h-[64px] w-full items-center gap-2.5 rounded-xl border border-line bg-paper p-2.5 text-left hover:bg-paper-2/60 disabled:opacity-60"
-              >
-                <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES.accent)}>
-                  <Icon size={18} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[13px] font-bold leading-tight text-ink">{q.label}</span>
-                  <span className="block text-[11.5px] leading-snug text-muted">{q.hint}</span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
-  );
-}
-
-function PrefRow({ pref, open, onToggleOpen, onSave }: { pref: Pref; open: boolean; onToggleOpen: () => void; onSave: (patch: { enabled?: boolean; email?: boolean; inApp?: boolean }) => void }) {
-  const label = CATEGORY_LABEL[pref.category];
-  return (
-    <li data-pref={pref.category} data-enabled={pref.enabled} className="py-2">
-      <div className="flex items-center gap-2.5">
-        <CategoryMark category={pref.category} size="sm" />
-        <button type="button" aria-expanded={open} aria-label={`${label} channels`} onClick={onToggleOpen} className="min-w-0 flex-1 text-left">
-          <span className="block truncate text-[13px] font-bold leading-tight text-ink">{label}</span>
-          <span className="block truncate text-[11.5px] leading-snug text-muted">{pref.enabled ? channelSummary(pref) : "Off"}</span>
-        </button>
-        <Switch checked={pref.enabled} onCheckedChange={(on) => onSave({ enabled: on })} aria-label={`${label} notifications`} />
-        <button type="button" aria-label={`${open ? "Hide" : "Show"} ${label} channels`} onClick={onToggleOpen} className="grid h-7 w-7 flex-none place-items-center rounded-lg text-muted hover:bg-paper-2">
-          <ChevronRightIcon size={15} className={cn("transition-transform", open && "rotate-90")} />
-        </button>
-      </div>
-      {open ? (
-        <div className="ml-[46px] mt-2 grid gap-1.5 text-[12.5px] text-ink-soft">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={pref.email} onChange={(e) => onSave({ email: e.target.checked })} className="h-4 w-4 accent-[var(--brand-solid,var(--color-accent))]" />
-            Email
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={pref.inApp} onChange={(e) => onSave({ inApp: e.target.checked })} className="h-4 w-4 accent-[var(--brand-solid,var(--color-accent))]" />
-            In-app
-          </label>
-          <label className="flex items-center gap-2 text-muted">
-            <input type="checkbox" checked={false} disabled aria-describedby={`sms-note-${pref.category}`} className="h-4 w-4" />
-            SMS
-            <span id={`sms-note-${pref.category}`} className="text-[11.5px]">
-              {SMS_NOTE}
-            </span>
-          </label>
-          {pref.critical ? <p className="text-[11.5px] text-muted">Time-sensitive: Mute Notifications leaves this on.</p> : null}
-        </div>
-      ) : null}
-    </li>
-  );
-}
-
-function PrefsCard({ view, onSave }: { view: NotificationsView; onSave: (c: Category, patch: { enabled?: boolean; email?: boolean; inApp?: boolean }) => void }) {
-  const [open, setOpen] = useState<Category | null>(null);
-  return (
-    <section id="notifications-prefs" aria-labelledby="notifications-prefs-title" data-home-card="notifications-prefs" className="flex min-w-0 scroll-mt-4 flex-col rounded-[var(--radius-lg)] border border-line bg-paper p-4 sm:p-5">
-      <header className="flex min-h-9 items-center gap-2.5">
-        <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-[10px]", TONES.accent)}>
-          <GearIcon size={19} />
-        </span>
-        <h2 id="notifications-prefs-title" tabIndex={-1} className="min-w-0 flex-1 text-[16.5px] font-bold text-ink">
-          Notification Preferences
-        </h2>
-      </header>
-      <p className="mt-2 text-[12px] leading-snug text-muted">These are your settings only. Nothing is emailed or texted from here yet. SMS isn&apos;t available yet.</p>
-      <ul aria-label="Notification preferences" className="mt-1 divide-y divide-line">
-        {view.prefs.map((p) => (
-          <PrefRow key={p.category} pref={p} open={open === p.category} onToggleOpen={() => setOpen(open === p.category ? null : p.category)} onSave={(patch) => onSave(p.category, patch)} />
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
 
 export interface NotificationsPageProps {
   orgId: number;
-  firstName: string;
 }
 
-export default function ConsultantNotificationsPage({ orgId, firstName: first }: NotificationsPageProps) {
+export default function ConsultantNotificationsPage({ orgId }: NotificationsPageProps) {
   const toast = useToast();
   const [f, setF] = useState<Filters>(DEFAULT_FILTERS);
   const [q, setQ] = useState("");
-  const { view, status, reload, setView } = useWorkspaceData(useCallback(() => fetchNotifications(orgId, f), [orgId, f]));
-  const loading = status === "loading";
+  const { view, status, reload } = useWorkspaceData(useCallback(() => fetchNotifications(orgId, f), [orgId, f]));
   const [selected, setSelected] = useState<Set<number>>(() => new Set());
   const [hidden, setHidden] = useState<Set<number>>(() => new Set());
   const [busy, setBusy] = useState(false);
@@ -703,14 +451,6 @@ export default function ConsultantNotificationsPage({ orgId, firstName: first }:
     remove: () => removeIds(ids, `${ids.length} selected`),
   };
 
-  const savePref = async (category: Category, patch: { enabled?: boolean; email?: boolean; inApp?: boolean }) => {
-    if (view) setView({ ...view, prefs: view.prefs.map((p) => (p.category === category ? { ...p, ...patch } : p)) });
-    setNotice("");
-    const res = await savePreference(orgId, category, patch);
-    if (!res.ok) setNotice(res.message ?? "We couldn't save that preference. Nothing has changed.");
-    await reload();
-  };
-
   const mute = async () => {
     setBusy(true);
     setNotice("");
@@ -735,60 +475,15 @@ export default function ConsultantNotificationsPage({ orgId, firstName: first }:
     await reload();
   };
 
-  const scrollTo = (id: string) => {
-    const el = document.getElementById(id);
-    el?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    el?.querySelector<HTMLElement>("h2")?.focus?.();
-  };
-
-  const quick: QuickSpec[] = [
-    {
-      key: "mark-all",
-      label: "Mark All as Read",
-      hint: "Clear your unread notifications",
-      icon: MailIcon,
-      disabled: busy,
-      onClick: () => void run(() => markAllRead(orgId), "We couldn't mark everything as read.", "All notifications marked as read"),
-    },
-    { key: "preferences", label: "Manage Preferences", hint: "Choose what notifications you receive", icon: GearIcon, onClick: () => scrollTo("notifications-prefs") },
-    {
-      key: "mute",
-      label: "Mute Notifications",
-      hint: view?.muted ? "Non-critical ones are already paused" : "Pause non-critical notifications",
-      icon: EyeOffIcon,
-      disabled: busy || view?.muted === true,
-      onClick: () => void mute(),
-    },
-    {
-      key: "archived",
-      label: "View Archived",
-      hint: "See your resolved notifications",
-      icon: ArchiveIcon,
-      onClick: () => {
-        changeFilters(withFilter(DEFAULT_FILTERS, { status: ARCHIVED, period: f.period }));
-        scrollTo("notifications-feed");
-      },
-    },
-  ];
-
   if (status === "denied") return <ErrorState what="your workspace" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
 
   return (
     <div data-consultant-notifications data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Notifications" subtitle="Stay updated on applications, interviews, approvals, offers, and your career activity." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-
       {status === "failed" ? (
         <ErrorState what="your notifications" description="Your notifications didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <>
-          <section aria-label="Key numbers" data-notifications-tiles className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
-            {TILE_SPECS.map((s, i) => (
-              <Tile key={s.key} spec={s} tile={loading || !view ? null : view.tiles[s.key]} index={i} />
-            ))}
-          </section>
-          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.36fr)]">
+          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5">
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
               {view ? (
                 <>
@@ -797,21 +492,38 @@ export default function ConsultantNotificationsPage({ orgId, firstName: first }:
                       {notice}
                     </p>
                   ) : null}
-                  <Feed view={view} f={f} setF={changeFilters} q={q} setQ={setQ} selected={selected} setSelected={setSelected} hidden={hidden} busy={busy} a={rowActions} bulk={bulk} />
-                  <CategoryCard view={view} period={f.period} onPeriod={(period) => setF((cur) => ({ ...cur, period }))} />
+                  <Feed
+                    headerExtra={
+                      <span className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                        <button type="button" data-mark-all disabled={busy} onClick={() => void run(() => markAllRead(orgId), "We couldn't mark everything as read.", "All notifications marked as read")} className={BTN_OUTLINE}>
+                          Mark all as read
+                        </button>
+                        <button type="button" data-mute disabled={busy || view.muted} onClick={() => void mute()} className={BTN_OUTLINE}>
+                          Mute non-critical
+                        </button>
+                        <Link href="/me#notifications" data-notification-prefs className={BTN_OUTLINE}>
+                          Notification preferences
+                        </Link>
+                      </span>
+                    }
+                    view={view}
+                    f={f}
+                    setF={changeFilters}
+                    q={q}
+                    setQ={setQ}
+                    selected={selected}
+                    setSelected={setSelected}
+                    hidden={hidden}
+                    busy={busy}
+                    a={rowActions}
+                    bulk={bulk}
+                  />
                 </>
               ) : (
                 <div className="grid gap-4" aria-busy="true">
-                  {[0, 1].map((i) => (
-                    <Skeleton key={i} className="h-56 w-full" />
-                  ))}
+                  <Skeleton className="h-56 w-full" />
                 </div>
               )}
-            </div>
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-              <BeeCard name={firstName(first)} title="Your career companion, here to help!" body="Get timely notifications and never miss important career updates. I'll help you understand your notifications and take the next steps." />
-              <QuickActions specs={quick} />
-              {view ? <PrefsCard view={view} onSave={(c, patch) => void savePref(c, patch)} /> : null}
             </div>
           </div>
         </>

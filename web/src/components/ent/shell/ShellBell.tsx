@@ -21,7 +21,7 @@ const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit
  * that answers anything but 200 for a tenant session (the API may not serve it on tenant tokens yet) the panel shows an honest
  * empty state instead of an error. Opening the panel marks everything read (as the regular bell does).
  */
-export default function ShellBell() {
+export default function ShellBell({ seeAllHref }: { /** Where "See all" at the foot of the panel goes (the Consultant workspace's Activity page); nothing is drawn when there is none. */ seeAllHref?: string }) {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Item[]>([]);
   const [state, setState] = useState<"loading" | "ok" | "unavailable">("loading");
@@ -135,6 +135,11 @@ export default function ShellBell() {
               </li>
             )}
           </ul>
+          {seeAllHref ? (
+            <Link href={seeAllHref} data-bell-see-all onClick={() => setOpen(false)} className="block border-t border-line px-4 py-3 text-center text-[13.5px] font-semibold text-accent-deep hover:bg-paper-2">
+              See all
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </div>

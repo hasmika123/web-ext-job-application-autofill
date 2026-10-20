@@ -2,15 +2,13 @@
 
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
-import { DeltaChip, MoreVerticalIcon, Skeleton, Sparkline, SparklesIcon, ChevronRightIcon, chartColor, cn } from "@kiwiply/ui";
+import { DeltaChip, MoreVerticalIcon, Skeleton, Sparkline, chartColor, cn } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import { openHelpPanel } from "@/components/ent/shell/ShellContext";
 import { deltaFromPct } from "@/lib/ent/dashboard";
-import { HELP_BANNER } from "@/lib/ent/marketer-ws/home";
 
 /**
  * Shared building blocks of the Marketing workspace boards (every page under `/w/marketing/**`). A page imports these instead of
- * re-drawing a KPI tile, a card header or the bee help card, so all eleven boards stay one design. Colours come only from the
+ * re-drawing a KPI tile or a card header, so all the boards stay one design. Colours come only from the
  * tenant tokens (`bg-accent-soft`, `text-accent-deep`, `bg-v2-*-soft`); never a hex literal (ESLint enforces it).
  */
 
@@ -22,6 +20,13 @@ export interface MktPageProps {
   hrefs: Record<string, string | null>;
   /** The viewer's own seat (`me.member.id`): "you" in an "Updated ... by ..." line is decided by it. */
   selfMemberId?: number | null;
+  /** The page is one tab of a merged page (Jobs, Tasks): the wrapper owns the title and subtitle, so this page draws no `PageHeader` of its own. */
+  embedded?: boolean;
+}
+
+/** `href` with one more query parameter, whether or not it already has a query (a menu alias such as `/jobs?tab=matches` does). */
+export function withQuery(href: string, key: string, value: string | number): string {
+  return `${href}${href.includes("?") ? "&" : "?"}${key}=${encodeURIComponent(String(value))}`;
 }
 
 export const CARD = "min-w-0 rounded-[var(--radius-lg)] border border-line bg-paper p-4";
@@ -80,10 +85,12 @@ export function CardSkeleton({ rows = 3 }: { rows?: number }) {
  * (`value === null`) is "Nothing yet", never a made-up zero; a missing delta draws no chip.
  */
 export function KpiTile({
-  id, title, icon: Icon, tint, value, deltaPct, versus = "vs last month", sparkline, sparkIndex = 1, loading, layout = "stacked", lowerIsBetter,
+  id, title, icon: Icon, tint, value, deltaPct, versus = "vs last month", sparkline, sparkIndex = 1, loading, layout = "stacked", lowerIsBetter, plainDelta,
 }: {
   id: string; title: string; icon: ComponentType<IconProps>; tint: TintName; value: number | string | null; deltaPct?: number | null; versus?: string;
   sparkline?: number[]; sparkIndex?: number; loading?: boolean;
+  /** Write the delta as text, "+9% vs last month", with no arrow glyph and no "Up" (the sign carries the direction for a screen reader too). */
+  plainDelta?: boolean;
   /** `stacked`: icon, title, number (Home, Talent, Resumes...). `inline`: icon left of title+number (Follow-ups, Applications). */
   layout?: "stacked" | "inline"; lowerIsBetter?: boolean;
 }) {
@@ -110,7 +117,12 @@ export function KpiTile({
         ) : null}
       </div>
       <p className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted">
-        {delta ? (
+        {delta && plainDelta ? (
+          <span data-delta className={cn("font-semibold", delta.dir === "flat" ? "text-muted" : (delta.dir === "up") !== Boolean(lowerIsBetter) ? "text-v2-green-ink" : "text-v2-pink-ink")}>
+            {delta.dir === "up" ? "+" : delta.dir === "down" ? "-" : ""}
+            {delta.text} <span className="font-normal text-muted">{versus}</span>
+          </span>
+        ) : delta ? (
           <>
             <DeltaChip delta={delta} lowerIsBetter={lowerIsBetter} />
             <span>{versus}</span>
@@ -136,25 +148,6 @@ export function KpiTile({
           {number}
         </>
       )}
-    </section>
-  );
-}
-
-/** The bee help card (photo banner on top, headline, copy, "Ask a question" button that opens the shared help panel). */
-export function HelpBannerCard({ title, body, ask = "Ask a question", className }: { title: string; body: string; ask?: string; className?: string }) {
-  return (
-    <section aria-label="Help" data-home-card="help" className={cn("flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper", className)}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- the approved board art, served as is */}
-      <img src={HELP_BANNER} alt="" className="block w-full object-cover" />
-      <div className="p-4">
-        <h2 className="text-[19px] font-extrabold leading-tight text-ink">{title}</h2>
-        <p className="mt-1.5 text-[13.5px] leading-snug text-muted">{body}</p>
-        <button type="button" onClick={openHelpPanel} className="mt-4 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft/70">
-          <SparklesIcon size={17} className="flex-none" />
-          <span className="min-w-0 flex-1 truncate">{ask}</span>
-          <ChevronRightIcon size={16} className="flex-none" />
-        </button>
-      </div>
     </section>
   );
 }

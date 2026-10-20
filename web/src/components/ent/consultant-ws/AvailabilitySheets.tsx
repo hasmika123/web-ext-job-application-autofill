@@ -336,7 +336,7 @@ function PrefsForm({ view, onClose, onSave }: { view: AvailabilityView; onClose:
         </Field>
       </Group>
       <p className={NOTE}>
-        The rate is only recorded so your marketer knows your range; nothing is charged or paid through Kiwiply. Locations, employment types and work authorization are edited on{" "}
+        The rate is only recorded so your marketer knows your range; nothing is charged or paid here. Locations, employment types and work authorization are edited on{" "}
         <Link href={`${BASE}/profile`} className="font-semibold text-accent-deep hover:underline">
           My Career Profile
         </Link>

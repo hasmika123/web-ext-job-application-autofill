@@ -77,6 +77,18 @@ public class InboxPoller {
         }
     }
 
+    /**
+     * "Check now" from the consultant's Inbox page: read that one inbox straight away, in the background, through the same gate a scheduled round
+     * applies (entitlement, a usable key). The 15-minute round is unchanged; this only brings one read forward.
+     */
+    @Async
+    public void checkNow(Long userId) {
+        if (!box.usable() || userId == null) return;
+        connections.findById(userId).ifPresent(c -> {
+            if (reconcile(c)) sync.sync(userId);
+        });
+    }
+
     /** Straight after a connect is committed: read that inbox now, in the background. */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)

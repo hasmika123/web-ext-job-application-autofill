@@ -24,7 +24,7 @@ export default async function WorkspaceConsultantsRoute({ params }: { params: Pr
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
   return (
     <Suspense fallback={null}>
-      <ConsultantsPage orgId={me.org.id} orgName={me.org.displayName} permissions={me.permissions} supportEmail={null} />
+      <ConsultantsPage orgId={me.org.id} permissions={me.permissions} />
     </Suspense>
   );
 }

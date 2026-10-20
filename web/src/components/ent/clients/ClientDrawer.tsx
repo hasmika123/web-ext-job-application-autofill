@@ -173,11 +173,11 @@ function Notes({ d, orgId, replace, onChanged, expanded, onExpand }: { d: Client
   return (
     <section aria-label="Relationship notes" data-notes>
       <SectionHead
-        title="Relationship Notes"
+        title="Relationship notes"
         action={
           d.noteCount > 1 && !expanded ? (
             <LinkButton onClick={onExpand} label="View all relationship notes">
-              View All
+              View all
             </LinkButton>
           ) : d.access.canManage && !composing ? (
             <LinkButton onClick={() => setComposing(true)} label="Add a relationship note">
@@ -246,7 +246,7 @@ function Overview({ d, p, replace, save, editing, notesOpen, onNotesOpen, onLeft
 
       <hr className="border-[var(--ent-table-line)]" />
       <section aria-label="Key contacts" data-key-contacts>
-        <SectionHead title="Key Contacts" action={d.contactCount > 3 || d.contactCount > 0 ? <LinkButton onClick={() => p.onTab("contacts")} label="View all contacts">View All</LinkButton> : undefined} />
+        <SectionHead title="Key contacts" action={d.contactCount > 3 || d.contactCount > 0 ? <LinkButton onClick={() => p.onTab("contacts")} label="View all contacts">View all</LinkButton> : undefined} />
         {d.contacts.length === 0 ? (
           <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-ink-soft">No contacts yet.</p>
         ) : (
@@ -260,7 +260,7 @@ function Overview({ d, p, replace, save, editing, notesOpen, onNotesOpen, onLeft
 
       <hr className="border-[var(--ent-table-line)]" />
       <section aria-label="Recent requirements" data-recent-requirements>
-        <SectionHead title="Recent Requirements" action={d.requirementCount > 0 ? <LinkButton onClick={() => p.onTab("requirements")} label="View all requirements">View All</LinkButton> : undefined} />
+        <SectionHead title="Recent requirements" action={d.requirementCount > 0 ? <LinkButton onClick={() => p.onTab("requirements")} label="View all requirements">View all</LinkButton> : undefined} />
         {d.requirements.length === 0 ? (
           <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-ink-soft">No requirements yet.</p>
         ) : (
@@ -280,7 +280,7 @@ function Overview({ d, p, replace, save, editing, notesOpen, onNotesOpen, onLeft
 
       <hr className="border-[var(--ent-table-line)]" />
       <section aria-label="Recent submissions" data-recent-submissions>
-        <SectionHead title="Recent Submissions" action={subsHref ? <LinkButton href={subsHref} label="View all submissions">View All</LinkButton> : undefined} />
+        <SectionHead title="Recent submissions" action={subsHref ? <LinkButton href={subsHref} label="View all submissions">View all</LinkButton> : undefined} />
         {d.submissions.length === 0 ? (
           <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-ink-soft">No one has been submitted to this client yet.</p>
         ) : (
@@ -521,7 +521,7 @@ export default function ClientDrawer(p: ClientDrawerProps) {
           )}
           {d.access.canCreateRequirement && (
             <Button type="button" variant="ghost" className={`!min-h-10 !rounded-[10px] !border-[var(--ent-control-border)] !bg-white !text-[13px] !text-accent-deep ${d.access.canManage ? "" : "col-span-2"}`} onClick={() => p.onCreateRequirement(d)} data-create-requirement>
-              <FileTextIcon size={16} aria-hidden /> Create Requirement
+              <FileTextIcon size={16} aria-hidden /> Create requirement
             </Button>
           )}
           {placementsHref && (

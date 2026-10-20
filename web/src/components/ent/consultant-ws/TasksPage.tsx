@@ -1,46 +1,30 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertIcon,
   ArrowDownIcon,
   ArrowUpIcon,
-  BriefcaseIcon,
   Button,
-  CalendarCheckIcon,
-  CalendarIcon,
-  CheckCircleIcon,
   CheckIcon,
-  ClipboardCheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ClockIcon,
-  DonutChart,
   Dialog,
   ErrorState,
-  FileTextIcon,
-  MessageIcon,
   Menu,
   MoreVerticalIcon,
   PencilIcon,
   PlusIcon,
   SearchIcon,
   Skeleton,
-  Sparkline,
   TrashIcon,
   UserIcon,
-  ZapIcon,
-  chartColor,
   cn,
   useToast,
 } from "@kiwiply/ui";
-import type { IconProps } from "@kiwiply/ui";
-import { CARD, TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
-import { deltaText, firstName } from "@/lib/ent/consultant-ws/home";
+import { CARD, TONES } from "@/components/ent/dashboard/parts";
+import PageHeader from "@/components/ent/shell/ShellContext";
+import { CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
 import {
   DEFAULT_FILTERS,
   DUE_FILTERS,
@@ -52,7 +36,6 @@ import {
   TABS,
   TYPE_OPTIONS,
   createTask,
-  dateBlock,
   deleteTask,
   dueInfo,
   fetchTasks,
@@ -60,9 +43,7 @@ import {
   priorityLabel,
   priorityTone,
   rangeText,
-  reminderWhen,
   setTaskStatus,
-  shortDate,
   sortBy,
   statusInfo,
   titleProblem,
@@ -76,7 +57,6 @@ import {
   type TaskPriority,
   type TaskRow,
   type TaskStatus,
-  type TaskTile,
   type TaskType,
   type TasksView,
 } from "@/lib/ent/consultant-ws/tasks";
@@ -90,67 +70,6 @@ import {
  */
 
 const UNDO_MS = 6000;
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: keyof TasksView["tiles"];
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "total", title: "Total Tasks", icon: ClipboardCheckIcon, tone: "accent" },
-  { key: "dueToday", title: "Due Today", icon: CalendarIcon, tone: "coral" },
-  { key: "upcoming", title: "Upcoming", icon: ClockIcon, tone: "violet" },
-  { key: "overdue", title: "Overdue", icon: AlertIcon, tone: "coral" },
-  { key: "completedThisWeek", title: "Completed This Week", icon: CheckCircleIcon, tone: "green" },
-];
-
-
-function Tile({ spec, tile, index }: { spec: TileSpec; tile: TaskTile | null; index: number }) {
-  const Icon = spec.icon;
-  const d = tile ? deltaText(tile.deltaPct) : null;
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-[14px]", TONES[spec.tone])}>
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[14px] font-bold leading-tight text-ink">{spec.title}</h3>
-        {tile ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[30px] font-extrabold leading-none tabular-nums text-ink">
-                {tile.value}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 w-[42%] max-w-[84px] flex-none">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              {d ? (
-                <>
-                  <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                    {d.dir === "up" ? "↑" : d.dir === "down" ? "↓" : "→"} {d.text}
-                  </span>
-                  <span>vs last week</span>
-                </>
-              ) : null}
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── small pieces ───────────────────────────────────────────────────────────────────── */
 
@@ -459,164 +378,6 @@ function TaskList({ view, f, setF, busy, hidden, a, onNew }: { view: TasksView; 
   );
 }
 
-/* ── bottom row ─────────────────────────────────────────────────────────────────────── */
-
-function FocusCard({ view, busy, onToggle }: { view: TasksView; busy: Set<number>; onToggle: (id: number, done: boolean) => void }) {
-  return (
-    <Card id="tasks-focus" title="Today's Focus" icon={CheckCircleIcon}>
-      <p className="-mt-1 mb-2.5 text-[12.5px] font-semibold text-muted">{shortDate(view.today)}</p>
-      {view.focus.length === 0 ? (
-        <Empty>Nothing is due today. Enjoy the calm.</Empty>
-      ) : (
-        <ul aria-label="Today's focus" className="space-y-2.5">
-          {view.focus.map((i) => (
-            <li key={i.taskId} className="flex min-w-0 items-start gap-2.5 text-[13.5px] text-ink">
-              <Check checked={i.done} disabled={busy.has(i.taskId)} label={`${i.done ? "Reopen" : "Complete"} ${i.title}`} onChange={(next) => onToggle(i.taskId, next)} />
-              <span className={cn("min-w-0 flex-1", i.done && "text-muted line-through")}>{i.title}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-function DeadlinesCard({ view, onOpen }: { view: TasksView; onOpen: () => void }) {
-  return (
-    <Card id="tasks-deadlines" title="Upcoming Deadlines" icon={ClockIcon} tone="violet">
-      {view.deadlines.length === 0 ? (
-        <Empty>No upcoming deadlines.</Empty>
-      ) : (
-        <ul aria-label="Upcoming deadlines" className="space-y-2.5">
-          {view.deadlines.map((d) => {
-            const b = dateBlock(d.dueOn);
-            return (
-              <li key={d.taskId}>
-                <button type="button" onClick={onOpen} className="flex w-full items-center gap-2.5 rounded-lg text-left hover:bg-paper-2/60">
-                  <span aria-hidden className="flex h-11 w-10 flex-none flex-col items-center justify-center rounded-lg border border-line bg-paper">
-                    <span className="text-[10px] font-bold leading-none text-v2-coral-ink">{b.month}</span>
-                    <span className="text-[16px] font-extrabold leading-tight text-ink">{b.day}</span>
-                  </span>
-                  <span className="min-w-0 flex-1 text-[13px] leading-snug text-ink">
-                    <span className="line-clamp-2 break-words font-semibold">{d.title}</span>
-                    {d.company ? <span className="block truncate text-[12px] text-muted">{d.company}</span> : null}
-                  </span>
-                  <PriorityPill priority={d.priority} />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-function InsightsCard({ view }: { view: TasksView }) {
-  const i = view.insights;
-  const rows: { label: string; value: number; color: string }[] = [
-    { label: "Completed", value: i.completed, color: "var(--color-v2-green)" },
-    { label: "In Progress", value: i.inProgress, color: "var(--color-v2-blue)" },
-    { label: "Not Started", value: i.notStarted, color: "var(--color-line)" },
-    { label: "Overdue", value: i.overdue, color: "var(--color-v2-coral)" },
-  ];
-  return (
-    <Card id="tasks-insights" title="Task Insights" icon={ZapIcon} tone="amber" extra={<span className="hidden flex-none text-[12.5px] font-semibold text-muted 2xl:inline">All tasks</span>}>
-      {i.total === 0 ? (
-        <Empty>Add a task to see your progress here.</Empty>
-      ) : (
-        <>
-          <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-5 gap-y-3">
-            <DonutChart label="Task completion" size={112} legend={false} total={i.completionPct} totalSuffix="%" slices={rows.map((r) => ({ key: r.label, label: r.label, value: r.value, color: r.color }))} />
-            <ul aria-label="Task counts" className="grid min-w-[9rem] flex-1 grid-cols-[minmax(0,1fr)] gap-y-1.5 text-[13px]">
-              {rows.map((r) => (
-                <li key={r.label} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
-                  <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: r.color }} />
-                  <span className="min-w-0 break-words text-ink-soft">{r.label}</span>
-                  <span className="min-w-[1.5rem] text-right font-bold tabular-nums text-ink">{r.value}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          {i.note ? (
-            <p data-insight-note className="mt-3 rounded-lg bg-accent-soft px-3 py-2 text-[12.5px] leading-snug text-accent-deep">
-              <span className="block font-bold">You&apos;re making great progress!</span>
-              {i.note}
-            </p>
-          ) : null}
-        </>
-      )}
-    </Card>
-  );
-}
-
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-const QUICK: { key: string; label: string; hint: string; href: string; icon: ComponentType<IconProps> }[] = [
-  { key: "resume", label: "Update My Resume", hint: "Keep your profile current", href: `${BASE}/resumes`, icon: FileTextIcon },
-  { key: "matches", label: "View Job Matches", hint: "See new opportunities", href: `${BASE}/matches`, icon: BriefcaseIcon },
-  { key: "prep", label: "Prepare for Interview", hint: "Access practice resources", href: `${BASE}/interview-prep`, icon: CalendarIcon },
-  { key: "availability", label: "Set My Availability", hint: "Update your schedule", href: `${BASE}/availability`, icon: CalendarCheckIcon },
-];
-
-function QuickActions() {
-  return (
-    <Card id="tasks-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        {QUICK.map((q) => {
-          const Icon = q.icon;
-          return (
-            <li key={q.key} className="min-w-0">
-              <Link href={q.href} data-quick={q.key} className="flex h-full min-h-[64px] items-center gap-2.5 rounded-xl border border-line bg-paper p-2.5 hover:bg-paper-2/60">
-                <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES.accent)}>
-                  <Icon size={18} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[13px] font-bold leading-tight text-ink">{q.label}</span>
-                  <span className="block text-[11.5px] leading-snug text-muted">{q.hint}</span>
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
-  );
-}
-
-const REMINDER_ICON: Record<string, ComponentType<IconProps>> = { INTERVIEW: CalendarIcon, SUBMISSION: FileTextIcon, FOLLOW_UP: MessageIcon };
-
-function RemindersCard({ view }: { view: TasksView }) {
-  return (
-    <Card id="tasks-reminders" title="Reminders" icon={AlertIcon} tone="accent">
-      {view.reminders.length === 0 ? (
-        <Empty>No reminders right now.</Empty>
-      ) : (
-        <ul aria-label="Reminders" className="space-y-1">
-          {view.reminders.map((r, i) => {
-            const Icon = REMINDER_ICON[r.kind] ?? ClockIcon;
-            const when = reminderWhen(r.at);
-            return (
-              <li key={`${r.kind}-${i}`}>
-                <Link href={r.href} data-reminder={r.kind} className="flex items-start gap-2.5 rounded-lg p-1.5 hover:bg-paper-2/60">
-                  <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES.accent)}>
-                    <Icon size={18} />
-                  </span>
-                  <span className="min-w-0 flex-1 text-[13px] leading-snug">
-                    <span className="block break-words font-semibold text-ink">{r.title}</span>
-                    {r.subtitle || when ? <span className="block break-words text-[12px] text-muted">{[r.subtitle, when].filter(Boolean).join(" · ")}</span> : null}
-                  </span>
-                  <ChevronRightIcon size={15} className="mt-2.5 flex-none text-muted" />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
 /* ── create / edit dialog ───────────────────────────────────────────────────────────── */
 
 const fieldCls = "mt-1.5 min-h-10 w-full rounded-lg border border-line bg-paper px-3 text-[13.5px] font-normal text-ink";
@@ -724,14 +485,13 @@ function TaskDialogBody({ editing, jobs, busy, error, onCancel, onSave }: { edit
 
 export interface TasksPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
 }
 
-export default function ConsultantTasksPage({ orgId, firstName: first }: TasksPageProps) {
+export default function ConsultantTasksPage({ orgId }: TasksPageProps) {
   const toast = useToast();
   const [f, setF] = useState<Filters>(DEFAULT_FILTERS);
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchTasks(orgId, f), [orgId, f]));
-  const loading = status === "loading";
   const [busy, setBusy] = useState<Set<number>>(() => new Set());
   const [hidden, setHidden] = useState<Set<number>>(() => new Set());
   const [notice, setNotice] = useState("");
@@ -823,20 +583,13 @@ export default function ConsultantTasksPage({ orgId, firstName: first }: TasksPa
 
   return (
     <div data-consultant-tasks data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Tasks & Follow-ups" subtitle="Stay on top of your consultant tasks and follow-ups to keep your career moving forward." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="Tasks" subtitle="What's on your plate, by due date." />
 
       {status === "failed" ? (
         <ErrorState what="your tasks" description="Your tasks didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <>
-          <section aria-label="Key numbers" data-tasks-tiles className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
-            {TILE_SPECS.map((s, i) => (
-              <Tile key={s.key} spec={s} tile={loading || !view ? null : view.tiles[s.key]} index={i} />
-            ))}
-          </section>
-          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.36fr)]">
+          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5">
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
               {view ? (
                 <>
@@ -857,24 +610,12 @@ export default function ConsultantTasksPage({ orgId, firstName: first }: TasksPa
                       setDialog({ editing: null });
                     }}
                   />
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5 lg:grid-cols-3">
-                    <FocusCard view={view} busy={busy} onToggle={(id, done) => void changeStatus(id, done ? "DONE" : "NOT_STARTED", view.focus.find((x) => x.taskId === id)?.title ?? "")} />
-                    <DeadlinesCard view={view} onOpen={() => setF(withTab({ ...DEFAULT_FILTERS }, "WEEK"))} />
-                    <InsightsCard view={view} />
-                  </div>
                 </>
               ) : (
                 <div className="grid gap-4" aria-busy="true">
-                  {[0, 1].map((i) => (
-                    <Skeleton key={i} className="h-56 w-full" />
-                  ))}
+                  <Skeleton className="h-56 w-full" />
                 </div>
               )}
-            </div>
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-              <BeeCard name={firstName(first)} body="Keep track of your consultant tasks, get personalized guidance, and take action on your next steps. I'm here whenever you need support on your journey." />
-              <QuickActions />
-              {view ? <RemindersCard view={view} /> : null}
             </div>
           </div>
         </>

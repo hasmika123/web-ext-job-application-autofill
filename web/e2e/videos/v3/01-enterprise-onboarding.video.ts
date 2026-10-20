@@ -89,12 +89,12 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
 
   // ---- the owner signs in for the first time on the organization's own address
   await narrate(page, "That's the platform admin's part done. Now I become Maya, the owner, and open Brightline's own address.");
-  await openPage(page, `${host}/login`, () => expect(page.getByLabel("User Name")).toBeVisible({ timeout: 45_000 }));
-  await narrate(page, "This is Brightline's own sign-in page. It carries their name already, and in the next video the owner will add their logo and colours.");
+  await openPage(page, `${host}/login`, () => expect(page.getByLabel("Email", { exact: true })).toBeVisible({ timeout: 45_000 }));
+  await narrate(page, "This is Brightline's own sign-in page. It carries their name already, and in the next video the owner will add their logo and colors.");
   await narrateDo(page, "Maya types her work email and the temporary password I gave her.", async () => {
-    await page.getByLabel("User Name").fill(OWNER_EMAIL);
+    await page.getByLabel("Email", { exact: true }).fill(OWNER_EMAIL);
     await page.getByLabel("Password", { exact: true }).fill(tempPassword);
-    await page.getByRole("button", { name: /^Sign In/ }).click();
+    await page.getByRole("button", { name: /^Sign in/ }).click();
     await page.waitForURL(/\/change-password$/, { timeout: 45_000 });
   });
   await expect(page.getByRole("heading", { name: "Choose your password", level: 1 })).toBeVisible();
@@ -112,7 +112,7 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
   // ---- the owner's dashboard and the first-run checklist
   await expect(page.locator("[data-dashboard]")).toBeVisible({ timeout: 45_000 });
   await expect(page.locator("[data-dash-tiles] [data-state=loading]")).toHaveCount(0, { timeout: 45_000 });
-  await narrate(page, "And she's in. This is the Organization Dashboard. She's the Owner, shown by her name at the top.");
+  await narrate(page, "And she's in. This is the Dashboard. She's the Owner, shown by her name at the top.");
   await narrate(page, "The tiles are all empty or zero, because nothing has happened yet. That's right for a brand new organization.", undefined, page.locator("[data-dash-tiles]"));
   const checklist = page.locator('[data-dash-card="checklist"]');
   await expect(checklist).toBeVisible({ timeout: 30_000 });
@@ -121,16 +121,17 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
   // ---- first step: a department
   await narrate(page, "Let's do the first-run setup. I'll start with a department, so people can be grouped the way the company is organized.");
   await checklist.locator('[data-checklist-item="department"] a').first().click();
-  await page.waitForURL(/\/w\/admin\/departments/, { timeout: 30_000 });
-  await page.getByRole("button", { name: "Create Department", exact: true }).first().click();
-  const sheet = page.getByRole("dialog", { name: "Create Department" });
+  // the checklist still links /w/admin/departments, which redirects to the Departments tab of Teams & Departments
+  await page.waitForURL(/\/w\/admin\/teams\?tab=departments/, { timeout: 30_000 });
+  await page.locator('[data-create-group="departments"]').click();
+  const sheet = page.getByRole("dialog", { name: "Create department" });
   await expect(sheet).toBeVisible();
   await narrateDo(page, "Brightline places consultants with clients, so the first department is Delivery.", async () => {
     await sheet.getByLabel(/Department name/).fill("Delivery");
   });
-  await sheet.getByRole("button", { name: "Create Department", exact: true }).click();
-  await expect(page.getByRole("list", { name: "Departments", exact: true }).getByText("Delivery")).toBeVisible({ timeout: 30_000 });
-  await narrate(page, "Delivery is on the board. Every department shows a live head count, which will grow as people join.");
+  await sheet.getByRole("button", { name: "Create department", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Structure", exact: true }).getByText("Delivery")).toBeVisible({ timeout: 30_000 });
+  await narrate(page, "Delivery is in the structure. Every department shows a live head count, which will grow as people join.");
 
   // ---- second step: branding (a first pass; the next video goes deeper)
   await narrate(page, "Back on the dashboard, the checklist has noticed. Next, branding, so the sign-in page and every workspace look like Brightline.");
@@ -143,9 +144,9 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
   await page.waitForURL(/\/w\/admin\/branding/, { timeout: 30_000 });
   await expect(page.locator("[data-branding-page]")).toBeVisible({ timeout: 45_000 });
   await expect(page.locator("[data-draft-badge]")).toBeVisible({ timeout: 30_000 });
-  const primary = page.getByLabel("Primary colour", { exact: true });
+  const primary = page.getByLabel("Primary color", { exact: true });
   await primary.scrollIntoViewIfNeeded();
-  await narrateDo(page, "I'll keep this one simple for now: just a primary colour, a deep teal. The next video does branding properly, with a logo and a live preview.", async () => {
+  await narrateDo(page, "I'll keep this one simple for now: just a primary color, a deep teal. The next video does branding properly, with a logo and a live preview.", async () => {
     await primary.fill("#0f766e");
   });
   await expect(page.locator('[data-draft-badge="differs"]')).toBeVisible({ timeout: 20_000 });
@@ -155,7 +156,7 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
   await page.waitForTimeout(1800);
   await page.locator("[data-publish-confirm]").click();
   await expect(page.locator('[data-draft-badge="live"]')).toBeVisible({ timeout: 30_000 });
-  await narrate(page, "Published. The whole workspace just took on Brightline's colour.");
+  await narrate(page, "Published. The whole workspace just took on Brightline's color.");
 
   // ---- back to the checklist: two of five
   await page.locator('[data-shell-sidebar] [data-nav-item="home"]').click();

@@ -8,12 +8,12 @@ import { assignmentFacts, bffCall, offCamera, orgId, settle } from "./_c";
 /**
  * V3 VIDEO 11: Interviews and interview prep. ONE story: Anika (a consultant at Acme Staffing) keeps her interviews and her preparation in one place,
  * then Omar (her marketer) sees the same interviews and supports her, then Anika records how an interview went.
- * Stories shown: CON-36 (interviews list, calendar, join details and a private prep note), CON-37 (Interview Prep: checklist, practice sessions),
+ * Stories shown: CON-36 (interviews list, calendar, join details and a private prep note), CON-37 (Interviews › Prepare: checklist, practice sessions),
  * CON-70..77 + the inbox review (interview details read from email, on the sample mailbox of the demo stack), MKT-31/32 (the marketer's interviews page).
  *
  * Honest limits: the "Gmail" is the demo stack's built-in sample mailbox (no real Gmail is contacted); practice is self-scored (AI scoring is not built);
  * the app has no calendar-file button inside the organization workspace, so the .ics step shows the file the real endpoint returns.
- * Setup off camera: Omar is made Anika's marketer through the same Marketing Assignments call the admin page makes, so the marketer's view has her interviews.
+ * Setup off camera: Omar is made Anika's marketer through the same Assignments call the admin page makes, so the marketer's view has her interviews.
  */
 const FIXTURE = JSON.parse(readFileSync(resolve(__dirname, "../../../../api/src/main/resources/demo/inbox-demo.json"), "utf8")) as { address: string };
 const ADDRESS = FIXTURE.address;
@@ -70,7 +70,7 @@ test("V3-11 Interviews and interview prep: a consultant prepares, her marketer s
   // =============== Anika: the interviews page
   await f.signInAs("anika");
   await open(page, f.go.bind(f), "interviews");
-  await narrate(page, "I'm Anika, a consultant at Acme Staffing, and this is my Interviews page. Four numbers on top: coming up, this week, done, and waiting for my feedback.", undefined, page.locator("[data-interviews-tiles]"));
+  await narrate(page, "I'm Anika, a consultant at Acme Staffing, and this is my Interviews page. The Schedule tab lists what's coming up, and the Prepare tab helps me get ready.");
   const first = page.locator("[data-interview]").first();
   await narrate(page, "Below is my schedule: the role, the company, and when. My marketer or the client books each one. Kiwiply never books or cancels for me.", undefined, first);
   const day = page.locator("[data-day][data-state]").nth(1);
@@ -104,7 +104,7 @@ test("V3-11 Interviews and interview prep: a consultant prepares, her marketer s
   // =============== Anika: interview details from email
   if (!process.env.V3_SKIP_INBOX) {
     await open(page, f.go.bind(f), "inbox");
-    await narrate(page, "Interviews also arrive by email. My license includes Inbox, so I can connect the Gmail I apply from. This demo uses a built-in sample mailbox, so no real Gmail is touched.");
+    await narrate(page, "Interviews also arrive by email. My license includes Email Tracking, so I can connect the Gmail I apply from. This demo uses a built-in sample mailbox, so no real Gmail is touched.");
     await narrateDo(page, "I type the Gmail address and an app password. It is kept encrypted and never shown again.", async () => {
       await page.getByLabel("Gmail address").fill(ADDRESS);
       await page.getByLabel("App password").fill(CODE);
@@ -161,8 +161,8 @@ test("V3-11 Interviews and interview prep: a consultant prepares, her marketer s
   }
 
   // =============== Anika: interview prep
-  await open(page, f.go.bind(f), "interview-prep");
-  await narrate(page, "Now, preparing. Interview Prep shows my upcoming interviews, my practice score, and question sets suggested from my skills.", undefined, page.locator("[data-prep-tiles]"));
+  await open(page, f.go.bind(f), "interviews?tab=prepare");
+  await narrate(page, "Now, preparing. The Prepare tab shows my practice score, and question sets suggested from my skills.", undefined, page.locator("[data-practice-score]"));
   const unchecked = page.locator("[data-check][aria-checked=false]");
   await narrate(page, "On the right is my Before Interview checklist. I tick things off as I go, and there is an Undo for slips.", undefined, page.getByRole("list", { name: "Before interview checklist" }));
   await unchecked.first().click();
@@ -198,13 +198,7 @@ test("V3-11 Interviews and interview prep: a consultant prepares, her marketer s
   await expect(anikaRow.getByText("Confirmed")).toBeVisible({ timeout: 20_000 });
   await page.locator("[data-card=schedule]").locator("div.overflow-x-auto").first().evaluate((el) => el.scrollTo({ left: 0, behavior: "smooth" })).catch(() => undefined);
   await narrate(page, "He has confirmed the slot with the client, and the row now reads Confirmed.", undefined, anikaRow);
-  const checklist = page.locator("[data-card=checklist]");
-  await narrate(page, "His Preparation Checklist covers sharing the details, sending the invite and the client briefing.", undefined, checklist);
-  const boxes = checklist.locator("input[type=checkbox]:not(:checked)");
-  await boxes.first().check();
-  await settle(page, 1000);
-  await boxes.first().check();
-  await narrate(page, "He ticks off what is done, and requests a reminder for Anika. A request is only recorded here, nothing is sent.", undefined, anikaRow);
+  await narrate(page, "Next he requests a reminder for Anika. A request is only recorded here, nothing is sent.", undefined, anikaRow);
   await rowMenuItem(page, anikaRow, "Request reminder");
   await settle(page, 1500);
 

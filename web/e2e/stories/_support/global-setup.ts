@@ -16,9 +16,9 @@ async function signInDemo(page: Page, p: Persona) {
 async function signInWithPassword(page: Page, p: Persona) {
   const password = process.env.GAMMA_DEMO_PASSWORD;
   if (!password) throw new Error("GAMMA_DEMO_PASSWORD is not set");
-  await page.getByLabel("User Name").fill(p.email ?? "");
+  await page.getByLabel("Email", { exact: true }).fill(p.email ?? "");
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: /^Sign In/ }).click();
+  await page.getByRole("button", { name: /^Sign in/ }).click();
 }
 
 /** Signs one persona in through the real sign-in page and saves the browser state. Returns false (and says why) when the sign-in failed. */

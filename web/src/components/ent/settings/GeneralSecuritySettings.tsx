@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Dialog, ErrorState, Field, GlobeIcon, Input, LockIcon, Select, Skeleton, Textarea, useToast } from "@kiwiply/ui";
+import { Button, Dialog, ErrorState, Field, Input, Select, Skeleton, Textarea, useToast } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
 import { fetchOrgSettings, saveGeneral, saveSecurity, type OrgSettings, type SettingsResult } from "@/lib/ent/org-settings";
 
@@ -11,7 +11,17 @@ import { fetchOrgSettings, saveGeneral, saveSecurity, type OrgSettings, type Set
  * the password minimum, each inside the bounds the platform allows (shown beside the field), saved only with a REASON, and only after a confirm
  * dialog says what changes. The API checks every bound, the reason and the audit; this page draws what it answers.
  */
-export default function GeneralSecuritySettings({ orgId }: { orgId: number }) {
+/** A language code as a person reads it ("en" is English); a code the browser cannot name stays as it is. */
+export function languageLabel(code: string): string {
+  try {
+    const name = new Intl.DisplayNames(["en"], { type: "language" }).of(code);
+    return name ? name.charAt(0).toUpperCase() + name.slice(1) : code;
+  } catch {
+    return code;
+  }
+}
+
+export default function GeneralSecuritySettings({ orgId, section }: { orgId: number; /** Draw one of the two sections (a tab of Settings); both when absent. */ section?: "general" | "security" }) {
   const toast = useToast();
   const [data, setData] = useState<OrgSettings | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "failed" | "denied">("loading");
@@ -125,15 +135,13 @@ export default function GeneralSecuritySettings({ orgId }: { orgId: number }) {
 
   return (
     <>
+      {section !== "security" && (
       <section aria-labelledby="org-set-general" className={`${CARD} p-5`} data-org-general>
-        <div className="flex items-center gap-2">
-          <GlobeIcon size={18} className="text-muted" />
-          <h2 id="org-set-general" className="text-[16px] font-bold text-ink">
-            General
-          </h2>
-        </div>
+        <h2 id="org-set-general" className="text-[16px] font-bold text-ink">
+          General
+        </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Legal name" hint="The name on your agreement. Ask Kiwiply support to change it.">
+          <Field label="Legal name" hint="The name on your agreement. Ask support to change it.">
             <Input value={data.general.legalName} readOnly disabled />
           </Field>
           <Field label="Display name" hint="Shown to your people on the sign-in page and in e-mails.">
@@ -143,9 +151,9 @@ export default function GeneralSecuritySettings({ orgId }: { orgId: number }) {
             <Select aria-label="Time zone" value={timeZone} onChange={setTimeZone} options={zones.map((z) => ({ value: z, label: z }))} />
           </Field>
           <Field label="Default language">
-            <Select aria-label="Default language" value={locale} onChange={setLocale} options={data.locales.map((l) => ({ value: l, label: l }))} />
+            <Select aria-label="Default language" value={locale} onChange={setLocale} options={data.locales.map((l) => ({ value: l, label: languageLabel(l) }))} />
           </Field>
-          <Field label="Contact e-mail" hint="Shown on your support page so people know where to write. Use a shared work address.">
+          <Field label="Contact email" hint="Shown on your support page so people know where to write. Use a shared work address.">
             <Input type="email" value={contact} maxLength={254} placeholder="support@yourcompany.com" onChange={(e) => setContact(e.target.value)} />
           </Field>
         </div>
@@ -160,14 +168,13 @@ export default function GeneralSecuritySettings({ orgId }: { orgId: number }) {
           </Button>
         </div>
       </section>
+      )}
 
+      {section !== "general" && (
       <section aria-labelledby="org-set-security" className={`${CARD} p-5`} data-org-security>
-        <div className="flex items-center gap-2">
-          <LockIcon size={18} className="text-muted" />
-          <h2 id="org-set-security" className="text-[16px] font-bold text-ink">
-            Security
-          </h2>
-        </div>
+        <h2 id="org-set-security" className="text-[16px] font-bold text-ink">
+          Security
+        </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Sign out after being idle (minutes)" hint={`Between ${b.sessionTimeoutMin} and ${b.sessionTimeoutMax}. Empty keeps the platform default.`}>
             <Input inputMode="numeric" value={timeout} placeholder="Platform default" onChange={(e) => setTimeoutText(e.target.value)} />
@@ -192,6 +199,7 @@ export default function GeneralSecuritySettings({ orgId }: { orgId: number }) {
           </Button>
         </div>
       </section>
+      )}
 
       <Dialog
         open={confirm}

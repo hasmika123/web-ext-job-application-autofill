@@ -22,7 +22,7 @@ export default async function WorkspaceBrandingRoute() {
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
   return (
     <>
-      <PageHeader title="Organization Branding" subtitle="Make the portal yours before anyone sees it." />
+      <PageHeader title="Branding" subtitle="Make the portal yours before anyone sees it." />
       <BrandingPage orgId={me.org.id} orgName={me.org.displayName} />
     </>
   );

@@ -43,16 +43,13 @@ test.describe("clients (real stack)", () => {
     await openClients(page, base);
     await expect(page.locator("[data-clients-page]")).toBeVisible();
 
-    // the four tiles come from the seeded rows; the first client opens in the docked drawer
+    // the two tiles come from the seeded rows; the first client opens in the docked drawer
     const kpi = (k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
     await expect(kpi("totalClients")).toHaveText(/^\d+$/);
     const total0 = Number(await kpi("totalClients").innerText());
-    const fresh0 = Number(await kpi("newThisMonth").innerText());
     expect(total0).toBeGreaterThanOrEqual(24);
-    await expect(page.locator("[data-kpi=totalClients] [data-kpi-delta]")).toContainText("vs last month");
     await expect(rows(page)).toHaveCount(10);
     await expect(page.locator("[data-client-drawer] [data-detail-body]")).toBeVisible();
-    await expect(page.locator("[data-help-bee]")).toBeVisible();
     await page.screenshot({ path: resolve(shots, "clients-list.png") });
 
     // filter by health through the dropdown: the address and the count follow, every row carries that badge
@@ -133,7 +130,7 @@ test.describe("clients (real stack)", () => {
     await expect(page.locator("[data-requirements-tab]")).toContainText("Journey Platform Engineer");
     await page.getByRole("tab", { name: "Overview" }).click();
 
-    // add a client: it opens in the drawer and the tiles move
+    // add a client: it opens in the drawer and the Clients tile moves
     await page.locator("[data-clear-filters]").click();
     await page.locator("[data-add-client]").click();
     await page.getByPlaceholder("TechCorp Inc.").fill("Journey Logistics");
@@ -141,7 +138,6 @@ test.describe("clients (real stack)", () => {
     await expect(page.getByText("Journey Logistics was added")).toBeVisible();
     await expect(page.locator("[data-client-title]")).toHaveText("Journey Logistics");
     await expect(kpi("totalClients")).toHaveText(String(total0 + 1));
-    await expect(kpi("newThisMonth")).toHaveText(String(fresh0 + 1));
     await page.screenshot({ path: resolve(shots, "clients-added.png") });
     // the same name again is refused
     await page.locator("[data-add-client]").click();

@@ -105,7 +105,7 @@ function viewport({ phone = false, wide = true }: { phone?: boolean; wide?: bool
 function mount(props: Partial<React.ComponentProps<typeof InvitationsPage>> = {}) {
   return render(
     <ToastProvider>
-      <InvitationsPage orgId={2} orgName="Acme" supportEmail="it@acme.com" {...props} />
+      <InvitationsPage orgId={2} {...props} />
     </ToastProvider>,
   );
 }
@@ -143,25 +143,34 @@ afterEach(() => {
 });
 
 describe("the list", () => {
-  it("shows the counters, the rows with status chips, the activity feed and the help card, all from the API", async () => {
+  it("shows the rows with status chips, all from the API, and nothing else around the table", async () => {
     mount();
     await ready("Emily Carter");
-    const kpis = screen.getByRole("list", { name: "Invitation totals" });
-    expect(kpis.querySelector('[data-kpi="PENDING"]')?.textContent).toContain("Pending Invitations");
-    await waitFor(() => expect(kpis.querySelector('[data-kpi="PENDING"]')?.textContent).toContain("2"));
-    expect(kpis.querySelector('[data-kpi="PENDING"]')?.textContent).toContain("3"); // the API's change vs last month
-    expect(kpis.querySelectorAll("svg").length).toBeGreaterThanOrEqual(4); // icons, plus a last-month-to-now curve where the count moved
-    expect(kpis.querySelector('[data-kpi="PENDING"] [data-delta]')).not.toBeNull(); // the change vs last month, as an arrow and a figure
     expect(within(rowOf("Emily Carter")).getByText("Pending")).toBeTruthy();
     expect(within(rowOf("James Wilson")).getByText("Accepted")).toBeTruthy();
     expect(within(rowOf("Olivia Brown")).getByText("Expired")).toBeTruthy();
     expect(within(rowOf("Liam Johnson")).getByText("Revoked")).toBeTruthy();
     expect(within(rowOf("Sophia Martinez")).getByText("+1")).toBeTruthy(); // a second role is a chip, not a column
-    const feed = screen.getByRole("heading", { name: "Recent Invitation Activity" }).closest("section")!;
-    expect(within(feed).getByText("2 hours ago")).toBeTruthy();
-    expect(within(feed).getByText(/accepted their invitation/)).toBeTruthy();
-    expect(within(feed).getByText(/invitation was revoked/)).toBeTruthy();
-    expect(screen.getByText("Need help with invitations?")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Invitation totals" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Recent Invitation Activity" })).toBeNull();
+    expect(screen.queryByText(/Need help with invitations/)).toBeNull();
+    expect(screen.queryByRole("complementary", { name: "Invite Employee" })).toBeNull();
+  });
+
+  it("reports the pending count for the tab label, and reloads when told something was added", async () => {
+    const onPendingChange = vi.fn();
+    const { rerender } = mount({ onPendingChange });
+    await ready("Emily Carter");
+    await waitFor(() => expect(onPendingChange).toHaveBeenCalledWith(2));
+    const before = calls.filter((c) => c.method === "GET" && c.path === "").length;
+    invitations.unshift(row(50, "New Person", "PENDING"));
+    rerender(
+      <ToastProvider>
+        <InvitationsPage orgId={2} onPendingChange={onPendingChange} reloadSignal={1} />
+      </ToastProvider>,
+    );
+    await ready("New Person");
+    expect(calls.filter((c) => c.method === "GET" && c.path === "").length).toBeGreaterThan(before);
   });
 
   it("pages through the API, ten at a time", async () => {
@@ -307,148 +316,25 @@ describe("the bulk bar", () => {
   });
 });
 
-describe("inviting", () => {
-  async function fill(email: string) {
-    const panel = screen.getByRole("complementary", { name: "Invite Employee" });
-    fireEvent.click(within(panel).getByRole("radio", { name: /Send invitation/ })); // the panel opens in "Create account now"; these tests are the invitation flow
-    fireEvent.change(within(panel).getByLabelText(/Email Address/), { target: { value: email } });
-    fireEvent.click(within(panel).getByRole("button", { name: /^Role/ }));
-    fireEvent.click(await within(panel).findByRole("checkbox", { name: /Marketing Specialist/ }));
-    fireEvent.click(within(panel).getByRole("button", { name: "Department" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Marketing" }));
-    return panel;
-  }
-
-  it("sends one invitation with the roles, department and message, resets the form, and Undo revokes it", async () => {
-    mount();
-    await ready("Emily Carter");
-    const panel = await fill("new.person@acme.com");
-    fireEvent.change(within(panel).getByLabelText(/Full Name/), { target: { value: "New Person" } });
-    fireEvent.change(within(panel).getByLabelText(/Personal Message/), { target: { value: "Welcome aboard" } });
-    expect(within(panel).getByText("14/500")).toBeTruthy();
-    // the new invitation exists on the server once it is sent
-    inviteReply = (b) => {
-      invitations.unshift(row(50, "New Person", "PENDING", { email: "new.person@acme.com" }));
-      return { status: 200, body: { batchId: 1, invited: [{ memberId: 50, email: "new.person@acme.com", name: "New Person" }], rows: [{ entry: (b.emails as string[])[0], email: "new.person@acme.com", status: "INVITED", reason: null, memberId: 50 }] } };
-    };
-    fireEvent.click(within(panel).getByRole("button", { name: /Send Invitation/ }));
-    await screen.findByText("Invite sent");
-    const sent = calls.find((c) => c.method === "POST" && c.path === "")!.body;
-    expect(sent).toEqual({ emails: ["new.person@acme.com"], roleIds: [13], fullName: "New Person", departmentGroupId: 21, message: "Welcome aboard" });
-    expect((within(panel).getByLabelText(/Email Address/) as HTMLInputElement).value).toBe("");
-    expect(within(panel).getByText("Invitation sent to new.person@acme.com.")).toBeTruthy();
-    await within(table()).findByText("New Person");
-    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
-    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path === "/50/revoke")).toBe(true));
-    await screen.findByText("Invitation cancelled");
-  });
-
-  it("does not send an incomplete form and says what is missing, field by field", async () => {
-    mount();
-    await ready("Emily Carter");
-    const panel = screen.getByRole("complementary", { name: "Invite Employee" });
-    fireEvent.click(within(panel).getByRole("radio", { name: /Send invitation/ })); // the invitation flow
-    fireEvent.click(within(panel).getByRole("button", { name: /Send Invitation/ }));
-    expect(await within(panel).findByText("Enter the person's email address.")).toBeTruthy();
-    expect(within(panel).getByText("Pick at least one role.")).toBeTruthy();
-    expect(within(panel).getByText("Pick a department.")).toBeTruthy();
-    fireEvent.change(within(panel).getByLabelText(/Email Address/), { target: { value: "not-an-email" } });
-    fireEvent.click(within(panel).getByRole("button", { name: /Send Invitation/ }));
-    expect(await within(panel).findByText("That doesn't look like an email address.")).toBeTruthy();
-    expect(calls.some((c) => c.method === "POST" && c.path === "")).toBe(false);
-  });
-
-  it("shows the API's reason under the address (already a member, malformed) and keeps what was typed", async () => {
-    mount();
-    await ready("Emily Carter");
-    const panel = await fill("sarah@acme.com");
-    inviteReply = () => ({ status: 200, body: { batchId: 1, invited: [], rows: [{ entry: "sarah@acme.com", email: "sarah@acme.com", status: "ALREADY_MEMBER", reason: null, memberId: 1 }] } });
-    fireEvent.click(within(panel).getByRole("button", { name: /Send Invitation/ }));
-    expect(await within(panel).findByText("Already a member of this organization.")).toBeTruthy();
-    expect((within(panel).getByLabelText(/Email Address/) as HTMLInputElement).value).toBe("sarah@acme.com");
-    expect(screen.queryByText("Invite sent")).toBeNull();
-  });
-
-  it("maps a role-ceiling refusal onto the role field", async () => {
-    mount();
-    await ready("Emily Carter");
-    const panel = await fill("x.y@acme.com");
-    inviteReply = () => ({ status: 422, body: { error: "too high", code: "ROLE_CEILING" } });
-    fireEvent.click(within(panel).getByRole("button", { name: /Send Invitation/ }));
-    expect(await within(panel).findByText(/more access than you hold/)).toBeTruthy();
-  });
-
-  it("explains an organization without departments instead of blocking the form", async () => {
-    departments = [];
-    mount();
-    await ready("Emily Carter");
-    const panel = screen.getByRole("complementary", { name: "Invite Employee" });
-    fireEvent.click(within(panel).getByRole("radio", { name: /Send invitation/ })); // the invitation flow
-    await within(panel).findByText(/No departments yet/);
-    fireEvent.change(within(panel).getByLabelText(/Email Address/), { target: { value: "a@acme.com" } });
-    fireEvent.click(within(panel).getByRole("button", { name: /^Role/ }));
-    fireEvent.click(await within(panel).findByRole("checkbox", { name: /Consultant/ }));
-    fireEvent.click(within(panel).getByRole("button", { name: /Send Invitation/ }));
-    await screen.findByText("Invite sent");
-    expect((calls.find((c) => c.method === "POST" && c.path === "")!.body as Record<string, unknown>).departmentGroupId).toBeUndefined();
-  });
-
-  it("bulk invite: one result row per entry, then 'fix the rest' keeps only what failed", async () => {
-    mount();
-    await ready("Emily Carter");
-    fireEvent.click(screen.getByRole("button", { name: /Bulk Invite/ }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText(/Email addresses/), { target: { value: "good@acme.com, Bad Name <bad>\nsarah@acme.com" } });
-    expect(within(dialog).getByText("3 addresses found")).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: /^Role/ }));
-    fireEvent.click(await within(dialog).findByRole("checkbox", { name: /Consultant/ }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Department" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Consulting" }));
-    inviteReply = () => ({
-      status: 200,
-      body: {
-        batchId: 1,
-        invited: [{ memberId: 7, email: "good@acme.com", name: null }],
-        rows: [
-          { entry: "good@acme.com", email: "good@acme.com", status: "INVITED", reason: null, memberId: 7 },
-          { entry: "Bad Name <bad>", email: null, status: "INVALID", reason: "malformed", memberId: null },
-          { entry: "sarah@acme.com", email: "sarah@acme.com", status: "ALREADY_MEMBER", reason: null, memberId: 1 },
-        ],
-      },
-    });
-    fireEvent.click(within(dialog).getByRole("button", { name: /Send 3 invitations/ }));
-    await within(dialog).findByText("1 invited, 2 not.");
-    const result = within(dialog).getByRole("list", { name: "Result for each address" });
-    expect(within(result).getByText("That doesn't look like an email address.")).toBeTruthy();
-    expect(within(result).getByText("Already a member of this organization.")).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: /Fix the 2 that didn.t work/ }));
-    expect((within(dialog).getByLabelText(/Email addresses/) as HTMLTextAreaElement).value).toBe("Bad Name <bad>\nsarah@acme.com");
-  });
-});
-
 describe("states", () => {
-  it("shows the bee and 'Invite your first teammate' when there are no invitations at all", async () => {
+  it("offers 'Invite your first teammate' (which opens Add employee) when there are no invitations at all", async () => {
     invitations = [];
     activity = [];
-    mount();
+    const onAdd = vi.fn();
+    mount({ onAdd });
     await screen.findByText("No invitations yet");
-    const cta = screen.getByRole("button", { name: /Invite your first teammate/ });
-    fireEvent.click(cta);
-    await waitFor(() => expect(document.activeElement).toBe(within(screen.getByRole("complementary", { name: "Invite Employee" })).getByLabelText(/Email Address/)));
-    expect(document.querySelectorAll('img[src*="/ent/bee/"]').length).toBeLessThanOrEqual(1); // one bee per view
+    fireEvent.click(screen.getByRole("button", { name: /Invite your first teammate/ }));
+    expect(onAdd).toHaveBeenCalledTimes(1);
   });
 
-  it("hides the invite panel, the buttons, the checkboxes and the row menus without the invite permission", async () => {
+  it("hides the checkboxes and the row menus without the invite permission", async () => {
     mount({ canInvite: false });
     await ready("Emily Carter");
-    expect(screen.queryByRole("complementary", { name: "Invite Employee" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Bulk Invite/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Invite Employee/ })).toBeNull();
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
     expect(screen.queryAllByRole("button", { name: "Row actions" })).toHaveLength(0);
   });
 
-  it("on a phone the table becomes cards, with a checkbox beside the name and the invite form in a sheet", async () => {
+  it("on a phone the table becomes cards, with a checkbox beside the name", async () => {
     viewport({ phone: true, wide: false });
     mount();
     await ready("Emily Carter");
@@ -456,16 +342,5 @@ describe("states", () => {
     const cards = screen.getByRole("list", { name: "Invitations" });
     expect(within(cards).getAllByRole("listitem")).toHaveLength(5);
     expect(within(cards).getByRole("checkbox", { name: "Select Emily Carter" })).toBeTruthy();
-    expect(screen.queryByRole("complementary", { name: "Invite Employee" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Invite Employee/ }));
-    const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByLabelText(/Email Address/)).toBeTruthy();
-  });
-
-  it("opens the help panel from 'Ask a question...'", async () => {
-    mount();
-    await ready("Emily Carter");
-    fireEvent.click(screen.getByRole("button", { name: /Ask a question/ }));
-    expect(await screen.findByText(/question assistant isn.t switched on/)).toBeTruthy();
   });
 });

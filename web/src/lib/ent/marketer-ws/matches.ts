@@ -10,7 +10,7 @@ import { ASSIGNMENT_CAP, DUPLICATE_BLOCKED, DUPLICATE_WARNING, confirmFields, fi
 export type MatchKpiKey = "matched" | "highConfidence" | "ready" | "stale";
 export const MATCH_KPI_KEYS: MatchKpiKey[] = ["matched", "highConfidence", "ready", "stale"];
 export const MATCH_KPI_TITLES: Record<MatchKpiKey, string> = {
-  matched: "Matched Openings",
+  matched: "Matched openings",
   highConfidence: "High-Confidence Matches",
   ready: "Consultant-Ready Matches",
   stale: "Stale Matches (7+ days)",

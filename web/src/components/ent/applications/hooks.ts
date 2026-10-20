@@ -88,7 +88,7 @@ export function useStageMove(orgId: number | string, onChanged: (d: ApplicationD
       const undo = d.undo;
       toast({
         title: `${d.code} recorded as ${stageLabel(stage)}`,
-        description: "This records what happened. Kiwiply never submits an application for anyone.",
+        description: "This records what happened. Applications are never submitted from here.",
         variant: "success",
         duration: UNDO_MS,
         action: undo

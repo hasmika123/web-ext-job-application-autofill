@@ -170,7 +170,7 @@ async function mount(over: { permissions?: Record<string, string>; url?: string 
   window.history.replaceState(null, "", over.url ?? "/w/admin/resumes");
   const out = render(
     <ToastProvider>
-      <ResumesPage orgId={2} orgName="Acme" workspace="admin" selfMemberId={1} permissions={over.permissions ?? PERMS} supportEmail={null} />
+      <ResumesPage orgId={2} workspace="admin" selfMemberId={1} permissions={over.permissions ?? PERMS} />
     </ToastProvider>,
   );
   await settle(0);
@@ -201,22 +201,18 @@ afterEach(() => {
 });
 
 describe("Resumes: tiles and table", () => {
-  it("shows the four tiles with their sparkline, and a delta only where the API gave one", async () => {
+  it("has no tiles and no Recent updates tab: two tabs, the pending count on the second", async () => {
     await mount();
-    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["total", "primary", "needsApproval", "updatedThisWeek"]);
-    expect(document.querySelector("[data-kpi=total] [data-kpi-value]")?.textContent).toBe("3");
-    expect(document.querySelector("[data-kpi=total] [data-kpi-delta]")?.textContent).toContain("+50%");
-    expect(document.querySelector("[data-kpi=total] [data-kpi-delta]")?.textContent).toContain("vs last month");
-    expect(document.querySelector("[data-kpi=updatedThisWeek] [data-kpi-delta]")?.textContent).toContain("vs last week");
-    expect(document.querySelector("[data-kpi=primary] [data-kpi-delta]")).toBeNull();
-    expect(document.querySelectorAll("[data-kpi-tiles] svg[data-sparkline]")).toHaveLength(4);
+    expect(document.querySelector("[data-kpi]")).toBeNull();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["All", "Pending approval (1)"]);
+    expect(screen.queryByRole("tab", { name: /Recent/ })).toBeNull();
   });
 
   it("lists the resumes with the board columns and the first call carries the default sort", async () => {
     await mount();
     expect(rows().map((r) => r.getAttribute("data-row-id"))).toEqual(["11", "12", "13"]);
     const heads = Array.from(document.querySelectorAll("th")).map((h) => h.textContent?.trim());
-    expect(heads).toEqual(expect.arrayContaining(["Consultant", "Resume Name", "Target Role", "Version", "Primary", "Visibility", "Status", "Last Modified", "Owner"]));
+    expect(heads).toEqual(expect.arrayContaining(["Consultant", "Resume name", "Target role", "Version", "Primary", "Visibility", "Status", "Last modified", "Owner"]));
     expect(rows()[0].textContent).toContain("Jessica Davis Resume");
     expect(rows()[0].textContent).toContain("v3");
     expect(within(rows()[0]).getByText("Primary")).toBeTruthy();
@@ -232,22 +228,23 @@ describe("Resumes: tiles and table", () => {
     expect(first.params.get("tab")).toBe("all");
   });
 
-  it("shows the bee help card once", async () => {
+  it("has no help card", async () => {
     await mount();
-    expect(document.querySelectorAll("[data-help-bee]")).toHaveLength(1);
-    expect(screen.getByText("Manage consultant resumes")).toBeTruthy();
+    expect(document.querySelector("[data-help-bee]")).toBeNull();
+    expect(screen.queryByText("Manage consultant resumes")).toBeNull();
+    expect(screen.queryByText(/Ask a question/)).toBeNull();
   });
 });
 
 describe("Resumes: URL state", () => {
   it("switches tab, writes it to the URL and asks the API for it", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("tab", { name: /Pending Approval/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Pending approval/ }));
     await settle();
     expect(window.location.search).toBe("?tab=pending");
     expect(lists().at(-1)!.params.get("tab")).toBe("pending");
     expect(rows().map((r) => r.getAttribute("data-row-id"))).toEqual(["13"]);
-    fireEvent.click(screen.getByRole("tab", { name: /All Resumes/ }));
+    fireEvent.click(screen.getByRole("tab", { name: "All" }));
     await settle();
     expect(window.location.search).toBe("");
   });
@@ -435,7 +432,7 @@ describe("Resumes: upload", () => {
     );
     fireEvent.click(document.querySelector("[data-upload-open]")!);
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Upload Resume" });
+    const dialog = screen.getByRole("dialog", { name: "Upload resume" });
     expect((within(dialog).getByRole("button", { name: "Add resume" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(within(dialog).getByLabelText("Consultant", { selector: "button" }));
     fireEvent.click(screen.getByRole("option", { name: /Jessica Davis/ }));
@@ -454,7 +451,7 @@ describe("Resumes: upload", () => {
     await mount();
     fireEvent.click(document.querySelector("[data-upload-open]")!);
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Upload Resume" });
+    const dialog = screen.getByRole("dialog", { name: "Upload resume" });
     fireEvent.click(within(dialog).getByLabelText("Consultant", { selector: "button" }));
     fireEvent.click(screen.getByRole("option", { name: /Jessica Davis/ }));
     fireEvent.change(within(dialog).getByLabelText("Resume name"), { target: { value: "Resume" } });
@@ -487,10 +484,9 @@ describe("Resumes: empty and error states", () => {
     expect(screen.getByText("Nothing is waiting for approval")).toBeTruthy();
   });
 
-  it("shows an error with a retry when the list cannot load, and dashes where a tile failed", async () => {
+  it("shows an error with a retry when the list cannot load", async () => {
     overrides.push((c) => (c.method === "GET" && (c.path === "" || c.path === "/counts") ? { status: 500, body: { error: "boom" } } : undefined));
     await mount();
     expect(screen.getByRole("button", { name: /Try again|Retry/ })).toBeTruthy();
-    expect(document.querySelector("[data-kpi=total] [data-kpi-value]")?.textContent).toBe("—");
   });
 });

@@ -9,7 +9,7 @@ export type MarketersState = { status: "loading" } | { status: "error"; message:
 
 /**
  * The left panel: the marketing specialists with their workload (assigned / capacity and a bar that turns amber at 90 percent and red
- * when full), a search and a status filter, Add Marketer, and the summary footer. Selecting a card selects the marketer whose
+ * when full), a search and a status filter, Add Marketer, and the "View workload report" link. Selecting a card selects the marketer whose
  * consultants the table shows; the card's own menu edits capacity or pauses the marketer.
  */
 export default function MarketersPanel({
@@ -60,12 +60,13 @@ export default function MarketersPanel({
           <UsersIcon size={26} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[14.5px] font-extrabold leading-tight text-[var(--ent-title)]">Marketing Specialists</h2>
-          <p className="mt-0.5 text-[10.5px] leading-snug text-[var(--ent-soft)]">View marketer workloads and manage assignments.</p>
+          <h2 data-marketers-count className="text-[14.5px] font-extrabold leading-tight text-[var(--ent-title)]">
+            {data ? `${data.summary.marketers} ${data.summary.marketers === 1 ? "marketer" : "marketers"} · ${data.summary.totalAssigned} assigned` : "Marketers"}
+          </h2>
         </div>
         {canManage && (
           <Button type="button" size="sm" className="ent-btn flex-none" onClick={onAdd} data-add-marketer>
-            <PlusIcon size={14} aria-hidden /> Add Marketer
+            <PlusIcon size={14} aria-hidden /> Add marketer
           </Button>
         )}
       </div>
@@ -76,7 +77,7 @@ export default function MarketersPanel({
           onQuery={onQuery}
           placeholder="Search marketers..."
           label="Search marketers"
-          filters={[{ name: "status", label: "Status", allLabel: "All Statuses", options: [{ value: "ACTIVE", label: "Active" }, { value: "PAUSED", label: "Paused" }] }]}
+          filters={[{ name: "status", label: "Status", allLabel: "All statuses", options: [{ value: "ACTIVE", label: "Active" }, { value: "PAUSED", label: "Paused" }] }]}
           values={{ status }}
           onFilter={(_n, v) => onStatus(v)}
           active={filtered}
@@ -106,7 +107,7 @@ export default function MarketersPanel({
             action={
               !filtered && canManage ? (
                 <Button type="button" onClick={onAdd}>
-                  Add Marketer
+                  Add marketer
                 </Button>
               ) : undefined
             }
@@ -171,44 +172,9 @@ export default function MarketersPanel({
       </div>
 
       {data && (
-        <div className="mt-4 rounded-xl bg-[var(--ent-x-eef4fd)] p-2.5" data-marketers-summary>
-          <div className="flex items-start gap-2.5">
-            <span aria-hidden className="inline-grid h-[34px] w-[34px] flex-none place-items-center rounded-lg bg-[var(--ent-x-dbe9fd)] text-[var(--ent-x-2b72f0)]">
-              <UsersIcon size={20} />
-            </span>
-            <div className="min-w-0">
-              <h3 className="text-[13px] font-extrabold leading-tight text-[var(--ent-title)]">
-                {data.summary.marketers} Marketing {data.summary.marketers === 1 ? "Specialist" : "Specialists"}
-              </h3>
-              <p className="text-[10.5px] leading-snug text-[var(--ent-soft)]">Manage workloads, set coverage, and ensure balanced assignments.</p>
-            </div>
-          </div>
-          <div className="mt-2.5 rounded-lg bg-white p-3">
-            <dl className="grid grid-cols-3 gap-2 [&_dt]:whitespace-nowrap">
-              <div>
-                <dd className="text-[19px] font-extrabold leading-none tabular-nums text-[var(--ent-title)]" data-summary="total">
-                  {data.summary.totalAssigned}
-                </dd>
-                <dt className="mt-1 text-[10.5px] text-[var(--ent-soft)]">Total Assigned</dt>
-              </div>
-              <div>
-                <dd className="text-[19px] font-extrabold leading-none tabular-nums text-[var(--ent-title)]" data-summary="avg">
-                  {data.summary.avgPerMarketer ?? "—"}
-                </dd>
-                <dt className="mt-1 text-[10.5px] text-[var(--ent-soft)]">Avg per Marketer</dt>
-              </div>
-              <div>
-                <dd className="text-[19px] font-extrabold leading-none tabular-nums text-[var(--ent-title)]" data-summary="overloaded">
-                  {data.summary.overloaded}
-                </dd>
-                <dt className="mt-1 text-[10.5px] text-[var(--ent-soft)]">Overloaded</dt>
-              </div>
-            </dl>
-            <button type="button" onClick={onReport} className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-[11.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline sm:min-h-0">
-              View Workload Report <ArrowRightIcon size={13} aria-hidden />
-            </button>
-          </div>
-        </div>
+        <button type="button" onClick={onReport} data-marketers-summary className="mt-3 inline-flex min-h-11 items-center gap-1.5 self-start text-[11.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline sm:min-h-0">
+          View workload report <ArrowRightIcon size={13} aria-hidden />
+        </button>
       )}
     </section>
   );

@@ -21,7 +21,7 @@ test("VIDEO-03 Org admin: dashboard, branding, structure, roles, people, assignm
     await p0.locator("[data-discard-confirm]").click();
     await expect(p0.locator("[data-draft-badge=live]")).toBeVisible({ timeout: 20_000 });
   }
-  await p0.goto(`${hostOf(PERSONAS.sarah)}/w/admin/settings`);
+  await p0.goto(`${hostOf(PERSONAS.sarah)}/w/admin/settings?tab=resumes`);
   await expect(p0.locator("[data-org-settings]")).toBeVisible({ timeout: 30_000 });
   if ((await p0.getByRole("switch", { name: /Share links/ }).getAttribute("aria-checked")) === "true") {
     await p0.getByRole("switch", { name: /Share links/ }).click();
@@ -48,15 +48,15 @@ test("VIDEO-03 Org admin: dashboard, branding, structure, roles, people, assignm
   await f.go("/w/admin");
   await expect(page.locator("[data-dashboard]")).toBeVisible({ timeout: 45_000 });
   await expect(page.locator("[data-dash-tiles] [data-state=loading]")).toHaveCount(0, { timeout: 45_000 });
-  await narrate(page, "Okay, I'm signed in as Sarah. She's the org admin at Acme Staffing, and this is her Organization Dashboard.");
-  await narrate(page, "These tiles give me the whole organization at a glance: consultants, employees, applications, interviews and placements.", undefined, page.locator("[data-dash-tiles]"));
+  await narrate(page, "Okay, I'm signed in as Sarah. She's the org admin at Acme Staffing, and this is her Dashboard.");
+  await narrate(page, "These tiles give me the whole organization at a glance: consultants, open applications, upcoming interviews and active placements.", undefined, page.locator("[data-dash-tiles]"));
   await page.mouse.wheel(0, 520);
-  await narrate(page, "Scrolling down, I get team performance, the pipeline, and a feed of who did what lately.");
+  await narrate(page, "Scrolling down, I get alerts, a feed of who did what lately, the month-by-month numbers and the pipeline.");
   await page.mouse.wheel(0, -900);
 
   // ---- branding: draft -> preview -> publish
-  await narrate(page, "First thing an admin usually does is branding. Let's open Organization Branding from the sidebar.");
-  await page.getByRole("link", { name: "Organization Branding", exact: true }).first().click();
+  await narrate(page, "First thing an admin usually does is branding. Let's open Branding from the sidebar.");
+  await page.getByRole("link", { name: "Branding", exact: true }).first().click();
   await page.waitForURL(/\/w\/admin\/branding/);
   await expect(page.locator("[data-branding-page]")).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('[data-draft-badge="live"]')).toBeVisible({ timeout: 30_000 });
@@ -67,9 +67,9 @@ test("VIDEO-03 Org admin: dashboard, branding, structure, roles, people, assignm
     await page.getByLabel(/Welcome title/).fill(title);
   });
   await expect(page.locator('[data-draft-badge="differs"]')).toBeVisible({ timeout: 20_000 });
-  const secondaryField = page.getByLabel("Secondary colour", { exact: true });
+  const secondaryField = page.getByLabel("Secondary color", { exact: true });
   await secondaryField.scrollIntoViewIfNeeded();
-  await narrateDo(page, "Now let me try a bright amber as the secondary colour.", async () => {
+  await narrateDo(page, "Now let me try a bright amber as the secondary color.", async () => {
     await secondaryField.fill("#f59e0b");
   });
   await expect(page.locator("[data-colour-field=secondary]")).toContainText("too light for white text");
@@ -94,40 +94,41 @@ test("VIDEO-03 Org admin: dashboard, branding, structure, roles, people, assignm
   await page.waitForTimeout(1200);
 
   // ---- departments and teams
-  await narrate(page, "Next, let's look at the structure of the organization. Departments first.");
-  await f.go("/w/admin/departments");
-  await expect(page.getByRole("list", { name: "Departments", exact: true }).getByText("Consulting", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await narrate(page, "Next, let's look at the structure of the organization: Teams & Departments, on the Departments tab.");
+  await f.go("/w/admin/teams?tab=departments");
+  await expect(page.getByRole("region", { name: "Structure", exact: true }).getByText("Consulting", { exact: true })).toBeVisible({ timeout: 30_000 });
   await narrate(page, "Acme already has its departments, each with a live head count. I'll add a new one for Legal, led by Hana.");
-  await page.getByRole("button", { name: "Create Department", exact: true }).first().click();
-  const sheet = page.getByRole("dialog", { name: "Create Department" });
+  await page.locator('[data-create-group="departments"]').click();
+  const sheet = page.getByRole("dialog", { name: "Create department" });
   await sheet.getByLabel(/Department name/).fill(dept);
   await sheet.getByRole("combobox", { name: "Department lead" }).fill("Hana");
   await sheet.getByRole("option", { name: /Hana Petrov/ }).getByRole("button").click();
   await sheet.getByRole("button", { name: "shield" }).click();
   await sheet.getByRole("button", { name: "Amber" }).click();
-  await sheet.getByRole("button", { name: "Create Department", exact: true }).click();
-  await expect(page.getByRole("list", { name: "Departments", exact: true }).getByText(dept)).toBeVisible({ timeout: 30_000 });
-  await narrate(page, "There it is, Legal is on the board. Now let's add a team inside it.");
-  await f.go("/w/admin/teams");
-  await page.getByRole("button", { name: "Create Team", exact: true }).first().click();
-  const tsheet = page.getByRole("dialog", { name: "Create Team" });
+  await sheet.getByRole("button", { name: "Create department", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Structure", exact: true }).getByText(dept)).toBeVisible({ timeout: 30_000 });
+  await narrate(page, "There it is, Legal is in the structure. Now let's add a team inside it, on the Teams tab.");
+  await page.getByRole("tab", { name: "Teams", exact: true }).click();
+  await page.locator('[data-create-group="teams"]').click();
+  const tsheet = page.getByRole("dialog", { name: "Create team" });
   await tsheet.getByLabel(/Team name/).fill(team);
   await tsheet.getByRole("button", { name: "Department" }).click();
   await page.getByRole("option", { name: dept }).click();
   await tsheet.getByRole("combobox", { name: "Team lead" }).fill("Omar");
   await tsheet.getByRole("option", { name: /Omar Haddad/ }).getByRole("button").click();
-  await tsheet.getByRole("button", { name: "Create Team", exact: true }).click();
-  await expect(page.locator(`[data-team-card="${team}"]`)).toBeVisible({ timeout: 30_000 });
+  await tsheet.getByRole("button", { name: "Create team", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Search the directory" }).fill(team); // the directory pages 8 at a time
+  await expect(page.getByRole("table", { name: "Team directory" }).getByRole("row").filter({ has: page.getByText(team, { exact: true }) })).toBeVisible({ timeout: 30_000 });
   await narrate(page, "Done. The team sits under Legal, and Omar is its lead.");
 
   // ---- roles
   await narrate(page, "Now, roles and permissions. Let's go to Roles.");
   await f.go("/w/admin/roles");
   await expect(page.locator("[data-roles-page]")).toBeVisible();
-  await expect(page.locator("[data-kpi-value]").first()).not.toHaveText("–");
+  await expect(page.locator("[data-roles-count]")).toContainText(" custom"); // "12 roles · 0 custom" once the overview is in
   await narrate(page, "Kiwiply comes with twelve system roles, like Organization Admin, Marketing Specialist and Consultant, each with a real user count.");
   await narrate(page, "Say I need a role the system doesn't have. I'll create a custom one, starting from the Marketing Specialist template.");
-  await page.getByRole("button", { name: /Create Role/ }).click();
+  await page.locator("[data-create-role-button]").click();
   await page.getByLabel(/Role name/).fill(roleName);
   await page.getByRole("radio", { name: "A template" }).click();
   await page.getByRole("combobox", { name: "Template" }).or(page.getByRole("button", { name: /Template/ })).first().click();
@@ -156,23 +157,24 @@ test("VIDEO-03 Org admin: dashboard, branding, structure, roles, people, assignm
   await expect(page.getByText(`${roleName} deleted`)).toBeVisible();
 
   // ---- people: create an account now / invite
-  await narrate(page, "Now, people. Let's open Invitations to add a new employee.");
-  await f.go("/w/admin/invitations");
-  const panel = page.getByRole("complementary", { name: "Invite Employee" });
+  await narrate(page, "Now, people. On Employees, Add employee brings someone new in.");
+  await f.go("/w/admin/employees");
+  await page.locator("[data-add-employee]").click();
+  const panel = page.getByRole("dialog", { name: "Add employee" });
   await expect(panel.getByRole("radio", { name: /Create account now/ })).toBeChecked();
   await narrate(page, "There are two ways to bring someone in. I can email an invitation, or create the account right now with a temporary password.");
   await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true });
   await page.waitForTimeout(1200);
   await panel.getByRole("radio", { name: /Create account now/ }).check({ force: true });
   await narrate(page, "I'll create the account now. So, an email address, a name, a role and a department.");
-  await panel.getByLabel(/Email Address/).fill(person.email);
-  await panel.getByLabel(/Full Name/).fill(person.name);
+  await panel.getByLabel(/Email address/).fill(person.email);
+  await panel.getByLabel(/Full name/).fill(person.name);
   await panel.getByRole("button", { name: /^Role/ }).click();
   await panel.getByRole("checkbox", { name: /^HR Specialist/ }).check();
   await panel.getByRole("button", { name: /^Role/ }).click();
   await pickFirstDepartment(page, panel);
   await narrateDo(page, "Kiwiply makes a temporary password for them. When I create the account, it's shown just once, with a Copy button.", async () => {
-    await panel.getByRole("button", { name: "Create Account" }).click();
+    await panel.getByRole("button", { name: "Create account", exact: true }).click();
   });
   const shown = page.getByRole("dialog", { name: "Account created" });
   await expect(shown).toBeVisible();
@@ -186,14 +188,14 @@ test("VIDEO-03 Org admin: dashboard, branding, structure, roles, people, assignm
   await narrate(page, "Over on the Employees page, the new person is active, with the HR Specialist role.");
 
   // ---- marketing assignments
-  await narrate(page, "Next, Marketing Assignments. This is where I decide which marketer looks after which consultant.");
+  await narrate(page, "Next, Assignments. This is where I decide which marketer looks after which consultant.");
   await f.go("/w/admin/marketing-assignments");
   await expect(page.locator("[data-marketing-assignments-page]")).toBeVisible();
   const david = page.locator("[data-marketer]", { hasText: "David Kim" });
   await david.getByRole("button", { name: /Show their consultants/ }).click();
   const load0 = await david.locator("[data-load]").innerText();
   await narrate(page, "Each marketer has a workload measured against their capacity. Let me assign a consultant to David Kim.");
-  await page.getByRole("button", { name: "Assign Consultants" }).first().click();
+  await page.getByRole("button", { name: "Assign consultants" }).first().click();
   const dlg = page.getByRole("dialog", { name: /Assign consultants to David Kim/ });
   const boxes = dlg.getByRole("checkbox");
   await expect(boxes.first()).toBeVisible();
@@ -206,8 +208,8 @@ test("VIDEO-03 Org admin: dashboard, branding, structure, roles, people, assignm
   await page.waitForTimeout(1500);
 
   // ---- settings
-  await narrate(page, "Last stop, Settings.");
-  await f.go("/w/admin/settings");
+  await narrate(page, "Last stop, Settings, on the Resumes tab.");
+  await f.go("/w/admin/settings?tab=resumes");
   await expect(page.locator("[data-org-settings]")).toBeVisible({ timeout: 30_000 });
   await narrate(page, "Consultants can only create share links for their resumes if the organization allows it. It's off by default, so I'll turn it on.");
   const sw = page.getByRole("switch", { name: /Share links/ });

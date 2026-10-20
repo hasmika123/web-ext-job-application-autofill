@@ -42,8 +42,6 @@ test.describe("applications (real stack)", () => {
     expect(total).toBeGreaterThanOrEqual(100);
     await expect(page.locator("tr[data-row-id]")).toHaveCount(10);
     await expect(page.locator("[data-showing]")).toContainText(`of ${total.toLocaleString("en-US")} applications`);
-    await expect(page.locator("[data-kpi=total] [data-kpi-delta]")).toContainText("vs last month");
-    await expect(page.locator("[data-help-bee]")).toBeVisible();
     await page.screenshot({ path: resolve(shots, "applications-1440.png") });
 
     // filter by stage: the table, the pager and the tile agree
@@ -111,7 +109,7 @@ test.describe("applications (real stack)", () => {
     await page.keyboard.press("Escape");
 
     // the pipeline view and the analytics
-    await page.getByRole("tab", { name: /Pipeline View/ }).click();
+    await page.getByRole("tab", { name: /Pipeline/ }).click();
     await expect(page.locator("[data-kanban-column]")).toHaveCount(6);
     await expect(page.locator("[data-kanban-column=OFFER] [data-card-id]").first()).toBeVisible();
     await page.screenshot({ path: resolve(shots, "applications-pipeline-1440.png") });

@@ -184,12 +184,12 @@ export const resumeTileDelta = (t: ResumeTile | null | undefined): TileDelta | n
 
 /* ── URL state ──────────────────────────────────────────────────────────────────── */
 
-export type Tab = "all" | "pending" | "recent";
+export type Tab = "all" | "pending";
 export type SortKey = "consultant" | "name" | "role" | "version" | "modified" | "created" | "status" | "size";
 export type SortDir = "asc" | "desc";
 export type View = "list" | "grid";
 
-export const TABS: readonly Tab[] = ["all", "pending", "recent"];
+export const TABS: readonly Tab[] = ["all", "pending"];
 export const SORT_KEYS: readonly SortKey[] = ["consultant", "name", "role", "version", "modified", "created", "status", "size"];
 export const PAGE_SIZES = [10, 25, 50] as const;
 export const MIN_SEARCH = 2;

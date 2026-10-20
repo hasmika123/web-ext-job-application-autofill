@@ -1,49 +1,35 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlertIcon, BandBar, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon, ClockIcon, DownloadIcon, ErrorState, EyeIcon, FileTextIcon, IconButton, Input, MemberAvatar, Menu,
-  MoreVerticalIcon, PencilIcon, RefreshIcon, SEARCH_DEBOUNCE_MS, SearchIcon, Select, Skeleton, Tooltip, UploadIcon, cn,
+  ChevronLeftIcon, ChevronRightIcon, DownloadIcon, ErrorState, EyeIcon, IconButton, Input, MemberAvatar, Menu,
+  MoreVerticalIcon, PencilIcon, RefreshIcon, SEARCH_DEBOUNCE_MS, SearchIcon, Select, Skeleton, Tooltip, cn,
 } from "@kiwiply/ui";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { CARD, HEAD_ROW, HelpBannerCard, KpiTile, TH, TINTS, VIEW_ALL, type MktPageProps, type TintName } from "../parts";
+import PageHeader from "@/components/ent/shell/ShellContext";
+import { CARD, HEAD_ROW, TH, type MktPageProps } from "../parts";
 import {
-  APPROVAL_LABELS, AVAILABILITY_OPTIONS, DEFAULT_FILTERS, PAGE_SIZES, RESUME_KPI_KEYS, RESUME_KPI_TITLES, STATUS_OPTIONS, UPDATED_OPTIONS,
+  APPROVAL_LABELS, AVAILABILITY_OPTIONS, DEFAULT_FILTERS, PAGE_SIZES, STATUS_OPTIONS, UPDATED_OPTIONS,
   agoText, approveResume, dateText, fetchResumes, markNeedsUpdate, pageWindow, photoFor, requestApproval,
-  type Approval, type ResumeActivity, type ResumeFilters, type ResumeKpiKey, type ResumeRow, type ResumesView, type WriteResult,
+  type Approval, type ResumeFilters, type ResumeRow, type ResumesView, type WriteResult,
 } from "@/lib/ent/marketer-ws/resumes";
 import ResumeDrawer, { type DrawerMode } from "./ResumeDrawer";
 import NewResumeForConsultant from "@/components/ent/resumes/NewResumeForConsultant";
 
 /**
- * Resumes (Marketing workspace; design: Resumes). One call draws the tiles, the page of rows and "Recent Resume Activity". Resumes are
+ * Resumes (Marketing workspace). One call draws the page of rows and the pending-review count. Resumes are
  * metadata only, so View opens a read-only preview, Edit changes the metadata as a new version, and Download is shown disabled with
  * "No file stored" (the API answers 404 and we never invent a file). E1: a marketer prepares and REQUESTS approval, the org admin approves.
  */
 
-const KPI_ICONS: Record<ResumeKpiKey, { icon: typeof FileTextIcon; tint: TintName; spark: number }> = {
-  total: { icon: FileTextIcon, tint: "violet", spark: 1 },
-  profilesReady: { icon: CheckCircleIcon, tint: "green", spark: 1 },
-  needUpdates: { icon: AlertIcon, tint: "pink", spark: 4 },
-  approvalsPending: { icon: ClockIcon, tint: "amber", spark: 2 },
-};
 const CHIP: Record<Approval, { cls: string; dot: string }> = {
   APPROVED: { cls: "bg-v2-green-soft text-v2-green-ink", dot: "bg-green-500" },
   PENDING: { cls: "bg-v2-amber-soft text-v2-amber-ink", dot: "bg-amber-400" },
   NEEDS_UPDATE: { cls: "bg-v2-pink-soft text-v2-pink-ink", dot: "bg-red-500" },
 };
-const ACTIVITY_ICON: Record<string, { icon: typeof FileTextIcon; tint: TintName }> = {
-  UPDATED: { icon: FileTextIcon, tint: "green" },
-  APPROVAL_REQUESTED: { icon: UploadIcon, tint: "blue" },
-  MARKED_FOR_UPDATE: { icon: AlertIcon, tint: "pink" },
-  APPROVED: { icon: CheckCircleIcon, tint: "green" },
-  CREATED: { icon: FileTextIcon, tint: "violet" },
-};
 const ACTION = "inline-flex min-h-8 items-center gap-1 rounded-md px-1.5 text-[12.5px] font-semibold text-accent-deep hover:bg-accent-soft disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-transparent";
 const SELECT_LABEL = "mb-1 block text-[12px] font-medium text-muted";
 
-export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
+export default function ResumesPage({ orgId }: MktPageProps) {
   const [filters, setFilters] = useState<ResumeFilters>(DEFAULT_FILTERS);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ResumesView | null>(null);
@@ -106,9 +92,7 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
 
   const header = (
     <>
-      <PageHeader title="Resumes" subtitle="Manage consultant resumes and profile documents to keep your talent pipeline up to date." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="Resumes" subtitle="Your consultants' resumes: approve, request updates, download." />
     </>
   );
   if (status === "failed")
@@ -129,8 +113,9 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
   const to = Math.min(total, page * size + items.length);
   const allOnPage = items.length > 0 && items.every((r) => selected.has(r.id));
   const canApprove = view?.canApprove === true;
-  const activityHref = hrefs.activity ?? null;
-  const nothingAtAll = (view?.kpis.find((k) => k.key === "total")?.value ?? 0) === 0;
+  const total0 = view?.kpis.find((k) => k.key === "total")?.value ?? 0;
+  const pending = view?.kpis.find((k) => k.key === "approvalsPending")?.value ?? 0;
+  const nothingAtAll = total0 === 0;
 
   const kebab = (r: ResumeRow) => {
     const entries = [];
@@ -161,14 +146,6 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
     <div data-mkt-resumes data-status={status} className="flex flex-col gap-4 sm:gap-5">
       {header}
 
-      <section aria-label="Key numbers" data-resumes-tiles className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-        {RESUME_KPI_KEYS.map((key) => {
-          const k = view?.kpis.find((x) => x.key === key);
-          const { icon, tint, spark } = KPI_ICONS[key];
-          return <KpiTile key={key} id={key} title={RESUME_KPI_TITLES[key]} icon={icon} tint={tint} value={loading ? null : (k?.value ?? null)} loading={loading} deltaPct={k?.deltaPct} sparkline={k?.sparkline} sparkIndex={spark} />;
-        })}
-      </section>
-
       {/* "New resume for <consultant>" (act-for in the one Resume Builder): the shared Resumes page had it, and since h-assign mounted THIS page at
           /w/marketing/resumes the marketer lost the entry point. The API (resumes.edit_for, the marketer's assigned consultants with an account) is the gate. */}
       <div className="flex flex-wrap justify-end">
@@ -181,8 +158,32 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
         </p>
       ) : null}
 
-      <div className="grid items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+      <div className="flex flex-col gap-4 sm:gap-5">
         <section data-resumes-card="table" className={cn(CARD, "p-3 sm:p-4")}>
+          <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Status" data-resumes-chips>
+            {[
+              { value: "", label: "All", count: total0 },
+              { value: "PENDING", label: "Pending review", count: pending },
+            ].map((c) => {
+              const active = filters.status === c.value;
+              return (
+                <button
+                  key={c.label}
+                  type="button"
+                  aria-pressed={active}
+                  data-status-chip={c.value || "ALL"}
+                  onClick={() => change({ status: c.value })}
+                  className={cn(
+                    "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[12.5px] font-semibold",
+                    active ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink-soft hover:border-accent",
+                  )}
+                >
+                  {c.label} ({c.count})
+                </button>
+              );
+            })}
+          </div>
+
           <div className="mb-3 flex flex-wrap items-end gap-3">
             <label className="relative min-w-[220px] flex-[2_1_260px]">
               <span className="sr-only">Search consultants or resume titles</span>
@@ -191,9 +192,9 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
             </label>
             <span className="hidden pb-2.5 text-[13px] font-bold text-ink sm:block">Filters:</span>
             <div className="flex min-w-0 flex-[3_1_480px] flex-wrap items-end gap-3">
-              {select("Skill", "skill", [{ value: "", label: "All Skills" }, ...(view?.skills ?? []).map((s) => ({ value: s, label: s }))])}
+              {select("Skill", "skill", [{ value: "", label: "All skills" }, ...(view?.skills ?? []).map((s) => ({ value: s, label: s }))])}
               {select("Status", "status", STATUS_OPTIONS)}
-              {select("Date Updated", "updated", UPDATED_OPTIONS)}
+              {select("Date updated", "updated", UPDATED_OPTIONS)}
               {select("Availability", "availability", AVAILABILITY_OPTIONS)}
               <button type="button" onClick={reset} className="mb-0.5 inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft">
                 <RefreshIcon size={15} aria-hidden />
@@ -203,7 +204,7 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-separate border-spacing-0 text-left text-[13px]">
+            <table className="w-full min-w-[860px] border-separate border-spacing-0 text-left text-[13px]">
               <thead>
                 <tr className={HEAD_ROW}>
                   <th scope="col" className={cn(TH, "w-9 rounded-l-lg")}>
@@ -216,17 +217,16 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
                     />
                   </th>
                   <th scope="col" className={TH}>Consultant</th>
-                  <th scope="col" className={TH}>Resume Title</th>
+                  <th scope="col" className={TH}>Resume title</th>
                   <th scope="col" className={TH}>Version</th>
                   <th scope="col" className={TH} aria-sort={filters.sort.startsWith("modified") ? (filters.sort.endsWith("asc") ? "ascending" : "descending") : "none"}>
                     <button type="button" onClick={() => change({ sort: filters.sort === "modified,desc" ? "modified,asc" : "modified,desc" })} className="inline-flex items-center gap-1 font-semibold">
-                      Last Modified
+                      Last modified
                       <span aria-hidden>{filters.sort === "modified,asc" ? "↑" : "↓"}</span>
                     </button>
                   </th>
                   <th scope="col" className={TH}>Primary</th>
-                  <th scope="col" className={TH}>Profile Completeness</th>
-                  <th scope="col" className={TH}>Approval Status</th>
+                  <th scope="col" className={TH}>Approval status</th>
                   <th scope="col" className={cn(TH, "rounded-r-lg")}>Actions</th>
                 </tr>
               </thead>
@@ -234,7 +234,7 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
                 {loading
                   ? [0, 1, 2, 3, 4].map((i) => (
                       <tr key={i} aria-busy="true">
-                        <td colSpan={9} className="py-1.5">
+                        <td colSpan={8} className="py-1.5">
                           <Skeleton className="h-11 w-full" />
                         </td>
                       </tr>
@@ -277,10 +277,6 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
                           </td>
                           <td className="border-b border-line px-2">
                             <span className={cn("inline-block rounded-md px-2.5 py-1 text-[12px] font-semibold", r.primary ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-pink-soft text-v2-pink-ink")}>{r.primary ? "Yes" : "No"}</span>
-                          </td>
-                          <td className="min-w-[120px] border-b border-line px-2">
-                            <span className="block text-[12.5px] font-semibold text-ink-soft">{r.completeness}%</span>
-                            <BandBar value={r.completeness} label={`Profile completeness for ${r.consultantName}`} className="mt-1 w-[104px]" />
                           </td>
                           <td className="border-b border-line px-2">
                             <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] font-semibold", chip.cls)}>
@@ -357,40 +353,6 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
           </footer>
         </section>
 
-        <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
-          <HelpBannerCard title="Keep resumes up to date for more opportunities!" body="Well-maintained resumes get 3x more client views and lead to faster submissions." />
-          <section data-resumes-card="activity" className={CARD}>
-            <header className="mb-3 flex items-center gap-2">
-              <h2 className="min-w-0 flex-1 truncate text-[16.5px] font-bold text-ink">Recent Resume Activity</h2>
-              {activityHref ? (
-                <Link href={activityHref} className={VIEW_ALL}>
-                  View all
-                </Link>
-              ) : null}
-            </header>
-            {loading ? (
-              <div aria-busy="true" className="flex flex-col gap-3 py-2">
-                {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : !view || view.activity.length === 0 ? (
-              <p className="py-6 text-center text-[13.5px] text-muted">No resume activity yet.</p>
-            ) : (
-              <ul className="flex flex-col">
-                {view.activity.map((a) => (
-                  <ActivityRow key={a.id} a={a} now={now} />
-                ))}
-              </ul>
-            )}
-            {activityHref ? (
-              <Link href={activityHref} className="mt-3 flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-line bg-paper text-[13.5px] font-semibold text-accent-deep hover:bg-accent-soft">
-                View all activity
-                <ChevronRightIcon size={15} aria-hidden />
-              </Link>
-            ) : null}
-          </section>
-        </div>
       </div>
 
       <ResumeDrawer
@@ -406,23 +368,5 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
         }}
       />
     </div>
-  );
-}
-
-function ActivityRow({ a, now }: { a: ResumeActivity; now: number }): ReactNode {
-  const { icon: Icon, tint } = ACTIVITY_ICON[a.kind] ?? ACTIVITY_ICON.UPDATED;
-  return (
-    <li data-activity-row={a.id} className="flex items-start gap-2.5 border-b border-line py-2.5 last:border-0">
-      <span aria-hidden className={cn("grid h-7 w-7 flex-none place-items-center rounded-md", TINTS[tint])}>
-        <Icon size={15} />
-      </span>
-      <MemberAvatar name={a.consultantName} src={photoFor(a.consultantName, a.avatarUrl)} size={28} />
-      <span className="min-w-0 flex-1">
-        <span className="block text-[13px] leading-snug text-ink">
-          <b>{a.consultantName}</b> {a.text}
-        </span>
-        <span className="block text-[12px] text-muted">{agoText(a.at, now)}</span>
-      </span>
-    </li>
   );
 }

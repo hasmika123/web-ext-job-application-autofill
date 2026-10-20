@@ -102,14 +102,14 @@ public class TalentDemoSeeder {
     static final Spec ACME = new Spec(
         "acme", EnterpriseDemoSeeder.ACME_SLUG, 153, 12,
         List.of(
-            new Marketer("sarah", "Sarah", "Chen", 20, 9, true, "Marketing Manager"),
-            new Marketer("omar", "Omar", "Haddad", 20, 10, true, "Marketing Consultant"),
-            new Marketer("jessica", "Jessica", "Davis", 30, 28, false, "Marketing Consultant"),
-            new Marketer("michael", "Michael", "Park", 30, 29, false, "Marketing Consultant"),
-            new Marketer("emily", "Emily", "Lawson", 25, 23, false, "Marketing Consultant"),
-            new Marketer("david", "David", "Kim", 25, 16, false, "Marketing Consultant"),
-            new Marketer("samantha", "Samantha", "Lee", 25, 14, false, "Marketing Consultant"),
-            new Marketer("ryan", "Ryan", "Thompson", 20, 12, false, "Marketing Consultant")
+            new Marketer("sarah", DemoRoster.first("sarah", "Sarah"), DemoRoster.last("sarah", "Chen"), 20, 9, true, "Marketing Manager"),
+            new Marketer("omar", DemoRoster.first("omar", "Omar"), DemoRoster.last("omar", "Haddad"), 20, 10, true, "Marketing Consultant"),
+            new Marketer("jessica", DemoRoster.first("jessica", "Jessica"), DemoRoster.last("jessica", "Davis"), 30, 28, false, "Marketing Consultant"),
+            new Marketer("michael", DemoRoster.first("michael", "Michael"), DemoRoster.last("michael", "Park"), 30, 29, false, "Marketing Consultant"),
+            new Marketer("emily", DemoRoster.first("emily", "Emily"), DemoRoster.last("emily", "Lawson"), 25, 23, false, "Marketing Consultant"),
+            new Marketer("david", DemoRoster.first("david", "David"), DemoRoster.last("david", "Kim"), 25, 16, false, "Marketing Consultant"),
+            new Marketer("samantha", DemoRoster.first("samantha", "Samantha"), DemoRoster.last("samantha", "Lee"), 25, 14, false, "Marketing Consultant"),
+            new Marketer("ryan", DemoRoster.first("ryan", "Ryan"), DemoRoster.last("ryan", "Thompson"), 20, 12, false, "Marketing Consultant")
         ),
         List.of(
             new ClientSpec("TechCorp", "Technology", "techcorp.example.com", "Michael Reyes", "Dana Whitaker"),
@@ -118,7 +118,7 @@ public class TalentDemoSeeder {
             new ClientSpec("HealthPlus", "Healthcare", "healthplus.example.com", "Grace Okonkwo", "Ian McAllister"),
             new ClientSpec("InnovateLab", "Technology", "innovatelab.example.com", "Yuki Tanaka", "Carla Mendes"),
             new ClientSpec("RetailCo", "Retail", "retailco.example.com", "Ben Hartmann", "Aisha Rahman"),
-            new ClientSpec("ACME Internal", "Staffing", "acme.example.com", "Helen Brooks", "Marco Rinaldi"),
+            new ClientSpec(DemoRoster.INTERNAL_CLIENT, "Staffing", DemoRoster.DOMAIN, "Helen Brooks", "Marco Rinaldi"),
             new ClientSpec("Northwind Logistics", "Logistics", "northwindlogistics.example.com", "Sven Lindgren", "Fatima Zahra")
         ),
         24, 120, 4_100_000, 20261013L
@@ -349,7 +349,7 @@ public class TalentDemoSeeder {
             this.spec = spec;
             this.orgId = org.getId();
             this.rnd = new Random(spec.seed());
-            this.domain = spec.orgKey() + ".example.com";
+            this.domain = spec.orgKey().equals("acme") ? DemoRoster.DOMAIN : spec.orgKey() + ".example.com";
         }
 
         Map<String, Long> run() {
@@ -519,7 +519,7 @@ public class TalentDemoSeeder {
             for (ClientSpec cs : spec.clients()) {
                 ClientAccount c = new ClientAccount();
                 c.setOrgId(orgId);
-                c.setKind(cs.name().equals("ACME Internal") ? "PARTNER" : "END_CLIENT");
+                c.setKind(cs.name().equals(DemoRoster.INTERNAL_CLIENT) ? "PARTNER" : "END_CLIENT");
                 c.setName(cs.name());
                 c.setIndustry(cs.industry());
                 c.setWebsite("https://www." + cs.domain());
@@ -565,8 +565,9 @@ public class TalentDemoSeeder {
                 if ("DEPARTMENT".equals(g.getKind().name())) deptIds.put(g.getName(), g.getId());
             }
             Set<String> usedNames = new HashSet<>();
-            List<String[]> fixed = List.of(new String[] { "anika", "Anika", "Rao", "8", "AVAILABLE" }, new String[] { "ben", "Ben", "Okafor", "7", "ON_PROJECT" }, new String[] { "sam", "Sam", "Whitfield", "5", "UNAVAILABLE" });
+            List<String[]> fixed = List.of(new String[] { "anika", "Anika", "Rao", "8", "AVAILABLE" }, new String[] { "ben", DemoRoster.first("ben", "Ben"), DemoRoster.last("ben", "Okafor"), "7", "ON_PROJECT" }, new String[] { "sam", DemoRoster.first("sam", "Sam"), DemoRoster.last("sam", "Whitfield"), "5", "UNAVAILABLE" });
             for (String mk : spec.marketers().stream().map(m -> m.first() + " " + m.last()).toList()) usedNames.add(mk);
+            if (spec.orgKey().equals("acme")) for (EnterpriseDemoSeeder.Person pp : EnterpriseDemoSeeder.ACME.people()) usedNames.add(pp.first() + " " + pp.last());
             for (int i = 0; i < spec.consultants(); i++) {
                 String first;
                 String last;
@@ -582,8 +583,8 @@ public class TalentDemoSeeder {
                     forcedAvail = f[4];
                 } else {
                     do {
-                        first = pick(FIRST);
-                        last = pick(LAST);
+                        first = pick(spec.orgKey().equals("acme") && DemoRoster.INDIA ? DemoRoster.FIRST : FIRST);
+                        last = pick(spec.orgKey().equals("acme") && DemoRoster.INDIA ? DemoRoster.LAST : LAST);
                     } while (!usedNames.add(first + " " + last));
                 }
                 usedNames.add(first + " " + last);
@@ -674,7 +675,7 @@ public class TalentDemoSeeder {
                 Marketer mk = spec.marketers().get(m);
                 List<ConsultantProfile> mine = new ArrayList<>();
                 if (spec.orgKey().equals("acme") && m == 0) pool.stream().filter(c -> "Anika Rao".equals(c.getDisplayName())).findFirst().ifPresent(c -> { mine.add(c); });
-                if (spec.orgKey().equals("acme") && m == 1) pool.stream().filter(c -> "Ben Okafor".equals(c.getDisplayName())).findFirst().ifPresent(c -> { mine.add(c); });
+                if (spec.orgKey().equals("acme") && m == 1) pool.stream().filter(c -> DemoRoster.ben().equals(c.getDisplayName())).findFirst().ifPresent(c -> { mine.add(c); });
                 pool.removeAll(mine);
                 while (mine.size() < mk.workload() && !pool.isEmpty()) mine.add(pool.remove(0));
                 for (ConsultantProfile c : mine) {

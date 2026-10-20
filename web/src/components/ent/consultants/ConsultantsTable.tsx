@@ -16,7 +16,7 @@ import {
   type SortKey,
 } from "@/lib/ent/consultants";
 import { pageWindow } from "@/components/ent/employees/EmployeesTable";
-import { AvailabilityPill, LicensePill, MarketerCell, ProfileRing, SkillChips } from "./parts";
+import { AvailabilityPill, LicensePill, MarketerCell, SkillChips } from "./parts";
 
 export interface TableProps {
   rows: ConsultantRow[];
@@ -120,12 +120,6 @@ export function ConsultantsTable(p: TableProps) {
               <dd className="min-w-0">
                 <MarketerCell marketer={r.marketer} />
               </dd>
-              <dt className="text-muted">Profile</dt>
-              <dd>
-                <ProfileRing value={r.profileCompleteness} size={32} />
-              </dd>
-              <dt className="text-muted">Applications</dt>
-              <dd className="text-ink">{r.activeApplications}</dd>
               <dt className="text-muted">Next interview</dt>
               <dd>
                 <NextInterviewCell row={r} />
@@ -146,15 +140,13 @@ export function ConsultantsTable(p: TableProps) {
               <Check checked={allOn} indeterminate={someOn} onChange={p.onTogglePage} label="Select all consultants on this page" />
             </th>
             <SortHead label="Consultant" k="name" sort={p.sort} onSort={p.onSort} />
-            <th scope="col" className={HEAD}>Primary Skills</th>
+            <th scope="col" className={HEAD}>Primary skills</th>
             <SortHead label="Experience" k="experience" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden xl:table-cell"} />
             <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>Location</th>
             <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>Marketer</th>
             <SortHead label="Availability" k="availability" sort={p.sort} onSort={p.onSort} />
             <SortHead label="License" k="license" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : ""} />
-            <SortHead label="Profile" k="profile" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden md:table-cell"} />
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>Apps</th>
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>Next Interview</th>
+            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>Next interview</th>
             <th scope="col" className="w-10 px-2">
               <span className="sr-only">Actions</span>
             </th>
@@ -198,10 +190,6 @@ export function ConsultantsTable(p: TableProps) {
                 <td className={`px-2 py-2 ${p.compact ? "hidden" : ""}`}>
                   <LicensePill value={r.license} />
                 </td>
-                <td className={`px-2 py-2 ${p.compact ? "hidden" : "hidden md:table-cell"}`}>
-                  <ProfileRing value={r.profileCompleteness} />
-                </td>
-                <td className={`px-2 py-2 tabular-nums text-ink ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.activeApplications}</td>
                 <td className={`px-2 py-2 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>
                   <NextInterviewCell row={r} />
                 </td>

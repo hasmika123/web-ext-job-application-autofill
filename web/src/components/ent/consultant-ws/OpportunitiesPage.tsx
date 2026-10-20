@@ -10,7 +10,6 @@ import {
   ClipboardCheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  ClockIcon,
   Dialog,
   ErrorState,
   FileTextIcon,
@@ -20,24 +19,23 @@ import {
   SendIcon,
   SideSheet,
   Skeleton,
-  Sparkline,
   StarIcon,
   Textarea,
   UsersIcon,
   XCircleIcon,
-  XIcon,
-  chartColor,
   cn,
   useToast,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
+import PageHeader from "@/components/ent/shell/ShellContext";
+import { BASE, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
 import JobLinkButton, { QuickInfo } from "./JobLinkButton";
+import ConsultantMatchesPage from "./MatchesPage";
+import JobDiscoveryPage from "./JobDiscoveryPage";
+import { PageTabs, useUrlTab } from "./tabs";
 import { PrepareBar, PrepareCheck, PrepareConfirmDialog, PrepareProgress, PrepareWhy, usePrepareBatch, type PrepareUi } from "./PrepareBatch";
 import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
-import { deltaText, employmentLabel, firstName, initialsOf, placeLabel, shortDate } from "@/lib/ent/consultant-ws/home";
+import { employmentLabel, initialsOf, placeLabel, scoreText, shortDate } from "@/lib/ent/consultant-ws/home";
 import {
   PRIORITY_LABEL,
   SORT_OPTIONS,
@@ -60,7 +58,6 @@ import {
   type Fetched,
   type OppDetail,
   type OppRow,
-  type OppTile,
   type OppView,
   type SortKey,
   type WriteResult,
@@ -74,66 +71,6 @@ import {
  * come from the row's `allowedActions`. `/w/consultant/opportunities/{matchId}` opens the same page with that job's details open.
  * Priority and due date are the marketer's inputs; where none is stored the API derives them and the row says so.
  */
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: keyof OppView["tiles"];
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "total", title: "Total Assigned Opportunities", icon: BriefcaseIcon, tone: "accent" },
-  { key: "high", title: "High Priority", icon: StarIcon, tone: "amber" },
-  { key: "awaiting", title: "Awaiting Response", icon: ClockIcon, tone: "accent" },
-  { key: "inReview", title: "In Review", icon: UsersIcon, tone: "violet" },
-  { key: "declined", title: "Declined", icon: XCircleIcon, tone: "coral" },
-];
-
-function Tile({ spec, tile, index }: { spec: TileSpec; tile: OppTile | null; index: number }) {
-  const Icon = spec.icon;
-  const d = tile ? deltaText(tile.deltaPct) : null;
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-[12px]", TONES[spec.tone])}>
-        <Icon size={22} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[13px] font-semibold leading-tight text-ink-soft">{spec.title}</h3>
-        {tile ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[28px] font-extrabold leading-none tabular-nums text-ink">
-                {tile.value}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 w-[42%] max-w-[72px] flex-none">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              {d ? (
-                <>
-                  <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                    {d.dir === "up" ? "↑" : d.dir === "down" ? "↓" : "→"} {d.text}
-                  </span>
-                  <span>vs last month</span>
-                </>
-              ) : null}
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── pieces ─────────────────────────────────────────────────────────────────────────── */
 
@@ -222,11 +159,52 @@ function RowMenu({ row, a }: { row: OppRow; a: Actions }) {
   );
 }
 
-function OpportunitiesTable({ view, sort, setSort, selected, a, notice, prepare }: { view: OppView; sort: SortKey; setSort: (s: SortKey) => void; selected: number | null; a: Actions; notice: string; prepare: PrepareUi }) {
+type ChipKey = "all" | "needs" | "interested" | "review" | "declined";
+const CHIPS: { key: ChipKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "needs", label: "Needs response" },
+  { key: "interested", label: "Interested" },
+  { key: "review", label: "In review" },
+  { key: "declined", label: "Declined" },
+];
+const CHIP_TEST: Record<ChipKey, (r: OppRow) => boolean> = {
+  all: () => true,
+  needs: (r) => (r.status === "NEW" || r.status === "AWAITING_RESPONSE") && !r.interestSent,
+  interested: (r) => r.interestSent && canRespond(r),
+  review: (r) => r.status === "IN_REVIEW",
+  declined: (r) => r.status === "DECLINED",
+};
+
+function ChipRow({ view, filter, setFilter }: { view: OppView; filter: ChipKey; setFilter: (k: ChipKey) => void }) {
+  return (
+    <div role="group" aria-label="Filter opportunities" data-opps-chips className="mb-3 flex flex-wrap gap-2">
+      {CHIPS.map((c) => {
+        const n = c.key === "all" ? Math.max(view.total, view.rows.length) : view.rows.filter(CHIP_TEST[c.key]).length;
+        const on = filter === c.key;
+        return (
+          <button
+            key={c.key}
+            type="button"
+            data-chip={c.key}
+            aria-pressed={on}
+            onClick={() => setFilter(c.key)}
+            className={cn("inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold", on ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink hover:bg-paper-2")}
+          >
+            {c.label}
+            <span className="tabular-nums text-muted">{n}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function OpportunitiesTable({ view, sort, setSort, selected, a, notice, prepare, filter, setFilter }: { view: OppView; sort: SortKey; setSort: (s: SortKey) => void; selected: number | null; a: Actions; notice: string; prepare: PrepareUi; filter: ChipKey; setFilter: (k: ChipKey) => void }) {
+  const rows = view.rows.filter(CHIP_TEST[filter]);
   return (
     <Card
       id="opps-list"
-      title="My Assigned Opportunities"
+      title="Assigned opportunities"
       icon={BriefcaseIcon}
       extra={
         <label className="ml-auto flex items-center gap-1.5 text-[12.5px] font-medium text-muted">
@@ -244,16 +222,15 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice, prepare 
         </label>
       }
     >
-      <p className="-mt-1 mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted">
-        Priority and due date come from your marketer; where none is set they are worked out from the match score and the assignment date.
-        <SampleMark />
-      </p>
+      <ChipRow view={view} filter={filter} setFilter={setFilter} />
       <p role="status" aria-live="polite" data-notice className={cn("mb-2 text-[12.5px] font-medium text-v2-coral-ink", !notice && "sr-only")}>
         {notice}
       </p>
       <PrepareBar p={prepare} />
       {view.rows.length === 0 ? (
-        <Empty>No opportunities are assigned to you yet. When your marketer assigns a job, it shows up here for you to respond to.</Empty>
+        <Empty>No opportunities are assigned to you yet. When your marketer assigns an opening, it shows up here for you to respond to.</Empty>
+      ) : rows.length === 0 ? (
+        <Empty>Nothing in this filter.</Empty>
       ) : (
         <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[560px] 2xl:min-w-[760px]")}>
@@ -264,15 +241,20 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice, prepare 
                     <span className="sr-only">Select to prepare</span>
                   </th>
                 ) : null}
-                {["Job Title", "Company", "Location", "Marketer", "Status", "Priority", "Due Date", "Actions"].map((c) => (
-                  <th key={c} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", (c === "Marketer" || c === "Location") && "hidden 2xl:table-cell")}>
-                    {c}
+                {["Job title", "Company", "Location", "Marketer", "Status", "Priority", "Due date", ""].map((c, i) => (
+                  <th
+                    key={`${c}-${i}`}
+                    scope="col"
+                    title={c === "Priority" || c === "Due date" ? "Priority and due date come from your marketer; where none is set they are worked out from the match score and the assignment date." : undefined}
+                    className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", (c === "Marketer" || c === "Location") && "hidden 2xl:table-cell")}
+                  >
+                    {c || <span className="sr-only">Actions</span>}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {view.rows.map((r) => (
+              {rows.map((r) => (
                 <tr key={r.matchId} data-opp={r.matchId} aria-selected={selected === r.matchId} className={cn(selected === r.matchId && "bg-accent-soft/40")}>
                   {prepare.active ? (
                     <td className={cn(TD, "w-8")}>
@@ -378,7 +360,7 @@ function DetailSheet({ row, detail, loading, onClose, a }: { row: OppRow | null;
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill row={row} />
             <PriorityPill row={row} />
-            <span className="rounded-full bg-v2-green-soft px-2.5 py-0.5 text-[12px] font-bold text-v2-green-ink">{row.score}% match</span>
+            <span className="rounded-full bg-v2-green-soft px-2.5 py-0.5 text-[12px] font-bold text-v2-green-ink">{row.score > 0 ? `${scoreText(row.score)} match` : "Not scored"}</span>
           </div>
           <div className="space-y-2">
             <QuickInfo source={row} />
@@ -468,7 +450,7 @@ function DetailSheet({ row, detail, loading, onClose, a }: { row: OppRow | null;
               {d.appliedAt ? (
                 <section data-applied-note>
                   <h4 className={head}>You applied</h4>
-                  <p className="mt-1 text-ink-soft">You told your marketer you applied on {shortDate(d.appliedAt)}. Kiwiply never applies for you: you submit on the source site yourself.</p>
+                  <p className="mt-1 text-ink-soft">You told your marketer you applied on {shortDate(d.appliedAt)}. Nothing is applied for you: you submit on the source site yourself.</p>
                 </section>
               ) : null}
               {d.resumeUpdateNote ? (
@@ -566,7 +548,7 @@ function AppliedDialog({ row, busy, onCancel, onConfirm }: { row: OppRow | null;
       }
     >
       <p data-applied-confirm className="text-[13.5px] text-ink-soft">
-        Did you submit this application yourself on the source site? This only tells your marketer. Kiwiply never applies or submits for you.
+        Did you submit this application yourself on the source site? This only tells your marketer. No one applies or submits for you.
       </p>
     </Dialog>
   );
@@ -579,7 +561,7 @@ const STEP_ICON: Record<string, ComponentType<IconProps>> = { respond: Clipboard
 function NextSteps({ view }: { view: OppView }) {
   const steps = nextSteps(view.nextSteps, BASE);
   return (
-    <Card id="opps-steps" title="Next Steps" icon={StarIcon} tone="amber">
+    <Card id="opps-steps" title="Next steps" icon={StarIcon} tone="amber">
       <ul className="space-y-1">
         {steps.map((s) => {
           const Icon = STEP_ICON[s.key];
@@ -612,43 +594,6 @@ function NextSteps({ view }: { view: OppView }) {
   );
 }
 
-function QuickActions({ target, a }: { target: OppRow | null; a: Actions }) {
-  const off = (action: Parameters<typeof can>[1]) => !target || !can(target, action);
-  const items: { key: string; title: string; sub: string; icon: ComponentType<IconProps>; disabled: boolean; run: () => void; danger?: boolean }[] = [
-    { key: "interest", title: "Express Interest", sub: "Let your marketer know", icon: SendIcon, disabled: off("INTEREST"), run: () => target && a.interest(target) },
-    { key: "resume", title: "Request Resume Update", sub: "Update for a specific role", icon: FileTextIcon, disabled: off("RESUME_UPDATE"), run: () => target && a.resume(target) },
-    { key: "info", title: "Need More Info", sub: "Ask questions about the role", icon: HelpCircleIcon, disabled: off("REQUEST_INFO"), run: () => target && a.askInfo(target) },
-    { key: "decline", title: "Decline Opportunity", sub: "Not a good fit for now", icon: XIcon, disabled: off("DECLINE"), danger: true, run: () => target && a.decline(target) },
-  ];
-  return (
-    <Card id="opps-quick" title="Quick Actions" icon={SendIcon}>
-      <p className="-mt-1 mb-2 text-[12px] text-muted" data-quick-target>
-        {target ? `Acts on: ${target.title}` : "Nothing to act on yet."}
-      </p>
-      <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        {items.map((i) => (
-          <button
-            key={i.key}
-            type="button"
-            data-quick={i.key}
-            disabled={i.disabled}
-            onClick={i.run}
-            className="flex min-w-0 items-center gap-2 rounded-xl border border-line bg-paper p-2 text-left hover:bg-paper-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span aria-hidden className={cn("grid h-8 w-8 flex-none place-items-center rounded-lg", i.danger ? "bg-v2-coral-soft text-v2-coral-ink" : "bg-accent-soft text-accent-deep")}>
-              <i.icon size={16} />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-[12.5px] font-semibold leading-tight text-ink">{i.title}</span>
-              <span className="block text-[11px] leading-snug text-muted">{i.sub}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
 
 export interface OpportunitiesPageProps {
@@ -662,11 +607,11 @@ type DetailState = { id: number; result: Fetched<OppDetail> } | null;
 
 const NO_ROWS: readonly OppRow[] = [];
 
-export default function ConsultantOpportunitiesPage({ orgId, firstName: first, initialOpenId = null }: OpportunitiesPageProps) {
+function AssignedOpportunities({ orgId, initialOpenId = null }: OpportunitiesPageProps) {
   const toast = useToast();
   const [sort, setSort] = useState<SortKey>("due");
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchOpportunities(orgId, sort), [orgId, sort]));
-  const loading = status === "loading";
+  const [filter, setFilter] = useState<ChipKey>("all");
   const prepare = usePrepareBatch(orgId, view?.rows ?? NO_ROWS, view !== null);
   const [picked, setPicked] = useState<number | null>(null);
   const [sheetId, setSheetId] = useState<number | null>(initialOpenId);
@@ -774,24 +719,16 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first, i
 
   return (
     <div data-consultant-opportunities data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Assigned Opportunities" subtitle="Opportunities your marketer assigned to you. Open the job link, apply on the source site with the Kiwiply extension, and keep your marketer updated." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
 
       {status === "failed" ? (
         <ErrorState what="your opportunities" description="Your opportunities didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)]">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
-            <section aria-label="Key numbers" data-opps-tiles className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 2xl:grid-cols-5">
-              {TILE_SPECS.map((s, i) => (
-                <Tile key={s.key} spec={s} tile={loading || !view ? null : view.tiles[s.key]} index={i} />
-              ))}
-            </section>
             {view ? (
               <>
                 <PrepareProgress p={prepare} />
-                <OpportunitiesTable view={view} sort={sort} setSort={setSort} selected={target?.matchId ?? null} a={actions} notice={notice} prepare={prepare} />
+                <OpportunitiesTable view={view} sort={sort} setSort={setSort} selected={target?.matchId ?? null} a={actions} notice={notice} prepare={prepare} filter={filter} setFilter={setFilter} />
               </>
             ) : (
               <div className="grid gap-4" aria-busy="true">
@@ -800,13 +737,7 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first, i
             )}
           </div>
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-            <BeeCard name={firstName(first)} title="Your career companion, here to help!" body="Review your assigned opportunities, get insights, and take the right actions to move your career forward. I'm here to answer questions and help you make the best decisions." />
-            {view ? (
-              <>
-                <NextSteps view={view} />
-                <QuickActions target={target} a={actions} />
-              </>
-            ) : null}
+            {view ? <NextSteps view={view} /> : null}
           </div>
         </div>
       )}
@@ -824,3 +755,26 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first, i
   );
 }
 
+/* ── the page: Assigned | Matches | Browse ──────────────────────────────────────────── */
+
+const TABS = ["assigned", "matches", "browse"] as const;
+const TAB_LABELS = [
+  { value: "assigned", label: "Assigned" },
+  { value: "matches", label: "Matches" },
+  { value: "browse", label: "Browse" },
+] as const;
+
+/**
+ * Consultant Opportunities (UI refresh Phase 1, s6): the assigned list (the Autopilot "Prepare selected" demo lives here), the matches and the
+ * browse search as three tabs of one page, chosen by `?tab=matches|browse` (Assigned is the default and leaves the address bare).
+ */
+export default function ConsultantOpportunitiesPage(props: OpportunitiesPageProps) {
+  const [tab, setTab] = useUrlTab(TABS, "assigned", `${BASE}/opportunities`);
+  return (
+    <div className="flex flex-col gap-4 sm:gap-5">
+      <PageHeader title="Opportunities" subtitle="Openings your marketer assigned or matched to you. Open the link, apply with the extension, keep your marketer posted." />
+      <PageTabs label="Opportunities views" tabs={TAB_LABELS} value={tab} onChange={setTab} />
+      {tab === "matches" ? <ConsultantMatchesPage orgId={props.orgId} /> : tab === "browse" ? <JobDiscoveryPage orgId={props.orgId} /> : <AssignedOpportunities {...props} />}
+    </div>
+  );
+}

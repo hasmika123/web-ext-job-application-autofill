@@ -19,11 +19,8 @@ import {
   MessageIcon,
   MoreVerticalIcon,
   Menu,
-  TrendingUpIcon,
   SendIcon,
   Skeleton,
-  Sparkline,
-  StarIcon,
   TargetIcon,
   TrophyIcon,
   UploadIcon,
@@ -31,15 +28,12 @@ import {
   UsersIcon,
   VideoIcon,
   XCircleIcon,
-  ZapIcon,
-  chartColor,
   cn,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import { CARD, TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, CompanyMark, Empty, SampleMark, useWorkspaceData } from "./parts";
-import { deltaText, firstName, type Tone } from "@/lib/ent/consultant-ws/home";
+import { BASE, Card, CompanyMark, Empty, SampleMark, useWorkspaceData } from "./parts";
+import { type Tone } from "@/lib/ent/consultant-ws/home";
 import {
   EMPTY_QUERY,
   PERIODS,
@@ -56,11 +50,9 @@ import {
   timeLabel,
   timelineCsv,
   dayLabel,
-  type TileKey,
   type TimelineChip,
   type TimelineEvent,
   type TimelineQuery,
-  type TimelineTile,
   type TimelineView,
 } from "@/lib/ent/consultant-ws/activityTimeline";
 
@@ -70,70 +62,6 @@ import {
  * links to the page that owns the event, "Load more" follows the API's cursor, and "Export Timeline" turns the rows already on screen into a
  * CSV in the browser (nothing is sent anywhere). The board's "Marketer Note" type only appears when a real submission carries a marketer note.
  */
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: TileKey;
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "total", title: "Total Activities", icon: TrendingUpIcon, tone: "accent" },
-  { key: "thisWeek", title: "This Week", icon: CalendarIcon, tone: "violet" },
-  { key: "applications", title: "Application Updates", icon: FileTextIcon, tone: "green" },
-  { key: "interviews", title: "Interviews", icon: VideoIcon, tone: "amber" },
-  { key: "profile", title: "Profile Changes", icon: UserIcon, tone: "coral" },
-];
-
-function Tile({ spec, tile, index }: { spec: TileSpec; tile: TimelineTile | null; index: number }) {
-  const Icon = spec.icon;
-  const d = tile ? deltaText(tile.deltaPct) : null;
-  const vs = tile?.vs === "week" ? "last week" : "last month";
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-[14px]", TONES[spec.tone])}>
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[14px] font-bold leading-tight text-ink">{spec.title}</h3>
-        {tile ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[30px] font-extrabold leading-none tabular-nums text-ink">
-                {tile.value}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 w-[42%] max-w-[84px] flex-none">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              {d ? (
-                <>
-                  <span data-tile-delta className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                    {d.dir === "up" ? "↑ +" : d.dir === "down" ? "↓ -" : "- "}
-                    {d.dir === "flat" ? "no change" : d.text}
-                  </span>
-                  <span>vs {vs}</span>
-                </>
-              ) : (
-                <span data-tile-window>{tile.vs === "week" ? "Last 7 days" : "Last 30 days"}</span>
-              )}
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── one row ────────────────────────────────────────────────────────────────────────── */
 
@@ -362,45 +290,9 @@ function TimelineCard({
   );
 }
 
-/* ── rail ───────────────────────────────────────────────────────────────────────────── */
-
-const ACTION_BTN = "flex min-h-14 w-full min-w-0 items-center gap-2.5 rounded-xl border border-line bg-paper px-3 py-2 text-left hover:bg-accent-soft";
-
-function QuickActions({ onExport, canExport }: { onExport: () => void; canExport: boolean }) {
-  const inner = (Icon: ComponentType<IconProps>, label: string, sub: string, tone: IconTone) => (
-    <>
-      <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES[tone])}>
-        <Icon size={17} />
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[13px] font-bold leading-tight text-ink">{label}</span>
-        <span className="block truncate text-[11.5px] leading-tight text-muted">{sub}</span>
-      </span>
-    </>
-  );
-  return (
-    <Card id="timeline-quick" title="Quick Actions" icon={ZapIcon}>
-      <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        <Link href={`${BASE}/applications`} data-quick="view-application" className={ACTION_BTN}>
-          {inner(FileTextIcon, "View Application", "Check application details", "accent")}
-        </Link>
-        <Link href={`${BASE}/marketer`} data-quick="message-marketer" className={ACTION_BTN}>
-          {inner(MessageIcon, "Message Marketer", "Get latest updates", "accent")}
-        </Link>
-        <button type="button" data-quick="export" disabled={!canExport} onClick={onExport} title={canExport ? undefined : "Nothing loaded to export yet"} className={cn(ACTION_BTN, "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-paper")}>
-          {inner(DownloadIcon, "Export Timeline", "Download your activity", "accent")}
-        </button>
-        <Link href={`${BASE}/interviews`} data-quick="review-feedback" className={ACTION_BTN}>
-          {inner(StarIcon, "Review Feedback", "See client feedback", "accent")}
-        </Link>
-      </div>
-    </Card>
-  );
-}
-
 function Milestones({ view }: { view: TimelineView }) {
   return (
-    <Card id="timeline-milestones" title="Recent Milestones" icon={TargetIcon}>
+    <Card id="timeline-milestones" title="Recent milestones" icon={TargetIcon}>
       <ul className="grid gap-2.5">
         {view.milestones.map((m) => (
           <li key={m.key} data-milestone={m.key} data-reached={m.reached} className="flex items-center gap-2.5 text-[13.5px]">
@@ -421,7 +313,6 @@ function Milestones({ view }: { view: TimelineView }) {
 
 export interface ActivityTimelinePageProps {
   orgId: number;
-  firstName: string;
 }
 
 interface Extra {
@@ -441,7 +332,7 @@ function download(name: string, text: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function ActivityTimelinePage({ orgId, firstName: first }: ActivityTimelinePageProps) {
+export default function ActivityTimelinePage({ orgId }: ActivityTimelinePageProps) {
   const router = useRouter();
   const [query, setQuery] = useState<TimelineQuery>(EMPTY_QUERY);
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchTimeline(orgId, query), [orgId, query]));
@@ -472,54 +363,43 @@ export default function ActivityTimelinePage({ orgId, firstName: first }: Activi
 
   if (status === "denied") return <ErrorState what="your workspace" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
 
-  const loading = status === "loading" || !view;
   return (
     <div data-consultant-activity-timeline data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Activity Timeline" subtitle="Track your recent activity, application progress, and key milestones in your consultant journey." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-
       {status === "failed" ? (
         <ErrorState what="your activity timeline" description="Your timeline didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <>
-          <section aria-label="Key numbers" data-timeline-tiles className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
-            {TILE_SPECS.map((s, i) => (
-              <Tile key={s.key} spec={s} tile={loading || !view ? null : view.tiles[s.key]} index={i} />
-            ))}
-          </section>
-          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.34fr)]">
+          <div className="flex justify-end">
+            <button type="button" data-export disabled={shown.length === 0} onClick={exportCsv} title={shown.length > 0 ? undefined : "Nothing loaded to export yet"} className="inline-flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-paper px-3.5 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-60">
+              Export timeline
+            </button>
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5">
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
               {view ? (
-                <TimelineCard
-                  view={view}
-                  shown={shown}
-                  query={query}
-                  onQuery={(q) => {
-                    setMoreFailed(false);
-                    setQuery(q);
-                  }}
-                  hasMore={cursor !== null}
-                  loadingMore={loadingMore}
-                  moreFailed={moreFailed}
-                  onMore={() => void loadMore()}
-                  refreshing={stale}
-                  onGo={(href) => router.push(href)}
-                />
+                <>
+                  <TimelineCard
+                    view={view}
+                    shown={shown}
+                    query={query}
+                    onQuery={(q) => {
+                      setMoreFailed(false);
+                      setQuery(q);
+                    }}
+                    hasMore={cursor !== null}
+                    loadingMore={loadingMore}
+                    moreFailed={moreFailed}
+                    onMore={() => void loadMore()}
+                    refreshing={stale}
+                    onGo={(href) => router.push(href)}
+                  />
+                  <Milestones view={view} />
+                </>
               ) : (
                 <div className="grid gap-4" aria-busy="true">
                   <Skeleton className="h-96 w-full" />
                 </div>
               )}
-            </div>
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-              <BeeCard
-                name={firstName(first)}
-                title="Your activity timeline, made simple!"
-                body="Track all your career activity in one place. See application updates, interview progress, feedback, and key milestones. I'm here to help you understand your progress and what's next in your journey."
-              />
-              <QuickActions onExport={exportCsv} canExport={shown.length > 0} />
-              {view ? <Milestones view={view} /> : <Skeleton className="h-56 w-full" />}
             </div>
           </div>
         </>

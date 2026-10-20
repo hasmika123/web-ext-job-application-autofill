@@ -11,7 +11,7 @@ import { can } from "@/lib/ent/workspaces";
  * member who types the URL without either gets "This isn't part of your role" (the API refuses every call regardless, and a team-scoped
  * manager only ever sees their own team). The URL's search string seeds the page, so a shared link opens on the same marketer and filters.
  */
-export const metadata: Metadata = { title: "Marketing Assignments", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Assignments", robots: { index: false, follow: false } };
 
 export default async function WorkspaceMarketingAssignmentsRoute({
   params,
@@ -29,5 +29,5 @@ export default async function WorkspaceMarketingAssignmentsRoute({
   const listed = !!ws && ws.nav.some((n) => n.href.split("?")[0] === `/w/${workspace}/marketing-assignments`);
   if (!listed && !can(me, "assignments.manage") && !can(me, "workload.view")) return <NotYourRole />;
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
-  return <MarketingAssignmentsPage orgId={me.org.id} orgName={me.org.displayName} workspace={workspace} permissions={me.permissions} initialSearch={search} />;
+  return <MarketingAssignmentsPage orgId={me.org.id} workspace={workspace} permissions={me.permissions} initialSearch={search} />;
 }

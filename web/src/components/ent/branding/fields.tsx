@@ -8,7 +8,7 @@ import { Button } from "@/components/ui";
 import { ASSET_HINT, ASSET_LABEL, colourProblem, normalizeHex, type AssetKind } from "@/lib/ent/branding";
 import type { AssetState } from "./useBrandingEditor";
 
-/** One colour: a picker, a hex box, the readability verdict and the 50 to 900 shade scale it will produce. */
+/** One color: a picker, a hex box, the readability verdict and the 50 to 900 shade scale it will produce. */
 export function ColourField({
   label,
   hint,
@@ -30,11 +30,14 @@ export function ColourField({
   const uid = useId();
   // what is being typed, while it is being typed; otherwise the committed value is shown
   const [typed, setTyped] = useState<string | null>(null);
+  // the readability warning is about a change the person just made: a saved colour that is on the edge says nothing until the field is touched
+  const [touched, setTouched] = useState(false);
   const text = typed ?? value;
-  const problem = isHex(value) ? colourProblem(value) : null;
+  const problem = touched && isHex(value) ? colourProblem(value) : null;
   const scale = isHex(value) ? brandScale(value) : null;
 
   function commit(raw: string) {
+    setTouched(true);
     setTyped(raw);
     const hex = normalizeHex(raw);
     if (hex) onChange(hex);
@@ -54,6 +57,7 @@ export function ColourField({
           aria-label={`${label} picker`}
           value={isHex(value) ? value : DEFAULT_PRIMARY}
           onChange={(e) => {
+            setTouched(true);
             setTyped(null);
             onChange(e.target.value.toLowerCase());
           }}
@@ -80,6 +84,7 @@ export function ColourField({
               {problem.message} Not saved yet.
             </span>
             <button type="button" onClick={() => {
+                setTouched(true);
                 setTyped(null);
                 onChange(problem.suggestion);
               }} className="rounded-md px-1.5 py-0.5 font-bold underline underline-offset-2 hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-accent max-sm:min-h-11">

@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/profile" }));
 
-import { OPEN_HELP_EVENT } from "@/components/ent/shell/ShellContext";
 import ConsultantProfilePage from "./ProfilePage";
 
 type W = Record<string, unknown>;
@@ -64,7 +63,7 @@ const mount = async () => {
 const card = (key: string) => document.querySelector(`[data-home-card="profile-${key}"]`) as HTMLElement;
 const writes = () => calls.filter((c) => c.method !== "GET");
 
-describe("My Career Profile from real data", () => {
+describe("My Profile from real data", () => {
   it("asks the BFF once and draws the consultant's own profile", async () => {
     await mount();
     expect(calls).toEqual([{ method: "GET", url: "/api/orgs/4/me-workspace/profile", body: undefined }]);
@@ -75,8 +74,7 @@ describe("My Career Profile from real data", () => {
     expect(within(top).getByText("San Jose, CA")).toBeTruthy();
     expect((document.querySelector("[data-avatar]") as HTMLElement).textContent).toBe("AR");
     expect(top.querySelector("img")).toBeNull(); // we store no photos
-    expect(screen.getByRole("img", { name: /Profile strength 78%/ })).toBeTruthy();
-    expect(screen.getByText("Your profile is looking good!")).toBeTruthy();
+    expect(screen.getByText("Profile 78% complete: set your career goals")).toBeTruthy();
     expect(within(card("summary")).getByText("Results-driven developer.")).toBeTruthy();
     expect(within(card("skills")).getByText("Spring Boot")).toBeTruthy();
     expect(within(card("certifications")).getByText("AWS Certified Solutions Architect")).toBeTruthy();
@@ -91,11 +89,22 @@ describe("My Career Profile from real data", () => {
     expect(screen.queryByText(/sample/i)).toBeNull();
   });
 
-  it("lists exactly what the API says is missing", async () => {
+  it("has one Edit profile button, no strength ring, missing-details card, Quick Actions or help card", async () => {
     await mount();
-    const items = Array.from(document.querySelectorAll("[data-missing]")).map((e) => e.getAttribute("data-missing"));
-    expect(items).toEqual(["goals", "employment"]);
-    expect(within(card("missing")).getByText("2 items")).toBeTruthy();
+    const top = document.querySelector("[data-profile-top]") as HTMLElement;
+    expect(within(top).getAllByRole("button").filter((b) => !b.getAttribute("aria-label") && b.textContent === "Edit profile")).toHaveLength(1);
+    for (const name of ["Update Skills", "Update skills", "Add Certification", "Save Preferences"]) expect(within(top).queryByRole("button", { name })).toBeNull();
+    expect(screen.queryByRole("img", { name: /Profile strength/ })).toBeNull();
+    expect(document.querySelector("[data-missing]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions/)).toBeNull();
+    expect(screen.queryByText(/Ask a question|Get Profile Tips/)).toBeNull();
+    expect(screen.getByRole("link", { name: /Edit work experience in My Resumes/ })).toBeTruthy();
+  });
+
+  it("says Profile complete when nothing is missing", async () => {
+    handler = () => ({ status: 200, body: fixture({ strength: { percent: 100, missing: [] } }) });
+    await mount();
+    expect(screen.getByText("Profile complete")).toBeTruthy();
   });
 
   it("says plainly what is empty and invents nothing", async () => {
@@ -108,9 +117,7 @@ describe("My Career Profile from real data", () => {
     expect(within(card("roles")).getByText("No preferred roles yet.")).toBeTruthy();
     expect(within(card("locations")).getByText("No preferred locations yet.")).toBeTruthy();
     expect(within(card("authorization")).getByText(/Not set yet/)).toBeTruthy();
-    expect(screen.getByRole("img", { name: /Profile strength 0%/ })).toBeTruthy();
-    expect(document.querySelectorAll("[data-missing]")).toHaveLength(9);
-    expect(screen.getByText("Your profile needs attention.")).toBeTruthy();
+    expect(screen.getByText("Profile 0% complete: missing summary")).toBeTruthy();
   });
 
   it("shows nothing for another role and a retry when the call fails", async () => {
@@ -138,7 +145,7 @@ describe("inline writes", () => {
 
   it("adds a skill, refuses an empty one before calling, and removes a skill in edit mode", async () => {
     await mount();
-    fireEvent.click(within(card("skills")).getByRole("button", { name: "Add Skills" }));
+    fireEvent.click(within(card("skills")).getByRole("button", { name: "Add skills" }));
     fireEvent.click(within(card("skills")).getByRole("button", { name: "Add" }));
     expect(writes()).toHaveLength(0);
     expect(within(card("skills")).getByRole("alert").textContent).toBe("Enter a value.");
@@ -179,7 +186,7 @@ describe("inline writes", () => {
 
   it("adds a certification with a month and refuses a future month before calling", async () => {
     await mount();
-    fireEvent.click(within(card("certifications")).getByRole("button", { name: "Add Certification" }));
+    fireEvent.click(within(card("certifications")).getByRole("button", { name: "Add certification" }));
     fireEvent.change(screen.getByLabelText("Certification name"), { target: { value: "CKA" } });
     fireEvent.change(screen.getByLabelText("Month issued (optional)"), { target: { value: "2999-01" } });
     fireEvent.click(screen.getByRole("button", { name: "Add certification" }));
@@ -221,7 +228,7 @@ describe("inline writes", () => {
   it("adds a preferred role and says so when the save fails", async () => {
     await mount();
     handler = () => ({ status: 500, body: {} });
-    fireEvent.click(within(card("roles")).getByRole("button", { name: "Add Role" }));
+    fireEvent.click(within(card("roles")).getByRole("button", { name: "Add role" }));
     fireEvent.change(within(card("roles")).getByLabelText("Role"), { target: { value: "Architect" } });
     fireEvent.click(within(card("roles")).getByRole("button", { name: "Add" }));
     await waitFor(() => expect(within(card("roles")).getByRole("alert").textContent).toMatch(/Nothing changed/));
@@ -231,22 +238,9 @@ describe("inline writes", () => {
 });
 
 describe("navigation inside the page", () => {
-  it("opens the section's editor from Missing Details and from the top buttons", async () => {
+  it("opens the summary editor from the header's Edit profile button", async () => {
     await mount();
-    fireEvent.click(within(card("missing")).getByRole("button", { name: /Set your career goals/ }));
-    expect(within(card("goals")).getByLabelText("Career goals")).toBeTruthy();
-    fireEvent.click(within(document.querySelector("[data-profile-top]") as HTMLElement).getByRole("button", { name: "Add Certification" }));
-    expect(screen.getByRole("form", { name: "Add certification" })).toBeTruthy();
-  });
-
-  it("Save Preferences says preferences save as they change, and Get Profile Tips opens the help panel", async () => {
-    await mount();
-    fireEvent.click(within(document.querySelector("[data-profile-top]") as HTMLElement).getByRole("button", { name: "Save Preferences" }));
-    expect(screen.getByRole("status").textContent).toBe("Preferences save as you change them.");
-    const opened = vi.fn();
-    window.addEventListener(OPEN_HELP_EVENT, opened);
-    fireEvent.click(screen.getByRole("button", { name: /Get Profile Tips/ }));
-    expect(opened).toHaveBeenCalled();
-    window.removeEventListener(OPEN_HELP_EVENT, opened);
+    fireEvent.click(within(document.querySelector("[data-profile-top]") as HTMLElement).getByRole("button", { name: "Edit profile" }));
+    expect(within(card("summary")).getByLabelText("Professional summary")).toBeTruthy();
   });
 });

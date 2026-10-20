@@ -5,7 +5,7 @@ import { ErrorState, LockIcon, MailIcon, ShieldIcon, Skeleton, cn } from "@kiwip
 import InboxConnect, { type InboxLinks } from "@/components/settings/InboxConnect";
 import PageHeader from "@/components/ent/shell/ShellContext";
 import LocalDate from "@/components/LocalDate";
-import { BASE, Card, Empty, Pill, useWorkspaceData } from "./parts";
+import { Card, Empty, Pill, useWorkspaceData } from "./parts";
 import NeedsReviewCard from "@/components/inbox/NeedsReviewCard";
 import RejectionToggle from "@/components/inbox/RejectionToggle";
 import InboxUndo from "@/components/inbox/InboxUndo";
@@ -22,12 +22,12 @@ import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, int
  */
 
 /** Every link inside the connect guide stays on THIS organization's host: its own privacy policy (docs/enterprise-v2/62), the consultant's profile, and no pricing page (the license decides). */
-const TENANT_INBOX_LINKS: InboxLinks = { privacy: "/privacy", profile: "/w/consultant/profile", pricing: "/w/consultant/features", appName: "this workspace", accountName: "account", passwordLabel: "Inbox" };
+const TENANT_INBOX_LINKS: InboxLinks = { privacy: "/privacy", profile: "/w/consultant/profile", pricing: "/w/consultant/settings?tab=features", appName: "this workspace", accountName: "account", passwordLabel: "Inbox" };
 
 const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } as const;
 const BTN = "inline-flex min-h-8 items-center rounded-lg px-3.5 text-[13px] font-semibold disabled:opacity-60";
 
-function PrivacyCard() {
+function PrivacyCard({ orgName }: { orgName: string }) {
   return (
     <section data-inbox-privacy aria-label="Who can see your inbox" className="flex gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-4 text-[13px] text-ink-soft">
       <span aria-hidden className="grid h-9 w-9 flex-none place-items-center rounded-full bg-accent-soft text-accent-deep">
@@ -36,9 +36,9 @@ function PrivacyCard() {
       <div className="min-w-0">
         <h3 className="text-[14px] font-bold text-ink">Only you see your mail</h3>
         <p className="mt-1 leading-relaxed">
-          This is your own Gmail, connected with an app password that is kept encrypted and never shown again. Your organization, your marketer and
-          your administrators never see the password, the address, a subject, a sender or a word of a message. They only see the stage an application
-          reaches (for example, Interview), the same as if you had updated it yourself. This workspace only reads; it never sends, moves or deletes mail.
+          This is your own Gmail, connected with an app password that is kept encrypted and never shown again. {orgName}, your marketer and your
+          administrators never see the password, the address or any message; they only see the stage an application reaches. This workspace only
+          reads; it never sends, moves or deletes mail.
         </p>
       </div>
     </section>
@@ -132,7 +132,7 @@ function UpdateRow({ u, endpoints, onUndone }: { u: InboxUpdate; endpoints: Revi
   );
 }
 
-export default function InboxPage({ orgId }: { orgId: number; firstName?: string }) {
+export default function InboxPage({ orgId, orgName = "Your organization" }: { orgId: number; firstName?: string; orgName?: string }) {
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchConsultantInbox(orgId), [orgId]));
   const review = useMemo(() => reviewEndpoints(orgId), [orgId]);
   const [busy, setBusy] = useState(false);
@@ -153,7 +153,7 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
   const v: ConsultantInboxView | null = view;
   return (
     <div data-consultant-inbox data-status={status} data-entitled={v ? String(v.entitled) : undefined} data-connection={v?.inbox.connected ? (v.inbox.status ?? "CONNECTED") : v ? "NONE" : undefined} className="flex max-w-3xl flex-col gap-4 sm:gap-5">
-      <PageHeader title="Inbox" subtitle="Connect the Gmail you apply from, and your applications update themselves when employers write back." />
+      <PageHeader title="Email Tracking" subtitle="Connect the Gmail you apply from, and your applications update themselves when employers write back." />
 
       {status === "failed" ? (
         <ErrorState what="your inbox" description="Your inbox page didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
@@ -164,7 +164,7 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
         </div>
       ) : (
         <>
-          <PrivacyCard />
+          <PrivacyCard orgName={orgName} />
           <InboxConnect
             isPro={v.entitled || v.inbox.connected}
             view={v.inbox}

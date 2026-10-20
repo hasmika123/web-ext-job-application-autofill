@@ -21,6 +21,8 @@ export interface LineChartProps {
   series: LineSeries[];
   /** One label per x position ("" draws none), e.g. the month name on the first point of a month. */
   xLabels: string[];
+  /** The hidden table's row headers, one per x position ("Aug 26"); defaults to `xLabels`, so a sparse axis can still name every row. */
+  rowLabels?: string[];
   /** Names the chart; the hidden table repeats the numbers. */
   label: string;
   /** Plot height in px. */
@@ -47,7 +49,7 @@ export function spreadBubbles(ys: number[], gap: number, height: number): number
   return out;
 }
 
-export function LineChart({ series, xLabels, label, height = 190, className }: LineChartProps) {
+export function LineChart({ series, xLabels, rowLabels, label, height = 190, className }: LineChartProps) {
   const n = xLabels.length;
   const finite = series.flatMap((s) => s.values.filter((v) => Number.isFinite(v)));
   const top = niceMax(Math.max(0, ...finite));
@@ -142,7 +144,7 @@ export function LineChart({ series, xLabels, label, height = 190, className }: L
         <tbody>
           {xLabels.map((l, i) => (
             <tr key={`${l}:${i}`}>
-              <th scope="row">{l || `Point ${i + 1}`}</th>
+              <th scope="row">{rowLabels?.[i] || l || `Point ${i + 1}`}</th>
               {series.map((s) => (
                 <td key={s.key}>{Number.isFinite(s.values[i]) ? s.values[i] : "no data"}</td>
               ))}

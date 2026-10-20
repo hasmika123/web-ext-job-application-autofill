@@ -3,7 +3,7 @@ import { ADMIN_LOGIN, ADMIN_PASSWORD, PLATFORM, randomPassword, saveOrg, tenantH
 
 /**
  * NOT a video (nothing is recorded or narrated). Makes a fresh organization in the state video 01 leaves behind (organization created and switched on with its
- * modules, owner signed in and with a chosen password, a "Delivery" department, a published primary colour), without the 6 minutes of recording.
+ * modules, owner signed in and with a chosen password, a "Delivery" department, a published primary color), without the 6 minutes of recording.
  * Use it to repeat a take of video 02 or 03 on a clean organization:
  *   V3_ORG_LABEL=take2 npx playwright test -c playwright.videos.config.ts e2e/videos/v3/00-prep-org.video.ts
  * It writes the v3 state file, so the next video follows the new organization.
@@ -50,9 +50,9 @@ test("V3-00 prep: a fresh organization in the state video 01 leaves it", async (
   const p = await owner.newPage();
   const host = tenantHost(LABEL);
   await p.goto(`${host}/login`);
-  await p.getByLabel("User Name").fill(OWNER_EMAIL);
+  await p.getByLabel("Email", { exact: true }).fill(OWNER_EMAIL);
   await p.getByLabel("Password", { exact: true }).fill(temp);
-  await p.getByRole("button", { name: /^Sign In/ }).click();
+  await p.getByRole("button", { name: /^Sign in/ }).click();
   await p.waitForURL(/\/change-password$/, { timeout: 45_000 });
   const fresh = randomPassword();
   await p.getByLabel("Temporary password").fill(temp);
@@ -60,15 +60,15 @@ test("V3-00 prep: a fresh organization in the state video 01 leaves it", async (
   await p.getByLabel("Repeat the new password").fill(fresh);
   await p.getByRole("button", { name: /Save and continue/ }).click();
   await p.waitForURL((u) => u.pathname.startsWith("/w/admin"), { timeout: 60_000 });
-  await p.goto(`${host}/w/admin/departments`);
-  await p.getByRole("button", { name: "Create Department", exact: true }).first().click();
-  const sheet = p.getByRole("dialog", { name: "Create Department" });
+  await p.goto(`${host}/w/admin/teams?tab=departments`);
+  await p.locator('[data-create-group="departments"]').click();
+  const sheet = p.getByRole("dialog", { name: "Create department" });
   await sheet.getByLabel(/Department name/).fill("Delivery");
-  await sheet.getByRole("button", { name: "Create Department", exact: true }).click();
-  await expect(p.getByRole("list", { name: "Departments", exact: true }).getByText("Delivery")).toBeVisible({ timeout: 30_000 });
+  await sheet.getByRole("button", { name: "Create department", exact: true }).click();
+  await expect(p.getByRole("region", { name: "Structure", exact: true }).getByText("Delivery")).toBeVisible({ timeout: 30_000 });
   await p.goto(`${host}/w/admin/branding`);
   await expect(p.locator("[data-draft-badge]")).toBeVisible({ timeout: 45_000 });
-  await p.getByLabel("Primary colour", { exact: true }).fill("#0f766e");
+  await p.getByLabel("Primary color", { exact: true }).fill("#0f766e");
   await expect(p.locator('[data-draft-badge="differs"]')).toBeVisible({ timeout: 20_000 });
   await p.locator("[data-publish]").click();
   await p.locator("[data-publish-confirm]").click();

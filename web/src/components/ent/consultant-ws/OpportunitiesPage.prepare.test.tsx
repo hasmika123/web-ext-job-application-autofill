@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/opportunities" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/opportunities", useSearchParams: () => new URLSearchParams("") }));
 
 let compact = false;
 vi.mock("./useCompact", () => ({ useCompact: () => compact }));
@@ -72,7 +72,7 @@ beforeEach(() => {
   vi.spyOn(window, "postMessage").mockImplementation((m: unknown) => {
     const msg = m as { type?: string; sessionId?: number } | null;
     if (msg?.type !== "KIWIPLY_PREPARE_BATCH" || ackMode === "none") return;
-    queueMicrotask(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "KIWIPLY_PREPARE_ACK", sessionId: msg.sessionId, ...(ackMode === "refuse" ? { ok: false, reason: "not signed in" } : {}) }, origin: window.location.origin, source: window })));
+    queueMicrotask(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "KIWIPLY_PREPARE_ACK", sessionId: msg.sessionId, ...(ackMode === "refuse" ? { accepted: false, reason: "not-connected" } : { accepted: true }) }, origin: window.location.origin, source: window })));
   });
 });
 afterEach(() => {
@@ -116,12 +116,12 @@ describe("Prepare selected openings on Assigned Opportunities", () => {
     expect(document.querySelector("[data-prepare-off-note]")!.textContent).toBe("Your organization hasn't turned on preparing applications.");
   });
 
-  it("when the licence lacks the add-on: no checkboxes, no bar, a calm line about the licence", async () => {
+  it("when the license lacks the add-on: no checkboxes, no bar, a calm line about the license", async () => {
     status = statusOff("NO_LICENSE");
     await mount();
     expect(document.querySelector("[data-prepare-bar]")).toBeNull();
     expect(document.querySelector("[data-prepare-check]")).toBeNull();
-    expect(document.querySelector("[data-prepare-off-note]")!.textContent).toBe("Your organization's licence doesn't include preparing applications.");
+    expect(document.querySelector("[data-prepare-off-note]")!.textContent).toBe("Your organization's license doesn't include preparing applications.");
   });
 
   it("the page's own call stays first; the status is read after it", async () => {
@@ -173,7 +173,7 @@ describe("Prepare selected openings on Assigned Opportunities", () => {
     expect(posts()).toHaveLength(1);
     expect(JSON.parse(posts()[0]!.body!)).toEqual({ matchIds: [1, 2] });
     const sent = (window.postMessage as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => c[0] as { type?: string }).find((m) => m.type === "KIWIPLY_PREPARE_BATCH") as unknown as Record<string, unknown>;
-    expect(sent).toMatchObject({ type: "KIWIPLY_PREPARE_BATCH", version: 1, sessionId: 9, orgId: 2 });
+    expect(sent).toMatchObject({ type: "KIWIPLY_PREPARE_BATCH", version: 1, sessionId: "9", orgId: 2 });
     expect((sent.jobs as unknown[]).length).toBe(2);
     expect(document.querySelector("[data-prepare-acked]")).toBeTruthy();
     expect(document.querySelector("[data-prepare-no-extension]")).toBeNull();

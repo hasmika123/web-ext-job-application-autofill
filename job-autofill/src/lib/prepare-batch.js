@@ -72,13 +72,48 @@
     return v.replace(/\s+/g, " ").trim().slice(0, max);
   }
 
+  // ---- dev-build allowances, read from the manifest ---------------------------------------
+  // A development build (wxt.config.ts, WXT_DEV_TENANT_ORIGINS / WXT_DEV_ATS_ORIGINS) may list local http
+  // origins on *.localhost: tenant pages that may send a batch, and stand-in ATS pages the batch may open.
+  // The rules below read those entries from the manifest, so a store build (which has none) keeps the
+  // https-only rules unchanged. Only "http://[*.]<name>.localhost[:port]/*" patterns count.
+  function manifestPatterns(pick) {
+    try {
+      const m = typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
+      return (m && pick(m)) || [];
+    } catch (e) { return []; }
+  }
+  function devLocalPatternMatches(pattern, origin) {
+    const m = /^http:\/\/(\*\.)?([a-z0-9.-]*localhost)(?::(\d+))?\/\*$/i.exec(String(pattern || ""));
+    if (!m) return false;
+    let u;
+    try { u = new URL(origin); } catch (e) { return false; }
+    if (u.protocol !== "http:") return false;
+    if ((u.port || "80") !== (m[3] || "80")) return false;
+    const host = u.hostname.toLowerCase();
+    const want = m[2].toLowerCase();
+    // Bare "localhost" is the dev API or web server, never a stand-in page: only named *.localhost hosts count.
+    if (want === "localhost") return !!m[1] && host.endsWith(".localhost");
+    return m[1] ? host === want || host.endsWith("." + want) : host === want;
+  }
+  function devAtsOriginAllowed(origin) {
+    return manifestPatterns((m) => m.host_permissions).some((p) => devLocalPatternMatches(p, origin));
+  }
+  function devTenantOriginAllowed(origin) {
+    return manifestPatterns((m) => m.externally_connectable && m.externally_connectable.matches).some((p) => devLocalPatternMatches(p, origin));
+  }
+
   // ---- URL rules ---------------------------------------------------------------------------
   // https only; no credentials in the address; a real public hostname (no localhost, no IP literal).
+  // Exception: a dev build's local stand-in ATS origins (above).
   function cleanUrl(raw) {
     if (typeof raw !== "string" || !raw.trim() || raw.length > 2000) return { error: "bad-url" };
     let u;
     try { u = new URL(raw.trim()); } catch (e) { return { error: "bad-url" }; }
-    if (u.protocol === "http:") return { error: "http-url" };
+    if (u.protocol === "http:") {
+      if (u.username || u.password || !devAtsOriginAllowed(u.origin)) return { error: "http-url" };
+      return { url: u.href };
+    }
     if (u.protocol !== "https:") return { error: "bad-url" };
     if (u.username || u.password) return { error: "bad-url" };
     const host = u.hostname.toLowerCase();
@@ -96,7 +131,9 @@
   //    { ok:false, reason, sessionId? } for a refusal, { ok:true, batch } otherwise.
   function validate(msg) {
     if (!msg || typeof msg !== "object" || msg.type !== MSG_BATCH) return { ok: false, ignore: true };
-    const sessionId = typeof msg.sessionId === "string" && SESSION_RE.test(msg.sessionId) ? msg.sessionId : null;
+    // The contract says a string; a positive integer (the API's session id as the web received it) is accepted as its decimal string.
+    const rawSession = typeof msg.sessionId === "number" && Number.isInteger(msg.sessionId) && msg.sessionId > 0 ? String(msg.sessionId) : msg.sessionId;
+    const sessionId = typeof rawSession === "string" && SESSION_RE.test(rawSession) ? rawSession : null;
     const fail = (reason) => ({ ok: false, reason, sessionId: sessionId || undefined });
     if (msg.version !== CONTRACT_VERSION) return fail("unsupported-version");
     if (!sessionId) return fail("bad-session");
@@ -150,13 +187,15 @@
   }
 
   // Origins that may send a batch: the exact web origins the connect handoff trusts, plus tenant hosts
-  // (*.kiwiply.com). Custom tenant domains cannot be listed in a manifest — see ARCHITECTURE.md.
+  // (*.kiwiply.com), plus a dev build's local tenant hosts. Custom tenant domains cannot be listed in a
+  // manifest — see ARCHITECTURE.md.
   const TENANT_SUFFIX = ".kiwiply.com";
   function tenantOriginAllowed(origin) {
     try {
       const u = new URL(origin);
-      return u.protocol === "https:" && !u.port && u.hostname.toLowerCase().endsWith(TENANT_SUFFIX);
+      if (u.protocol === "https:" && !u.port && u.hostname.toLowerCase().endsWith(TENANT_SUFFIX)) return true;
     } catch (e) { return false; }
+    return devTenantOriginAllowed(origin);
   }
 
   function ack(sessionId, accepted, reason) {
@@ -643,19 +682,25 @@
         .filter((f) => f.adapter !== "generic" || f.fieldCount >= 2)
         .sort((a, b) => (b.adapter !== "generic" ? 1000 : 0) + b.fieldCount - ((a.adapter !== "generic" ? 1000 : 0) + a.fieldCount));
     }
+    // A form that has actually rendered: a known site with at least one field, or two fields anywhere. Ashby and other single-page
+    // apps match their adapter by URL before React has drawn the form, so the adapter alone does not mean the fields are there yet.
+    function rendered(frames) {
+      return frames.some((f) => f.fieldCount >= (f.adapter !== "generic" ? 1 : 2));
+    }
     async function prepare(tabId, job, batch) {
       const info = { sessionId: batch.sessionId, matchId: job.matchId };
       try { await deps.inject(tabId); }
       catch (e) { return { outcome: "NEEDS_INPUT", reason: REASON.unsupported }; }
 
-      // One look, and one more after a pause when nothing is there yet (single-page apps render late).
+      // Up to three looks, 3 s apart, until the form's fields are on the page (single-page apps render late). If a known site still
+      // shows no fields after that, it is filled anyway, as before (its fields may be ones the scan does not count).
       let top = null;
       let frames = [];
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 3; i++) {
         top = await deps.sendTo(tabId, { type: "JAF_BATCH_CHECK", batch: info }, 0).catch(() => null);
         frames = await deps.scanFrames(tabId).catch(() => []);
-        if ((top && (top.kind === "captcha" || top.kind === "signin")) || formFrames(frames).length) break;
-        if (i === 0) await wait(4000);
+        if ((top && (top.kind === "captcha" || top.kind === "signin")) || rendered(frames)) break;
+        if (i < 2) await wait(3000);
       }
       const kind = top && top.kind;
       if (kind === "captcha") return { outcome: "NEEDS_INPUT", reason: REASON.captcha };
@@ -681,7 +726,7 @@
   JAF.prepareBatch = {
     MSG_BATCH, MSG_ACK, CONTRACT_VERSION, MAX_JOBS, MAX_CONCURRENT, OPEN_DELAY_MS, MAX_ATTEMPTS, RETRY_GAP_MS,
     ACK_BUDGET_MS, OUTBOX_TRIES, EVENTS, FINAL_STATES, ACTIVE_STATES, REASON, REASON_HELP, DETAIL_MAX,
-    validate, cleanUrl, checkSession, checkRole, tenantOriginAllowed, ack,
+    validate, cleanUrl, checkSession, checkRole, tenantOriginAllowed, devAtsOriginAllowed, devTenantOriginAllowed, ack,
     createReceiver, createController, createPreparer, summarize, stateKey,
   };
 })();

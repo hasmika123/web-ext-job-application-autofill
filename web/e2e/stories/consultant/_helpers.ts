@@ -5,28 +5,38 @@ import { expect, type BrowserContext, type Locator, type Page } from "@playwrigh
  * web/src/components/ent/consultant-ws/** (each page root is `[data-consultant-<page>][data-status=ready]`).
  */
 
-/** Page roots by sidebar slug (see consultant-pages.spec.ts for the same table). */
+/**
+ * Page roots by address under /w/consultant (a sidebar slug, or a slug plus `?tab=` for a tab of a merged page). Since the UI refresh (Phase 1)
+ * Opportunities, Interviews, Activity and Settings are tabbed pages: each tab still renders the old page's root, inside the merged page.
+ */
 export const ROOTS: Record<string, string> = {
   "": "[data-consultant-home]",
   profile: "[data-consultant-profile]",
   resumes: "[data-consultant-resumes]",
-  marketer: "[data-consultant-marketer]",
-  "job-discovery": "[data-job-discovery]",
-  matches: "[data-consultant-matches]",
-  opportunities: "[data-consultant-opportunities]",
-  applications: "[data-consultant-applications]",
+  availability: "[data-consultant-availability]",
+  opportunities: "[data-consultant-opportunities]", // the Assigned tab (default)
+  "opportunities?tab=matches": "[data-consultant-matches]",
+  "opportunities?tab=browse": "[data-job-discovery]",
   submissions: "[data-consultant-submissions]",
-  interviews: "[data-consultant-interviews]",
-  "interview-prep": "[data-consultant-interview-prep]",
+  applications: "[data-consultant-applications]",
+  interviews: "[data-consultant-interviews]", // the Schedule tab (default)
+  "interviews?tab=prepare": "[data-consultant-interview-prep]",
   offers: "[data-consultant-offers]",
   placements: "[data-consultant-placements]",
-  availability: "[data-consultant-availability]",
   tasks: "[data-consultant-tasks]",
-  "activity-timeline": "[data-consultant-activity-timeline]",
+  activity: "[data-consultant-notifications]", // the Needs attention tab (default) is the notifications list
+  "activity?tab=timeline": "[data-consultant-activity-timeline]",
   inbox: "[data-consultant-inbox]",
-  features: "[data-consultant-features]",
+  marketer: "[data-consultant-marketer]",
+  settings: "[data-consultant-settings]", // the Privacy tab (default)
+  "settings?tab=features": "[data-consultant-features]",
+  // The old addresses of the merged pages redirect to their tab, which renders the same root.
+  "job-discovery": "[data-job-discovery]",
+  matches: "[data-consultant-matches]",
+  "interview-prep": "[data-consultant-interview-prep]",
+  "activity-timeline": "[data-consultant-activity-timeline]",
   notifications: "[data-consultant-notifications]",
-  settings: "[data-consultant-settings]",
+  features: "[data-consultant-features]",
 };
 
 /** Opens /w/consultant/<slug> and waits until the page has loaded its data (status=ready). */
@@ -97,13 +107,6 @@ export async function menuAction(page: Page, trigger: Locator, item: string | Re
     await expect(page.getByRole("menuitem", { name: item })).toBeVisible({ timeout: 2000 });
   }).toPass({ timeout: 20_000 });
   await page.getByRole("menuitem", { name: item }).click();
-}
-
-/** Reads one stat tile's big number (`[data-stat-tile=<key>] [data-tile-value]`). The Placement/Availability/Settings pages key tiles by title. */
-export async function tileValue(page: Page, key: string): Promise<string> {
-  const v = page.locator(`[data-stat-tile="${key}"] [data-tile-value]`);
-  await expect(v).toBeVisible();
-  return (await v.innerText()).trim();
 }
 
 /** The page must not scroll sideways (390px phone check used by the existing journeys). */

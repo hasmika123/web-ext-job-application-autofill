@@ -8,15 +8,15 @@
 export type ActivityKpiKey = "total" | "resume" | "submission" | "followup" | "interview";
 export const ACTIVITY_KPI_KEYS: ActivityKpiKey[] = ["total", "resume", "submission", "followup", "interview"];
 export const ACTIVITY_KPI_TITLES: Record<ActivityKpiKey, string> = {
-  total: "Total Activities", resume: "Resume Updates", submission: "New Submissions", followup: "Client Follow-ups", interview: "Interviews Coordinated",
+  total: "Total activities", resume: "Resume updates", submission: "New submissions", followup: "Client follow-ups", interview: "Interviews coordinated",
 };
 
 export type ActivityStatus = "COMPLETED" | "SCHEDULED" | "CANCELLED";
 export const STATUS_LABEL: Record<ActivityStatus, string> = { COMPLETED: "Completed", SCHEDULED: "Scheduled", CANCELLED: "Cancelled" };
 export type SortKey = "recent" | "oldest";
-export const SORT_LABEL: Record<SortKey, string> = { recent: "Most Recent", oldest: "Oldest First" };
+export const SORT_LABEL: Record<SortKey, string> = { recent: "Most recent", oldest: "Oldest first" };
 export type SummaryRange = "THIS_MONTH" | "LAST_MONTH" | "LAST_7_DAYS" | "LAST_30_DAYS";
-export const SUMMARY_RANGE_LABEL: Record<SummaryRange, string> = { THIS_MONTH: "This Month", LAST_MONTH: "Last Month", LAST_7_DAYS: "Last 7 Days", LAST_30_DAYS: "Last 30 Days" };
+export const SUMMARY_RANGE_LABEL: Record<SummaryRange, string> = { THIS_MONTH: "This month", LAST_MONTH: "Last month", LAST_7_DAYS: "Last 7 days", LAST_30_DAYS: "Last 30 days" };
 
 export interface Person { id: number | null; name: string; avatarUrl: string | null }
 export interface ClientRef { id: number | null; name: string }

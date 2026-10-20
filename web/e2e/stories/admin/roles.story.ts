@@ -8,15 +8,14 @@ const rowOf = (page: Page, name: string) => page.locator("tr", { has: page.getBy
 async function openRoles(page: Page, go: (p: string) => Promise<void>) {
   await go("/w/admin/roles");
   await expect(page.locator("[data-roles-page]")).toBeVisible();
-  await expect(page.locator("[data-kpi-value]").first()).not.toHaveText("–");
+  await expect(page.locator("[data-roles-count]")).toContainText(" custom"); // "12 roles · 0 custom" once the overview is in
 }
 
 test("ADM-30 Org admin reviews the twelve system roles with real user counts", async ({ as }) => {
   const { page, go } = await as("sarah");
-  await narrate(page, "Sarah opens Roles & Permissions");
+  await narrate(page, "Sarah opens Roles");
   await openRoles(page, go);
-  await expect(page.getByRole("heading", { name: "Roles & Permissions", level: 1 })).toBeVisible();
-  await expect(page.getByText("Role Templates & Custom Roles")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Roles", level: 1, exact: true })).toBeVisible();
   for (const name of SYSTEM) await expect(rowOf(page, name), name).toBeVisible();
 
   await narrate(page, "The numbers on screen are the API's numbers");
@@ -32,8 +31,7 @@ test("ADM-30 Org admin reviews the twelve system roles with real user counts", a
   const byName = Object.fromEntries(roles.map((r) => [r.name, r.assignedUsers]));
   expect(byName["Organization Admin"]).toBeGreaterThanOrEqual(1); // Sarah
   expect(byName["Consultant"]).toBeGreaterThanOrEqual(2); // Anika, Ben
-  await expect(page.locator('[data-kpi="Total Roles"] [data-kpi-value]')).toHaveText(String(roles.length));
-  await expect(page.locator('[data-kpi="Active Users"] [data-kpi-value]')).toHaveText(String(api.json.activeUsers));
+  await expect(page.locator("[data-roles-count]")).toContainText(`${roles.length} roles`);
   await expect(page.getByText(/vs last month/i)).toHaveCount(0); // no invented trend
 });
 
@@ -43,8 +41,8 @@ test("ADM-31 Org admin builds a custom role from a template, trims a permission,
   await openRoles(page, go);
   const orgId = await orgIdOf(page);
 
-  await narrate(page, "Create Role, starting from the Marketing Specialist template");
-  await page.getByRole("button", { name: /Create Role/ }).click();
+  await narrate(page, "Create role, starting from the Marketing Specialist template");
+  await page.locator("[data-create-role-button]").click();
   await page.getByLabel(/Role name/).fill(roleName);
   await page.getByRole("radio", { name: "A template" }).click();
   await page.getByRole("combobox", { name: "Template" }).or(page.getByRole("button", { name: /Template/ })).first().click();
@@ -90,12 +88,6 @@ test("ADM-31 Org admin builds a custom role from a template, trims a permission,
   await page.getByRole("menuitem", { name: /^Delete$/ }).click();
   await expect(page.getByText(`${roleName} deleted`)).toBeVisible();
   await expect(rowOf(page, roleName)).toHaveCount(0);
-
-  await narrate(page, "History records the creation, the change and the deletion");
-  await page.locator("[data-quick=audit]").click();
-  const drawer = page.locator("#roles-history");
-  await expect(drawer).toContainText("Role created");
-  await expect(drawer).toContainText("Role deleted");
 });
 
 test("ADM-32 Beta's owner sees only Beta's roles and cannot read Acme's", async ({ as }) => {
@@ -104,7 +96,7 @@ test("ADM-32 Beta's owner sees only Beta's roles and cannot read Acme's", async 
   const acmeOrg = await orgIdOf(sarah.page);
 
   const { page, go } = await as("bea");
-  await narrate(page, "Bea opens Beta's Roles & Permissions");
+  await narrate(page, "Bea opens Beta's Roles");
   await openRoles(page, go);
   const own = await bff(page, "GET", `/api/orgs/${await orgIdOf(page)}/roles/overview`);
   expect(own.status).toBe(200);

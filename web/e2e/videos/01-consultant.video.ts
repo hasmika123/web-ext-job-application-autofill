@@ -37,17 +37,17 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   // ---- home and profile
   await open(f, "");
   await narrate(page, "Okay, I'm signed in as Anika, a consultant at Acme Staffing. This is her own Home page.");
-  await narrate(page, "These six numbers sum up her matches, opportunities, applications, interviews, approvals and placement. And everything on this page is her own data.");
+  await narrate(page, "These four numbers sum up what needs her: opportunities awaiting her response, active applications, upcoming interviews and submissions to approve. And everything on this page is her own data.");
   await page.mouse.wheel(0, 520);
-  await narrate(page, "Scrolling down, there are her matches, her assigned jobs, her applications, interviews, tasks, and how strong her resume is.");
+  await narrate(page, "Scrolling down, there's her day, the opportunities waiting for an answer, her upcoming interviews and her applications.");
   await page.mouse.wheel(0, -900);
   await open(f, "profile");
-  await narrate(page, "Let's open My Career Profile. It holds her skills, certifications and preferences. And notice what's not here: the profile refuses ID numbers and birth dates, because Kiwiply never stores them.");
+  await narrate(page, "Let's open My Profile. It holds her skills, certifications and preferences. And notice what's not here: the profile refuses ID numbers and birth dates, because Kiwiply never stores them.");
   await page.waitForTimeout(1500);
 
   // ---- assigned opportunities: accept one and apply herself
   await open(f, "opportunities");
-  await narrate(page, "Her marketer assigns jobs to her, so let's see Assigned Opportunities. Each one has a priority, a due date, and the marketer's quick notes.");
+  await narrate(page, "Her marketer assigns jobs to her, so let's open Opportunities. The Assigned tab lists each one with a priority and a due date.");
   const rows = page.locator("[data-opp]");
   await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(3);
   let chosen = -1;
@@ -69,8 +69,8 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   await narrate(page, "Remember, that only records my wish. Nothing is applied for, and nothing is sent to the employer.");
   await rows.nth(chosen).locator("[data-action=view]").click();
   const sheet = page.getByRole("dialog", { name: title });
-  await expect(sheet.locator("[data-quick-info]")).toBeVisible();
-  await narrate(page, "The detail shows the marketer's job notes and why I was matched. And the Open job link button leads to the employer's own posting.");
+  await expect(sheet.locator("[data-detail]")).toBeVisible();
+  await narrate(page, "The detail shows the job, the marketer's notes when there are any, and why I was matched. And the Open job link button leads to the employer's own posting.");
   const href = await sheet.locator("a[data-job-link]").getAttribute("href");
   await narrate(page, "Now I'll apply by myself. Kiwiply never submits an application for anyone.");
   await page.goto(href ?? "https://jobs.example.com/demo");
@@ -82,7 +82,7 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
 
   // ---- track the application
   await open(f, "applications");
-  await narrate(page, "Back in Kiwiply, My Applications tracks every application I have: its stage, its next step, and a pipeline summary.");
+  await narrate(page, "Back in Kiwiply, My Applications tracks every application I have: its stage and its next step.");
   const apps = page.locator("[data-application]");
   await expect.poll(() => apps.count()).toBeGreaterThanOrEqual(3);
   await apps.first().locator("[data-action=view]").click();
@@ -94,7 +94,7 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
 
   // ---- submissions the marketer prepared
   await open(f, "submissions");
-  await narrate(page, "Next, Submissions and Approvals. When my marketer prepares an application, it waits here for my decision.");
+  await narrate(page, "Next, Submissions. When my marketer prepares an application, it waits here for my decision.");
   const pending = page.locator("[data-submission]");
   if ((await pending.count()) > 0) {
     const stitle = ((await pending.first().getByRole("button", { name: /^Approve / }).getAttribute("aria-label")) ?? "").replace(/^Approve /, "");
@@ -104,7 +104,7 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
     await expect(dlg.locator("[data-approve-copy]")).toBeVisible();
     await page.waitForTimeout(1500);
     await dlg.getByRole("button", { name: "Yes, approve" }).click();
-    await expect(page.getByText(/Nothing was sent to the client by Kiwiply/)).toBeVisible();
+    await expect(page.getByText(/Nothing was sent to the client from here/)).toBeVisible();
     await narrate(page, "Approving only records my decision. Nothing is sent to the client by Kiwiply.");
   } else {
     await narrate(page, "Nothing is waiting for my approval right now. Past submissions show what happened next.");
@@ -117,8 +117,8 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   await expect(page.locator("[data-interview-sheet]")).toBeVisible();
   await page.waitForTimeout(2000);
   await page.keyboard.press("Escape");
-  await open(f, "interview-prep");
-  await narrate(page, "And Interview Prep has a checklist and practice sessions, so I walk in ready.");
+  await open(f, "interviews?tab=prepare");
+  await narrate(page, "And the Prepare tab has a checklist and practice sessions, so I walk in ready.");
   await page.waitForTimeout(1500);
 
   // ---- Gamma: Cora builds her resumes in the Resume Builder
@@ -128,7 +128,7 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   await page.locator("[data-create-resume]").click();
   const chooser = page.getByRole("dialog");
   await expect(chooser.getByText(/Your saved profile/)).toBeVisible();
-  await narrate(page, "Create New Resume gives four starting points: my profile, an upload, a copy of an existing resume, or a blank page. I'll start from my profile, and watch how it fills in.", undefined, chooser);
+  await narrate(page, "Create new resume gives four starting points: my profile, an upload, a copy of an existing resume, or a blank page. I'll start from my profile, and watch how it fills in.", undefined, chooser);
   await chooser.getByRole("radio", { name: /profile/i }).first().click();
   await chooser.getByRole("button", { name: "Continue" }).click();
   await chooser.getByLabel("Resume name").fill("Cora Lindahl, Salesforce Developer");

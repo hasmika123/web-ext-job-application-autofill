@@ -19,7 +19,7 @@ interface Props {
 const blankExperience = (): ExperienceInput => ({ title: "", employer: "", startYear: null, endYear: null });
 
 /**
- * "Upload Resume": records a NEW resume for a consultant (name, target role, headline, summary, experience, visibility) and, optionally, the plain
+ * "Upload resume": records a NEW resume for a consultant (name, target role, headline, summary, experience, visibility) and, optionally, the plain
  * name of a file. The file's contents are never read or stored (there is no file store); the dialog says so. The record starts as Pending, because a
  * resume prepared for a consultant needs someone else to record its approval. Free text is checked for never-collected values as you type and again
  * by the server.
@@ -115,7 +115,7 @@ export default function UploadResumeDialog({ open, onClose, orgId, onCreated }: 
       onClose={() => {
         if (!saving) onClose();
       }}
-      title="Upload Resume"
+      title="Upload resume"
       description="Record a new resume for a consultant. It starts as Pending until someone else approves it."
       className="max-w-2xl"
       footer={

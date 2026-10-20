@@ -28,12 +28,10 @@ export default async function WorkspacePlacementsRoute({ params }: { params: Pro
     <Suspense fallback={null}>
       <PlacementsPage
         orgId={me.org.id}
-        orgName={me.org.displayName}
         workspace={workspace}
         permissions={me.permissions}
         consultantsHref={hrefOf("consultants")}
         clientsHref={hrefOf("clients")}
-        supportEmail={null}
       />
     </Suspense>
   );

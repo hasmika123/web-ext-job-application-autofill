@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/admin" }));
@@ -67,7 +67,7 @@ let reply: () => unknown;
 async function mount(props: Partial<React.ComponentProps<typeof DashboardPage>> = {}) {
   render(
     <ToastProvider>
-      <DashboardPage orgId={2} orgName="Acme" firstName="Sarah" auditHref={null} applicationsHref="/w/admin/applications" {...props} />
+      <DashboardPage orgId={2} orgName="Acme" auditHref={null} applicationsHref="/w/admin/applications" {...props} />
     </ToastProvider>,
   );
   await act(async () => {
@@ -91,22 +91,21 @@ const tileOf = (key: string) => document.querySelector(`[data-stat-tile="${key}"
 const cardOf = (key: string) => document.querySelector(`[data-dash-card="${key}"]`) as HTMLElement | null;
 
 describe("the talent board", () => {
-  it("draws the six tiles: values, money compact, week-over-week text, red for a drop", async () => {
+  it("draws the four tiles: values, week-over-week text, red for a drop", async () => {
     await mount();
     expect(within(tileOf("consultants.total")!).getByText("153")).toBeTruthy();
     expect(within(tileOf("applications.active")!).getByText("64")).toBeTruthy();
     expect(tileOf("applications.active")!.querySelector("[data-delta=down]")!.textContent).toContain("5.9%");
     expect(tileOf("interviews.upcoming")!.textContent).toContain("vs last week");
     expect(tileOf("placements")!.querySelector("[data-delta=up]")!.textContent).toContain("15%");
-    expect(tileOf("finance.summary")!.querySelector("[data-tile-value]")!.textContent).toBe("$328K");
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(6);
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(4);
   });
 
   it("the pipeline card lists the stages with a total, and the charts have text alternatives", async () => {
     await mount();
     const pipe = cardOf("pipeline.overview")!;
     expect(pipe.textContent).toContain("Interview Scheduled");
-    expect(pipe.textContent).toContain("Total Applications");
+    expect(pipe.textContent).toContain("Total applications");
     expect(pipe.querySelector("[data-donut-chart] svg")!.getAttribute("aria-label")).toContain("In Review 20");
     const team = cardOf("team.performance")!;
     expect(team.querySelector("table")).toBeTruthy();
@@ -124,12 +123,6 @@ describe("the talent board", () => {
     expect(cardOf("team.performance")!.querySelector("[data-bar='applications:Jan']")).toBeNull();
   });
 
-  it("a quick action is a real link", async () => {
-    await mount();
-    const a = document.querySelector("[data-quick-action=review-applications]") as HTMLAnchorElement;
-    expect(a.getAttribute("href")).toBe("/w/admin/applications");
-  });
-
   it("an application activity row shows who, the job, and leads to the applications page; View all falls back to it", async () => {
     await mount();
     const row = document.querySelector("[data-activity='application-5']")!;
@@ -143,51 +136,15 @@ describe("the talent board", () => {
     reply = () =>
       talent({
         "applications.active": { key: "applications.active", state: "empty", reason: "NO_APPLICATIONS" },
-        "finance.summary": { key: "finance.summary", state: "empty", reason: "NO_SPEND" },
         "pipeline.overview": { key: "pipeline.overview", state: "empty", reason: "NO_APPLICATIONS" },
         "team.performance": { key: "team.performance", state: "empty", reason: "NO_APPLICATIONS" },
       });
     await mount();
     expect(tileOf("applications.active")!.textContent).toContain("No applications yet");
     expect(tileOf("applications.active")!.querySelector("[data-tile-value]")).toBeNull();
-    expect(tileOf("finance.summary")!.textContent).toContain("No spend recorded this month");
     expect(cardOf("pipeline.overview")!.textContent).toContain("No applications yet");
     expect(cardOf("pipeline.overview")!.querySelector("[data-donut-chart]")).toBeNull();
     expect(cardOf("team.performance")!.querySelector("[data-bar]")).toBeNull();
-  });
-});
-
-describe("the help card", () => {
-  it("dismisses with the X, stays dismissed for this organization only", async () => {
-    await mount();
-    expect(cardOf("help")).toBeTruthy();
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Dismiss the help card" }));
-    });
-    expect(cardOf("help")).toBeNull();
-    expect(window.localStorage.getItem("kiwiply.dashboard.help.dismissed.2")).toBe("1");
-    cleanup();
-    await mount();
-    expect(cardOf("help")).toBeNull();
-    cleanup();
-    await mount({ orgId: 3 });
-    expect(cardOf("help")).toBeTruthy();
-  });
-
-  it("works when the browser refuses storage", async () => {
-    const real = Storage.prototype.setItem;
-    Storage.prototype.setItem = () => {
-      throw new Error("blocked");
-    };
-    try {
-      await mount();
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: "Dismiss the help card" }));
-      });
-      expect(cardOf("help")).toBeNull();
-    } finally {
-      Storage.prototype.setItem = real;
-    }
   });
 });
 

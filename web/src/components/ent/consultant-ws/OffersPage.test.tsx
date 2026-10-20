@@ -72,31 +72,31 @@ const flush = () => act(async () => void (await new Promise((res) => setTimeout(
 async function mount() {
   render(
     <ToastProvider>
-      <OffersPage orgId={2} firstName="Anika Rao" />
+      <OffersPage orgId={2} />
     </ToastProvider>,
   );
   await flush();
 }
-const tileOf = (k: string) => document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement;
+const chipOf = (k: string) => document.querySelector(`[data-chip="${k}"]`) as HTMLElement;
 const rowOf = (id: number) => document.querySelector(`tr[data-offer="${id}"]`) as HTMLElement;
 
 describe("Offers from real data", () => {
-  it("draws the tiles, the offers table, the compare table and the activity", async () => {
+  it("draws status chips with counts, the offers table and the compare table, with no tiles, activity, Quick Actions or help card", async () => {
     await mount();
     expect(calls[0]).toEqual({ method: "GET", url: "/api/orgs/2/me-workspace/offers", body: undefined });
     expect(document.querySelector("[data-consultant-offers]")?.getAttribute("data-status")).toBe("ready");
-    expect(within(tileOf("total")).getByText("4")).toBeTruthy();
-    expect(within(tileOf("total")).getByText(/300%/)).toBeTruthy();
-    expect(within(tileOf("negotiation")).getByText(/no change/)).toBeTruthy();
-    expect(within(tileOf("pending")).queryByText(/vs last month/)).toBeNull(); // no delta from the API: none is made up
-    expect(screen.getByRole("heading", { name: "Your Offers (4)" })).toBeTruthy();
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(screen.queryByText(/vs last month|Quick Actions|Ask a question|Recent Offer Activity/)).toBeNull();
+    expect(chipOf("PENDING_REVIEW").textContent).toMatch(/^Pending/);
+    expect(chipOf("NEGOTIATION").textContent).toMatch(/^Negotiation/);
+    expect(chipOf("ACCEPTED").textContent).toMatch(/^Accepted/);
+    expect(chipOf("DECLINED").textContent).toMatch(/^Declined/);
+    expect(screen.getByRole("heading", { name: "Your offers (4)" })).toBeTruthy();
     expect(within(rowOf(1)).getByText("Remote")).toBeTruthy();
     expect(within(rowOf(1)).getByText("(5 days left)")).toBeTruthy();
     expect(within(rowOf(2)).getByText("Negotiation")).toBeTruthy();
     expect(within(rowOf(4)).getByText("Declined")).toBeTruthy();
     expect(within(rowOf(4)).queryByText(/days left/)).toBeNull();
-    expect(screen.getByText("New offer received")).toBeTruthy();
-    expect(screen.getByText("Offer declined")).toBeTruthy();
     expect(screen.getAllByText("Sample").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Compare Selected (0)" }).hasAttribute("disabled")).toBe(true);
   });
@@ -162,7 +162,7 @@ describe("Offers from real data", () => {
     fireEvent.click(within(rowOf(1)).getByRole("button", { name: "View Senior Software Engineer at CloudWave" }));
     await flush();
     fireEvent.click(screen.getByRole("button", { name: "Accept Offer" }));
-    expect(screen.getByText(/Nothing is signed or sent to the client by Kiwiply/)).toBeTruthy();
+    expect(screen.getByText(/Nothing is signed or sent to the client from here/)).toBeTruthy();
     expect(calls.some((c) => c.method === "POST")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Yes, accept offer" }));
     await flush();
@@ -215,7 +215,5 @@ describe("Offers from real data", () => {
     await mount();
     expect(screen.getByText(/No offers yet/)).toBeTruthy();
     expect(screen.getByText(/Nothing to compare yet/)).toBeTruthy();
-    expect(screen.getByText(/No activity yet/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Respond to Offer Accept, negotiate or decline" }).hasAttribute("disabled")).toBe(true);
   });
 });

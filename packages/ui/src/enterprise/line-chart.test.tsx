@@ -25,6 +25,12 @@ describe("LineChart", () => {
     expect(container.querySelector('[data-end-bubble="o"]')?.textContent).toBe("12");
   });
 
+  it("names every row of the screen-reader table from rowLabels when the axis is sparse (never 'Point 2')", () => {
+    const { container } = render(<LineChart series={SERIES} xLabels={["Aug", "", "Oct"]} rowLabels={["Aug 26", "Sep 30", "Oct 14"]} label="Interviews vs Offers" />);
+    const rows = [...container.querySelectorAll("tbody th[scope=row]")].map((th) => th.textContent);
+    expect(rows).toEqual(["Aug 26", "Sep 30", "Oct 14"]);
+  });
+
   it("labels the x axis only where a label is given and keeps every number in a screen-reader table", () => {
     const { container } = render(<LineChart series={SERIES} xLabels={["Aug", "", "Oct"]} label="Interviews vs Offers" />);
     expect(screen.getAllByText("Aug").length).toBeGreaterThan(0);

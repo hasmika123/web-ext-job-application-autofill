@@ -53,7 +53,7 @@ afterEach(() => {
 async function mount() {
   const view = render(
     <ToastProvider>
-      <ActivityTimelinePage orgId={2} firstName="Casey One" />
+      <ActivityTimelinePage orgId={2} />
     </ToastProvider>,
   );
   await act(async () => {
@@ -62,19 +62,15 @@ async function mount() {
   return view;
 }
 const rows = () => [...document.querySelectorAll("[data-timeline-row]")] as HTMLElement[];
-const tileEl = (k: string) => document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement;
 
 describe("Activity Timeline from real data", () => {
-  it("asks the BFF once with the default filters and draws tiles, rows, chips and links", async () => {
+  it("asks the BFF once with the default filters and draws rows, chips and links, with no tiles, Quick Actions or help card", async () => {
     await mount();
     expect(calls).toEqual(["/api/orgs/2/me-workspace/activity-timeline?days=30&size=20"]);
     expect(document.querySelector("[data-consultant-activity-timeline]")!.getAttribute("data-status")).toBe("ready");
-    expect(within(tileEl("total")).getByText("48")).toBeTruthy();
-    expect(tileEl("total").querySelector("[data-tile-delta]")!.textContent).toContain("20%");
-    expect(within(tileEl("total")).getByText("vs last month")).toBeTruthy();
-    expect(within(tileEl("thisWeek")).getByText("vs last week")).toBeTruthy();
-    expect(tileEl("applications").querySelector("[data-tile-delta]")).toBeNull();
-    expect(within(tileEl("applications")).getByText("Last 30 days")).toBeTruthy();
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(document.querySelector("[data-quick]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|made simple|vs last month/)).toBeNull();
 
     expect(rows().map((r) => r.getAttribute("data-timeline-row"))).toEqual(["RESUME_UPDATED", "OFFER_RECEIVED", "INTERVIEW_SCHEDULED"]);
     expect(within(rows()[0]).getByText("Senior Java Developer Resume.pdf")).toBeTruthy();
@@ -87,16 +83,12 @@ describe("Activity Timeline from real data", () => {
     expect(screen.getByText("Showing 3 of 3")).toBeTruthy();
   });
 
-  it("draws the milestone checklist with open circles for unreached ones, and the quick links", async () => {
+  it("draws the milestone checklist with open circles for unreached ones", async () => {
     await mount();
     expect(document.querySelector('[data-milestone="app-submitted"]')!.getAttribute("data-reached")).toBe("true");
     const open = document.querySelector('[data-milestone="offer-accepted"]') as HTMLElement;
     expect(open.getAttribute("data-reached")).toBe("false");
     expect(open.textContent).toContain("-");
-    expect(document.querySelector('[data-quick="view-application"]')!.getAttribute("href")).toBe("/w/consultant/applications");
-    expect(document.querySelector('[data-quick="message-marketer"]')!.getAttribute("href")).toBe("/w/consultant/marketer");
-    expect(document.querySelector('[data-quick="review-feedback"]')!.getAttribute("href")).toBe("/w/consultant/interviews");
-    expect(screen.getByText("Your activity timeline, made simple!")).toBeTruthy();
   });
 
   it("refetches from the first page when the type or the period changes", async () => {
@@ -148,7 +140,7 @@ describe("Activity Timeline from real data", () => {
     await mount();
     const before = calls.length;
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Export Timeline/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Export timeline" }));
     });
     expect(calls.length).toBe(before); // no server call
     expect(created).toHaveLength(1);
@@ -163,7 +155,7 @@ describe("Activity Timeline from real data", () => {
     expect(rows()).toHaveLength(0);
     expect(screen.getByText(/No activity in the last 30 days/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
-    expect(screen.getByRole("button", { name: /Export Timeline/ }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Export timeline" }).hasAttribute("disabled")).toBe(true);
     expect(document.querySelector('[data-milestone="k"]')!.getAttribute("data-reached")).toBe("false");
   });
 

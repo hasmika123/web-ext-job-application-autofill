@@ -70,6 +70,25 @@ const STATUSES: readonly string[] = ["ENABLED", "DISABLED", "NOT_AVAILABLE"];
 const TONES_OK: readonly string[] = ["accent", "violet", "green", "amber", "coral", "pink", "teal"];
 const ICONS_OK: readonly string[] = ["search", "file", "video", "mail", "sparkles"];
 
+/**
+ * Where a feature's action link goes. The API may still send the addresses of pages that became tabs in the UI refresh (Job Matches, Interview
+ * Prep, Job Discovery, Notifications, Activity Timeline, My Features): those are pointed at the tab so the click lands there directly. Anything
+ * that is not a consultant-workspace path falls back to the Plan & features tab.
+ */
+export function featureHref(href: string): string {
+  if (!href.startsWith("/w/consultant/")) return "/w/consultant/settings?tab=features";
+  const path = href.slice("/w/consultant/".length).split(/[?#]/)[0];
+  const moved: Record<string, string> = {
+    matches: "/w/consultant/opportunities?tab=matches",
+    "job-discovery": "/w/consultant/opportunities?tab=browse",
+    "interview-prep": "/w/consultant/interviews?tab=prepare",
+    "activity-timeline": "/w/consultant/activity?tab=timeline",
+    notifications: "/w/consultant/activity",
+    features: "/w/consultant/settings?tab=features",
+  };
+  return moved[path] ?? href;
+}
+
 function parseFeature(o: unknown): FeatureRow | null {
   if (!isObj(o) || typeof o.key !== "string" || typeof o.title !== "string") return null;
   const href = str(o.href);
@@ -87,7 +106,7 @@ function parseFeature(o: unknown): FeatureRow | null {
     unit: str(o.unit),
     usedNote: str(o.usedNote),
     resetsOn: strOrNull(o.resetsOn),
-    href: href.startsWith("/w/consultant/") ? href : "/w/consultant/features",
+    href: featureHref(href),
     actionLabel: str(o.actionLabel, "View"),
     overview: o.overview === true,
     sample: o.sample === true,
@@ -144,8 +163,8 @@ export const percentUsed = (f: Pick<FeatureRow, "allowance" | "used">): number |
 export function allowanceText(f: FeatureRow): { headline: string; detail: string | null } {
   if (f.status !== "ENABLED") return { headline: "No allowance", detail: null };
   if (f.allowance === null)
-    return { headline: "Unlimited", detail: f.used === null ? "Usage not tracked yet" : `${f.used} ${f.usedNote || "used"}` };
-  if (f.used === null) return { headline: `${f.allowance} ${f.unit}`, detail: "Usage tracking arrives with this tool" };
+    return { headline: "Unlimited", detail: f.used === null ? null : `${f.used} ${f.usedNote || "used"}` };
+  if (f.used === null) return { headline: `${f.allowance} ${f.unit}`, detail: null };
   return { headline: `${f.used} / ${f.allowance} ${f.unit}`, detail: null };
 }
 
@@ -181,28 +200,6 @@ export function filterFeatures(rows: FeatureRow[], filter: FeatureFilter): Featu
 
 /** Features drawn as Usage Overview cards. */
 export const overviewRows = (rows: FeatureRow[]): FeatureRow[] => rows.filter((f) => f.overview && f.status === "ENABLED");
-
-/** Static defaults (they should become admin config). */
-export interface Recommended {
-  key: string;
-  title: string;
-  body: string;
-  action: string;
-  href: string;
-  icon: FeatureIcon;
-  tone: FeatureTone;
-}
-export const RECOMMENDED: Recommended[] = [
-  { key: "review", title: "Try AI Resume Review", body: "Get detailed feedback and suggestions to make your resume stand out.", action: "Run Review", href: "/w/consultant/resumes", icon: "file", tone: "violet" },
-  { key: "practice", title: "Practice Interview Questions", body: "Build confidence with role-specific questions and AI feedback.", action: "Start Practicing", href: "/w/consultant/interview-prep", icon: "video", tone: "green" },
-  { key: "matches", title: "Explore More Job Matches", body: "Find new opportunities based on your updated profile and skills.", action: "View Job Matches", href: "/w/consultant/matches", icon: "search", tone: "accent" },
-];
-
-export const TIPS: { text: string; href: string }[] = [
-  { text: "Keep your career profile up to date for better job matches.", href: "/w/consultant/profile" },
-  { text: "Use AI resume tailoring for each application to improve your chances.", href: "/w/consultant/resumes" },
-  { text: "Practice interview questions regularly to build confidence.", href: "/w/consultant/interview-prep" },
-];
 
 /* ── the BFF call (the browser talks to Next, Next to the API) ───────────────────── */
 

@@ -21,13 +21,13 @@ export interface ClientsTableProps {
 }
 
 const COLS: { key: SortKey | null; label: string; className: string; lines?: [string, string] }[] = [
-  { key: "name", label: "Client Company", className: "text-left" },
+  { key: "name", label: "Client company", className: "text-left" },
   { key: "industry", label: "Industry", className: "text-left" },
-  { key: "requirements", label: "Open Requirements", className: "text-left", lines: ["Open", "Requirements"] },
-  { key: "consultants", label: "Active Consultants", className: "text-left", lines: ["Active", "Consultants"] },
+  { key: "requirements", label: "Open requirements", className: "text-left", lines: ["Open", "requirements"] },
+  { key: "consultants", label: "Active consultants", className: "text-left", lines: ["Active", "consultants"] },
   { key: "manager", label: "Account Manager", className: "text-left" },
   { key: "health", label: "Health", className: "text-left" },
-  { key: "activity", label: "Last Activity", className: "text-left" },
+  { key: "activity", label: "Last activity", className: "text-left" },
   { key: null, label: "Actions", className: "text-center" },
 ];
 

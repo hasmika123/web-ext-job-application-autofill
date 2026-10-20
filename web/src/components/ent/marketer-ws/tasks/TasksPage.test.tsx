@@ -74,68 +74,50 @@ afterEach(() => {
 });
 
 describe("TasksPage board", () => {
-  it("draws the four KPI tiles with value, delta and a bar chart", async () => {
+  it("has no tiles; the chip row carries the counts, All is selected, and Add task is the one button", async () => {
     await loaded();
-    const t = (id: string) => document.querySelector(`[data-stat-tile="${id}"]`) as HTMLElement;
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(4);
-    expect(within(t("total")).getByText("Total Tasks")).toBeTruthy();
-    expect(within(t("total")).getByText("24")).toBeTruthy();
-    expect(t("total").textContent).toContain("12%");
-    expect(within(t("overdue")).getByText("Overdue")).toBeTruthy();
-    expect(within(t("overdue")).getByText("5")).toBeTruthy();
-    expect(t("overdue").textContent).toContain("25%");
-    expect(within(t("dueThisWeek")).getByText("Due This Week")).toBeTruthy();
-    expect(within(t("dueThisWeek")).getByText("8")).toBeTruthy();
-    expect(within(t("completedThisWeek")).getByText("Completed This Week")).toBeTruthy();
-    expect(within(t("completedThisWeek")).getByText("16")).toBeTruthy();
-    expect(t("completedThisWeek").textContent).toContain("33%");
-    expect(document.querySelectorAll("[data-mini-bars]")).toHaveLength(4);
-    expect(t("total").querySelectorAll("[data-mini-bar]")).toHaveLength(6);
-  });
-
-  it("draws the tab pills with the board's counts, All Tasks selected, and the Add Task button", async () => {
-    await loaded();
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((x) => x.textContent)).toEqual(["All Tasks24", "My Tasks18", "Team Tasks6", "Overdue5", "Due This Week8", "Completed16"]);
-    expect(screen.getByRole("tab", { name: /All Tasks/ }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("tab", { name: /My Tasks/ }).getAttribute("aria-selected")).toBe("false");
-    expect(screen.getAllByRole("button", { name: "Add Task" })).toHaveLength(2); // the blue button and the Quick Actions tile
+    expect(tabs.map((x) => x.textContent)).toEqual(["All24", "My tasks18", "Overdue5", "Due this week8", "Completed16"]);
+    expect(screen.getByRole("tab", { name: /^All/ }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: /My tasks/ }).getAttribute("aria-selected")).toBe("false");
+    expect(screen.getAllByRole("button", { name: "Add task" })).toHaveLength(1);
   });
 
   it("draws the filter row: four dropdowns, the Due Date picker and the list-view button", async () => {
     await loaded();
     for (const l of ["Category", "Priority", "Status", "Owner"]) expect(screen.getByRole("button", { name: l })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Category" }).textContent).toContain("All Categories");
-    expect(screen.getByRole("button", { name: "Priority" }).textContent).toContain("All Priorities");
-    expect(screen.getByRole("button", { name: "Status" }).textContent).toContain("All Statuses");
-    expect(screen.getByRole("button", { name: "Owner" }).textContent).toContain("All Owners");
-    expect((screen.getByLabelText("Due Date") as HTMLInputElement).type).toBe("date");
+    expect(screen.getByRole("button", { name: "Category" }).textContent).toContain("All categories");
+    expect(screen.getByRole("button", { name: "Priority" }).textContent).toContain("All priorities");
+    expect(screen.getByRole("button", { name: "Status" }).textContent).toContain("All statuses");
+    expect(screen.getByRole("button", { name: "Owner" }).textContent).toContain("All owners");
+    expect((screen.getByLabelText("Due date") as HTMLInputElement).type).toBe("date");
     expect(screen.getByRole("button", { name: "List view" })).toBeTruthy();
   });
 
   it("draws the table's columns and the board's row cells", async () => {
     await loaded();
-    for (const h of ["Task", "Related To", "Type", "Priority", "Due Date", "Status", "Owner"]) expect(within(table()).getByText(h)).toBeTruthy();
+    for (const h of ["Task", "Related to", "Type", "Priority", "Due date", "Status", "Owner"]) expect(within(table()).getByText(h)).toBeTruthy();
     expect(within(table()).getByRole("checkbox", { name: "Select all tasks" })).toBeTruthy();
     expect(table().querySelectorAll("[data-task-row]")).toHaveLength(10);
     const r1 = rowOf(1);
     expect(within(r1).getByText("Share new openings with team")).toBeTruthy();
     expect(within(r1).getByText("Send 5 new openings from TechCorp")).toBeTruthy();
     expect(within(r1).getByText("TechCorp")).toBeTruthy();
-    expect(within(r1).getByText("Job Opportunity")).toBeTruthy();
+    expect(within(r1).getByText("Job opportunity")).toBeTruthy();
     expect(within(r1).getByText("High")).toBeTruthy();
     expect(within(r1).getByText("Oct 10, 2026")).toBeTruthy();
-    expect(within(r1).getByText("In Progress")).toBeTruthy();
+    expect(within(r1).getByText("In progress")).toBeTruthy();
     expect(within(r1).getByRole("checkbox", { name: "Select Share new openings with team" })).toBeTruthy();
     expect(within(r1).getByRole("button", { name: "More for Share new openings with team" })).toBeTruthy();
-    const types: Record<number, string> = { 2: "Resume", 3: "Client", 4: "Job Match", 5: "Application", 6: "Job Stream", 7: "Interview", 8: "Content", 9: "Marketing", 10: "Follow-up" };
+    const types: Record<number, string> = { 2: "Resume", 3: "Client", 4: "Job match", 5: "Application", 6: "Job stream", 7: "Interview", 8: "Content", 9: "Marketing", 10: "Follow-up" };
     for (const [id, label] of Object.entries(types)) expect(within(rowOf(Number(id))).getByText(label)).toBeTruthy();
     expect(within(rowOf(2)).getByText("Ava Patel")).toBeTruthy();
     expect(within(rowOf(3)).getByText("Global Bank")).toBeTruthy();
     expect(within(rowOf(6)).getByText("AWS")).toBeTruthy();
     expect(within(rowOf(9)).getByText("All Consultants")).toBeTruthy();
     expect(within(rowOf(8)).getByText("Low")).toBeTruthy();
-    expect(within(rowOf(3)).getByText("Not Started")).toBeTruthy();
+    expect(within(rowOf(3)).getByText("Not started")).toBeTruthy();
     expect(within(rowOf(2)).getByText("Pending")).toBeTruthy();
     expect(within(rowOf(3)).getByText("Medium")).toBeTruthy();
   });
@@ -159,49 +141,24 @@ describe("TasksPage board", () => {
     await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("/mkt/tasks?") && u.includes("page=1"))).toBe(true));
   });
 
-  it("draws the right column: hero, Calendar, Upcoming Deadlines and Quick Actions", async () => {
+  it("has no right column: no hero, Calendar, Upcoming deadlines or Quick Actions, and no calendar call", async () => {
     await loaded();
-    const hero = document.querySelector('[data-tasks-card="hero"]') as HTMLElement;
-    expect(within(hero).getByText("Turn your tasks into placements!")).toBeTruthy();
-    expect(within(hero).getByText("Stay organized, take action, and help your consultants land their next opportunity.")).toBeTruthy();
-    expect(hero.querySelector("img")?.getAttribute("src")).toBe("/ent/marketer/tasks/hero.png");
-
-    const cal = document.querySelector('[data-tasks-card="calendar"]') as HTMLElement;
-    expect(within(cal).getByText("Calendar")).toBeTruthy();
-    expect(within(cal).getByRole("button", { name: "View All" })).toBeTruthy();
-    expect(within(cal).getByText("October 2026")).toBeTruthy();
-    for (const d of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) expect(within(cal).getByText(d)).toBeTruthy();
-    expect(cal.querySelectorAll("[data-calendar-day]").length % 7).toBe(0);
-    expect(cal.querySelector('[data-today="true"]')?.getAttribute("data-calendar-day")).toBe("2026-10-10");
-    await waitFor(() => expect(cal.querySelectorAll("[data-calendar-dot]")).toHaveLength(3));
-    expect(cal.querySelector('[data-calendar-day="2026-10-12"] [data-calendar-dot]')?.getAttribute("data-calendar-dot")).toBe("HIGH");
-
-    const up = document.querySelector('[data-tasks-card="upcoming"]') as HTMLElement;
-    expect(within(up).getByText("Upcoming Deadlines")).toBeTruthy();
-    expect(within(up).getByRole("button", { name: "View All" })).toBeTruthy();
-    expect(within(up).getByText("Share openings with team")).toBeTruthy();
-    expect(within(up).getByText("Today, 4:00 PM")).toBeTruthy();
-    expect(within(up).getByText("Tomorrow, 10:00 AM")).toBeTruthy();
-    expect(within(up).getByText("Tomorrow, 2:00 PM")).toBeTruthy();
-    expect(within(up).getByText("Oct 14, 2026")).toBeTruthy();
-    expect(within(up).getAllByText("High")).toHaveLength(2);
-    expect(within(up).getAllByText("Medium")).toHaveLength(2);
-
-    const quick = document.querySelector('[data-tasks-card="quick-actions"]') as HTMLElement;
-    expect(within(quick).getByText("Quick Actions")).toBeTruthy();
-    for (const l of ["Add Task", "Send Reminder", "Log Call", "Schedule"]) expect(within(quick).getByText(l)).toBeTruthy();
+    for (const c of ["hero", "calendar", "upcoming", "quick-actions"]) expect(document.querySelector(`[data-tasks-card="${c}"]`), c).toBeNull();
+    expect(screen.queryByText("Quick Actions")).toBeNull();
+    expect(screen.queryByText("Upcoming Deadlines")).toBeNull();
+    expect(urls(fetchMock).some((u) => u.includes("/calendar"))).toBe(false);
   });
 
-  it("the header carries the board's title and subtitle through the shell", async () => {
+  it("draws no header of its own when it is a tab of Tasks", async () => {
     await loaded();
-    expect(document.body.textContent).toContain("Tasks");
+    expect(document.querySelector("[data-page-header]")).toBeNull();
   });
 });
 
 describe("TasksPage interaction", () => {
   it("a tab click asks the API for that tab", async () => {
     await loaded();
-    fireEvent.click(screen.getByRole("tab", { name: /My Tasks/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /My tasks/ }));
     await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("/mkt/tasks?") && u.includes("tab=MY"))).toBe(true));
     fireEvent.click(screen.getByRole("tab", { name: /Overdue/ }));
     await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("tab=OVERDUE"))).toBe(true));
@@ -215,35 +172,11 @@ describe("TasksPage interaction", () => {
     fireEvent.click(screen.getByRole("button", { name: "Priority" }));
     fireEvent.click(await screen.findByRole("option", { name: "High" }));
     await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("priority=HIGH"))).toBe(true));
-    fireEvent.change(screen.getByLabelText("Due Date"), { target: { value: "2026-10-12" } });
+    fireEvent.change(screen.getByLabelText("Due date"), { target: { value: "2026-10-12" } });
     await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("due=2026-10-12"))).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "Owner" }));
     fireEvent.click(await screen.findByRole("option", { name: "Michael Park" }));
     await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("owner=8"))).toBe(true));
-  });
-
-  it("the Calendar pages by month and a day click filters by that due date", async () => {
-    await loaded();
-    fireEvent.click(screen.getByRole("button", { name: "Next month" }));
-    expect(await screen.findByText("November 2026")).toBeTruthy();
-    await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("/calendar?month=2026-11"))).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
-    fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
-    expect(await screen.findByText("September 2026")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Next month" }));
-    const day = await waitFor(() => document.querySelector('[data-calendar-day="2026-10-12"]') as HTMLElement);
-    fireEvent.click(day);
-    await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("due=2026-10-12"))).toBe(true));
-  });
-
-  it("the Calendar's View All resets the filters, and Upcoming's View All opens Due This Week", async () => {
-    await loaded();
-    fireEvent.click(screen.getByRole("tab", { name: /Overdue/ }));
-    await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("tab=OVERDUE"))).toBe(true));
-    fireEvent.click(within(document.querySelector('[data-tasks-card="calendar"]') as HTMLElement).getByRole("button", { name: "View All" }));
-    await waitFor(() => expect(urls(fetchMock).at(-1) ?? "").toContain("tab=ALL"));
-    fireEvent.click(within(document.querySelector('[data-tasks-card="upcoming"]') as HTMLElement).getByRole("button", { name: "View All" }));
-    await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("tab=DUE_WEEK"))).toBe(true));
   });
 
   it("the list-view button toggles the compact rows", async () => {
@@ -254,27 +187,6 @@ describe("TasksPage interaction", () => {
     expect(btn.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("Quick Actions open the Marketing pages that do the work (via hrefs); Add Task opens the form", async () => {
-    await loaded();
-    const quick = document.querySelector('[data-tasks-card="quick-actions"]') as HTMLElement;
-    expect(quick.querySelector('[data-quick="Send Reminder"]')?.getAttribute("href")).toBe("/w/marketing/followups");
-    expect(quick.querySelector('[data-quick="Log Call"]')?.getAttribute("href")).toBe("/w/marketing/followups");
-    expect(quick.querySelector('[data-quick="Schedule"]')?.getAttribute("href")).toBe("/w/marketing/interviews");
-    fireEvent.click(quick.querySelector('[data-quick="Add Task"]') as HTMLElement);
-    expect(await screen.findByRole("dialog", { name: "Add Task" })).toBeTruthy();
-  });
-
-  it("without those pages in the member's menu, Send Reminder and Schedule record a task of that kind instead", async () => {
-    await loaded({});
-    fireEvent.click(document.querySelector('[data-quick="Send Reminder"]') as HTMLElement);
-    const dlg = await screen.findByRole("dialog", { name: "Add Task" });
-    expect((within(dlg).getByLabelText("Task title") as HTMLInputElement).value).toBe("Send reminder");
-    expect(within(dlg).getByRole("button", { name: "Task type" }).textContent).toContain("Follow-up");
-    fireEvent.click(within(dlg).getByRole("button", { name: "Cancel" }));
-    fireEvent.click(document.querySelector('[data-quick="Schedule"]') as HTMLElement);
-    const dlg2 = await screen.findByRole("dialog", { name: "Add Task" });
-    expect(within(dlg2).getByRole("button", { name: "Task type" }).textContent).toContain("Interview");
-  });
 });
 
 describe("TasksPage states", () => {
@@ -287,9 +199,7 @@ describe("TasksPage states", () => {
     mount();
     expect(await screen.findByText("No tasks yet. Add one to get started.")).toBeTruthy();
     expect(document.querySelectorAll("[data-task-row]")).toHaveLength(0);
-    expect(screen.getByText("No upcoming deadlines.")).toBeTruthy();
     expect(screen.getByText("Showing 0 of 0 tasks")).toBeTruthy();
-    expect(document.querySelector('[data-stat-tile="total"]')?.textContent).not.toContain("%");
   });
 
   it("a failed load shows a retry that loads again", async () => {
@@ -311,9 +221,9 @@ describe("TasksPage states", () => {
 describe("TasksPage actions (E1: they only record)", () => {
   it("Add Task posts to the BFF with the form's values and reloads", async () => {
     await loaded();
-    fireEvent.click(screen.getAllByRole("button", { name: "Add Task" })[0]);
-    const dlg = await screen.findByRole("dialog", { name: "Add Task" });
-    const save = within(dlg).getByRole("button", { name: "Add Task" }) as HTMLButtonElement;
+    fireEvent.click(screen.getAllByRole("button", { name: "Add task" })[0]);
+    const dlg = await screen.findByRole("dialog", { name: "Add task" });
+    const save = within(dlg).getByRole("button", { name: "Add task" }) as HTMLButtonElement;
     expect(save.disabled).toBe(true); // a title is required
     fireEvent.change(within(dlg).getByLabelText("Task title"), { target: { value: "Call the hiring manager" } });
     fireEvent.change(within(dlg).getByLabelText("Task due date"), { target: { value: "2026-10-15T10:00" } });
@@ -416,10 +326,10 @@ describe("TasksPage actions (E1: they only record)", () => {
       return reply(200, view());
     });
     await loaded();
-    fireEvent.click(screen.getAllByRole("button", { name: "Add Task" })[0]);
-    const dlg = await screen.findByRole("dialog", { name: "Add Task" });
+    fireEvent.click(screen.getAllByRole("button", { name: "Add task" })[0]);
+    const dlg = await screen.findByRole("dialog", { name: "Add task" });
     fireEvent.change(within(dlg).getByLabelText("Task title"), { target: { value: "x" } });
-    fireEvent.click(within(dlg).getByRole("button", { name: "Add Task" }));
+    fireEvent.click(within(dlg).getByRole("button", { name: "Add task" }));
     expect(await within(dlg).findByRole("alert")).toBeTruthy();
     expect(within(dlg).getByRole("alert").textContent).toContain("not allowed");
   });

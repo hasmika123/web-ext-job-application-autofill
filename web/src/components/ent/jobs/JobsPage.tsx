@@ -30,7 +30,6 @@ import {
   type SortKey,
 } from "@/lib/ent/jobs";
 import CreateJobDialog from "./CreateJobDialog";
-import BeeBanner from "@/components/ent/shell/BeeBanner";
 import JobDrawer, { UNDO_MS, type DrawerTab } from "./JobDrawer";
 import { JobsList, Pagination } from "./JobsList";
 import KpiTiles from "./KpiTiles";
@@ -39,15 +38,13 @@ const WIDE_QUERY = "(min-width: 1280px)"; // config-literal-ok: the width at whi
 
 export interface JobsPageProps {
   orgId: number;
-  orgName: string;
-  supportEmail?: string | null;
 }
 
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: JobRow[]; total: number };
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: "posted,desc", label: "Posted Date" },
-  { value: "posted,asc", label: "Posted Date (oldest)" },
+  { value: "posted,desc", label: "Posted date" },
+  { value: "posted,asc", label: "Posted date (oldest)" },
   { value: "title,asc", label: "Title A to Z" },
   { value: "client,asc", label: "Client A to Z" },
   { value: "submissions,desc", label: "Most submissions" },
@@ -64,7 +61,7 @@ const MATCH_OPTIONS = [
   { value: "70", label: "70% or better" },
 ];
 
-export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps) {
+export default function JobsPage({ orgId }: JobsPageProps) {
   const toast = useToast();
   const narrow = useNarrow();
   const wide = useMediaQuery(WIDE_QUERY, false);
@@ -95,7 +92,7 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
     setSearchText(u.query.q);
     setOpenId(u.openId);
     setTab(u.tab as DrawerTab);
-    setMoreOpen(!!(u.query.employment || u.query.experience || u.query.minMatch));
+    setMoreOpen(!!(u.query.workMode || u.query.skill || u.query.employment || u.query.experience || u.query.minMatch));
     setReady(true);
   }, []);
 
@@ -270,23 +267,29 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
   const filtersOn = hasFilters(query);
   const f = summary.data?.facets;
   const sortValue = `${query.sort.key},${query.sort.dir}`;
-  const moreCount = (query.employment ? 1 : 0) + (query.experience ? 1 : 0) + (query.minMatch ? 1 : 0);
+  const moreCount = (query.workMode ? 1 : 0) + (query.skill ? 1 : 0) + (query.employment ? 1 : 0) + (query.experience ? 1 : 0) + (query.minMatch ? 1 : 0);
   const noJobsAtAll = list.status === "ok" && rows.length === 0 && !filtersOn && summary.status === "ok";
+
+  const moreSelects = useMemo(
+    () => [
+      { name: "workMode" as FilterKey, label: "Work mode", all: "Any work mode", options: (f?.workModes ?? []).map((x) => labelled(x, { REMOTE: "Remote", HYBRID: "Hybrid", ON_SITE: "On-site" })) },
+      { name: "skill" as FilterKey, label: "Skill", all: "Any skill", options: (f?.skills ?? []).map(withCount) },
+    ],
+    [f],
+  );
 
   const filterSelects = useMemo(
     () => [
-      { name: "status" as FilterKey, label: "Status", all: "All Statuses", options: (f?.statuses ?? []).map((x) => labelled(x, { OPEN: "Open", IN_REVIEW: "In Review", ON_HOLD: "On Hold", FILLED: "Filled", CLOSED: "Closed" })) },
-      { name: "clientId" as FilterKey, label: "Client", all: "All Clients", options: (f?.clients ?? []).map(withCount) },
-      { name: "location" as FilterKey, label: "Location", all: "All Locations", options: (f?.locations ?? []).map(withCount) },
-      { name: "workMode" as FilterKey, label: "Work mode", all: "All Work Modes", options: (f?.workModes ?? []).map((x) => labelled(x, { REMOTE: "Remote", HYBRID: "Hybrid", ON_SITE: "On-site" })) },
-      { name: "skill" as FilterKey, label: "Skill", all: "All Skills", options: (f?.skills ?? []).map(withCount) },
+      { name: "status" as FilterKey, label: "Status", all: "All statuses", options: (f?.statuses ?? []).map((x) => labelled(x, { OPEN: "Open", IN_REVIEW: "In Review", ON_HOLD: "On Hold", FILLED: "Filled", CLOSED: "Closed" })) },
+      { name: "clientId" as FilterKey, label: "Client", all: "All clients", options: (f?.clients ?? []).map(withCount) },
+      { name: "location" as FilterKey, label: "Location", all: "All locations", options: (f?.locations ?? []).map(withCount) },
     ],
     [f],
   );
 
   return (
     <div ref={root} data-jobs-page className="ent-fit">
-      <PageHeader title="Jobs" subtitle="Manage job postings, track submissions, and find the best consultants for your opportunities." />
+      <PageHeader title="Jobs" subtitle="Openings your marketers are working, and who's matched to each." />
       <div className="space-y-[14px]">
         <KpiTiles summary={summary.data} loading={summary.status === "loading"} error={summary.status === "error"} />
 
@@ -312,7 +315,7 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
               </div>
               {canCreate && (
                 <Button type="button" variant="accent" className="ent-btn ent-btn-lg" onClick={() => setCreateOpen(true)} data-create-job>
-                  <PlusIcon size={15} aria-hidden /> Create Job
+                  <PlusIcon size={15} aria-hidden /> Create job
                 </Button>
               )}
             </div>
@@ -325,7 +328,7 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
                 </div>
               ))}
               <Button type="button" variant="ghost" size="sm" className="ent-ctl-btn flex-1 !h-[30px] sm:flex-auto" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
-                <FilterIcon size={14} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
+                <FilterIcon size={14} aria-hidden /> More filters{moreCount > 0 ? ` (${moreCount})` : ""}
               </Button>
               {filtersOn && (
                 <Button type="button" variant="ghost" size="sm" onClick={clearAll} data-clear-filters>
@@ -335,6 +338,11 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
             </div>
             {moreOpen && (
               <div className="flex flex-wrap items-center gap-2.5 rounded-[var(--radius)] border border-line bg-paper-2/40 p-2.5" data-more-filters-row>
+                {moreSelects.map((fs) => (
+                  <div key={fs.name} className="w-44">
+                    <Select aria-label={fs.label} value={query[fs.name]} onChange={(v) => change({ [fs.name]: v } as Partial<JobQuery>)} options={[{ value: "", label: fs.all }, ...fs.options]} />
+                  </div>
+                ))}
                 <div className="w-44">
                   <Select aria-label="Job type" value={query.employment} onChange={(v) => change({ employment: v })} options={[{ value: "", label: "Any job type" }, ...(f?.employment ?? []).map((x) => labelled(x, EMPLOYMENT_LABEL))]} />
                 </div>
@@ -419,12 +427,10 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
                 }
               />
             )}
-            {list.status === "ok" && rows.length > 0 && !drawerOpen && <BeeBanner layout="row" title="Need help with your jobs?" body={`Questions about jobs, matches or submissions at ${orgName}? We can point you the right way.`} topic="jobs" orgName={orgName} supportEmail={supportEmail} />}
           </div>
 
           <JobDrawer
             orgId={orgId}
-            orgName={orgName}
             jobId={openId}
             mode={mode}
             clientOptions={summary.data?.clientOptions ?? []}
@@ -433,7 +439,6 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
             onClose={() => setOpenId(null)}
             onChanged={refresh}
             reloadToken={reloadToken}
-            supportEmail={supportEmail}
           />
         </div>
       </div>

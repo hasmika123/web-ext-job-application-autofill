@@ -45,7 +45,11 @@
   function hasSuccessSignal(doc) {
     const body = doc && doc.body;
     if (!body) return false;
-    const text = (body.textContent || "").replace(/\s+/g, " ").trim().slice(0, 20000);
+    // What the person can SEE: `innerText` leaves out hidden blocks (a form page often carries its
+    // "thank you" panel hidden until the submit), `textContent` would count them before any submit.
+    // Environments without layout (tests) have no innerText and fall back to textContent.
+    const raw = typeof body.innerText === "string" ? body.innerText : body.textContent;
+    const text = (raw || "").replace(/\s+/g, " ").trim().slice(0, 20000);
     if (!text) return false;
     return SUCCESS_COPY.some((re) => re.test(text));
   }

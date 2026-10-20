@@ -81,10 +81,10 @@ export const EMPTY_FILTERS: JobFilters = { q: "", skills: [], location: "", work
 
 export type SortKey = "posted_desc" | "posted_asc" | "rate_desc" | "title_asc" | "client_asc";
 export const SORTS: { value: SortKey; label: string }[] = [
-  { value: "posted_desc", label: "Posted Date (Newest)" },
-  { value: "posted_asc", label: "Posted Date (Oldest)" },
-  { value: "rate_desc", label: "Rate (High to Low)" },
-  { value: "title_asc", label: "Job Title (A-Z)" },
+  { value: "posted_desc", label: "Posted date (newest)" },
+  { value: "posted_asc", label: "Posted date (oldest)" },
+  { value: "rate_desc", label: "Rate (high to low)" },
+  { value: "title_asc", label: "Title (A-Z)" },
   { value: "client_asc", label: "Client (A-Z)" },
 ];
 export const WORK_TYPE_LABELS: Record<string, string> = { ON_SITE: "On-site", HYBRID: "Hybrid", REMOTE: "Remote" };
