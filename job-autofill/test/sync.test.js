@@ -329,6 +329,43 @@ function fakeProvider(cfg) {
     }
   }
 
+  /* ---- which resume a fill uses, and its file (prepare batch / drawer) ---- */
+  {
+    const w = freshStore();
+    const sync = w.JAF.sync;
+    const list = [
+      { id: "a", label: "Old", archived: true, defaultResume: true },
+      { id: "b", label: "Web default", defaultResume: true, serverId: 10, r2ObjectKey: "k10" },
+      { id: "c", label: "Uploaded in the drawer", hasFile: true, serverId: 11 },
+    ];
+    ok("chooseResume: the one last picked in the drawer wins", sync.chooseResume(list, "c").id === "c");
+    ok("chooseResume: else the account's default (never an archived one)", sync.chooseResume(list, "").id === "b" && sync.chooseResume(list, "zzz").id === "b");
+    ok("chooseResume: else the first live one", sync.chooseResume([list[0], list[2]], "").id === "c");
+    ok("chooseResume: none -> null", sync.chooseResume([], "") === null);
+
+    // a fake local store (jsdom has no IndexedDB) and a provider that serves the web resume's PDF
+    const files = {};
+    const records = { b: Object.assign({}, list[1]) };
+    const store = {
+      saveResumeFile: async (id, blob) => { files[id] = blob; },
+      getResume: async (id) => records[id] || null,
+      saveResume: async (r) => { records[r.id] = r; return r; },
+    };
+    const blob = { size: 3, type: "application/pdf" };
+    const asked = [];
+    const provider = { downloadResumeFile: async (sid) => { asked.push(sid); return { blob, fileName: "Web_default.pdf", type: "application/pdf" }; } };
+    const got = await sync.ensureResumeFile(provider, store, list[1]);
+    ok("ensureResumeFile: fetches a web resume's file once and caches it under the local id", asked.length === 1 && asked[0] === 10 && files.b === blob);
+    ok("ensureResumeFile: marks the record as having a file, with the download's name", got.hasFile === true && got.fileName === "Web_default.pdf" && records.b.hasFile === true);
+    const again = await sync.ensureResumeFile(provider, store, got);
+    ok("ensureResumeFile: a resume that has its file is left alone", asked.length === 1 && again === got);
+    const none = await sync.ensureResumeFile(provider, store, { id: "x", serverId: 12 });
+    ok("ensureResumeFile: a record-only resume (no file on the server) is not asked for", asked.length === 1 && none.hasFile !== true);
+    const offline = { downloadResumeFile: async () => { throw new Error("offline"); } };
+    const same = await sync.ensureResumeFile(offline, store, { id: "y", serverId: 13, r2ObjectKey: "k13" });
+    ok("ensureResumeFile: a failed download leaves the resume unchanged (the fill goes on without the file)", same.hasFile !== true);
+  }
+
   console.log(`\n[sync] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[sync] All green.");

@@ -422,7 +422,9 @@ consultant is on it; a submitted or closed tab frees its slot, and the next queu
 (drawer) opens the next queued job when below the cap. Each loaded tab is prepared at most 3 times (one per page load,
 at least 5 s apart): the content bundle is injected on the manifest's host list only, the page is classified read-only
 (`captcha` / `signin` / `form` / `none`), and the normal fill is requested with `autoAdvance` forced **off**. The usual
-review overlay opens: the consultant presses **Fill selected** (nothing is written to the page before that). States:
+fill runs at once with the consultant's profile and resume file (their click was **Prepare** on the web; the service
+worker fetches a web-created resume's PDF once, `sync.ensureResumeFile`), and the panel becomes the **review**: what was
+written, what could not be, the required fields still theirs (Go scrolls and focuses), non-modal beside the page. States:
 `OPENED` (waiting), `PREFILLED` (filled, no required field left), `NEEDS_INPUT` (a sign-in wall, a CAPTCHA, an
 unsupported site, no form yet, an empty profile, or required fields still empty after the fill), `SUBMIT_DETECTED`,
 `CLOSED`, `FAILED`. A banner on the tab says **"Prepared by Kiwiply: review every field. Nothing is submitted for you."**

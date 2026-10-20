@@ -180,7 +180,13 @@ try {
   await page.locator("[data-prepare-open]").click();
   await page.locator("[data-prepare-dialog]").waitFor({ timeout: 15_000 });
   const opened = [];
-  context.on("page", (p) => opened.push(p));
+  const pageLogs = new Map(); // batch tab -> its console errors + extension lines (printed when a tab does not fill)
+  context.on("page", (p) => {
+    opened.push(p);
+    pageLogs.set(p, []);
+    p.on("console", (m) => { if (m.type() === "error" || /JAF|Kiwiply|batch/i.test(m.text())) pageLogs.get(p).push(`${m.type()}: ${m.text().slice(0, 300)}`); });
+    p.on("pageerror", (e) => pageLogs.get(p).push(`pageerror: ${String(e.message).slice(0, 300)}`));
+  });
   await page.locator("[data-prepare-confirm]").click();
   let acked = false;
   try {
@@ -220,25 +226,34 @@ try {
   for (const p of opened) {
     try {
       await p.waitForLoadState("domcontentloaded");
-      // By design nothing is written until the consultant has looked at the review panel and pressed "Fill selected" (one click per tab).
-      const fillSelected = p.getByRole("button", { name: "Fill selected" });
-      await fillSelected.waitFor({ timeout: 60_000 });
+      // A batch tab fills at once ("Prepare" on the web was the consultant's click) and the panel becomes the review:
+      // "Filled N of M fields · résumé attached", the required fields still theirs, and a Done button. Nothing is pressed here.
+      // "attached", not "visible": on Ashby the panel is on screen, yet Playwright's visibility test reports it hidden (its host
+      // box measures zero), so waiting for "visible" never ends there.
+      const summary = p.getByText(/Filled \d+ of \d+ fields?/).first();
+      await summary.waitFor({ state: "attached", timeout: 90_000 });
       reviewed++;
-      if (await p.getByText(/AI draft/).count()) aiDrafts++;
-      await p.bringToFront();
-      await fillSelected.click({ timeout: 10_000 }).catch(async (e) => {
-        console.log("      click blocked:", new URL(p.url()).hostname, (String(e.message).match(/<[^\n]{0,200}intercepts pointer events/) || [String(e.message).split("\n").pop()])[0].slice(0, 200));
-        await fillSelected.evaluate((b) => b.click()); // what a person clicking the visible button does
-      });
-      // The extension's own summary, on any site. "attached", not "visible": on Ashby the card is on screen, yet Playwright's visibility
-      // test reports it hidden (its host box measures zero), so waiting for "visible" never ends there.
-      const summary = p.getByText(/Filled \d+ field/).first();
-      await summary.waitFor({ state: "attached", timeout: 60_000 });
-      const v = { site: new URL(p.url()).hostname, summary: (await summary.textContent()).replace(/\s+/g, " ").slice(0, 70) };
+      const panelText = (await p.locator("#__jaf_host").evaluate((h) => h.shadowRoot.textContent).catch(() => "")).replace(/\s+/g, " ");
+      if (/AI/.test(panelText) && (await p.locator("#__jaf_host").evaluate((h) => h.shadowRoot.querySelectorAll(".aibadge").length).catch(() => 0)) > 0) aiDrafts++;
+      const v = {
+        site: new URL(p.url()).hostname,
+        summary: (await summary.textContent()).replace(/\s+/g, " ").slice(0, 70),
+        resume: /résumé attached/.test(panelText),
+        stillNeeds: (panelText.match(/(\d+) required fields? still needs? you/) || [, "0"])[1],
+      };
+      if (!v.resume) console.log("      NO RESUME ATTACHED on", v.site, "panel:", panelText.slice(0, 200));
+      if (v.stillNeeds !== "0") {
+        const names = await p.locator("#__jaf_host").evaluate((h) => Array.from(h.shadowRoot.querySelectorAll(".gjump .gname")).map((n) => n.textContent)).catch(() => []);
+        v.needs = names;
+      }
       filled++;
       console.log("      filled:", JSON.stringify(v), p.url().slice(0, 60));
+      if (/^Filled 0 of/.test(v.summary)) console.log("      page console:", (pageLogs.get(p) || []).slice(-12).join(" || ") || "(nothing)");
+      if (process.env.SHOTS) await p.screenshot({ path: `${process.env.SHOTS}/batch-${v.site}.png`, fullPage: true }).catch(() => {});
     } catch (e) {
       console.log("      not filled:", p.url().slice(0, 60), String(e.message).slice(0, 80));
+      console.log("      page console:", (pageLogs.get(p) || []).slice(-12).join(" || ") || "(nothing)");
+      console.log("      service worker console:", swLog.slice(-12).join(" || ") || "(nothing)");
       await p.screenshot({ path: `C:/work_bench_claude/shots/notfilled-${new URL(p.url()).hostname}.png` }).catch(() => {});
       const all = p.getByText(/Filled \d+ field|still needs you/);
       const seen = [];
@@ -246,9 +261,9 @@ try {
       console.log("      summary candidates:", JSON.stringify(seen), "frames:", p.frames().length);
     }
   }
-  step("review panel opened on each page", reviewed === opened.length && reviewed > 0, `${reviewed}/${opened.length}`);
-  step("pages filled after 'Fill selected'", filled === opened.length && filled > 0, `${filled}/${opened.length}`);
-  step("Pro: the review panel offers an AI draft for the open question", aiDrafts > 0, `${aiDrafts}/${opened.length} (only pages with an open question get one)`);
+  step("each page filled itself and shows the review", reviewed === opened.length && reviewed > 0, `${reviewed}/${opened.length}`);
+  step("every page was filled (no press of a button)", filled === opened.length && filled > 0, `${filled}/${opened.length}`);
+  step("Pro: the review shows an AI-written answer for the open question", aiDrafts > 0, `${aiDrafts}/${opened.length} (only pages with an open question get one)`);
   const states = async () => page.locator("[data-prepare-item]").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
   await page.waitForTimeout(4000);
   // PREFILLED = filled; NEEDS_INPUT = filled, with required fields the person must do (here the resume upload of the stand-in page).

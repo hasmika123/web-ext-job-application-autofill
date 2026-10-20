@@ -580,8 +580,19 @@ async function loadBatchMirror() {
     await runVersionCheck("batch"); // never throws; a stale mirror is still usable
   }
   const [bio, resumes, settings] = await Promise.all([J.storage.getBio(), J.storage.getResumes(), J.storage.getSettings()]);
-  const live = (resumes || []).filter((r) => !r.archived);
-  const resume = live.find((r) => r.id === settings.lastResumeId) || live.find((r) => r.defaultResume) || live[0] || null;
+  let resume = J.sync.chooseResume(resumes, settings.lastResumeId);
+  // A resume created on the web has its PDF on the server only: fetch it once so the form gets it too.
+  if (resume && !resume.hasFile) {
+    try {
+      const provider = await trackingProvider();
+      if (provider) resume = await J.sync.ensureResumeFile(provider, J.storage, resume);
+    } catch (e) { /* the fill goes on without the file */ }
+    // Still nothing to attach (offline, or a record-only resume): a live resume that does have a file is better than none.
+    if (!resume.hasFile) {
+      const withFile = (resumes || []).find((r) => r && !r.archived && r.hasFile);
+      if (withFile) resume = withFile;
+    }
+  }
   let file = null;
   if (resume && resume.hasFile) {
     try {

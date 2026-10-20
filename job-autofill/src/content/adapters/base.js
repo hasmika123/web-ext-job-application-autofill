@@ -370,9 +370,21 @@
     return "text";
   }
 
+  // A planned element the page has since re-rendered (React forms remount their inputs while the
+  // plan waits for AI drafts): find its replacement by id or name, else keep the stale node.
+  function reattach(el) {
+    if (!el || document.contains(el)) return el;
+    let r = null;
+    try {
+      if (el.id) r = document.getElementById(el.id);
+      if (!r && el.name && el.tagName) r = document.querySelector(el.tagName.toLowerCase() + '[name="' + cssEscape(el.name) + '"]');
+    } catch (e) { r = null; }
+    return r && r.tagName === el.tagName ? r : el;
+  }
+
   // Apply one planned fill item. Returns true on success.
   function applyItem(item, value) {
-    const el = item.el;
+    const el = item.el = reattach(item.el);
     if (!el || !document.contains(el)) return false;
     const kind = item.kind || elKind(el);
     try {
@@ -598,13 +610,14 @@
     // "choice": click ONE specific radio/checkbox option (an AI pick that was
     // matched against the page's own option list — never free text).
     if (item.kind === "choice") {
-      const el = item.el;
+      const el = item.el = reattach(item.el);
       if (!el || !document.contains(el)) return false;
       realClick(el);
       if (!el.checked) { try { el.checked = true; fire(el, "input"); fire(el, "change"); } catch (e) {} }
       return el.checked === true;
     }
     if (item.kind === "combo") {
+      item.el = reattach(item.el);
       const cands = [item.value].concat(item.alts || []).filter((v) => v != null && v !== "");
       for (const v of cands) { if (await selectCustom(item.el, v)) return true; }
       return false;

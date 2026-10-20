@@ -267,7 +267,7 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 | Stand-in job pages | improved | carry structured job data (title, company, description) like real Greenhouse pages; seeded links name the real client |
 | Fresh data + setup | yes | after a fresh database run `node web/scripts/demo-setup.mjs` (AI budgets, emails held back, resumes, readiness checks) |
 
-**Known limits to say out loud:** the extension does not download resume files created on the web, so the resume field is one click (or upload once in the drawer); Check now works once a minute; the Inbox page notes it is a sample mailbox.
+**Known limits to say out loud:** Check now works once a minute; the Inbox page notes it is a sample mailbox. (The resume-file limit is gone since section 15.)
 
 Click-by-click: `docs/enterprise-v2/demo/DEMO-WALKTHROUGH.md`.
 
@@ -329,3 +329,20 @@ reads react-select dropdowns correctly (Greenhouse picks were landing but counte
 radios), answers "City, ST" questions, tells a work-permit question from "authorized to work", fills both salary and total compensation,
 and lets the AI pick required yes/no dropdowns and custom-styled radios (extension 0.69.3, ruleset 7). The demo API's fake AI no longer
 "reads" resumes (`DOSSIER_AI_STUB_PARSE_RESUME=false`), so an upload shows the real resume, and its pick reads only the option list.
+
+## 15. Autopilot fills by itself and attaches the resume (2026-10-19, user report)
+
+The user ran a batch and saw forms left empty and no resume on them. Two causes, both in the extension (0.70.0):
+
+1. **A batch tab waited for a click.** It opened the review panel and wrote nothing until "Fill selected" was pressed on every tab.
+   "Prepare" on the web is the consultant's click, so a batch tab now fills at once and the panel becomes the **review**: "Filled N of M
+   fields · résumé attached", every answer with a mark, **Still needs you** with Go buttons (follows her own edits), **Done**. The panel
+   is no longer modal, so the page can be read and completed beside it. The drawer's own "Scan & fill" keeps the look-then-press step.
+2. **The batch picked the resume without a file.** Her account resume (made by the setup, PDF on the server) reached the extension as a
+   record only; the drawer upload makes a second resume with a file, but the batch took the account default. The extension now fetches
+   a web resume's PDF once (`GET /api/resumes/{id}/file`, pull-only, cached locally) for the batch, the drawer fill and the picker's
+   PDF badge, and a batch falls back to any resume that has a file. The drawer upload step in the walkthrough is now optional.
+
+Measured before the change with `demo-fill-gaps.mjs` (drawer path): Figma 13 offered / 0 required left · Ramp 5 / 0 · Rover 11 + résumé /
+2 (referral, certify box) · TechCorp 9 / 0. So the answers themselves were complete; the batch path was the gap. Rehearsal
+`demo-ext-check.mjs` now waits for the review instead of pressing a button.

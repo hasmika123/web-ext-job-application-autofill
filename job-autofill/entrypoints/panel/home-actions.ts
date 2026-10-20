@@ -147,6 +147,14 @@ export async function refreshMirror(): Promise<void> {
     // and pulls only when it differs from the one we hold. It stamps __profileVersion +
     // __lastPull itself, so there is nothing to save here.
     await JAF().sync.checkAndPull(provider, S, settings);
+    // Resumes uploaded on the web: fetch their files once (a few at most), so the picker shows "PDF" and a
+    // fill attaches them without an upload in the drawer. Best-effort, cached under the local id.
+    try {
+      const pending = (await S.getResumes()).filter((r: any) => !r.archived && !r.hasFile && r.serverId != null && r.r2ObjectKey).slice(0, 5);
+      for (const r of pending) await JAF().sync.ensureResumeFile(provider, S, r);
+    } catch {
+      /* offline-friendly */
+    }
     // Learned answers are a separate, local-first store — a push+merge, not part of the
     // profile version — so it runs whether or not the mirror moved. It used to sit behind
     // the same throttle, so it now runs on every drawer open rather than at most once per
@@ -200,6 +208,15 @@ export async function fillPage(
   // EEO/demographic answers are always included (the user opts in via their web bio; blanks fill nothing).
   const values = SCH.buildFillValues(bio, resume, { includeEEO: true });
 
+  // A resume created on the web is a record here until its PDF has been fetched once (pull-only).
+  if (!resume.hasFile) {
+    try {
+      const provider = JAF().sync.providerFromSettings(settings, JAF().tracking.chromeTokenStore());
+      if (await provider.isAuthenticated()) resume = await JAF().sync.ensureResumeFile(provider, S, resume);
+    } catch {
+      /* offline: the fill goes on without the file */
+    }
+  }
   let file: any = null;
   if (resume.hasFile) {
     const blob = await S.getResumeFile(resume.id);

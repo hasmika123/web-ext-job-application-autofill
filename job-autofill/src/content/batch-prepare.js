@@ -5,8 +5,9 @@
  *                    challenge, an application form, or nothing yet. We ANSWER; we never act on any of
  *                    them (no login, no CAPTCHA, no clicking). The "Prepared by Kiwiply" banner is
  *                    shown at the same time (top frame only).
- *   JAF_BATCH_FILL   run the NORMAL fill with the consultant's own mirrored profile. That opens the
- *                    usual review overlay: the consultant ticks, unticks and presses "Fill selected".
+ *   JAF_BATCH_FILL   run the NORMAL fill with the consultant's own mirrored profile and resume file.
+ *                    The plan is written at once (the consultant's click was "Prepare" on the web) and
+ *                    the panel turns into the review: what was filled, what is still theirs.
  *   filled()         the filler reports (counts only) how many required fields still need the
  *                    consultant; watchGaps() keeps that number current while they work.
  *
@@ -122,7 +123,7 @@
         ? { warn: true, text: list.length + " required field" + (list.length === 1 ? "" : "s") + " need your input:" }
         : { warn: false, text: "Required fields are filled. Check everything, then submit it yourself." };
     }
-    return { warn: false, text: "Review the fill panel and press Fill selected when it looks right." };
+    return { warn: false, text: "Filling the form from your profile. Review every answer when it is done." };
   }
 
   function renderBanner() {

@@ -78,7 +78,7 @@ const FORM = `<body>
     ok("banner: shown on the tab", !!host);
     const text = host.shadowRoot.textContent;
     ok("banner: says what this is and that nothing is submitted for you", /Prepared by Kiwiply: review every field\. Nothing is submitted for you\./.test(text), text.slice(0, 120));
-    ok("banner: asks the consultant to confirm the fill panel", /Fill selected/.test(text));
+    ok("banner: says the form is being filled and asks for a review", /Filling the form from your profile\. Review every answer/.test(text));
     // a message that did not come from the service worker (it has a sender.tab) is ignored
     eq("check: only the service worker may drive it", await p.deliver({ type: "JAF_BATCH_CHECK" }, { tab: { id: 5 } }), undefined);
     eq("fill: only the service worker may drive it", await p.deliver({ type: "JAF_BATCH_FILL", bio: { firstName: "x" } }, { tab: { id: 5 } }), undefined);
@@ -174,6 +174,56 @@ const FORM = `<body>
     const p = page(FORM);
     const r = await p.deliver({ type: "JAF_BATCH_FILL", options: {} });
     eq("fill: no profile -> refused, nothing shown", [r.ok, !!p.w.document.getElementById("__jaf_host")], [false, false]);
+  }
+  {
+    // autoFill (what the service worker sends for a prepare batch): the tab fills at once — "Prepare" on the web
+    // was the consultant's click — and the panel becomes the review. Still nothing clicked, ticked or submitted.
+    const p = page(FORM);
+    const w = p.w, d = w.document;
+    const clicks = [];
+    const submits = [];
+    d.addEventListener("click", (e) => { if (e.target && e.target.id !== "__jaf_host" && e.target.id !== "__kiwiply_batch_banner") clicks.push(e.target.id || e.target.tagName); }, true);
+    d.addEventListener("submit", (e) => submits.push(e.target.id), true);
+    const resp = await p.deliver({
+      type: "JAF_BATCH_FILL",
+      bio: { firstName: "Cora", lastName: "Mills", email: "cora@acme.test", phone: "5551234567" },
+      resume: { skills: ["go"] },
+      file: null,
+      options: { autoAdvance: true, autoFill: true, autoAddRows: true, resume: { serverId: 3, label: "Main" }, batch: { sessionId: "s2", matchId: 7 } },
+    });
+    eq("autoFill: the fill pipeline started", resp.ok, true);
+    await wait(1200);
+    eq("autoFill: the profile landed without any press of 'Fill selected'", [d.getElementById("fn").value, d.getElementById("em").value], ["Cora", "cora@acme.test"]);
+    const host = d.getElementById("__jaf_host");
+    ok("autoFill: the panel stays open as the review", !!host && !!host.shadowRoot.querySelector("#done"));
+    const txt = host.shadowRoot.textContent;
+    ok("review: says how many fields were filled", /Filled \d+ of \d+ fields?/.test(txt), txt.slice(0, 200));
+    ok("review: lists the required fields that are still the consultant's", /Still needs you/.test(txt) && /Referral code/.test(txt) && /certify/i.test(txt));
+    ok("review: lists what was filled for them", /Filled for you/.test(txt) && /Cora/.test(txt));
+    ok("review: rows carry readable names, not field keys", /First name/.test(txt) && !/firstName/.test(txt), txt.slice(0, 300));
+    ok("review: no backdrop — the page is usable beside the panel", !host.shadowRoot.querySelector(".backdrop"));
+    ok("review: says nothing is submitted", /Nothing is submitted/.test(txt));
+    const filledMsg = p.sent.find((m) => m.type === "JAF_BATCH_PROGRESS" && m.phase === "filled");
+    ok("autoFill: progress 'filled' reported with the batch ids and gap count", !!filledMsg && filledMsg.batch.sessionId === "s2" && filledMsg.batch.matchId === 7 && filledMsg.gaps >= 2, JSON.stringify(filledMsg));
+    // the consultant fills the referral code: the review's list follows
+    const ref = d.getElementById("ref");
+    ref.value = "ABC123";
+    ref.dispatchEvent(new w.Event("input", { bubbles: true }));
+    await wait(100);
+    ok("review: a field the consultant fills is struck off", /1 required field still needs you/.test(host.shadowRoot.querySelector("#rvstatus").textContent), host.shadowRoot.querySelector("#rvstatus").textContent);
+    eq("NEVER-SUBMIT (autoFill): nothing on the page was clicked", clicks, []);
+    eq("NEVER-SUBMIT (autoFill): no form was submitted", submits, []);
+    eq("attestation (autoFill): the certify and privacy boxes are untouched", [d.getElementById("cert").checked, d.getElementById("privacy").checked], [false, false]);
+    host.shadowRoot.querySelector("#done").click();
+    ok("review: Done closes the panel", !d.getElementById("__jaf_host"));
+  }
+  {
+    // without autoFill (the person's own "Scan & fill" from the drawer) nothing is written before they press the button
+    const p = page(FORM);
+    const d = p.w.document;
+    await p.deliver({ type: "JAF_BATCH_FILL", bio: { firstName: "Cora", email: "c@x.test" }, resume: null, options: { batch: { sessionId: "s3", matchId: 1 } } });
+    await wait(400);
+    eq("no autoFill: the page is untouched until 'Fill selected'", d.getElementById("fn").value, "");
   }
 
   /* ---------------------------------------------------------- source rules */

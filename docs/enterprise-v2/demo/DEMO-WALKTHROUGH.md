@@ -35,11 +35,13 @@ Real, live employers on five different hiring systems. The setup saves five of t
 ## One-time setup in your Chrome (10 minutes)
 1. Two Chrome profiles: **Anika** and **Rahul**.
 2. In each: `chrome://extensions` → **Developer mode** → **Load unpacked** → `job-autofill/.output/chrome-mv3-dev-aaruna-technologies` → pin it.
-   Loaded it before? Press **Reload** on its card (it must say version **0.69.3**).
+   Loaded it before? Press **Reload** on its card (it must say version **0.70.0**).
 3. In each: sign in as that person → account menu (top right) → **Connect extension** → **Connect** → "Extension connected".
 4. Anika only: extension gear → Settings → turn on **Use Aaruna AI** and the **I consent** switch.
-5. Anika only: in the extension drawer press **Upload** → pick `Anika-Rao-Resume.pdf` (Desktop) → **Save to my resumes** → the review
-   shows 32 skills, 3 roles, 2 schools → **Save**. Pick it in **Choose a resume**. From then on the resume field of every form fills itself.
+5. Anika only: open the drawer once on any page so it pulls her profile; **Choose a resume** should list "Anika Rao - Senior
+   Platform…" with a **PDF** badge (the extension fetches the PDF from her account by itself). The resume field of every form then
+   fills itself. Optional show-off: **Upload** → `Anika-Rao-Resume.pdf` (Desktop) → **Save to my resumes** → the review shows 32 skills,
+   3 roles, 2 schools → **Save**.
 
 ## Act 1. Priya sets the company up (5 min)
 1. **Dashboard**: consultants, placements, applications at a glance.
@@ -61,10 +63,11 @@ Real, live employers on five different hiring systems. The setup saves five of t
    of her two resumes fits) → **Check fit** (match %, what's missing, what's covered). Ramp works the same way.
 3. **Autopilot**: back on Assigned Opportunities → tick **Figma**, **Ramp**, **Rover** and **TechCorp · Cloud Engineer** → **Prepare selected** →
    confirm ("nothing is submitted for you").
-4. Each job opens in its own tab with the review panel: three real hiring systems (Greenhouse, Ashby, Lever) plus the practice page.
-   Name, contact, links, work authorization, and on Figma an **AI-written answer** to its open question.
-   **Fill selected** on each. Figma is complete; Ramp asks one question (where she plans to work from); Rover asks who referred her and
-   leaves the certify box: say plainly that the extension never ticks an attestation for her: she does.
+4. Each job opens in its own tab **already filled**, with the review panel beside the page: three real hiring systems (Greenhouse,
+   Ashby, Lever) plus the practice page. The panel reads "Filled N of M fields · résumé attached", lists every answer (name, contact,
+   links, work authorization, salary; on Figma an **AI-written answer** to its open question) and, under **Still needs you**, the
+   fields only she can do. Figma and Ramp are complete; Rover asks who referred her and leaves the certify box: say plainly that the
+   extension never ticks an attestation for her: she does. Press **Done** to close the panel; the small card bottom-left keeps the list.
 5. On **TechCorp** only (practice page) she presses **Submit Application**; back on the Aaruna site the progress panel says **Submitted**.
    Close the Figma, Ramp and Rover tabs without submitting.
 

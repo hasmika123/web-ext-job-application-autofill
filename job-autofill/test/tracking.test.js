@@ -349,6 +349,32 @@ function mockFetch(handler) {
   let cfgThrew = false; try { await pNo.pullProfile(); } catch (e) { cfgThrew = e.name === "ApiError"; }
   ok("missing baseUrl throws ApiError", cfgThrew);
 
+  /* ---- downloadResumeFile: the stored PDF of a web-created resume (pull-only) ---- */
+  {
+    const calls = [];
+    const bytes = new Uint8Array([37, 80, 68, 70]);
+    const binFetch = async (url, opts) => {
+      const u = new URL(url);
+      calls.push({ method: (opts && opts.method) || "GET", path: u.pathname, headers: (opts && opts.headers) || {} });
+      if (u.pathname === "/api/resumes/9/file") {
+        return {
+          ok: true, status: 200,
+          headers: { get: (h) => ({ "content-type": "application/pdf", "content-disposition": 'attachment; filename="Anika_Rao_Resume"' }[h.toLowerCase()] || null) },
+          blob: async () => new Blob([bytes], { type: "application/pdf" }),
+        };
+      }
+      return { ok: false, status: 404, headers: { get: () => null }, text: async () => "" };
+    };
+    const p = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: binFetch, tokenStore: T.memoryTokenStore({ access: "ACC" }) });
+    const got = await p.downloadResumeFile(9);
+    ok("downloadResumeFile: GETs the owner-scoped file endpoint with the bearer token", calls[0].path === "/api/resumes/9/file" && calls[0].method === "GET" && calls[0].headers["Authorization"] === "Bearer ACC");
+    ok("downloadResumeFile: returns the bytes as a Blob", got && got.blob && got.blob.size === 4 && got.blob.type === "application/pdf");
+    ok("downloadResumeFile: names the file from the header and adds the extension the type implies", got.fileName === "Anika_Rao_Resume.pdf");
+    ok("downloadResumeFile: a resume without a file -> null", (await p.downloadResumeFile(10)) === null);
+    let bad = false; try { await p.downloadResumeFile("9; drop"); } catch (e) { bad = e.name === "ApiError"; }
+    ok("downloadResumeFile: only a plain id goes into the path", bad);
+  }
+
   console.log(`\n[tracking] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[tracking] All green.");

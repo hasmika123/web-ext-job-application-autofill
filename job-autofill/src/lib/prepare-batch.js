@@ -3,12 +3,13 @@
  * A consultant ticks several assigned openings on the web and presses "Prepare selected". The web
  * hands this extension a job list (KIWIPLY_PREPARE_BATCH, contract v1: job-autofill/ARCHITECTURE.md
  * "Prepare batch"); the extension opens one tab per job, runs the normal fill pipeline in each with
- * the consultant's OWN profile, flags what it could not fill and then WAITS for the consultant.
+ * the consultant's OWN profile and resume file (filled at once: "Prepare" was the consultant's click),
+ * shows a review of what it wrote and what it could not, and then WAITS for the consultant.
  *
  * Hard rules this module encodes (CLAUDE.md, ADR-010, E1):
  *   - NOTHING is submitted. No code here clicks, submits or dispatches events on a page: it opens
- *     tabs (chrome.tabs.create), sends the normal JAF_FILL review-overlay request to a content
- *     script, and reports status. The consultant reviews, completes and presses Submit themselves.
+ *     tabs (chrome.tabs.create), sends the normal fill request to a content script, and reports
+ *     status. The consultant reviews, completes and presses Submit themselves.
  *   - Attestation / consent / legal boxes are never touched (the filler's guarded plan decides what is
  *     fillable; this module adds no field of its own).
  *   - A sign-in wall, a CAPTCHA or an unsupported page is NEVER worked around: the tab just waits in
@@ -714,8 +715,9 @@
       const resp = await deps.sendTo(tabId, {
         type: "JAF_BATCH_FILL",
         bio, resume: m.resume || null, file: m.file || null,
-        // autoAdvance is forced off: a batch tab never presses Next/Continue on its own.
-        options: { autoAdvance: false, autoAddRows: true, resume: m.resumeRef || null, batch: info },
+        // autoAdvance is forced off: a batch tab never presses Next/Continue on its own. autoFill: the
+        // consultant pressed "Prepare" on the web, so the tab fills at once and shows the review of it.
+        options: { autoAdvance: false, autoFill: true, autoAddRows: true, resume: m.resumeRef || null, batch: info },
       }, forms[0].frameId).catch(() => null);
       if (!resp || !resp.ok) return { outcome: "FAILED", reason: REASON.fillFailed };
       return { outcome: "READY" };
