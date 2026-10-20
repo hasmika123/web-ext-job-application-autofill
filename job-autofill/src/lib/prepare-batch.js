@@ -121,6 +121,19 @@
     if (!host || host.indexOf(".") === -1 || /^\[.*\]$/.test(host) || /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || /(^|\.)localhost$/.test(host)) return { error: "bad-url" };
     return { url: u.href };
   }
+  // The page a batch tab opens for a saved link. A Workday link usually names the job DESCRIPTION
+  // (<tenant>.<dc>.myworkdayjobs.com/<lang>/<site>/job/<location>/<Title>_<R-id>); the application itself is
+  // the same address + "/apply/applyManually" (Workday's own "Apply" -> "Apply Manually" link). Every other
+  // link opens as saved.
+  function applicationUrl(href) {
+    let u;
+    try { u = new URL(href); } catch (e) { return href; }
+    if (!/(^|\.)myworkdayjobs\.[a-z]+$/i.test(u.hostname)) return href;
+    const path = u.pathname.replace(/\/+$/, "");
+    if (!/\/job\/[^/]+\/[^/]+_[A-Za-z]*-?\d[\w-]*$/.test(path)) return href; // not a job page, or already /apply...
+    u.pathname = path + "/apply/applyManually";
+    return u.href;
+  }
   function urlIdentity(href) {
     const W = JAF.workspace;
     const k = W && W.urlKey ? W.urlKey(href) : "";
@@ -246,7 +259,8 @@
     }
 
     // Returns the ACK object, or null when the message is not ours (stay silent).
-    async function receive(msg, origin) {
+    // `extra.originTabId`: the web page's tab, which the batch returns to once every tab is filled.
+    async function receive(msg, origin, extra) {
       const v = validate(msg);
       if (v.ignore) return null;
       let late = false;
@@ -267,7 +281,7 @@
           if (mine !== b.apiOrigin) return ack(b.sessionId, false, "api-mismatch");
         }
         if (late) return ack(b.sessionId, false, "timeout");
-        const started = await deps.controller.start(b, { userId: posInt(session.userId) });
+        const started = await deps.controller.start(b, { userId: posInt(session.userId), originTabId: posInt(extra && extra.originTabId) });
         if (!started.ok) return ack(b.sessionId, false, started.reason);
         return ack(b.sessionId, true);
       })();
@@ -357,7 +371,7 @@
     async function openJob(st, job) {
       st.lastOpenAt = now();
       try {
-        const tab = await deps.tabs.create({ url: job.url, active: false });
+        const tab = await deps.tabs.create({ url: applicationUrl(job.url), active: false });
         if (!tab || tab.id == null) throw new Error("no-tab");
         job.tabId = tab.id;
         job.attempts = 0;
@@ -405,6 +419,7 @@
         }
         const st = {
           v: 1, sessionId: batch.sessionId, orgId: batch.orgId, userId: (who && who.userId) || null,
+          originTabId: (who && who.originTabId) || null,
           createdAt: now(), stopped: false, lastOpenAt: 0, seq: 0, outbox: [],
           jobs: batch.jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company, ...(j.resumeId ? { resumeId: j.resumeId } : {}), state: "QUEUED", tabId: null, attempts: 0, reason: "" })),
         };
@@ -438,6 +453,7 @@
       let res;
       try { res = await deps.prepareTab(tabId, todo.job, todo.batch); }
       catch (e) { res = { outcome: "FAILED", reason: REASON.fillFailed }; }
+      let backTo = null;
       await serial(async () => {
         const st = await loadOwned();
         if (!st || st.stopped) return;
@@ -447,7 +463,12 @@
         else if (res && res.outcome === "FAILED") transition(st, job, "FAILED", res.reason || REASON.fillFailed);
         else if (job.state === "NEEDS_INPUT" && !job.filled) transition(st, job, "OPENED", "Ready for review"); // the wall is gone; waiting for the consultant again
         await save(st);
+        // The fill brings each tab to the front in turn; once no tab is left to fill, go back to the web page
+        // the batch was started from (its progress panel), so the consultant is not left on the last job.
+        const pending = st.jobs.some((j) => j.state === "QUEUED" || (j.state === "OPENED" && !j.filled && j.tabId != null && j.tabId !== tabId));
+        if (!pending && st.originTabId) backTo = st.originTabId;
       });
+      if (backTo && deps.tabs.activate) { try { await deps.tabs.activate(backTo); } catch (e) { /* the page may be gone */ } }
       flush();
     }
 
@@ -490,7 +511,7 @@
         const st = await loadOwned();
         if (!st || st.stopped) return;
         const job = jobOfTab(st, tabId);
-        if (!job || bare(url) === bare(job.url)) return;
+        if (!job || bare(url) === bare(job.url) || bare(url) === bare(applicationUrl(job.url))) return;
         if (transition(st, job, "SUBMIT_DETECTED")) await save(st);
       });
       flush();
@@ -679,8 +700,32 @@
   //                                              job.resumeId, when set, names the consultant's resume to attach on this job
   //   wait(ms)
   // }
+  // deps: { inject(tabId), scanFrames(tabId), sendTo(tabId, msg, frameId), loadMirror(),
+  //         activate(tabId)?  (chrome.tabs.update active:true — custom dropdowns such as react-select only
+  //                            open and pick in a tab that is in front; in a background tab they time out),
+  //         fillWaitMs?      (how long one tab's fill may take before the next one starts; default 4 min: a multi-step form is filled step by step),
+  //         wait(ms)? }
+  // Tabs are filled ONE AT A TIME, each brought to the front for its fill: the page's own widgets then
+  // behave as they do for a person. fillDone(tabId) is called by the service worker when the tab reports
+  // its fill (JAF_BATCH_PROGRESS "filled").
+  const FILL_WAIT_MS = 4 * 60 * 1000;
   function createPreparer(deps) {
     const wait = deps.wait || ((ms) => new Promise((r) => setTimeout(r, ms)));
+    const fillWaitMs = deps.fillWaitMs == null ? FILL_WAIT_MS : deps.fillWaitMs;
+    let chain = Promise.resolve();
+    const waiting = new Map(); // tabId -> resolve of the fill we are waiting for
+    function fillDone(tabId) {
+      const r = waiting.get(tabId);
+      if (!r) return false;
+      waiting.delete(tabId);
+      r(true);
+      return true;
+    }
+    function prepare(tabId, job, batch) {
+      const run = chain.then(() => prepareOne(tabId, job, batch));
+      chain = run.then(() => undefined, () => undefined);
+      return run;
+    }
     function formFrames(frames) {
       return frames
         .filter((f) => f.adapter !== "generic" || f.fieldCount >= 2)
@@ -691,7 +736,7 @@
     function rendered(frames) {
       return frames.some((f) => f.fieldCount >= (f.adapter !== "generic" ? 1 : 2));
     }
-    async function prepare(tabId, job, batch) {
+    async function prepareOne(tabId, job, batch) {
       const info = { sessionId: batch.sessionId, matchId: job.matchId };
       try { await deps.inject(tabId); }
       catch (e) { return { outcome: "NEEDS_INPUT", reason: REASON.unsupported }; }
@@ -715,23 +760,29 @@
       const m = (await deps.loadMirror(job)) || {}; // job.resumeId: the resume to attach on this job
       const bio = m.bio || null;
       if (!bio || !(bio.firstName || bio.lastName || bio.email)) return { outcome: "NEEDS_INPUT", reason: REASON.profileEmpty };
+      // In front for its fill (see above). Best effort: a tab that cannot be activated is filled where it is.
+      if (deps.activate) { try { await deps.activate(tabId); } catch (e) { /* ignore */ } }
+      const done = fillWaitMs > 0 ? new Promise((r) => waiting.set(tabId, r)) : null;
       const resp = await deps.sendTo(tabId, {
         type: "JAF_BATCH_FILL",
         bio, resume: m.resume || null, file: m.file || null,
-        // autoAdvance is forced off: a batch tab never presses Next/Continue on its own. autoFill: the
-        // consultant pressed "Prepare" on the web, so the tab fills at once and shows the review of it.
-        options: { autoAdvance: false, autoFill: true, autoAddRows: true, resume: m.resumeRef || null, batch: info },
+        // autoFill: the consultant pressed "Prepare" on the web, so the tab fills at once and shows the review of it.
+        // steps: on a form split into steps (Workday) each complete step is followed by the site's own Next, up to the
+        // last step before submission; Submit is never pressed (batch-prepare.js). The person's autoAdvance setting is not used.
+        options: { autoAdvance: false, steps: true, autoFill: true, autoAddRows: true, resume: m.resumeRef || null, batch: info },
       }, forms[0].frameId).catch(() => null);
-      if (!resp || !resp.ok) return { outcome: "FAILED", reason: REASON.fillFailed };
+      if (!resp || !resp.ok) { waiting.delete(tabId); return { outcome: "FAILED", reason: REASON.fillFailed }; }
+      // The next tab waits until this one has reported its fill (or the budget is spent).
+      if (done) { await withTimeout(done, fillWaitMs, false); waiting.delete(tabId); }
       return { outcome: "READY" };
     }
-    return { prepare };
+    return { prepare, fillDone };
   }
 
   JAF.prepareBatch = {
     MSG_BATCH, MSG_ACK, CONTRACT_VERSION, MAX_JOBS, MAX_CONCURRENT, OPEN_DELAY_MS, MAX_ATTEMPTS, RETRY_GAP_MS,
     ACK_BUDGET_MS, OUTBOX_TRIES, EVENTS, FINAL_STATES, ACTIVE_STATES, REASON, REASON_HELP, DETAIL_MAX,
-    validate, cleanUrl, checkSession, checkRole, tenantOriginAllowed, devAtsOriginAllowed, devTenantOriginAllowed, ack,
+    validate, cleanUrl, applicationUrl, checkSession, checkRole, tenantOriginAllowed, devAtsOriginAllowed, devTenantOriginAllowed, ack,
     createReceiver, createController, createPreparer, summarize, stateKey,
   };
 })();

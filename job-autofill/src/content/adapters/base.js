@@ -491,7 +491,7 @@
     if (id) { const el = document.getElementById(id); if (el && isVisible(el)) return el; }
     const boxes = Array.from(document.querySelectorAll(
       '[role="listbox"],[data-automation-id="activeListContainer"],ul[data-automation-id="list"]'
-    )).filter(isVisible);
+    )).filter((b) => isVisible(b) && b.getAttribute("data-automation-id") !== "selectedItemList"); // chosen-item pills, not a popup
     if (!boxes.length) return null;
     // Prefer the visible listbox with the most option descendants (the open menu).
     let best = null, bestN = -1;

@@ -472,7 +472,7 @@ function routeWebMessage(msg) {
 // Path 1 — Chrome: the web page messages the extension directly (externally_connectable).
 chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   // "Prepare selected openings" comes from a tenant host too (*.kiwiply.com); it has its own gate.
-  if (msg && msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender)).then(sendResponse); return true; }
+  if (msg && msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender), sender && sender.tab && sender.tab.id).then(sendResponse); return true; }
   if (!connectOriginAllowed(senderOrigin(sender))) return;
   const p = routeWebMessage(msg);
   if (!p) return;
@@ -488,7 +488,7 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || (msg.type !== "KIWIPLY_CONNECT" && msg.type !== SYNC && msg.type !== PREPARE_MSG)) return;
   if (!sender || !sender.tab) return;           // must come from a page, not another extension page
-  if (msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender)).then(sendResponse); return true; }
+  if (msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender), sender && sender.tab && sender.tab.id).then(sendResponse); return true; }
   if (!connectOriginAllowed(senderOrigin(sender))) return;
   const p = routeWebMessage(msg);
   if (!p) return;
@@ -642,11 +642,12 @@ let _batch = null;
 function batchController() {
   if (_batch) return _batch;
   const PB = self.JAF.prepareBatch;
+  const activate = (id) => chrome.tabs.update(id, { active: true });
   const preparer = PB.createPreparer({
-    inject: batchInject, scanFrames: batchScanFrames, sendTo: batchSendTo, loadMirror: loadBatchMirror,
+    inject: batchInject, scanFrames: batchScanFrames, sendTo: batchSendTo, loadMirror: loadBatchMirror, activate,
   });
   const controller = PB.createController({
-    tabs: { create: (o) => chrome.tabs.create(o), get: (id) => chrome.tabs.get(id) },
+    tabs: { create: (o) => chrome.tabs.create(o), get: (id) => chrome.tabs.get(id), activate },
     storage: {
       get: (k) => sGet(k),
       set: (k, v) => sSet(k, v),
@@ -665,14 +666,14 @@ function batchController() {
     getProvider: trackingProvider,
     controller,
   });
-  _batch = { controller, receiver };
+  _batch = { controller, receiver, preparer };
   return _batch;
 }
 
-// -> the ACK for the page (always an object for our message type).
-async function handlePrepare(msg, origin) {
+// -> the ACK for the page (always an object for our message type). `originTabId`: the web page's tab.
+async function handlePrepare(msg, origin, originTabId) {
   try {
-    const ackMsg = await batchController().receiver.receive(msg, origin);
+    const ackMsg = await batchController().receiver.receive(msg, origin, { originTabId });
     track("prepare_batch", { accepted: !!(ackMsg && ackMsg.accepted), reason: ackMsg && ackMsg.reason ? ackMsg.reason : "" });
     return ackMsg || { type: self.JAF.prepareBatch.MSG_ACK, accepted: false, reason: "ignored" };
   } catch (e) {
@@ -692,7 +693,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   try { ctl = batchController().controller; } catch (e) { return; }
   if (msg.type === "JAF_BATCH_PROGRESS") {
     if (!sender || !sender.tab || sender.id !== chrome.runtime.id) return;
-    ctl.onProgress(sender.tab.id, msg).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    const tabId = sender.tab.id;
+    ctl.onProgress(tabId, msg)
+      .then(() => { if (msg.phase === "filled") batchController().preparer.fillDone(tabId); sendResponse({ ok: true }); })
+      .catch(() => sendResponse({ ok: false }));
     return true;
   }
   if (!fromOurExtensionPage(sender)) return;

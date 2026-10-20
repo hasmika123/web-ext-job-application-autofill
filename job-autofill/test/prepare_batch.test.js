@@ -10,6 +10,7 @@ const vm = require("vm");
 let pass = 0, fail = 0;
 const fails = [];
 const tag = "[prepare_batch]";
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 function ok(n, c, e) { if (c) pass++; else { fail++; fails.push(n + (e ? "  ->  " + e : "")); } }
 function eq(n, g, w) { ok(n, JSON.stringify(g) === JSON.stringify(w), `got ${JSON.stringify(g)} want ${JSON.stringify(w)}`); }
 
@@ -540,6 +541,10 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
       },
       loadMirror: async () => (over.mirror === undefined ? { bio: { firstName: "Cora", email: "c@x.test" }, resume: { skills: ["go"] }, file: null, resumeRef: { serverId: 3, label: "Main" } } : over.mirror),
       wait: async () => {},
+      activated: [],
+      activate: async (id) => { d.activated.push(id); },
+      // a fill the page never reports is given up after this (the real budget is 90 s)
+      fillWaitMs: over.fillWaitMs === undefined ? 40 : over.fillWaitMs,
     };
     return { prep: PB.createPreparer(d), sent, d };
   }
@@ -601,7 +606,65 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     await PB.createPreparer(ready.d).prepare(1, { matchId: 1 }, BATCH);
     eq("prepare: a form that is already there is filled without waiting", quick, 0);
   }
+  {
+    // Tabs are filled one at a time, each in front: custom dropdowns (react-select on Greenhouse) only work in a visible tab.
+    const r = prepRig({ fillWaitMs: 5000 });
+    const order = [];
+    const origSend = r.d.sendTo;
+    r.d.sendTo = async (tabId, m, frameId) => { if (m.type === "JAF_BATCH_FILL") order.push("fill:" + tabId); return origSend(tabId, m, frameId); };
+    const p1 = r.prep.prepare(1, { matchId: 1 }, BATCH);
+    const p2 = r.prep.prepare(2, { matchId: 2 }, BATCH);
+    await wait(30);
+    eq("serial: the second tab's fill waits for the first tab to report its fill", order, ["fill:1"]);
+    ok("serial: the tab being filled is brought to the front first", r.d.activated[0] === 1 && r.d.activated.length === 1);
+    ok("serial: fillDone for an unknown tab is ignored", r.prep.fillDone(99) === false);
+    ok("serial: the page's 'filled' report releases the queue", r.prep.fillDone(1) === true);
+    eq("serial: the first tab is READY once its fill is reported", await p1, { outcome: "READY" });
+    await wait(30);
+    eq("serial: then the second tab is activated and filled", [order, r.d.activated], [["fill:1", "fill:2"], [1, 2]]);
+    r.prep.fillDone(2);
+    eq("serial: the second tab is READY too", await p2, { outcome: "READY" });
+    // a fill the page never reports does not block the batch forever
+    const slow = prepRig({ fillWaitMs: 30 });
+    const t0 = Date.now();
+    eq("serial: a fill that never reports is given up after the budget, READY as before", await slow.prep.prepare(3, { matchId: 3 }, BATCH), { outcome: "READY" });
+    ok("serial: ...after the budget, not at once", Date.now() - t0 >= 25);
+    // a tab that cannot be activated is still filled where it is
+    const noAct = prepRig({ fillWaitMs: 0 });
+    noAct.d.activate = async () => { throw new Error("No tab with id"); };
+    eq("serial: a tab that cannot be brought to the front is filled anyway", await noAct.prep.prepare(4, { matchId: 4 }, BATCH), { outcome: "READY" });
+  }
+  {
+    // The batch goes back to the web page it was started from once no tab is left to fill (the progress panel is there).
+    // (the real preparer waits for the page's "filled" report before it answers READY, so the mock reports first)
+    const hold = {};
+    const r = rig({ prepareTab: async (tabId, j, b) => { await hold.ctl.onProgress(tabId, { batch: { sessionId: b.sessionId, matchId: j.matchId }, phase: "filled", gaps: j.matchId === 2 ? 1 : 0 }); return { outcome: "READY" }; } });
+    hold.ctl = r.ctl;
+    r.tabs.activated = [];
+    r.tabs.activate = async (id) => { r.tabs.activated.push(id); };
+    await r.ctl.start(batchOf(2), { userId: 42, originTabId: 7 });
+    await r.ctl.idle();
+    const [t1, t2] = r.tabs.created.map((t) => t.id);
+    await r.ctl.onTabUpdated(t1, { status: "complete" });
+    eq("return: not back to the web page while another tab is still to be filled", r.tabs.activated, []);
+    await r.ctl.onTabUpdated(t2, { status: "complete" });
+    eq("return: once the last tab is filled, the web page's tab is brought back to the front", r.tabs.activated, [7]);
+    const none = rig();
+    none.tabs.activate = async () => { throw new Error("gone"); };
+    await none.ctl.start(batchOf(1), { userId: 42, originTabId: 9 });
+    await none.ctl.idle();
+    await none.ctl.onTabUpdated(none.tabs.created[0].id, { status: "complete" });
+    ok("return: a web page tab that is gone is no error", true);
+  }
 
+// A Workday job link opens its application (Workday's own Apply -> Apply Manually address); other links open as saved.
+{
+  const P = (globalThis.JAF || {}).prepareBatch || PB;
+  eq("applicationUrl: Workday job page -> /apply/applyManually", P.applicationUrl("https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Senior-Backend-Engineer---Cloud-Platform_R168509"), "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Senior-Backend-Engineer---Cloud-Platform_R168509/apply/applyManually");
+  eq("applicationUrl: an apply link is kept", P.applicationUrl("https://acme.wd1.myworkdayjobs.com/careers/job/NYC/Engineer_JR-123/apply"), "https://acme.wd1.myworkdayjobs.com/careers/job/NYC/Engineer_JR-123/apply");
+  eq("applicationUrl: other sites are kept", P.applicationUrl("https://jobs.lever.co/acme/123"), "https://jobs.lever.co/acme/123");
+  eq("applicationUrl: a Workday search page is kept", P.applicationUrl("https://acme.wd1.myworkdayjobs.com/careers"), "https://acme.wd1.myworkdayjobs.com/careers");
+}
   console.log(`${tag} ${pass} passed, ${fail} failed`);
   if (fails.length) { console.log(`${tag} Failures:`); fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log(`${tag} All green.`);

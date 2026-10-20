@@ -105,7 +105,7 @@
         </div>
         <footer>
           <button class="ghost" id="cancel">Cancel</button>
-          <button class="primary" id="fill" ${fillable.length || file ? "" : "disabled"}>Fill selected</button>
+          <button class="primary" id="fill" ${fillable.length || file || (opts.batch && opts.autoFill) ? "" : "disabled"}>Fill selected</button>
         </footer>
         <div class="note">${autoAdvance
           ? `Auto-advance is <b>on</b>: after filling, Kiwiply clicks the step's <b>Next / Continue</b> button. It never clicks Submit.`
@@ -206,10 +206,31 @@
           gaps = JAF.requiredAudit.findRequiredEmpty(document);
         } catch (e) { gaps = []; }
       }
+      // Prepare batch on a form split into steps: what earlier steps filled (opts.carry) is added to this step's, and
+      // opts.onStep (batch-prepare.js) decides whether to go on to the next step. It answers true when the site moved on
+      // (the next step gets its own fill and this panel closes), "stuck" when the site kept this step, false otherwise.
+      const carry = opts.batch ? opts.carry || null : null;
+      const allOutcomes = carry ? carry.outcomes.concat(outcomes) : outcomes;
+      const allFileStatus = !carry || fileStatus === "ok" ? fileStatus : carry.fileStatus || fileStatus;
+      const shownFile = file || (carry && carry.file) || null;
+      const allFilled = filled + (carry ? carry.filled || 0 : 0);
+      const allFailed = failedCount + (carry ? carry.failed || 0 : 0);
+      let stepResult = false;
+      if (opts.batch && typeof opts.onStep === "function") {
+        try {
+          stepResult = await opts.onStep({
+            outcomes: allOutcomes, fileStatus: allFileStatus, file: shownFile, filled: allFilled, failed: allFailed, gaps,
+            say: (m) => flash(root, m),
+          });
+        } catch (e) { stepResult = false; }
+        if (stepResult === true) { close(); return; }
+        // The site kept this step (its own check refused it): count again what it still wants.
+        if (stepResult === "stuck" && JAF.requiredAudit) { try { gaps = JAF.requiredAudit.findRequiredEmpty(document); } catch (e) { /* keep */ } }
+      }
       // Prepare batch (X12.9): tell the batch how many required fields still need the consultant.
       // Counts only; the banner on the page lists the field names locally.
       try {
-        if (opts.batch && JAF.batchPrepare) JAF.batchPrepare.filled(opts.batch, { filled, failed: failedCount, gaps: gaps.length });
+        if (opts.batch && JAF.batchPrepare) JAF.batchPrepare.filled(opts.batch, { filled: allFilled, failed: allFailed, gaps: gaps.length });
       } catch (e) {}
       if (T && fillId) {
         try {
@@ -232,7 +253,8 @@
       // Prepare batch: the tab stays on a review of what was filled and what is still the consultant's
       // (the panel turns non-modal, so the page can be checked and completed beside it).
       if (opts.batch) {
-        showReview(host, root, { outcomes, file, fileStatus, gaps, filled, failMsg, close });
+        const stuckMsg = stepResult === "stuck" ? " · the site did not move on to its next step: check the fields it marks, then press its Next yourself" : "";
+        showReview(host, root, { outcomes: allOutcomes, file: shownFile, fileStatus: allFileStatus, gaps, filled: allFilled, failMsg: failMsg + stuckMsg, steps: carry ? carry.steps + 1 : 1, close });
         return;
       }
       // Phase 10.2: required fields are still empty. Don't auto-advance — the page would refuse
@@ -374,9 +396,10 @@
   // numeric field id ("Country* Country* country" -> "Country").
   function rowName(item) {
     const L = JAF.schema.LABELS;
-    let s = item.label && item.label !== item.field ? String(item.label) : "";
+    // An AI row's label is "AI draft · <question cut short>"; the full question reads better (the badge says AI).
+    let s = item.assisted && item.question ? String(item.question) : item.label && item.label !== item.field ? String(item.label) : "";
     if (!s) return L[item.field] || item.field;
-    s = s.replace(/\s+/g, " ").replace(/\*/g, "").replace(/^AI draft\s*·\s*/i, "").trim();
+    s = s.replace(/\s+/g, " ").replace(/\*/g, "").replace(/^AI (draft|pick)\s*·\s*/i, "").trim();
     s = s.replace(/\s*(question\s*)?\d{6,}\s*$/i, "").trim();
     const rep = /^(.{3,}?)\s+\1(?:\s|$)/i.exec(s);
     if (rep) s = rep[1].trim();
@@ -400,7 +423,7 @@
       : r.fileStatus === "nofield" ? `<div class="row done">${mark("skipped")}<span class="field">Résumé file</span><span class="val">no upload field on this step</span></div>`
       : `<div class="row done">${mark("failed")}<span class="field">Résumé file</span><span class="val">attach it yourself</span></div>`;
     const sub = root.querySelector("header .sub");
-    if (sub) sub.textContent = `Filled ${written} of ${rows.length} field${rows.length === 1 ? "" : "s"}${r.fileStatus === "ok" ? " · résumé attached" : ""}`;
+    if (sub) sub.textContent = `Filled ${written} of ${rows.length} field${rows.length === 1 ? "" : "s"}${r.steps > 1 ? ` across ${r.steps} steps` : ""}${r.fileStatus === "ok" ? " · résumé attached" : ""}`;
     const body = root.querySelector(".body");
     body.innerHTML = `
       <div class="status" id="rvstatus" aria-live="polite"></div>

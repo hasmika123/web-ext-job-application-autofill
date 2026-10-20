@@ -120,7 +120,11 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   validation, the ACK receiver, the batch controller (paced tab opening, per-tab state, event outbox) and the
   per-tab preparer. Pure of chrome.* and fetch; the service worker (`src/background/service-worker.js`, section
   "Prepare selected openings") wires it to `chrome.tabs`/storage. `src/content/batch-prepare.js` is the page
-  side (sign-in/CAPTCHA classification, the "Prepared by Kiwiply" banner, `JAF_BATCH_FILL`).
+  side (sign-in/CAPTCHA classification, the "Prepared by Kiwiply" banner, `JAF_BATCH_FILL`). On a form split
+  into steps (Workday) `fillSteps` fills a step, presses the site's own Next only when no required field is left
+  and no submit-like button is on the page, and fills the next step, up to the last step before submission; its
+  `next.click()` is the only click in the file (pinned by `test/no_submit.test.js`). A Workday job link opens its
+  application (`applicationUrl`, `/apply/applyManually`).
   `entrypoints/panel/PrepareBatch.tsx` is the drawer's batch overview. See **Prepare batch** below.
 - `src/lib/storage.js` — chrome.storage (profiles) + IndexedDB (resume files).
 - `src/lib/field-cache.js` — `JAF.fieldCache`. Local, per-profile memory of the

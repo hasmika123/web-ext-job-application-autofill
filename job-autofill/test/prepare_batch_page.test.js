@@ -226,12 +226,75 @@ const FORM = `<body>
     eq("no autoFill: the page is untouched until 'Fill selected'", d.getElementById("fn").value, "");
   }
 
+  /* ---------------------------------------------------------- forms split into steps */
+  {
+    // a one-page form (a Submit on the page): steps on, nothing is pressed
+    const p = page(FORM);
+    const d = p.w.document;
+    const clicks = [];
+    ["next", "submit", "apply"].forEach((id) => d.getElementById(id).addEventListener("click", (e) => { clicks.push(id); e.preventDefault(); }));
+    await p.deliver({ type: "JAF_BATCH_FILL", bio: { firstName: "Cora", email: "c@x.test" }, resume: null, options: { steps: true, autoFill: true, batch: { sessionId: "s4", matchId: 2 } } });
+    await wait(1800);
+    eq("steps on a one-page form: nothing clicked (its Submit marks the last step)", clicks, []);
+    eq("steps on a one-page form: it is filled", d.getElementById("fn").value, "Cora");
+    eq("nextStepButton: none while a Submit is on the page", p.w.JAF.batchPrepare.nextStepButton(), null);
+  }
+  {
+    // a two-step form: step 1 is filled, its Next pressed, step 2 filled; step 2's Submit is never pressed
+    const TWO = `<body><div id="app">
+      <h2 id="h">Step 1: Contact</h2>
+      <div id="s"><label for="fn">First name *</label><input id="fn" name="first_name" required /></div>
+      <button id="nx" type="button">Next</button></div></body>`;
+    const p = page(TWO);
+    const d = p.w.document;
+    const clicks = [];
+    d.getElementById("nx").addEventListener("click", () => {
+      clicks.push("next");
+      d.getElementById("app").innerHTML = `<h2>Step 2: Details</h2>
+        <div><label for="em">Email *</label><input id="em" name="email" type="email" required /></div>
+        <button id="sb" type="button">Submit application</button>`;
+      d.getElementById("sb").addEventListener("click", () => clicks.push("submit"));
+    });
+    await p.deliver({ type: "JAF_BATCH_FILL", bio: { firstName: "Cora", email: "c@x.test" }, resume: null, options: { steps: true, autoFill: true, batch: { sessionId: "s5", matchId: 3 } } });
+    await wait(5500);
+    eq("two steps: Next pressed once, Submit never", clicks, ["next"]);
+    eq("two steps: step 2 is filled", d.getElementById("em") && d.getElementById("em").value, "c@x.test");
+    const host = d.getElementById("__jaf_host");
+    const sub = host && host.shadowRoot.querySelector("header .sub");
+    ok("two steps: the review counts both steps", !!sub && /across 2 steps/.test(sub.textContent), sub && sub.textContent);
+    const filledMsgs = p.sent.filter((m) => m.type === "JAF_BATCH_PROGRESS" && m.phase === "filled");
+    eq("two steps: progress 'filled' is reported once, at the end", filledMsgs.length, 1);
+  }
+  {
+    // a step whose required field stays empty is not left
+    const STUCK = `<body><h2>Step 1</h2><label for="q">Your favourite colour *</label><input id="q" name="colour" required /><button id="nx" type="button">Continue</button></body>`;
+    const p = page(STUCK);
+    const d = p.w.document;
+    let pressed = 0;
+    d.getElementById("nx").addEventListener("click", () => { pressed++; });
+    await p.deliver({ type: "JAF_BATCH_FILL", bio: { firstName: "Cora", email: "c@x.test" }, resume: null, options: { steps: true, autoFill: true, batch: { sessionId: "s6", matchId: 4 } } });
+    await wait(1500);
+    eq("a step with a required field left is not left (Continue not pressed)", pressed, 0);
+  }
+  {
+    // Workday's Review step: the Submit carries Next's automation id; neither the adapter nor the walk takes it
+    const p = page(`<body><h3>Review</h3><div data-automation-id="pageFooter"><button data-automation-id="pageFooterBackButton" type="button">Back</button><button data-automation-id="pageFooterNextButton" type="button">Submit</button></div></body>`, "https://acme.wd5.myworkdayjobs.com/en-US/careers/job/X_R1/apply/applyManually");
+    load(p.w, "src/content/adapters/workday.js");
+    const wd = p.w.JAF.adapters.find((a) => a.id === "workday");
+    eq("workday nextButton never returns the Review step's Submit", wd.nextButton(), null);
+    eq("nextStepButton: none on Workday's Review step", p.w.JAF.batchPrepare.nextStepButton(), null);
+    const p2 = page(`<body><h3>My Information</h3><div data-automation-id="pageFooter"><button data-automation-id="pageFooterNextButton" type="button">Next</button></div></body>`, "https://acme.wd5.myworkdayjobs.com/en-US/careers/job/X_R1/apply/applyManually");
+    load(p2.w, "src/content/adapters/workday.js");
+    const b = p2.w.JAF.batchPrepare.nextStepButton();
+    eq("nextStepButton: Workday's Next on a step", b && b.textContent, "Next");
+  }
+
   /* ---------------------------------------------------------- source rules */
   const root = path.join(__dirname, "..");
   const code = (rel) => fs.readFileSync(path.join(root, rel), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
   const filler = code("src/content/filler.js");
   ok("filler: submit watch is longer for a batch tab", /submitDetect\.arm\(opts\.batch \? \{ windowMs: 30 \* 60 \* 1000 \}/.test(filler));
-  ok("filler: batch hook reports counts through JAF.batchPrepare.filled", /JAF\.batchPrepare\.filled\(opts\.batch, \{ filled, failed: failedCount, gaps: gaps\.length \}\)/.test(filler));
+  ok("filler: batch hook reports counts through JAF.batchPrepare.filled", /JAF\.batchPrepare\.filled\(opts\.batch, \{ filled: allFilled, failed: allFailed, gaps: gaps\.length \}\)/.test(filler));
 
   console.log(`${tag} ${pass} passed, ${fail} failed`);
   if (fails.length) { console.log(`${tag} Failures:`); fails.forEach((f) => console.log("  x " + f)); process.exit(1); }

@@ -197,6 +197,7 @@ try {
   }
   step("extension acknowledged the batch", acked, acked ? "" : (await page.locator("[data-prepare-no-extension]").count()) ? "web shows 'Extension not detected'" : "no ack element");
   if (!acked) {
+    console.log("      prepare dialog says:", (await page.locator("[data-prepare-dialog]").innerText().catch(() => "(gone)")).replace(/\s+/g, " ").slice(0, 900));
     // Diagnose the hand-off: is the relay content script on this page, and what does the service worker answer to a probe batch?
     const scripts = await worker.evaluate(() => (chrome.runtime.getManifest().content_scripts || []).map((c) => c.js.join(",") + " @ " + c.matches.join(" ")));
     console.log("      content scripts:", scripts.join(" | "));
@@ -265,6 +266,8 @@ try {
   step("every page was filled (no press of a button)", filled === opened.length && filled > 0, `${filled}/${opened.length}`);
   step("Pro: the review shows an AI-written answer for the open question", aiDrafts > 0, `${aiDrafts}/${opened.length} (only pages with an open question get one)`);
   const states = async () => page.locator("[data-prepare-item]").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
+  await page.waitForTimeout(4000);
+  console.log("      web progress:", JSON.stringify(await page.locator("[data-prepare-item]").evaluateAll((els) => els.map((e) => `${e.getAttribute("data-state")}: ${e.innerText.replace(/\s+/g, " ").slice(0, 110)}`))));
   await page.waitForTimeout(4000);
   // PREFILLED = filled; NEEDS_INPUT = filled, with required fields the person must do (here the resume upload of the stand-in page).
   step("web progress shows the pages were prepared", (await states()).some((s) => /FILLED|PREFILLED|NEEDS_INPUT/.test(String(s))), (await states()).join(","));
