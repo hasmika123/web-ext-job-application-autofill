@@ -1386,6 +1386,7 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-20 · **Fix: local resume parser on standard PDF layouts** (extension 0.65.1) · `parser-core.js`: PDF rows group within ±2pt (right-aligned dates), a wide x gap is a column TAB (two-column skills tables → skill groups, wrapped cells joined), shape-drawn bullets come from indentation (wrapped lines join their bullet), letter-spaced headings ("PROFESSIONAL E XPERIENCE") rejoin, a "Languages <list>" row is not the Languages heading, Certifications is its own section, "Degree, School" education rows split, "City, Country" locations, bulleted projects kept. New outputs `skillGroups` + `certifications` (not yet in the review form / saved resume). Demo-persona PDF fixtures in `test/fixtures/resume-pdf-items.js`; parser-core 90/90.
 - 2026-10-06 · **Fix: resume upload failing in production** · Reported right after the promotion: "Couldn't
   upload the file". Cause: the box's **S3 key is invalid** (AWS `InvalidClientTokenId`) — every resume file
   upload fails at storage; the user replaces it in IAM + `.env` (DEPLOY.md §1 policy). Two code gaps found on
