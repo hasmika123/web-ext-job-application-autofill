@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 /**
- * X4.11: the Roles & Permissions page against the REAL stack (Spring API + MySQL + `next start`), not the mock. Setup is in
+ * X4.11: the Roles page (was "Roles & Permissions") against the REAL stack (Spring API + MySQL + `next start`), not the mock. Setup is in
  * docs/enterprise-v2/real-stack-runbook.md; this spec only runs when it is switched on:
  *
  *   E2E_REAL_STACK=1 E2E_PORT=3205 E2E_DB=dossier_ent_roles PW_CHANNEL=chrome \
@@ -37,7 +37,7 @@ async function signInAs(page: Page, base: string, login: string) {
 async function openRoles(page: Page, base: string) {
   await page.goto(`${base}/w/admin/roles`);
   await expect(page.locator("[data-roles-page]")).toBeVisible();
-  await expect(page.locator("[data-kpi-value]").first()).not.toHaveText("–");
+  await expect(page.locator("[data-roles-count]")).toHaveText(/^\d+ roles? · \d+ custom$/);
 }
 
 /** The JSON of a BFF call made from the page (its own session cookie). */
@@ -80,7 +80,7 @@ async function openRowMenu(page: Page, name: string) {
 
 const rowOf = (page: Page, name: string) =>page.locator("tr", { has: page.getByText(name, { exact: true }) }).first();
 
-test.describe("Roles & Permissions on the real stack", () => {
+test.describe("Roles on the real stack", () => {
   test.skip(!real, "needs the real stack: set E2E_REAL_STACK=1 (see the header of this file)");
   test.describe.configure({ mode: "serial" });
   test.use({ viewport: { width: 1440, height: 900 } });
@@ -116,9 +116,8 @@ test.describe("Roles & Permissions on the real stack", () => {
 
   test("Sarah sees the twelve real system roles with the real user counts", async () => {
     await openRoles(page, acme);
-    await expect(page.getByRole("heading", { name: "Roles & Permissions", level: 1 })).toBeVisible();
-    await expect(page.getByRole("banner").getByText("Manage roles, permission sets, and access control for your organization.")).toBeVisible();
-    await expect(page.getByText("Role Templates & Custom Roles")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Roles", level: 1, exact: true })).toBeVisible();
+    await expect(page.getByRole("banner").getByText("Who can do what. Start from a template or create your own.")).toBeVisible();
     for (const name of SYSTEM) await expect(rowOf(page, name), name).toBeVisible();
 
     const api = await bff(page, "GET", `/api/orgs/${acmeId}/roles/overview`);
@@ -138,15 +137,14 @@ test.describe("Roles & Permissions on the real stack", () => {
     expect(byName["Consultant"]).toBeGreaterThanOrEqual(2);
     expect(byName["HR Specialist"]).toBe(1);
     expect(byName["Finance Specialist"]).toBe(1);
-    await expect(page.locator('[data-kpi="Total Roles"] [data-kpi-value]')).toHaveText(String(roles.length));
-    await expect(page.locator('[data-kpi="Active Users"] [data-kpi-value]')).toHaveText(String(api.json.activeUsers));
-    await expect(page.locator("[data-slice]")).toHaveCount(5);
+    // one line of counts instead of tiles: "12 roles · 0 custom"
+    await expect(page.locator("[data-roles-count]")).toHaveText(`${api.json.totalRoles} roles · ${api.json.customRoleCount} custom`);
     await expect(page.getByText(/vs last month/i)).toHaveCount(0);
     await page.screenshot({ path: path.join(shots, "roles-1440.png"), fullPage: true });
   });
 
   test("create a custom role from Marketing Specialist, remove one permission, confirm the summary", async () => {
-    await page.getByRole("button", { name: /Create Role/ }).click();
+    await page.locator("[data-create-role-button]").click();
     await page.getByLabel(/Role name/).fill(ROLE_NAME);
     await page.getByRole("radio", { name: "A template" }).click();
     await page.getByRole("combobox", { name: "Template" }).or(page.getByRole("button", { name: /Template/ })).first().click();
@@ -236,14 +234,12 @@ test.describe("Roles & Permissions on the real stack", () => {
     await expect(rowOf(page, ROLE_NAME)).toHaveCount(0);
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(rowOf(page, ROLE_NAME)).toBeVisible();
-    // the undo made a new role with the same permissions (minus the one removed): the audit trail has all of it
-    await page.locator("[data-quick=audit]").click();
-    const drawer = page.locator("#roles-history");
-    await expect(drawer).toContainText("Role deleted");
-    await expect(drawer).toContainText("Role created");
-    await expect(drawer).toContainText("Role changed");
-    await page.screenshot({ path: path.join(shots, "roles-history-1440.png") });
-    await page.keyboard.press("Escape");
+    // the undo made a new role with the same permissions (minus the one removed): the audit trail has all of it (the page's own
+    // history drawer went with the Quick Actions card; the Audit Log page shows the trail, read here from the same API)
+    const history = await bff(page, "GET", `/api/orgs/${acmeId}/roles/history?limit=50`);
+    expect(history.status).toBe(200);
+    const actions = (history.json as unknown as { action: string; roleName: string | null }[]).filter((e) => e.roleName === ROLE_NAME).map((e) => e.action);
+    expect(actions).toEqual(expect.arrayContaining(["ROLE_DELETE", "ROLE_CREATE", "ROLE_UPDATE"]));
     // clean up for a re-run
     await openRowMenu(page, ROLE_NAME);
     await page.getByRole("menuitem", { name: /^Delete$/ }).click();

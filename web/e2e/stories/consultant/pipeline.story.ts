@@ -1,8 +1,8 @@
 import { test, expect, narrate } from "../_support/story";
-import { lettersStamp, openPage, pageTitle, stamp, tileValue } from "./_helpers";
+import { lettersStamp, openPage, pageTitle, stamp } from "./_helpers";
 
 /**
- * My Marketer, My Applications, Submissions & Approvals, Interviews and Interview Prep: the part of the workspace where the consultant
+ * My Marketer, My Applications, Submissions and Interviews (its Schedule and Prepare tabs): the part of the workspace where the consultant
  * follows what the marketer prepared and records her own decisions. Kiwiply never submits anything; the consultant applies on the
  * source site with her own extension and only records / follows status here.
  */
@@ -17,21 +17,13 @@ test("CON-30 Anika sees who her marketer is and what they are working on; messag
   await expect(page.locator("[data-marketer-name]")).toHaveText("Sarah Chen");
   await expect(page.locator("[data-response-badge]")).toHaveCount(0); // D12: no invented 'Responsive' badge: nothing measures a response time yet
 
-  await narrate(page, "Current Focus lists real opportunities; Upcoming Follow-ups come from the next steps on her applications");
-  await expect(page.locator("[data-focus-opportunity]").first()).toBeVisible();
-  await expect(page.locator("[data-followup]").first()).toBeVisible();
-
-  // D12: there is no message, call or request channel, so Send Message, Schedule Call and View Calendar are disabled and say why (no dialog pretends to send)
-  await narrate(page, "Send Message, Schedule Call and View Calendar are disabled, and the tooltip says why: nothing can be sent or scheduled yet");
-  for (const label of ["Send Message", "Schedule Call", "View Calendar"]) {
+  // D12: there is no message or call channel, so Send Message and Schedule Call are disabled and say why (no dialog pretends to send)
+  await narrate(page, "Send Message and Schedule Call are disabled, and the tooltip says why: nothing can be sent or scheduled yet");
+  for (const label of ["Send Message", "Schedule Call"]) {
     const button = page.locator(`[data-marketer-action='${label}']`);
     await expect(button).toBeDisabled();
     await expect(button).toHaveAttribute("title", /isn't available yet/);
   }
-
-  await narrate(page, "A focus opportunity leads to Assigned Opportunities");
-  await page.locator("[data-focus-opportunity]").first().getByRole("link", { name: /^View / }).click();
-  await expect(page).toHaveURL(/\/w\/consultant\/opportunities/);
 });
 
 test("CON-31 Ben's marketer is Omar Haddad (each consultant sees only their own marketer)", async ({ as }) => {
@@ -41,18 +33,13 @@ test("CON-31 Ben's marketer is Omar Haddad (each consultant sees only their own 
   await expect(page.locator("[data-marketer-name]")).toHaveText("Omar Haddad");
 });
 
-test("CON-32 Anika follows her applications: tiles, status filter, sort and the stage timeline of one application", async ({ as }) => {
+test("CON-32 Anika follows her applications: status filter, sort and the stage timeline of one application", async ({ as }) => {
   const { page, go } = await as("anika");
   await narrate(page, "Anika opens My Applications");
   await openPage(page, go, "applications");
   await expect(pageTitle(page)).toHaveText("My Applications");
-  for (const key of ["total", "underReview", "interviews", "rejected", "offers"]) await expect(page.locator(`[data-applications-tiles] [data-stat-tile=${key}]`)).toBeVisible();
   const rows = page.locator("[data-application]");
   await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(4);
-  expect(Number(await tileValue(page, "total"))).toBeGreaterThanOrEqual(4);
-
-  await narrate(page, "The Pipeline Summary counts applications per step");
-  await expect(page.locator("[data-funnel=TOTAL]")).toBeVisible();
 
   await narrate(page, "She filters to Under Review");
   const filter = page.getByLabel("Filter by status");
@@ -73,16 +60,15 @@ test("CON-32 Anika follows her applications: tiles, status filter, sort and the 
   await expect(detail).toBeVisible();
   await expect(detail.getByText("Application ID")).toBeVisible();
   await expect(detail.locator("[data-timeline]").or(detail.getByText("No stage changes have been recorded"))).toBeVisible();
-  await expect(detail.getByText("Applications are submitted by you, outside Kiwiply")).toBeVisible();
+  await expect(detail.getByText("You submit applications yourself, on the employer's site")).toBeVisible();
   await expect(page.getByRole("button", { name: /^(Submit|Apply)/i })).toHaveCount(0); // read-only: no submit anywhere
 });
 
-test("CON-33 Anika reads her Submissions & Approvals and reviews a pending one before deciding", async ({ as }) => {
+test("CON-33 Anika reads her Submissions and reviews a pending one before deciding", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens Submissions & Approvals");
+  await narrate(page, "Anika opens Submissions");
   await openPage(page, go, "submissions");
-  await expect(pageTitle(page)).toHaveText("Submissions & Approvals");
-  for (const key of ["pending", "approved", "submitted", "attention"]) await expect(page.locator(`[data-subs-tiles] [data-stat-tile=${key}]`)).toBeVisible();
+  await expect(pageTitle(page)).toHaveText("Submissions");
 
   const pending = page.locator("[data-submission]");
   await narrate(page, "Submissions her marketer prepared wait for her approval, each with the resume version and a due time");
@@ -97,7 +83,8 @@ test("CON-33 Anika reads her Submissions & Approvals and reviews a pending one b
     await expect(sheet.locator("[data-review]")).toBeVisible();
     await expect(sheet.getByRole("heading", { name: "Marketer note" })).toBeVisible();
     await expect(sheet.getByRole("heading", { name: "Resume" })).toBeVisible();
-    await expect(sheet.getByRole("heading", { name: "Submission checklist" })).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "Before you approve" })).toBeVisible(); // the submission checklist now lives in the review
+    await expect(sheet.getByRole("list", { name: "Submission checklist" })).toBeVisible();
     await sheet.getByRole("button", { name: `Close ${title}` }).click();
   }
 
@@ -116,7 +103,7 @@ test("CON-34 Anika approves a submission: it records her decision and nothing is
     await narrate(page, "Nothing is waiting for approval right now");
     return;
   }
-  const before = Number(await tileValue(page, "pending"));
+  const before = await pending.count();
   const title = (await pending.first().getByRole("button", { name: /^Approve / }).getAttribute("aria-label"))!.replace(/^Approve /, "");
   await narrate(page, `She clicks Approve on "${title}"`);
   await pending.first().locator("[data-action=approve]").click();
@@ -125,8 +112,8 @@ test("CON-34 Anika approves a submission: it records her decision and nothing is
   await narrate(page, "The dialog explains what approving means before she confirms");
   await dlg.getByRole("button", { name: "Yes, approve" }).click();
   await expect(page.getByText("Submission approved")).toBeVisible();
-  await expect(page.getByText(/Nothing was sent to the client by Kiwiply/)).toBeVisible();
-  await expect.poll(async () => Number(await tileValue(page, "pending"))).toBe(before - 1);
+  await expect(page.getByText(/Nothing was sent to the client from here/)).toBeVisible();
+  await expect.poll(() => pending.count()).toBe(before - 1);
 });
 
 test("CON-35 Anika declines a submission with a reason; an empty reason is refused first", async ({ as }) => {
@@ -137,7 +124,7 @@ test("CON-35 Anika declines a submission with a reason; an empty reason is refus
     test.info().annotations.push({ type: "note", description: "No pending submission left to decline." });
     return;
   }
-  const before = Number(await tileValue(page, "pending"));
+  const before = await pending.count();
   const title = (await pending.first().getByRole("button", { name: /^Decline / }).getAttribute("aria-label"))!.replace(/^Decline /, "");
   await narrate(page, `She clicks Decline on "${title}"`);
   await pending.first().locator("[data-action=decline]").click();
@@ -149,16 +136,14 @@ test("CON-35 Anika declines a submission with a reason; an empty reason is refus
   await dlg.getByLabel("Reason for declining").fill(`QA story ${stamp()}: the rate is below my minimum for this kind of role.`);
   await dlg.getByRole("button", { name: "Decline submission" }).click();
   await expect(page.getByText("Submission declined")).toBeVisible();
-  await expect.poll(async () => Number(await tileValue(page, "pending"))).toBe(before - 1);
+  await expect.poll(() => pending.count()).toBe(before - 1);
 });
 
 test("CON-36 Anika manages her Interviews: calendar, details, join link, and feedback on a completed one", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens Interviews");
+  await narrate(page, "Anika opens Interviews (the Schedule tab)");
   await openPage(page, go, "interviews");
   await expect(pageTitle(page)).toHaveText("Interviews");
-  for (const key of ["upcoming", "thisWeek", "completed", "feedbackPending"]) await expect(page.locator(`[data-interviews-tiles] [data-stat-tile=${key}]`)).toBeVisible();
-  expect(Number(await tileValue(page, "upcoming"))).toBe(3);
 
   await narrate(page, "The table lists her three upcoming interviews; the calendar marks their days");
   await expect(page.locator("[data-interview]")).toHaveCount(3);
@@ -196,10 +181,9 @@ test("CON-36 Anika manages her Interviews: calendar, details, join link, and fee
 
 test("CON-37 Anika prepares for interviews: checklist with Undo, a practice session, and the history", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens Interview Prep");
-  await openPage(page, go, "interview-prep");
-  await expect(pageTitle(page)).toHaveText("Interview Prep");
-  for (const key of ["upcoming", "score", "sets", "weak"]) await expect(page.locator(`[data-prep-tiles] [data-stat-tile=${key}]`)).toBeVisible();
+  await narrate(page, "Anika opens Interviews > Prepare");
+  await openPage(page, go, "interviews?tab=prepare");
+  await expect(pageTitle(page)).toHaveText("Interviews");
   for (const m of ["question-bank", "technical", "company", "behavioral"]) await expect(page.locator(`[data-module=${m}]`)).toBeVisible();
 
   await narrate(page, "She ticks an item on the 'Before interview' checklist, then undoes it");

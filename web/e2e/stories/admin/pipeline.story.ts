@@ -17,7 +17,6 @@ test("ADM-51 Org admin filters the job list, opens a job and sees its top matche
   await expect(kpi(page, "openJobs")).toHaveText(/^\d+$/);
   const open0 = Number(await kpi(page, "openJobs").innerText());
   expect(open0).toBeGreaterThan(0);
-  await expect(page.locator("[data-kpi=openJobs] [data-kpi-delta]")).toContainText("vs last month");
   await expect(jobRows(page)).toHaveCount(10);
 
   await narrate(page, "Status filter: Open. The count follows");
@@ -64,8 +63,8 @@ test("ADM-53 Org admin creates a job for a client and it appears first in the li
   await expect(kpi(page, "newThisWeek")).toHaveText(/^\d+$/);
   const fresh0 = await num(page, "newThisWeek");
   const title = `Story Platform Engineer ${Date.now() % 100000}`;
-  await narrate(page, "Create Job: a title and a client");
-  await page.getByRole("button", { name: /Create Job/ }).click();
+  await narrate(page, "Create job: a title and a client");
+  await page.getByRole("button", { name: /Create job/ }).click();
   await page.getByLabel(/Job title/).fill(title);
   await page.locator("[data-create-form] button").first().click();
   await page.getByRole("option", { name: "TechCorp" }).click();
@@ -149,8 +148,8 @@ test("ADM-56 Org admin switches Applications to the pipeline board and the analy
   const { page, go } = await as("sarah");
   await go("/w/admin/applications");
   await expect(page.locator("[data-applications-page]")).toBeVisible();
-  await narrate(page, "Pipeline View: six stage columns");
-  await page.getByRole("tab", { name: /Pipeline View/ }).click();
+  await narrate(page, "Pipeline: six stage columns");
+  await page.getByRole("tab", { name: "Pipeline", exact: true }).click();
   await expect(page.locator("[data-kanban-column]")).toHaveCount(6);
   await expect(page.locator("[data-kanban-column=OFFER] [data-card-id]").first()).toBeVisible();
   await narrate(page, "Analytics: the funnel down to Hired");
@@ -180,9 +179,9 @@ test("ADM-57 Org admin filters interviews, records a status with Undo, and resch
   await page.getByRole("option", { name: "Completed" }).click();
   await expect(page).toHaveURL(/status=COMPLETED/);
   await expect(page.locator("[data-showing]")).toContainText(`of ${await num(page, "completed")}`);
-  // The toolbar has no "Clear filters" button (that one belongs to the empty state); the filter is cleared by choosing "All Statuses".
+  // The toolbar has no "Clear filters" button (that one belongs to the empty state); the filter is cleared by choosing "All statuses".
   await page.locator('[role=search] button[aria-label="Status"]').click();
-  await page.getByRole("option", { name: "All Statuses" }).click();
+  await page.getByRole("option", { name: "All statuses" }).click();
   await expect(page).not.toHaveURL(/status=/);
   await expect(page.locator("[data-showing]")).toContainText(`of ${total.toLocaleString("en-US")} interviews`);
 
@@ -215,12 +214,12 @@ test("ADM-58 Org admin sees interviews as a calendar, a pipeline and analytics",
   const { page, go } = await as("sarah");
   await go("/w/admin/interviews");
   await expect(page.locator("[data-interviews-page]").first()).toBeVisible({ timeout: 60_000 });
-  await narrate(page, "Calendar View");
-  await page.getByRole("tab", { name: /Calendar View/ }).click();
+  await narrate(page, "Calendar");
+  await page.getByRole("tab", { name: "Calendar", exact: true }).click();
   await expect(page.locator("[data-calendar]")).toBeVisible();
   await expect(page.locator("[data-calendar-chip]").first()).toBeVisible();
   await narrate(page, "Pipeline: four columns");
-  await page.getByRole("tab", { name: /Pipeline/ }).click();
+  await page.getByRole("tab", { name: "Pipeline", exact: true }).click();
   await expect(page.locator("[data-kanban-column]")).toHaveCount(4);
   await narrate(page, "Analytics");
   await page.getByRole("tab", { name: /Analytics/ }).click();
@@ -266,7 +265,7 @@ test("ADM-60 Org admin adds a client, a duplicate name is refused, and a private
   await expect(kpi(page, "totalClients")).toHaveText(/^\d+$/);
   const total0 = await num(page, "totalClients");
   const name = `Story Logistics ${Date.now() % 100000}`;
-  await narrate(page, "Add Client");
+  await narrate(page, "Add client");
   await page.locator("[data-add-client]").click();
   await page.getByPlaceholder("TechCorp Inc.").fill(name);
   await page.locator("[data-add-submit]").click();
@@ -321,7 +320,7 @@ test("ADM-61 Org admin reviews placements by tab, filters ending-soon and sorts 
   await expect(page).toHaveURL(/status=ENDING_SOON/);
   await expect(page.locator("[data-showing-top]")).toContainText(`of ${await num(page, "endingSoon")} active placements`);
   await page.locator('button[aria-label="Status"]').click();
-  await page.getByRole("option", { name: "All Statuses" }).click();
+  await page.getByRole("option", { name: "All statuses" }).click();
 
   await narrate(page, "Sort by bill rate, high to low");
   await page.locator('button[aria-label="Sort by"]').click();

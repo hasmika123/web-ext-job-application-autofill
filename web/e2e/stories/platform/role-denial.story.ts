@@ -30,7 +30,7 @@ test("PLT-17 A marketing specialist cannot reach Administration, billing, HR or 
     await expectNotYourRole(page);
   }
   await go("/w/marketing");
-  await expect(page.locator("[data-shell-sidebar]")).toContainText("My Assigned Talent");
+  await expect(page.locator("[data-shell-sidebar]")).toContainText("My Talent");
 });
 
 test("PLT-18 Inside a workspace you hold, a page your role lacks is still refused", async ({ as }) => {

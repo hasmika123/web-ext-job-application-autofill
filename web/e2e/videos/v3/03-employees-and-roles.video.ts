@@ -31,36 +31,37 @@ test("V3-03 Employees and roles: departments and teams, roles as data, single an
   await narrate(page, "On the dashboard, the setup checklist shows two steps done. The next three are all about people, so that's where we're going.", undefined, page.locator('[data-dash-card="checklist"]'));
 
   // ---- departments and teams
-  await narrate(page, "Before anyone is invited, I'll set up the structure, so each person lands in the right place. Departments first.");
-  await page.locator('[data-shell-sidebar] [data-nav-item="departments"]').click();
-  await page.waitForURL(/\/w\/admin\/departments/, { timeout: 30_000 });
-  await expect(page.getByRole("list", { name: "Departments", exact: true }).getByText("Delivery", { exact: true })).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "Delivery is here from the first video. Brightline also needs a Marketing department, for the people who find work for consultants.");
-  await page.getByRole("button", { name: "Create Department", exact: true }).first().click();
-  const dsheet = page.getByRole("dialog", { name: "Create Department" });
-  await expect(dsheet).toBeVisible();
-  await dsheet.getByLabel(/Department name/).fill("Marketing");
-  await dsheet.getByRole("button", { name: "Create Department", exact: true }).click();
-  await expect(page.getByRole("list", { name: "Departments", exact: true }).getByText("Marketing", { exact: true })).toBeVisible({ timeout: 30_000 });
-  await narrate(page, "Next, a team inside it. A department is the part of the company a person belongs to. A team is a smaller working group.");
+  await narrate(page, "Before anyone is invited, I'll set up the structure, so each person lands in the right place. Teams & Departments, on the Departments tab first.");
   await page.locator('[data-shell-sidebar] [data-nav-item="teams"]').click();
   await page.waitForURL(/\/w\/admin\/teams/, { timeout: 30_000 });
-  await page.getByRole("button", { name: "Create Team", exact: true }).first().click();
-  const tsheet = page.getByRole("dialog", { name: "Create Team" });
+  await page.getByRole("tab", { name: "Departments", exact: true }).click();
+  const structure = page.getByRole("region", { name: "Structure", exact: true });
+  await expect(structure.getByText("Delivery", { exact: true })).toBeVisible({ timeout: 45_000 });
+  await narrate(page, "Delivery is here from the first video. Brightline also needs a Marketing department, for the people who find work for consultants.");
+  await page.locator('[data-create-group="departments"]').click();
+  const dsheet = page.getByRole("dialog", { name: "Create department" });
+  await expect(dsheet).toBeVisible();
+  await dsheet.getByLabel(/Department name/).fill("Marketing");
+  await dsheet.getByRole("button", { name: "Create department", exact: true }).click();
+  await expect(structure.getByText("Marketing", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await narrate(page, "Next, a team inside it, on the Teams tab. A department is the part of the company a person belongs to. A team is a smaller working group.");
+  await page.getByRole("tab", { name: "Teams", exact: true }).click();
+  await page.locator('[data-create-group="teams"]').click();
+  const tsheet = page.getByRole("dialog", { name: "Create team" });
   await expect(tsheet).toBeVisible();
   await tsheet.getByLabel(/Team name/).fill("Talent Marketing");
   await tsheet.getByRole("button", { name: "Department" }).click();
   await page.getByRole("option", { name: "Marketing", exact: true }).click();
   await narrate(page, "The team's lead can be picked here too, but nobody has joined yet, so I'll leave that for later.");
-  await tsheet.getByRole("button", { name: "Create Team", exact: true }).click();
-  await expect(page.locator('[data-team-card="Talent Marketing"]')).toBeVisible({ timeout: 30_000 });
+  await tsheet.getByRole("button", { name: "Create team", exact: true }).click();
+  await expect(page.getByRole("table", { name: "Team directory" }).getByRole("row").filter({ has: page.getByText("Talent Marketing", { exact: true }) })).toBeVisible({ timeout: 30_000 });
 
   // ---- roles
-  await narrate(page, "Now roles. Let's open Roles and Permissions.");
+  await narrate(page, "Now roles. Let's open Roles.");
   await page.locator('[data-shell-sidebar] [data-nav-item="roles"]').click();
   await page.waitForURL(/\/w\/admin\/roles/, { timeout: 30_000 });
   await expect(page.locator("[data-roles-page]")).toBeVisible({ timeout: 45_000 });
-  await expect(page.locator("[data-kpi-value]").first()).not.toHaveText("–", { timeout: 30_000 });
+  await expect(page.locator("[data-roles-count]")).toContainText(" custom", { timeout: 30_000 }); // "12 roles · 0 custom" once the overview is in
   await narrate(page, "Kiwiply comes with twelve ready-made roles: Owner, Organization Admin, Marketing Specialist, Consultant, HR, Finance and more. Each one says how far it reaches, and how many people hold it.", undefined, page.locator("[data-roles-page] table").first());
   await narrate(page, "Roles aren't hard-coded. They're data, a list of permissions, and I can open one to read exactly what it allows.");
   const specialist = page.locator("tr", { has: page.getByText("Marketing Specialist", { exact: true }) }).first();
@@ -75,7 +76,7 @@ test("V3-03 Employees and roles: departments and teams, roles as data, single an
   await page.waitForTimeout(800);
 
   await narrate(page, "Brightline wants a coordinator who helps marketers, but doesn't manage follow-up calls. No ready-made role fits exactly, so I'll make my own from the Marketing Specialist template.");
-  await page.getByRole("button", { name: /Create Role/ }).first().click();
+  await page.locator("[data-create-role-button]").click();
   await page.getByLabel(/Role name/).fill(roleName);
   await page.getByRole("radio", { name: "A template" }).click();
   await page.getByRole("combobox", { name: "Template" }).or(page.getByRole("button", { name: /Template/ })).first().click();
@@ -100,16 +101,19 @@ test("V3-03 Employees and roles: departments and teams, roles as data, single an
   await page.keyboard.press("Escape");
 
   // ---- single invitation
-  await narrate(page, "Now the people. Invitations is where I bring someone in.");
-  await page.locator('[data-shell-sidebar] [data-nav-item="invitations"]').click();
-  await page.waitForURL(/\/w\/admin\/invitations/, { timeout: 30_000 });
-  const panel = page.getByRole("complementary", { name: "Invite Employee" });
+  await narrate(page, "Now the people. On Employees, the Invitations tab lists who has been invited, and Add employee brings someone in.");
+  await page.locator('[data-shell-sidebar] [data-nav-item="employees"]').click();
+  await page.waitForURL(/\/w\/admin\/employees/, { timeout: 30_000 });
+  await page.getByRole("tab", { name: /^Invitations/ }).click();
+  await page.waitForURL(/\/w\/admin\/employees\?tab=invitations/, { timeout: 30_000 });
+  await page.locator("[data-add-employee]").click();
+  const panel = page.getByRole("dialog", { name: "Add employee" });
   await expect(panel.getByRole("radio", { name: /Create account now/ })).toBeVisible({ timeout: 45_000 });
   await narrate(page, "There are two ways to add a person. I can create their account right now, with a temporary password, or I can send an invitation by email. For a new hire who'll set up their own account, an invitation is right.");
   await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true });
   await narrateDo(page, "Daniel Okoye is joining as a marketer. I enter his email and his name.", async () => {
-    await panel.getByLabel(/Email Address/).fill("daniel.okoye@brightline.example");
-    await panel.getByLabel(/Full Name/).fill("Daniel Okoye");
+    await panel.getByLabel(/Email address/).fill("daniel.okoye@brightline.example");
+    await panel.getByLabel(/Full name/).fill("Daniel Okoye");
   });
   await panel.getByRole("button", { name: /^Role/ }).click();
   await narrate(page, "Roles are a checklist. A person can hold more than one, and the one marked primary decides which workspace they land in. Daniel is a Marketing Specialist.");
@@ -125,17 +129,19 @@ test("V3-03 Employees and roles: departments and teams, roles as data, single an
     await team.click();
     await page.getByRole("option", { name: "Talent Marketing" }).click({ timeout: 8000 }).catch(() => page.keyboard.press("Escape"));
   }
-  await narrateDo(page, "He goes into the Marketing department and the Talent Marketing team. Then Send Invitation.", async () => {
-    await panel.getByRole("button", { name: "Send Invitation" }).click();
+  await narrateDo(page, "He goes into the Marketing department and the Talent Marketing team. Then Send invitation.", async () => {
+    await panel.getByRole("button", { name: "Send invitation", exact: true }).click();
   });
+  await expect(panel).toBeHidden({ timeout: 30_000 }); // sending closes the dialog (with an Undo in the toast)
   await expect(page.getByRole("row", { name: /Daniel Okoye/ }).first()).toBeVisible({ timeout: 45_000 });
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
   await narrate(page, "He's on the list as invited. Daniel gets an email with a link, chooses his own password, and lands in the Marketing workspace.");
 
   // ---- bulk invitation
-  await narrate(page, "Now three consultants at once. Bulk Invite takes a list of email addresses, one per line, and everyone gets the same role.");
-  await page.getByRole("button", { name: "Bulk Invite" }).click();
-  const bulk = page.getByRole("dialog", { name: "Bulk Invite" });
+  await narrate(page, "Now three consultants at once. Add employee has a Bulk invite link: it takes a list of email addresses, one per line, and everyone gets the same role.");
+  await page.locator("[data-add-employee]").click();
+  await page.getByRole("dialog", { name: "Add employee" }).locator("[data-bulk-invite]").click();
+  const bulk = page.getByRole("dialog", { name: "Bulk invite" });
   await expect(bulk).toBeVisible({ timeout: 15_000 });
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
   await page.waitForTimeout(2500); // the sheet loads its role and department lists as it opens; typing before that would be lost
@@ -161,12 +167,12 @@ test("V3-03 Employees and roles: departments and teams, roles as data, single an
   await narrate(page, "Three invited, and the result lists every address, so I can see at once if one didn't work, for example a typo or someone who is already a member.", undefined, result);
   await bulk.getByRole("button", { name: "Done" }).click();
   await expect(page.getByRole("row", { name: /Ravi Menon/ }).first()).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "The Invitations page now tracks all four: pending, accepted, expired or revoked. An invitation I no longer want can be revoked or sent again from here.");
+  await narrate(page, "The Invitations tab now tracks all four: pending, accepted, expired or revoked. An invitation I no longer want can be revoked or sent again from here.");
 
   // ---- employees and role assignment
-  await narrate(page, "Next, the Employees page, which is the people list for the whole organization.");
-  await page.locator('[data-shell-sidebar] [data-nav-item="employees"]').click();
-  await page.waitForURL(/\/w\/admin\/employees/, { timeout: 30_000 });
+  await narrate(page, "Next, the Employees tab, which is the people list for the whole organization.");
+  await page.getByRole("tab", { name: "Employees", exact: true }).click();
+  await page.waitForURL((u) => u.pathname === "/w/admin/employees" && !u.searchParams.has("tab"), { timeout: 30_000 });
   await expect(page.getByRole("row", { name: /daniel\.okoye/i }).first()).toBeVisible({ timeout: 45_000 });
   await narrate(page, "Everyone is here with their role, department, team and status. The people who were invited show as Invited, until they accept.", undefined, page.getByRole("table").first());
   const row = page.getByRole("row", { name: /daniel\.okoye/i }).first();

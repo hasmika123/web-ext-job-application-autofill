@@ -77,7 +77,7 @@ test("V3-12 Offers and placements: an offer is recorded, negotiated, accepted, a
   // =============== Anika reviews and negotiates
   await f.switchTo("anika", "Now let's switch to Anika, who just got the news.", "/w/consultant/offers");
   await expect(page.locator("[data-consultant-offers][data-status=ready]")).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "This is Anika's Offers page. Her numbers on top: offers, pending, accepted, negotiating and declined.", undefined, page.locator("[data-offers-tiles]"));
+  await narrate(page, "This is Anika's Offers page. The chips on top count her offers by status: pending, negotiating, accepted and declined.", undefined, page.locator("[data-offers-chips]"));
   const mine = page.locator("[data-offer]").filter({ hasText: ROLE }).first();
   await expect(mine).toBeVisible({ timeout: 30_000 });
   await narrate(page, "The new one from Northwind Logistics is waiting for her review. Offers marked Sample are demo stand-ins. This one was made just now.", undefined, mine);
@@ -141,9 +141,9 @@ test("V3-12 Offers and placements: an offer is recorded, negotiated, accepted, a
   // =============== Anika's placement
   await openConsultant(page, f.go.bind(f), "placements");
   await narrate(page, "Now My Placement. It used to say she had none. Now her new engagement is active, and started today.", undefined, page.locator("[data-placement-tiles]"));
-  await narrate(page, "The client is Northwind Logistics, her role is Senior Data Engineer, and Omar is her marketer. Anything nobody filled in says Not shared yet. Nothing is invented.", undefined, page.getByRole("heading", { name: "Placement Overview" }));
+  await narrate(page, "The client is Northwind Logistics, her role is Senior Data Engineer, and Omar is her marketer. Anything nobody filled in says Not shared yet. Nothing is invented.", undefined, page.getByRole("heading", { name: "Placement overview" }));
   await narrate(page, "The checklist and milestones are empty for now. Nobody has set them up for this new placement yet, and the page says so.", undefined, page.locator("#placement-checklist"));
-  await page.locator("[data-quick=status]").click();
+  await page.locator("[data-post-update]").click();
   const upd = page.getByRole("dialog", { name: "Update status" });
   await expect(upd).toBeVisible();
   await narrateDo(page, "What she can do is post a short status update.", async () => {
@@ -151,7 +151,7 @@ test("V3-12 Offers and placements: an offer is recorded, negotiated, accepted, a
   });
   await upd.getByRole("button", { name: "Post update" }).click();
   await expect(page.locator("[data-activity]").first()).toBeVisible({ timeout: 20_000 });
-  await narrate(page, "Posted, under Recent Placement Activity.", undefined, page.locator("[data-activity]").first());
+  await narrate(page, "Posted, under Recent placement activity.", undefined, page.locator("[data-activity]").first());
 
   // =============== Amara and Sarah see the placement
   await f.switchTo("amara", "On Amara's side, the same placement is on her Placements page.", "/w/accounts/placements");

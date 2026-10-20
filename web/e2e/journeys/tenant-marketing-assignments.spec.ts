@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 /**
- * The Marketing Assignments page against the REAL stack (Spring API + MySQL + `next start`): the seeded Acme Staffing talent data (8 marketers,
+ * The Assignments page (Talent > Assignments, /w/admin/marketing-assignments) against the REAL stack (Spring API + MySQL + `next start`): the seeded Acme Staffing talent data (8 marketers,
  * 153 consultants, 141 assigned, 12 unassigned, 3 overloaded), Sarah Chen signed in through the Demo accounts tab. Run with
  * `playwright.real.config.ts` (docs/enterprise-v2/real-stack-runbook.md, `DEMO_ALLOW_WRITES=true`). The journey changes data and puts it back
  * (every change is undone), so it can be run again; the other tenant (Beta) must not see any of it.
@@ -32,13 +32,10 @@ test.describe("marketing assignments (real stack)", () => {
     await page.goto(`${base}/w/admin/marketing-assignments`);
     await expect(page.locator("[data-marketing-assignments-page]")).toBeVisible();
 
-    // the four tiles are the seeded counts, never typed in
-    await expect(tile(page, "assigned")).toHaveText("141");
-    await expect(tile(page, "marketers")).toHaveText("8");
+    // the two attention tiles and the marketers list header are the seeded counts, never typed in
     await expect(tile(page, "unassigned")).toHaveText("12");
     await expect(tile(page, "overloaded")).toHaveText("3");
-    await expect(page.locator("[data-kpi=assigned] [data-kpi-delta]")).toContainText("vs last month");
-    await expect(page.locator("[data-help-bee]")).toContainText("Need help with marketing assignments?");
+    await expect(page.locator("[data-marketers-count]")).toHaveText("8 marketers · 141 assigned");
 
     // the marketers by load: Michael Park (29 / 30) first, Jessica Davis 28 / 30
     await expect(page.locator("[data-marketer]")).toHaveCount(8);
@@ -46,9 +43,6 @@ test.describe("marketing assignments (real stack)", () => {
     await expect(page.locator("[data-marketer]").first().locator("[data-load]")).toHaveText("29 / 30");
     await expect(card(page, "Jessica Davis").locator("[data-load]")).toHaveText("28 / 30");
     await expect(card(page, "Jessica Davis").locator("[data-percent]")).toHaveText("93%");
-    await expect(page.locator("[data-summary=total]")).toHaveText("141");
-    await expect(page.locator("[data-summary=overloaded]")).toHaveText("3");
-    await expect(page.locator("[data-marketers-summary]")).toContainText("8 Marketing Specialists");
 
     // pick Jessica: her 28 consultants, 10 to a page, and the URL names her
     await card(page, "Jessica Davis").getByRole("button", { name: /Show their consultants/ }).click();
@@ -82,7 +76,7 @@ test.describe("marketing assignments (real stack)", () => {
     // assign two unassigned consultants to David Kim (16 / 25), then Undo
     await card(page, "David Kim").getByRole("button", { name: /Show their consultants/ }).click();
     await expect(card(page, "David Kim").locator("[data-load]")).toHaveText("16 / 25");
-    await page.getByRole("button", { name: "Assign Consultants" }).first().click();
+    await page.getByRole("button", { name: "Assign consultants" }).first().click();
     const dlg = page.getByRole("dialog", { name: /Assign consultants to David Kim/ });
     const boxes = dlg.getByRole("checkbox");
     await expect(boxes.first()).toBeVisible();
@@ -93,7 +87,7 @@ test.describe("marketing assignments (real stack)", () => {
     await expect(page.getByText("Assigned 2 consultants")).toBeVisible();
     await expect(card(page, "David Kim").locator("[data-load]")).toHaveText("18 / 25");
     await expect(tile(page, "unassigned")).toHaveText("10");
-    await expect(tile(page, "assigned")).toHaveText("143");
+    await expect(page.locator("[data-marketers-count]")).toHaveText("8 marketers · 143 assigned");
     await page.getByRole("button", { name: "Undo" }).last().click();
     await expect(page.getByText("Undone")).toBeVisible();
     await expect(card(page, "David Kim").locator("[data-load]")).toHaveText("16 / 25");
@@ -105,7 +99,7 @@ test.describe("marketing assignments (real stack)", () => {
     const checks = page.getByRole("table", { name: "Assigned consultants" }).getByRole("checkbox", { name: /^Select / });
     await checks.nth(0).check();
     await checks.nth(1).check();
-    await page.getByRole("button", { name: /Bulk Actions/ }).click();
+    await page.getByRole("button", { name: /Bulk actions/ }).click();
     await page.getByRole("menuitem", { name: "High" }).click();
     await expect(page.getByText(/Set high priority on \d+ consultants?/)).toBeVisible();
     // rows that were already High change nothing and offer no Undo; otherwise Undo puts them back
@@ -117,7 +111,7 @@ test.describe("marketing assignments (real stack)", () => {
 
     // over capacity: Michael Park is at 29 / 30; three more is a warning first, and nothing changes
     await card(page, "Michael Park").getByRole("button", { name: /Show their consultants/ }).click();
-    await page.getByRole("button", { name: "Assign Consultants" }).first().click();
+    await page.getByRole("button", { name: "Assign consultants" }).first().click();
     const over = page.getByRole("dialog", { name: /Assign consultants to Michael Park/ });
     const ob = over.getByRole("checkbox");
     await expect(ob.first()).toBeVisible();
@@ -131,7 +125,7 @@ test.describe("marketing assignments (real stack)", () => {
     await expect(card(page, "Michael Park").locator("[data-load]")).toHaveText("29 / 30");
 
     // the workload report
-    await page.getByRole("button", { name: /View Workload Report/ }).click();
+    await page.getByRole("button", { name: /View workload report/ }).click();
     await expect(page.getByRole("table", { name: "Workload by marketer" })).toBeVisible();
     await page.getByRole("button", { name: "Close", exact: true }).last().click();
 

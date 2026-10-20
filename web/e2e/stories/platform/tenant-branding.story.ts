@@ -17,10 +17,11 @@ test("PLT-01 A visitor reaches Acme Staffing's branded sign-in", async ({ page }
   await expect(page).toHaveTitle(/Acme Staffing/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Welcome to Acme Staffing");
   await expect(page.getByText("Sign in to your consultant bench, placements and team workspace.")).toBeVisible();
-  await narrate(page, "The logo, welcome copy and support address are all Acme's");
+  await narrate(page, "The logo and welcome copy are Acme's, and help is one link away");
   await expect(page.locator("[data-tenant-logo]").first()).toBeVisible();
-  await expect(page.locator('a[href="mailto:support@acme.example.com"]')).toBeVisible();
-  await narrate(page, "Nothing here says Kiwiply, and the form asks for a user name and password");
+  await expect(page.getByRole("link", { name: "Contact IT support" })).toHaveAttribute("href", "/support");
+  await expect(page.getByText("This account is separate from any personal job-search account.")).toBeVisible();
+  await narrate(page, "Nothing here says Kiwiply, and the form asks for an email and password");
   await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Sign in/ })).toBeVisible();
@@ -35,7 +36,6 @@ test("PLT-02 Beta Talent gets its own colours and copy from the same code", asyn
   await expect(page).toHaveTitle(/Beta Talent/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Welcome to Beta Talent");
   await expect(page.getByText("Sign in to your people workspace.")).toBeVisible();
-  await expect(page.locator('a[href="mailto:help@beta.example.com"]')).toBeVisible();
   const beta = await brandVars(page);
   expect(beta.primary).not.toBe("");
   expect(beta.primary).not.toBe(acme.primary); // indigo, not Acme's blue

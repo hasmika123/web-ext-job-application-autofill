@@ -4,24 +4,36 @@ import { bff, openRowMenu, orgIdOf, pickFirstDepartment, stamp } from "./_helper
 
 const rowOf = (page: Page, name: string) => page.locator("tr[data-row-id]", { hasText: name });
 const kpi = (page: Page, k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
-const invKpi = async (page: Page, status: string) => Number((await page.locator(`[data-kpi="${status}"] p`).nth(1).innerText()).trim());
+const INVITATIONS = "/w/admin/employees?tab=invitations";
+/** The pending-invitation count, as the Employees page's "Invitations (N)" tab label shows it (no number when there are none). */
+const pendingInvites = async (page: Page) => {
+  const m = (await page.getByRole("tab", { name: /^Invitations/ }).innerText()).match(/\((\d+)\)/);
+  return m ? Number(m[1]) : 0;
+};
+/** Opens the "Add employee" dialog from the Employees page header. */
+const openAddEmployee = async (page: Page) => {
+  await page.locator("[data-add-employee]").click();
+  const dialog = page.getByRole("dialog", { name: "Add employee" });
+  await expect(dialog).toBeVisible();
+  return dialog;
+};
 
 test("ADM-10 Org admin reviews the employee roster with real counts, search and a status filter", async ({ as }) => {
   const { page, go } = await as("sarah");
   await go("/w/admin");
   await narrate(page, "Sarah opens Employees from the sidebar");
-  await page.getByRole("link", { name: "Employees", exact: true }).first().click();
+  await page.locator('[data-shell-sidebar] [data-nav-item="employees"]').first().click();
   await page.waitForURL(/\/w\/admin\/employees/);
   await expect(page.locator("[data-employees-page]")).toBeVisible();
   await expect(page.locator("tr[data-row-id]").first()).toBeVisible();
 
   await narrate(page, "The tiles count the roster: one invited, one suspended");
-  await expect(kpi(page, "total")).not.toHaveText("");
-  const total = Number((await kpi(page, "total").innerText()).replace(/,/g, ""));
-  expect(total).toBeGreaterThanOrEqual(11);
+  await expect(kpi(page, "active")).not.toHaveText("");
   await expect(kpi(page, "invited")).toHaveText("1"); // Nina Vogel
   await expect(kpi(page, "suspended")).toHaveText("1"); // Sam Whitfield
-  await expect(page.locator("[data-showing]")).toContainText(`of ${total}`);
+  await expect(page.locator("[data-showing]")).toContainText(/of \d+ employees/);
+  const total = Number(((await page.locator("[data-showing]").innerText()).match(/of ([\d,]+)/)?.[1] ?? "0").replace(/,/g, ""));
+  expect(total).toBeGreaterThanOrEqual(11);
 
   await narrate(page, "Searching for Anika narrows the table to her");
   const search = page.getByRole("searchbox", { name: "Search employees" });
@@ -122,51 +134,48 @@ test("ADM-14 Offboarding asks for a typed confirmation and a reason (cancelled h
 
 test("ADM-15 Org admin invites an employee, resends and revokes the invitation", async ({ as }) => {
   const { page, go } = await as("sarah");
-  await go("/w/admin/invitations");
+  await go(INVITATIONS);
   await expect(page.locator("[data-invitations-page]")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Employee Invitations" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /^Invitations/ })).toHaveAttribute("aria-selected", "true");
   const table = page.getByRole("table", { name: "Invitations" });
 
   await narrate(page, "The seeded invitation for Nina Vogel is Pending");
   const nina = table.locator("tr", { hasText: /nina/i });
   await expect(nina).toBeVisible();
   await expect(nina.locator('[data-invitation-status="PENDING"]')).toBeVisible();
-  const pending0 = await invKpi(page, "PENDING");
-  const revoked0 = await invKpi(page, "REVOKED");
-  expect(pending0).toBeGreaterThanOrEqual(1);
+  await expect.poll(() => pendingInvites(page)).toBeGreaterThanOrEqual(1);
+  const pending0 = await pendingInvites(page);
 
   const email = `story.invite.${Date.now()}@example.com`;
-  await narrate(page, "Sarah fills in the Invite Employee panel");
-  const panel = page.getByRole("complementary", { name: "Invite Employee" });
-  await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the panel opens in "Create account now"; this story is the invitation flow
-  await panel.getByLabel(/Email Address/).fill(email);
-  await panel.getByLabel(/Full Name/).fill("Eli Story");
+  await narrate(page, "Sarah opens Add employee and fills in an invitation");
+  const panel = await openAddEmployee(page);
+  await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the dialog opens in "Create account now"; this story is the invitation flow
+  await panel.getByLabel(/Email address/).fill(email);
+  await panel.getByLabel(/Full name/).fill("Eli Story");
   await panel.getByRole("button", { name: /^Role/ }).click();
   await panel.getByRole("checkbox", { name: /^Consultant/ }).check();
   await pickFirstDepartment(page, panel);
-  await panel.getByLabel(/Personal Message/).fill("Welcome to the team.");
-  await panel.getByRole("button", { name: /Send Invitation/ }).click();
+  await panel.getByLabel(/Personal message/).fill("Welcome to the team.");
+  await panel.getByRole("button", { name: /Send invitation/ }).click();
   await expect(page.getByText("Invite sent")).toBeVisible({ timeout: 20_000 });
-  await expect(panel.getByText(`Invitation sent to ${email}.`)).toBeVisible();
+  await expect(panel).toHaveCount(0); // sending closes the dialog
 
-  await narrate(page, "The Pending counter goes up and the activity feed names Eli");
-  await expect.poll(() => invKpi(page, "PENDING")).toBe(pending0 + 1);
+  await narrate(page, "The pending count on the Invitations tab goes up and Eli's row is there");
+  await expect.poll(() => pendingInvites(page)).toBe(pending0 + 1);
   const row = table.locator("tr", { hasText: email });
   await expect(row).toBeVisible();
-  await expect(page.locator("[data-invitation-activity]")).toContainText("Eli Story");
 
   await narrate(page, "Resend");
   await openRowMenu(page, row, /Resend/);
   await page.getByRole("menuitem", { name: /Resend/ }).click();
   await expect(page.getByText("Invitation sent again")).toBeVisible();
 
-  await narrate(page, "Revoke: the chip flips and the counters move");
+  await narrate(page, "Revoke: the chip flips and the pending count goes back down");
   await openRowMenu(page, row, /Revoke/);
   await page.getByRole("menuitem", { name: /Revoke/ }).click();
   await expect(row.locator('[data-invitation-status="REVOKED"]')).toBeVisible();
   await expect(page.getByText("Invitation revoked")).toBeVisible();
-  await expect.poll(() => invKpi(page, "PENDING")).toBe(pending0);
-  await expect.poll(() => invKpi(page, "REVOKED")).toBe(revoked0 + 1);
+  await expect.poll(() => pendingInvites(page)).toBe(pending0);
 
   await narrate(page, "The Revoked filter keeps Eli and drops Nina");
   await page.getByRole("button", { name: "Status" }).click();
@@ -177,38 +186,38 @@ test("ADM-15 Org admin invites an employee, resends and revokes the invitation",
 
 test("ADM-16 An incomplete invitation is refused field by field and nothing is sent", async ({ as }) => {
   const { page, go } = await as("sarah");
-  await go("/w/admin/invitations");
-  const panel = page.getByRole("complementary", { name: "Invite Employee" });
-  await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the panel opens in "Create account now"; this story is the invitation flow
-  await expect(panel).toBeVisible();
+  await go(INVITATIONS);
+  const panel = await openAddEmployee(page);
+  await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the dialog opens in "Create account now"; this story is the invitation flow
   await narrate(page, "Sarah types something that is not an email");
-  await panel.getByLabel(/Email Address/).fill("not-an-email");
-  await panel.getByRole("button", { name: /Send Invitation/ }).click();
+  await panel.getByLabel(/Email address/).fill("not-an-email");
+  await panel.getByRole("button", { name: /Send invitation/ }).click();
   await expect(panel.getByText("That doesn't look like an email address.")).toBeVisible();
   await expect(panel.getByText("Pick at least one role.")).toBeVisible();
 });
 
 test("ADM-17 Sending an invitation can be undone from the toast", async ({ as }) => {
   const { page, go } = await as("sarah");
-  await go("/w/admin/invitations");
+  await go(INVITATIONS);
   const table = page.getByRole("table", { name: "Invitations" });
   await expect(table).toBeVisible();
-  const pending0 = await invKpi(page, "PENDING");
+  await expect.poll(() => pendingInvites(page)).toBeGreaterThanOrEqual(1); // Nina's seeded invitation
+  const pending0 = await pendingInvites(page);
   const email = `story.undo.${stamp()}${Date.now()}@example.com`;
-  const panel = page.getByRole("complementary", { name: "Invite Employee" });
-  await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the panel opens in "Create account now"; this story is the invitation flow
+  const panel = await openAddEmployee(page);
+  await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the dialog opens in "Create account now"; this story is the invitation flow
   await narrate(page, "Sarah sends an invitation");
-  await panel.getByLabel(/Email Address/).fill(email);
+  await panel.getByLabel(/Email address/).fill(email);
   await panel.getByRole("button", { name: /^Role/ }).click();
   await panel.getByRole("checkbox", { name: /^Consultant/ }).check();
   await pickFirstDepartment(page, panel);
-  await panel.getByRole("button", { name: /Send Invitation/ }).click();
+  await panel.getByRole("button", { name: /Send invitation/ }).click();
   await expect(page.getByText("Invite sent")).toBeVisible({ timeout: 20_000 });
-  await expect.poll(() => invKpi(page, "PENDING")).toBe(pending0 + 1);
+  await expect.poll(() => pendingInvites(page)).toBe(pending0 + 1);
   await narrate(page, "She clicks Undo in the toast: the invitation is cancelled");
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(page.getByText("Invitation cancelled")).toBeVisible();
-  await expect.poll(() => invKpi(page, "PENDING")).toBe(pending0);
+  await expect.poll(() => pendingInvites(page)).toBe(pending0);
   await expect(table.locator("tr", { hasText: email }).locator('[data-invitation-status="REVOKED"]')).toBeVisible();
 });
 
@@ -218,8 +227,8 @@ test("ADM-18 Another tenant cannot see Acme's people; Beta has its own empty inv
   const acmeOrg = await orgIdOf(sarah.page);
 
   const { page, go } = await as("bea");
-  await go("/w/admin/invitations");
-  await narrate(page, "Bea Turner (Beta owner) opens Invitations");
+  await go(INVITATIONS);
+  await narrate(page, "Bea Turner (Beta owner) opens Employees, Invitations tab");
   await expect(page.locator("[data-invitations-page]")).toBeVisible();
   await expect(page.getByText("No invitations yet")).toBeVisible();
   await expect(page.getByRole("button", { name: /Invite your first teammate/ })).toBeVisible();

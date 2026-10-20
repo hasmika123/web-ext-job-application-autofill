@@ -21,6 +21,8 @@ async function signIn(page: Page, host: string, who: string) {
 const rowsOf = (page: Page) => page.locator("tr[data-row-id]");
 const kpi = (page: Page, k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
 const num = async (page: Page, k: string) => Number((await kpi(page, k).innerText()).replace(/,/g, ""));
+/** The list header's "153 consultants" (the page has no Total tile since the UI refresh). */
+const count = async (page: Page) => Number((await page.locator("[data-consultant-count]").innerText()).replace(/[^\d]/g, ""));
 
 test.describe("consultants (real stack)", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
@@ -35,28 +37,27 @@ test.describe("consultants (real stack)", () => {
     await expect(page.locator("[data-consultants-page]")).toBeVisible();
     await expect(rowsOf(page)).toHaveCount(10);
 
-    // the real counts of the seed, the sparkline and the honest delta
-    await expect(kpi(page, "total")).not.toHaveText("");
-    const total = await num(page, "total");
+    // the real counts of the seed: three plain tiles and the count in the list header
+    await expect(page.locator("[data-consultant-count]")).toHaveText(/^[\d,]+ consultants?$/);
+    await expect(kpi(page, "available")).not.toHaveText("");
+    const total = await count(page);
     expect(total).toBeGreaterThanOrEqual(150);
     expect(await num(page, "available")).toBeGreaterThan(0);
     expect(await num(page, "onProject")).toBeGreaterThan(0);
-    await expect(page.locator("[data-kpi=total] [data-sparkline]")).toBeVisible();
-    await expect(page.locator("[data-kpi=total] [data-kpi-delta]")).toContainText("vs last month");
     await expect(page.locator("[data-showing]")).toContainText(`of ${total.toLocaleString("en-US")}`);
     await page.waitForTimeout(600);
     await page.screenshot({ path: resolve(shots, "consultants-1440.png") });
 
     // filter by availability: the address carries it, a reload keeps it
     await page.locator('[role=search] button[aria-label="Availability"]').click();
-    await page.getByRole("option", { name: "On Project" }).click();
+    await page.getByRole("option", { name: "On project" }).click();
     await expect(page).toHaveURL(/availability=ON_PROJECT/);
     await expect(rowsOf(page).first()).toBeVisible();
     const pills = await rowsOf(page).locator("[data-state-pill=consultant-availability]").allInnerTexts();
     expect(pills.length).toBeGreaterThan(0);
-    expect(new Set(pills)).toEqual(new Set(["On Project"]));
+    expect(new Set(pills)).toEqual(new Set(["On project"]));
     await page.reload();
-    await expect(page.locator('[role=search] button[aria-label="Availability"]')).toContainText("On Project");
+    await expect(page.locator('[role=search] button[aria-label="Availability"]')).toContainText("On project");
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page).not.toHaveURL(/availability=/);
 
@@ -75,7 +76,7 @@ test.describe("consultants (real stack)", () => {
     await expect(sheet.locator("[data-detail-body]")).toBeVisible();
     await expect(page).toHaveURL(/c=\d+/);
     await expect(sheet.locator("[data-checklist] li")).toHaveCount(5);
-    await expect(sheet.locator("[data-quick-actions]")).toContainText("Assign Marketer");
+    await expect(sheet.locator("[data-quick-actions]")).toContainText("Assign marketer");
     await page.waitForTimeout(600);
     await page.screenshot({ path: resolve(shots, "consultants-drawer-1440.png") });
     for (const tab of ["Assignments", "Applications", "Activity"]) {
@@ -104,21 +105,21 @@ test.describe("consultants (real stack)", () => {
 
     // add a consultant, see the totals move and the drawer open on them, then deactivate with a reason and Undo
     const stamp = String(Date.now() % 1_000_000);
-    await page.getByRole("button", { name: /Add Consultant/ }).first().click();
-    const add = page.getByRole("dialog", { name: "Add Consultant" });
+    await page.getByRole("button", { name: /Add consultant/ }).first().click();
+    const add = page.getByRole("dialog", { name: "Add consultant" });
     await add.getByLabel("Full name").fill(`Eve Journey${stamp}`);
     await add.getByLabel("Work email").fill(`eve.journey${stamp}@acme-journey.example.org`);
     await add.getByLabel("Job title").fill("QA Engineer");
     await add.getByRole("button", { name: "Add consultant" }).click();
     await expect(page.getByText(`Eve Journey${stamp} was added`)).toBeVisible();
     await expect(sheet).toContainText(`Eve Journey${stamp}`);
-    await expect.poll(() => num(page, "total")).toBe(total + 1);
+    await expect.poll(() => count(page)).toBe(total + 1);
     await sheet.locator("[data-quick-action=deactivate]").click();
     const off = page.getByRole("dialog", { name: /Deactivate Eve Journey/ });
     await off.getByLabel("Reason (required)").fill("Journey test clean-up of the added consultant");
     await off.getByRole("button", { name: "Deactivate" }).click();
     await expect(page.getByText(`Eve Journey${stamp} is deactivated`)).toBeVisible();
-    await expect.poll(() => num(page, "total")).toBe(total);
+    await expect.poll(() => count(page)).toBe(total);
 
     // another organization cannot read Acme's consultants
     const orgId = await page.evaluate(async () => ((await (await fetch("/api/me/tenant")).json()) as { org: { id: number } }).org.id);

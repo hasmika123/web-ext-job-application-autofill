@@ -78,15 +78,15 @@ test("CON-70 Anika connects her own Gmail the guided way; a wrong or blocked cod
   })();
   await startClean(page, orgId);
 
-  await narrate(page, "Anika opens the Inbox page in her workspace menu");
+  await narrate(page, "Anika opens Email Tracking in her workspace menu");
   await openPage(page, go, "inbox");
-  await expect(pageTitle(page)).toHaveText("Inbox");
+  await expect(pageTitle(page)).toHaveText("Email Tracking");
   await expect(page.locator('[data-shell-sidebar] a[href="/w/consultant/inbox"]')).toBeVisible();
 
   await narrate(page, "It says who can see what, before she types anything");
   const privacy = page.locator("[data-inbox-privacy]");
   await expect(privacy).toContainText("Only you see your mail");
-  await expect(privacy).toContainText("never see the password, the address, a subject, a sender or a word of a message");
+  await expect(privacy).toContainText("never see the password, the address or any message");
 
   await narrate(page, "The same guided steps as the personal inbox: a job-hunting Gmail, 2-Step Verification, an app password");
   for (const t of ["Use a Gmail just for job hunting", "Turn on 2-Step Verification", "Create an app password"]) await expect(page.getByText(t)).toBeVisible();
@@ -258,7 +258,7 @@ test("CON-74 The organization sees none of it: the Org Admin and the marketer ge
       `/api/orgs/${orgId}/mkt/applications`,
       `/api/orgs/${orgId}/mkt/talent`,
     ]);
-    // the Inbox is not even in their menu
+    // Email Tracking is not even in their menu
     await expect(page.locator('[data-shell-sidebar] a[href$="/inbox"]')).toHaveCount(0);
   }
   await anika.page.close();
@@ -301,7 +301,7 @@ test("CON-75 Taking the add-on off stops the inbox and says why; putting it back
 
 test("CON-76 Ben's license does not include inbox tracking: the page says so instead of offering a form, and the API refuses with 402", async ({ as }) => {
   const { page, go } = await as("ben");
-  await narrate(page, "Ben opens Inbox");
+  await narrate(page, "Ben opens Email Tracking");
   await openPage(page, go, "inbox");
   const locked = page.locator("[data-inbox-locked]");
   await expect(locked).toContainText("Inbox tracking isn't part of your license");

@@ -106,7 +106,7 @@ test("INBOX-WALK the held rejection, Accept, Undo and the interviews read from t
   await shot(page, "04-interviews");
   console.log(`WALK interviews page text has Orbit: ${(await page.locator("body").innerText()).includes("Orbit Freight")}; Harbor: ${(await page.locator("body").innerText()).includes("Harbor Cloud")}`);
 
-  await narrate(page, "The same Inbox at phone width");
+  await narrate(page, "The same Email Tracking page at phone width");
   await page.setViewportSize({ width: 390, height: 844 });
   await go("/w/consultant/inbox");
   await expect(page.locator(READY)).toBeVisible({ timeout: 30_000 });

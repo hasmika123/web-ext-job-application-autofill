@@ -23,7 +23,7 @@ test("PLT-40 At 390px the sidebar becomes a top bar, quick tabs and a menu sheet
   await page.getByLabel("Open menu").click();
   const sheet = page.getByRole("dialog");
   await expect(sheet).toContainText("Employees");
-  await expect(sheet).toContainText("Organization Branding");
+  await expect(sheet).toContainText("Branding");
   await expect(sheet).toContainText("Sign out");
   await narrate(page, "Choosing a page closes the sheet and opens it");
   await sheet.getByRole("link", { name: "Employees" }).click();
