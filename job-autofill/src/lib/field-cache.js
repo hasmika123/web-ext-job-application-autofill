@@ -91,7 +91,7 @@
       const v = String(el.value || "").trim();
       if (v) return v;
       // combobox triggers carry their chosen label in surrounding text
-      const cont = el.closest && el.closest('[class*="control"],[class*="select"],[role="combobox"]');
+      const cont = el.closest && (el.closest('[class*="__control"]') || el.closest('[class*="control"],[class*="select"],[role="combobox"]')); // react-select: see base.js committedValue
       const ct = cont ? String(cont.innerText || cont.textContent || "").trim() : "";
       return isPlaceholder(ct) ? "" : ct;
     }

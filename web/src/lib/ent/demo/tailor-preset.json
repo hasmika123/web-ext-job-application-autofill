@@ -1,0 +1,85 @@
+{
+  "_comment": "Enterprise demo only (DEMO-PLAN section 16). The marketer's 'Tailor resume for this job' story, preset for ONE job and ONE consultant. The web sheet shows these changes and scores; web/scripts/demo-setup.mjs builds the tailored resume (PDF) from the same text, so what the audience sees is what gets attached. Nothing here is computed by an AI.",
+  "id": "northbeam-ml-platform",
+  "job": {
+    "title": "ML Platform Engineer",
+    "company": "Northbeam Media",
+    "location": "Remote (US)",
+    "jobUrl": "http://jobs.localhost:3399/greenhouse/northbeam-media/7301?t=ML%20Platform%20Engineer&c=Northbeam%20Media",
+    "externalJobId": "northbeam-7301",
+    "skills": ["Python", "Kubernetes", "AWS", "Airflow", "MLflow", "Feature store", "Model serving", "Kubeflow"],
+    "keyInfo": "Northbeam's recommendations team needs a platform engineer for its training and serving stack on EKS. Contract-to-hire, remote."
+  },
+  "consultant": { "name": "Anika Rao", "login": "demo-ent-acme-anika", "marketer": "Rahul Mehta" },
+  "resume": {
+    "fromLabelPrefix": "Anika Rao - Senior Platform",
+    "label": "Anika Rao - ML Platform Engineer (Northbeam Media)",
+    "title": "Senior Platform Engineer, Data & ML Infrastructure",
+    "fileName": "Anika-Rao-Resume-Northbeam-Media.pdf"
+  },
+  "scoreBefore": 58,
+  "keywords": [
+    { "term": "Python", "before": true },
+    { "term": "Kubernetes", "before": true },
+    { "term": "AWS", "before": true },
+    { "term": "Airflow", "before": true },
+    { "term": "Terraform", "before": true },
+    { "term": "ML pipelines", "before": false, "by": ["summary", "b1"] },
+    { "term": "Model serving", "before": false, "by": ["b4"] },
+    { "term": "MLflow", "before": false, "by": ["add-mlflow"] },
+    { "term": "Feature store", "before": false, "by": ["add-feast"] },
+    { "term": "Kubeflow", "before": false, "by": ["add-kubeflow"] },
+    { "term": "GPU scheduling", "before": false, "by": [] }
+  ],
+  "changes": [
+    {
+      "id": "headline", "section": "Headline", "points": 3,
+      "before": "Senior Platform & Data Engineer",
+      "after": "Senior Platform Engineer, Data & ML Infrastructure",
+      "why": "The job title says ML platform; her headline now leads with the same words."
+    },
+    {
+      "id": "summary", "section": "Summary", "points": 6,
+      "before": "Platform and data engineer with 8 years building the infrastructure that product and analytics teams depend on. I design reliable data pipelines in Python and SQL, run them on AWS with Kubernetes and Terraform, and own their monitoring and on-call. I like turning fragile, manual systems into well-tested platforms other engineers enjoy using, and I work closely with product, analytics and security teams to ship them.",
+      "after": "Platform engineer with 8 years building the infrastructure that data and machine-learning teams depend on. I run Python workloads on AWS with Kubernetes and Terraform, build the Airflow pipelines that feed analytics and model training, and own their monitoring, SLOs and on-call. I turn fragile, manual systems into well-tested self-service platforms, working closely with product, data science and security teams.",
+      "why": "Same facts, reordered for an ML platform reader: training pipelines and data science partners up front."
+    },
+    {
+      "id": "b1", "section": "Brightwave Systems", "points": 4,
+      "before": "Lead a team of 4 running the AWS EKS data platform: 120+ Airflow pipelines serving 6 product teams.",
+      "after": "Lead a team of 4 running the AWS EKS platform for data and ML workloads: 120+ Airflow pipelines feeding analytics and model training for 6 product teams.",
+      "why": "Names the ML workloads she already runs, using the job's own words."
+    },
+    {
+      "id": "b4", "section": "Brightwave Systems", "points": 3,
+      "before": "Built a self-service CI/CD template on GitHub Actions and Argo CD, used by 30 services.",
+      "after": "Built a self-service CI/CD and deployment template (GitHub Actions, Argo CD) used by 30 services, including the team's model-serving APIs.",
+      "why": "Model serving is a must-have in the posting; this bullet already covers it."
+    },
+    {
+      "id": "c2", "section": "Copperline Analytics", "points": 1,
+      "before": "Moved legacy cron jobs to Airflow on Kubernetes; on-time daily reports rose from 85% to 99.5%.",
+      "after": "Orchestrated batch workloads with Airflow on Kubernetes (replacing legacy cron); on-time delivery rose from 85% to 99.5%.",
+      "why": "Puts orchestration first; the result stays exactly as she wrote it."
+    },
+    {
+      "id": "skills", "section": "Skills", "points": 3,
+      "before": "Cloud · Infrastructure · Data Engineering · CI/CD · Reliability · Programming",
+      "after": "Infrastructure · Data & ML · Cloud · CI/CD · Reliability · Programming",
+      "why": "Her Kubernetes and pipeline skills move to the top; nothing is added here."
+    }
+  ],
+  "additions": [
+    { "id": "add-mlflow", "skill": "MLflow", "points": 5, "note": "Anika confirmed on Monday's call: experiment tracking at Brightwave.", "default": true },
+    { "id": "add-feast", "skill": "Feature store (Feast)", "points": 4, "note": "Anika confirmed: she set up Feast for the recommendations pilot.", "default": true },
+    { "id": "add-kubeflow", "skill": "Kubeflow", "points": 3, "note": "Not on her profile. Ask her first.", "default": false }
+  ],
+  "tailoredSkills": [
+    ["Infrastructure", "Kubernetes, Terraform, Helm, Docker, Linux"],
+    ["Data & ML", "Apache Airflow, MLflow, Feature store (Feast), Spark, dbt, Kafka, Snowflake, PostgreSQL, Data Modeling"],
+    ["Cloud", "AWS, Amazon EKS, Amazon EC2, Amazon S3, Amazon RDS, AWS Lambda, AWS IAM"],
+    ["CI/CD", "GitHub Actions, Jenkins, Argo CD"],
+    ["Reliability", "Prometheus, Grafana, Datadog, Incident Response, SLOs"],
+    ["Programming", "Python, SQL, Go, Bash, Java"]
+  ]
+}

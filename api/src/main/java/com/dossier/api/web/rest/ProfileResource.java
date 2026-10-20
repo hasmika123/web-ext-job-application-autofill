@@ -115,7 +115,13 @@ public class ProfileResource {
         entitlementService.featuresOf(login).ifPresent(keys -> vm.setFeatures(List.copyOf(keys)));
         if (aiBudget != null) {
             var usage = aiBudget.usage(login);
-            if ("budget".equals(usage.metered())) vm.setAiPct(usage.used());
+            if ("budget".equals(usage.metered())) {
+                vm.setAiPct(usage.used());
+                // An enterprise account has no personal plan, so it always read FREE and the extension hid its Pro screens (job fit, best
+                // resume for the posting). An enterprise account that holds an AI budget (granted for it: today an admin AI-quota override,
+                // later the organization's Pro add-on) gets the Pro tools, so it reads PRO here. Gating stays server-side either way.
+                if (vm.getAccount() != null && "ENTERPRISE".equals(vm.getAccount().kind())) vm.setPlan("PRO");
+            }
         }
     }
 

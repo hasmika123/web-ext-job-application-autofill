@@ -109,7 +109,7 @@ public class AiConfiguration {
                     true,
                     true,
                     List.of("STRUCTURED_OUTPUT", "FILES"),
-                    new StubAiProvider(props.getModel())
+                    new StubAiProvider(props.getModel(), env.getProperty("dossier.ai.stub-parse-resume", Boolean.class, true))
                 )
             ),
             AiKeyScrubber.shapesOnly()

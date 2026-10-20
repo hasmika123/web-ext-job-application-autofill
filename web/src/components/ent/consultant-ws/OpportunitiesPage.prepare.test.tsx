@@ -72,7 +72,7 @@ beforeEach(() => {
   vi.spyOn(window, "postMessage").mockImplementation((m: unknown) => {
     const msg = m as { type?: string; sessionId?: number } | null;
     if (msg?.type !== "KIWIPLY_PREPARE_BATCH" || ackMode === "none") return;
-    queueMicrotask(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "KIWIPLY_PREPARE_ACK", sessionId: msg.sessionId, ...(ackMode === "refuse" ? { ok: false, reason: "not signed in" } : {}) }, origin: window.location.origin, source: window })));
+    queueMicrotask(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "KIWIPLY_PREPARE_ACK", sessionId: msg.sessionId, ...(ackMode === "refuse" ? { accepted: false, reason: "not-connected" } : { accepted: true }) }, origin: window.location.origin, source: window })));
   });
 });
 afterEach(() => {
@@ -173,7 +173,7 @@ describe("Prepare selected openings on Assigned Opportunities", () => {
     expect(posts()).toHaveLength(1);
     expect(JSON.parse(posts()[0]!.body!)).toEqual({ matchIds: [1, 2] });
     const sent = (window.postMessage as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => c[0] as { type?: string }).find((m) => m.type === "KIWIPLY_PREPARE_BATCH") as unknown as Record<string, unknown>;
-    expect(sent).toMatchObject({ type: "KIWIPLY_PREPARE_BATCH", version: 1, sessionId: 9, orgId: 2 });
+    expect(sent).toMatchObject({ type: "KIWIPLY_PREPARE_BATCH", version: 1, sessionId: "9", orgId: 2 });
     expect((sent.jobs as unknown[]).length).toBe(2);
     expect(document.querySelector("[data-prepare-acked]")).toBeTruthy();
     expect(document.querySelector("[data-prepare-no-extension]")).toBeNull();

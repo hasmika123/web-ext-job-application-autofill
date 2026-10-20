@@ -1,0 +1,67 @@
+/* SmartRecruiters oneclick application look: white header with the company logo, a light grey page, white cards, the
+   company's accent on the main button (ServiceNow green), SmartRecruiters' "Powered by" footer. */
+:root { --sr-ink: #1f2a37; --sr-soft: #5d6b7a; --sr-line: #dfe3e8; --sr-bg: #f5f6f8; --sr-accent: #62d84e; --sr-accent-ink: #032d42; --sr-red: #d0343c; --sr-blue: #0067b8; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+.sr-body { background: var(--sr-bg); color: var(--sr-ink); font: 15px/1.5 "Open Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+.sr-top { background: #fff; border-bottom: 1px solid var(--sr-line); }
+.sr-top-inner { max-width: 1040px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+.sr-company img { display: block; height: 34px; width: auto; }
+.sr-lang { font-size: 13px; color: var(--sr-soft); }
+.sr-main { max-width: 800px; margin: 0 auto; padding: 32px 24px 48px; }
+.sr-hero { margin-bottom: 20px; }
+.sr-kicker { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--sr-soft); }
+.sr-title { margin: 4px 0 6px; font-size: 28px; line-height: 1.25; font-weight: 700; }
+.sr-loc { margin: 0 0 20px; color: var(--sr-soft); font-size: 14px; }
+.sr-steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 28px; border-bottom: 1px solid var(--sr-line); }
+.sr-step { display: flex; align-items: center; gap: 8px; padding: 10px 0; font-size: 14px; color: var(--sr-soft); border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.sr-step.on { color: var(--sr-ink); font-weight: 600; border-color: var(--sr-accent-ink); }
+.sr-step-n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--sr-line); color: var(--sr-soft); }
+.sr-step.on .sr-step-n { background: var(--sr-accent-ink); color: #fff; }
+.sr-step.done .sr-step-n { background: var(--sr-accent); color: var(--sr-accent-ink); }
+.sr-card { background: #fff; border: 1px solid var(--sr-line); border-radius: 8px; padding: 22px 24px; margin-bottom: 16px; }
+.sr-h2 { margin: 0 0 16px; font-size: 18px; font-weight: 700; }
+.sr-help { margin: -8px 0 14px; color: var(--sr-soft); font-size: 14px; }
+.sr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+.sr-field { display: flex; flex-direction: column; gap: 6px; }
+.sr-field.sr-wide { margin-bottom: 18px; }
+.sr-field label, .sr-q legend { font-size: 14px; font-weight: 600; color: var(--sr-ink); }
+.sr-req { color: var(--sr-red); }
+.sr-field input, .sr-field select, .sr-field textarea { width: 100%; font: inherit; color: var(--sr-ink); border: 1px solid #b9c2cc; border-radius: 4px; padding: 9px 12px; background: #fff; min-height: 42px; }
+.sr-field textarea { resize: vertical; }
+.sr-field input:focus, .sr-field select:focus, .sr-field textarea:focus { outline: none; border-color: var(--sr-blue); box-shadow: 0 0 0 3px rgba(0,103,184,.15); }
+.sr-phone-row { display: flex; gap: 8px; }
+.sr-flag { display: inline-flex; align-items: center; padding: 0 10px; border: 1px solid #b9c2cc; border-radius: 4px; font-size: 14px; white-space: nowrap; background: #fafbfc; }
+.sr-q { border: 0; padding: 0; margin: 0 0 18px; }
+.sr-q legend { margin-bottom: 8px; padding: 0; }
+.sr-radio { display: inline-flex; align-items: center; gap: 8px; margin-right: 24px; font-size: 14px; cursor: pointer; }
+.sr-radio input { width: 18px; height: 18px; accent-color: var(--sr-accent-ink); }
+.sr-drop { border: 2px dashed #b9c2cc; border-radius: 8px; padding: 22px; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--sr-soft); font-size: 14px; flex-wrap: wrap; background: #fafbfc; }
+.sr-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sr-files { margin-top: 12px; }
+.sr-file { display: flex; align-items: center; gap: 12px; border: 1px solid var(--sr-line); border-radius: 6px; padding: 10px 12px; }
+.sr-file-ico { background: var(--sr-red); color: #fff; font-size: 11px; font-weight: 700; border-radius: 3px; padding: 6px 6px; }
+.sr-file-name { flex: 1; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-file-size { color: var(--sr-soft); font-size: 13px; }
+.sr-file-x { border: 0; background: none; font-size: 20px; color: var(--sr-soft); cursor: pointer; }
+.sr-btn { font: 600 15px/1 inherit; font-family: inherit; border-radius: 4px; padding: 12px 22px; cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; }
+.sr-btn-primary { background: var(--sr-accent); color: var(--sr-accent-ink); border-color: var(--sr-accent); min-width: 120px; justify-content: center; }
+.sr-btn-primary:hover { filter: brightness(.95); }
+.sr-btn-secondary { background: #fff; color: var(--sr-accent-ink); border-color: #9aa6b2; }
+.sr-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+.sr-errors { background: #fdeeee; border: 1px solid #f3c2c5; color: var(--sr-red); border-radius: 6px; padding: 10px 14px; margin: 8px 0; font-size: 14px; }
+.sr-invalid input, .sr-invalid select, .sr-invalid textarea, .sr-invalid .sr-drop { border-color: var(--sr-red) !important; }
+.sr-msg { color: var(--sr-red); font-size: 13px; margin: 4px 0 0; }
+.sr-legal { font-size: 13px; color: var(--sr-soft); margin: 4px 0 8px; }
+.sr-legal a { color: var(--sr-blue); }
+.sr-foot { max-width: 800px; margin: 0 auto; padding: 18px 24px 40px; display: flex; align-items: center; gap: 8px; color: var(--sr-soft); font-size: 13px; }
+.sr-foot img { height: 18px; width: auto; }
+.sr-foot-links { margin-left: auto; }
+.sr-foot-links a { color: var(--sr-soft); }
+.sr-thanks { background: #fff; border: 1px solid var(--sr-line); border-radius: 8px; padding: 48px 32px; text-align: center; }
+.sr-thanks h1 { font-size: 24px; margin: 12px 0; }
+.sr-thanks p { color: var(--sr-soft); }
+.sr-check { width: 56px; height: 56px; border-radius: 50%; background: var(--sr-accent); color: var(--sr-accent-ink); font-size: 30px; font-weight: 700; display: grid; place-items: center; margin: 0 auto; }
+@media (max-width: 640px) { .sr-grid { grid-template-columns: 1fr; } }
+
+[hidden] { display: none !important; }

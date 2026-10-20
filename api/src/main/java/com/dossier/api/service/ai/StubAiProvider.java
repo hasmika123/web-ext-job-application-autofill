@@ -45,9 +45,20 @@ public final class StubAiProvider implements AiProvider {
     private static final int LATENCY_MS = 5;
 
     private final String defaultModel;
+    private final boolean readsResumes;
 
     public StubAiProvider(String defaultModel) {
+        this(defaultModel, true);
+    }
+
+    /**
+     * @param readsResumes false = resume parsing answers "unavailable" (503) instead of the canned resume, so a client falls back to its own
+     *     parser and shows the real resume. The enterprise demo sets this ({@code DOSSIER_AI_STUB_PARSE_RESUME=false}): the canned
+     *     "Ada Stub" resume would replace the presenter's real one on stage.
+     */
+    public StubAiProvider(String defaultModel, boolean readsResumes) {
         this.defaultModel = defaultModel == null || defaultModel.isBlank() ? "gemini-2.5-flash-lite" : defaultModel.trim();
+        this.readsResumes = readsResumes;
     }
 
     @Override
@@ -74,6 +85,7 @@ public final class StubAiProvider implements AiProvider {
     public AiResult generate(AiTask task, String model, String question, String context, int maxOutputTokens) {
         String prompt = (question == null ? "" : question) + "\n" + (context == null ? "" : context);
         failIfAsked(prompt);
+        if (task == AiTask.PARSE && !readsResumes) throw new AiProviderException("The stub does not read resumes (dossier.ai.stub-parse-resume=false)", 503, null);
         String text = answer(task, prompt, question == null ? "" : question);
         return result(text, model, prompt);
     }
@@ -87,6 +99,7 @@ public final class StubAiProvider implements AiProvider {
     public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) {
         String prompt = text == null ? "" : text;
         failIfAsked(prompt);
+        if (!readsResumes) throw new AiProviderException("The stub does not read resumes (dossier.ai.stub-parse-resume=false)", 503, null);
         return result(parsedResume(prompt), model, prompt);
     }
 
@@ -100,7 +113,7 @@ public final class StubAiProvider implements AiProvider {
     private static String answer(AiTask task, String prompt, String question) {
         String sensitive = SensitivePatterns.scan(prompt).isEmpty() ? "" : " " + SAW_SENSITIVE + ".";
         return switch (task) {
-            case DRAFT -> "I build dependable backend services and enjoy turning messy requirements into simple, well-tested systems." + sensitive;
+            case DRAFT -> draft(question, prompt) + sensitive;
             case PICK -> pick(question);
             case MAP -> mapFields(question);
             case ENRICH -> "{\"jobType\":\"FULL_TIME\",\"jobMode\":\"REMOTE\",\"salaryMin\":null,\"salaryMax\":null,\"salaryCurrency\":null,\"salaryPeriod\":null}";
@@ -121,7 +134,10 @@ public final class StubAiProvider implements AiProvider {
     /** The LAST option under "Options (choose ONE):" - deterministic, and not the first, so a lazy default is visible. */
     private static String pick(String question) {
         int at = question.indexOf("Options");
-        Matcher m = PICK_OPTION.matcher(at < 0 ? question : question.substring(at));
+        // only the option list itself: the candidate background that follows it has "- " bullet lines too
+        String list = at < 0 ? question : question.substring(at);
+        int end = list.indexOf("\n\n");
+        Matcher m = PICK_OPTION.matcher(end > 0 ? list.substring(0, end) : list);
         String last = "Yes";
         while (m.find()) last = m.group(1).trim();
         return last;
@@ -147,6 +163,42 @@ public final class StubAiProvider implements AiProvider {
     }
 
     /** {@code {"scores":[{"id":"<prefix>N","score":..,"why":..}]}} for every {@code [<prefix>N]} id the prompt lists, best first. */
+    private static final Pattern DRAFT_COMPANY = Pattern.compile("(?i)\\b(?:work (?:at|for)|join(?:ing)?|interested in|apply(?:ing)? to|about) ([A-Z][A-Za-z0-9&.\\-]*(?: [A-Z][A-Za-z0-9&.\\-]*){0,3})");
+
+    /**
+     * A draft that reads as written for the question asked (the demo stack shows it on screen): the kind of question picks the shape, a company
+     * the question names is used by name, and the skills come from the background when it lists them. Still deterministic, still no model.
+     */
+    static String draft(String question, String prompt) {
+        String q = question == null ? "" : question;
+        String lower = q.toLowerCase(java.util.Locale.ROOT);
+        List<String> skills = listAfter(TOP_SKILLS, prompt, 3);
+        if (skills.isEmpty()) skills = listAfter(SKILLS_LINE, prompt, 3);
+        String stack = skills.isEmpty() ? "cloud infrastructure, automation and reliable delivery" : String.join(", ", skills);
+        Matcher c = DRAFT_COMPANY.matcher(q);
+        String company = c.find() ? c.group(1).replaceAll("[?.!,]+$", "") : "your team";
+        if (lower.contains("why")) {
+            return "I'm drawn to " + company + " because the role centres on the work I do best: " + stack + ". In my recent projects I've taken ownership of systems "
+                + "other teams depend on, and I'd bring that same care for reliability and clear communication here.";
+        }
+        if (lower.contains("challenge") || lower.contains("difficult") || lower.contains("problem")) {
+            return "On a recent project a release pipeline kept failing under load. I traced it to shared state between jobs, split the work into isolated steps and added "
+                + "checks before each deploy. Releases became predictable again, and the team adopted the pattern for other services.";
+        }
+        if (lower.contains("salary") || lower.contains("compensation") || lower.contains("rate")) {
+            return "I'm flexible and happy to discuss compensation once we've confirmed the scope of the role. My priority is a good fit with the team and the work.";
+        }
+        if (lower.contains("start") || lower.contains("available") || lower.contains("notice")) {
+            return "I can start within two weeks of an offer, and I'm happy to align the exact date with your onboarding schedule.";
+        }
+        if (lower.contains("yourself") || lower.contains("background") || lower.contains("experience")) {
+            return "I'm an engineer focused on " + stack + ". I like turning messy requirements into simple, well-tested systems, and I work closely with product "
+                + "and operations so what we ship is easy to run.";
+        }
+        return "My background in " + stack + " lines up closely with what this question asks. I focus on dependable, well-documented work and keep the people "
+            + "who rely on it informed.";
+    }
+
     private static String scores(String prompt, String prefix, int top, int step) {
         Matcher m = Pattern.compile("\\[(" + prefix + "\\d+)\\]").matcher(prompt);
         List<String> ids = new ArrayList<>();

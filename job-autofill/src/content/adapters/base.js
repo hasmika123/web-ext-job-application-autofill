@@ -92,8 +92,12 @@
     const want = truthy ? "yes" : "no";
     const radios = Array.from(container.querySelectorAll('input[type="radio"]'));
     for (const r of radios) {
-      const lbl = labelText(r).toLowerCase();
-      if (lbl === want || lbl.startsWith(want)) {
+      // The option's OWN words first ("Yes" / "NO"): labelText also carries the group's question and any data-qa words
+      // (Lever: "multiple choice Yes Do you require…"), which never start with yes/no.
+      const wrap = r.closest && r.closest("label");
+      const own = String((wrap && wrap.textContent) || r.value || "").replace(/\s+/g, " ").trim().toLowerCase();
+      const lbl = own || labelText(r).toLowerCase();
+      if (lbl === want || lbl.startsWith(want) || labelText(r).toLowerCase() === want) {
         r.click();
         return true;
       }
@@ -234,6 +238,14 @@
       const gp = groupPrompt(el);
       if (gp) push(gp, TIER.LABEL);
     }
+    // 5c) Lever custom questions (name "cards[…][fieldN]"): the question sits in the card's .application-label, a SIBLING of the
+    //     field's wrapper, so nothing above finds it and the field reads only "Type your response" (captured on jobs.lever.co/rover,
+    //     2026-10-19). Used only when nothing above named the field.
+    if (!parts.some((p) => p.tier === TIER.LABEL) && el.closest && el.type !== "radio" && el.type !== "checkbox") {
+      const card = el.closest(".application-question");
+      const lab = card && card.querySelector(".application-label");
+      if (lab && !lab.contains(el)) push(lab.textContent, TIER.LABEL);
+    }
     // 6) placeholder / name — weakest: often decorative or misleading.
     push(el.placeholder, TIER.META);
     if (el.name) push(el.name.replace(/[_\-\[\]]/g, " "), TIER.META);
@@ -333,10 +345,18 @@
         out.push({ el, field: best.field, label: labelText(el), kind: elKind(el), score: best.score, confidence });
       }
     }
-    // keep only the highest-scoring element per field
+    // keep only the highest-scoring element per field — except a desired-pay question asked twice (Lever/Rover: "desired salary" AND
+    // "desired total compensation"), where every one the label itself names takes the same answer.
     const byField = {};
-    for (const c of out) if (!byField[c.field] || c.score > byField[c.field].score) byField[c.field] = c;
-    return Object.values(byField);
+    const extra = [];
+    for (const c of out) {
+      if (c.field === "desiredSalary" && c.confidence === "high" && byField[c.field] && byField[c.field].confidence === "high") {
+        if (c.score > byField[c.field].score) { extra.push(byField[c.field]); byField[c.field] = c; } else extra.push(c);
+        continue;
+      }
+      if (!byField[c.field] || c.score > byField[c.field].score) byField[c.field] = c;
+    }
+    return Object.values(byField).concat(extra);
   }
 
   function elKind(el) {
@@ -350,9 +370,21 @@
     return "text";
   }
 
+  // A planned element the page has since re-rendered (React forms remount their inputs while the
+  // plan waits for AI drafts): find its replacement by id or name, else keep the stale node.
+  function reattach(el) {
+    if (!el || document.contains(el)) return el;
+    let r = null;
+    try {
+      if (el.id) r = document.getElementById(el.id);
+      if (!r && el.name && el.tagName) r = document.querySelector(el.tagName.toLowerCase() + '[name="' + cssEscape(el.name) + '"]');
+    } catch (e) { r = null; }
+    return r && r.tagName === el.tagName ? r : el;
+  }
+
   // Apply one planned fill item. Returns true on success.
   function applyItem(item, value) {
-    const el = item.el;
+    const el = item.el = reattach(item.el);
     if (!el || !document.contains(el)) return false;
     const kind = item.kind || elKind(el);
     try {
@@ -459,7 +491,7 @@
     if (id) { const el = document.getElementById(id); if (el && isVisible(el)) return el; }
     const boxes = Array.from(document.querySelectorAll(
       '[role="listbox"],[data-automation-id="activeListContainer"],ul[data-automation-id="list"]'
-    )).filter(isVisible);
+    )).filter((b) => isVisible(b) && b.getAttribute("data-automation-id") !== "selectedItemList"); // chosen-item pills, not a popup
     if (!boxes.length) return null;
     // Prefer the visible listbox with the most option descendants (the open menu).
     let best = null, bestN = -1;
@@ -527,7 +559,10 @@
   function committedValue(trigger) {
     if (trigger.tagName === "INPUT") {
       const v = (trigger.value || "").trim();
-      const cont = trigger.closest('[class*="control"],[class*="select"],[role="combobox"]') || trigger.parentElement;
+      // react-select (new Greenhouse boards): the chosen option shows in the CONTROL ("select__control" > "select__single-value"), a
+      // sibling of the input's own "select__input-container", so the control is looked up first; the nearest "*select*" wrapper only
+      // holds the empty input and made every successful pick look like a failure.
+      const cont = trigger.closest('[class*="__control"]') || trigger.closest('[class*="control"],[class*="select"],[role="combobox"]') || trigger.parentElement;
       const ct = cont ? (cont.innerText || cont.textContent || "").trim() : "";
       return v || ct;
     }
@@ -575,13 +610,14 @@
     // "choice": click ONE specific radio/checkbox option (an AI pick that was
     // matched against the page's own option list — never free text).
     if (item.kind === "choice") {
-      const el = item.el;
+      const el = item.el = reattach(item.el);
       if (!el || !document.contains(el)) return false;
       realClick(el);
       if (!el.checked) { try { el.checked = true; fire(el, "input"); fire(el, "change"); } catch (e) {} }
       return el.checked === true;
     }
     if (item.kind === "combo") {
+      item.el = reattach(item.el);
       const cands = [item.value].concat(item.alts || []).filter((v) => v != null && v !== "");
       for (const v of cands) { if (await selectCustom(item.el, v)) return true; }
       return false;

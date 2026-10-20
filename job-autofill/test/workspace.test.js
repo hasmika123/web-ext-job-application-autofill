@@ -128,6 +128,19 @@ function win(html, url) {
   ok("http (not https) link flagged", mkUrl("http://x.com/a").some((p) => /https/.test(p)));
   ok("localhost and ip links flagged", mkUrl("https://localhost/a").length > 0 && mkUrl("https://10.0.0.1/a").length > 0);
   ok("a normal https link passes", mkUrl("https://x.com/a").length === 0);
+  ok("no manifest: a local stand-in http link is refused", mkUrl("http://jobs.localhost:3399/greenhouse/acme/1").some((p) => /https/.test(p)));
+  {
+    // The module runs inside the jsdom window, so the dev manifest is mocked there.
+    const had = Object.prototype.hasOwnProperty.call(w, "chrome");
+    const before = w.chrome;
+    w.chrome = { runtime: { getManifest: () => ({ host_permissions: ["https://*.greenhouse.io/*", "http://jobs.localhost:3399/*", "http://localhost:18183/*"] }) } };
+    try {
+      ok("dev build: the listed stand-in origin passes", mkUrl("http://jobs.localhost:3399/greenhouse/acme/1?t=x").length === 0);
+      ok("dev build: another port, a bare localhost, a public http host are still refused", mkUrl("http://jobs.localhost:3400/a").length > 0 && mkUrl("http://localhost:18183/a").length > 0 && mkUrl("http://x.com/a").length > 0);
+    } finally {
+      if (had) w.chrome = before; else delete w.chrome;
+    }
+  }
   ok("bad priority / date flagged", WS.validateSave(Object.assign({}, body, { priority: "URGENT" })).length === 1 && WS.validateSave(Object.assign({}, body, { dueOn: "tomorrow" })).length === 1);
 
   /* ---- result copy ---- */

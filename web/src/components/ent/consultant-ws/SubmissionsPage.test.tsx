@@ -82,7 +82,7 @@ describe("Submissions and Approvals from real data", () => {
   it("approving asks first, says nothing is sent, then posts and reloads", async () => {
     await mount();
     fireEvent.click(within(rowOf(1)).getByRole("button", { name: "Approve Senior Java Developer" }));
-    expect(screen.getByText(/Nothing is sent to the client by Kiwiply/)).toBeTruthy();
+    expect(screen.getByText(/Nothing is sent to the client from here/)).toBeTruthy();
     expect(calls.some((c) => c.method === "POST")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Yes, approve" }));
     await flush();

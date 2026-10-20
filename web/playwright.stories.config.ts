@@ -24,7 +24,7 @@ export default defineConfig({
     baseURL: `http://acme.localhost:${port}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: { mode: "on", size: { width: 1440, height: 900 } },
+    video: process.env.STORY_VIDEO === "off" ? "off" : { mode: "on", size: { width: 1440, height: 900 } },
     viewport: { width: 1440, height: 900 },
     launchOptions: { slowMo: Number(process.env.STORY_SLOWMO ?? 150) },
   },

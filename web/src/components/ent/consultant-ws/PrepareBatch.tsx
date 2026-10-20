@@ -23,6 +23,8 @@ import {
   type PrepareSession,
   type PrepareStatus,
 } from "@/lib/ent/consultant-ws/prepareBatch";
+import { approveTailoredResume, tailorPresetFor } from "@/lib/ent/demo/tailorPreset";
+import { tailoredResumeOnce } from "../demo/TailoredRowNote";
 import JobLinkButton from "./JobLinkButton";
 import { Pill } from "./parts";
 import { useCompact } from "./useCompact";
@@ -138,7 +140,11 @@ export function usePrepareBatch(orgId: number, rows: readonly OppRow[], loaded: 
       setRun({ created, session: null, acked: null, titles });
       setSelected(new Set());
       setStage("idle");
-      const ok = await sendPrepareBatch(buildPrepareMessage(created.sessionId, orgId, created.jobs));
+      // Demo (DEMO-PLAN section 16): preparing the job the marketer tailored a resume for approves that resume and attaches it on that job only.
+      const tailoredIds = new Set(rows.filter((r) => tailorPresetFor(r.title, r.company)).map((r) => r.matchId));
+      const tailored = created.jobs.some((j) => tailoredIds.has(j.matchId)) ? await approveTailoredResume() : null;
+      const jobs = tailored ? created.jobs.map((j) => (tailoredIds.has(j.matchId) ? { ...j, resumeId: tailored.id } : j)) : created.jobs;
+      const ok = await sendPrepareBatch(buildPrepareMessage(created.sessionId, orgId, jobs));
       if (alive.current) setRun((cur) => (cur && cur.created === created ? { ...cur, acked: ok } : cur));
     })();
   }, [live, orgId, rows, stage]);
@@ -253,6 +259,17 @@ export function PrepareWhy({ row, p }: { row: OppRow; p: PrepareUi }) {
 export function PrepareConfirmDialog({ p, rows }: { p: PrepareUi; rows: readonly OppRow[] }) {
   const chosen = rows.filter((r) => p.selected.has(r.matchId));
   const open = p.stage === "confirm" || p.stage === "sending";
+  // demo (DEMO-PLAN section 16): the tailored resume a chosen job will use, said before the click that approves it
+  const [tailoredLabel, setTailoredLabel] = useState<string | null>(null);
+  const tailoredRow = chosen.find((r) => tailorPresetFor(r.title, r.company));
+  useEffect(() => {
+    if (!open || !tailoredRow) return;
+    let live = true;
+    void tailoredResumeOnce().then((r) => live && setTailoredLabel(r ? r.label : null));
+    return () => {
+      live = false;
+    };
+  }, [open, tailoredRow]);
   return (
     <Dialog
       open={open}
@@ -279,6 +296,11 @@ export function PrepareConfirmDialog({ p, rows }: { p: PrepareUi; rows: readonly
             </li>
           ))}
         </ul>
+        {tailoredRow && tailoredLabel ? (
+          <p data-prepare-tailored className="rounded-lg bg-v2-green-soft px-3 py-2 text-[12.5px] text-v2-green-ink">
+            <b>{tailoredRow.company ?? tailoredRow.title}</b> uses the resume {tailorPresetFor(tailoredRow.title, tailoredRow.company)?.consultant.marketer.split(" ")[0] ?? "your marketer"} tailored for it, &ldquo;{tailoredLabel}&rdquo;. Preparing approves it; the other jobs keep your usual resume.
+          </p>
+        ) : null}
         {p.error ? (
           <p role="alert" data-prepare-error className="text-[12.5px] font-medium text-v2-coral-ink">
             {p.error}
@@ -309,7 +331,7 @@ export function PrepareProgress({ p }: { p: PrepareUi }) {
         <>
           {run.acked === null ? (
             <p role="status" data-prepare-waiting className="mt-2 text-[13px] text-ink-soft">
-              Asking the Kiwiply extension to open your jobs...
+              Asking the browser extension to open your jobs...
             </p>
           ) : run.acked ? (
             <p role="status" data-prepare-acked className="mt-2 text-[13px] text-ink-soft">
@@ -319,7 +341,7 @@ export function PrepareProgress({ p }: { p: PrepareUi }) {
             <div role="alert" data-prepare-no-extension className="mt-2 rounded-lg border border-line bg-paper-2/60 p-3 text-[13px] text-ink">
               <p className="font-semibold">Extension not detected</p>
               <p className="mt-1 text-ink-soft">
-                Open this page in the browser where the Kiwiply extension is installed and connected to your organization, then try again. Or open the links one by one and use the extension on each job as usual.
+                Open this page in the browser where the browser extension is installed and connected to your organization, then try again. Or open the links one by one and use the extension on each job as usual.
               </p>
             </div>
           )}

@@ -725,7 +725,7 @@ function DetailSheet({ row, detail, busy, onClose, onRespond, now }: { row: Offe
             )}
           </section>
           {!live.canRespond && r.status === "EXPIRED" ? <p className="text-[13px] text-v2-coral-ink">The deadline has passed, so this offer can no longer be answered here. Ask your marketer.</p> : null}
-          <p className="text-[12px] text-muted">Your answer is recorded in Kiwiply only. Nothing is signed, sent to the client or paid from here. Accepting starts your placement when the offer is linked to a client.</p>
+          <p className="text-[12px] text-muted">Your answer is only recorded here. Nothing is signed, sent to the client or paid from here. Accepting starts your placement when the offer is linked to a client.</p>
         </div>
       )}
     </SideSheet>
@@ -888,7 +888,7 @@ export default function ConsultantOffersPage({ orgId, firstName: first }: Offers
     setBusy(true);
     const run = async () => {
       try {
-        if (r.kind === "accept") await finish(await acceptOffer(orgId, r.row.id), { title: "Offer accepted", description: "Your answer is recorded. Nothing was signed or sent to the client by Kiwiply; your marketer takes the next steps." });
+        if (r.kind === "accept") await finish(await acceptOffer(orgId, r.row.id), { title: "Offer accepted", description: "Your answer is recorded. Nothing was signed or sent to the client from here; your marketer takes the next steps." });
         else if (r.kind === "decline") await finish(await declineOffer(orgId, r.row.id, note), { title: "Offer declined", description: "Your answer is recorded." });
         else await finish(await negotiateOffer(orgId, r.row.id, note), { title: "Negotiation requested", description: "Your marketer will see what you would like to discuss." });
       } finally {

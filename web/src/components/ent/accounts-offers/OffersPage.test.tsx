@@ -232,7 +232,7 @@ describe("the Accounts Offers page", () => {
     const detail = document.querySelector("[data-offer-detail]") as HTMLElement;
     expect(detail).toBeTruthy();
     expect(within(detail).getByText(/Only Casey can accept or decline this offer/)).toBeTruthy();
-    expect(within(detail).getByText(/Nothing is signed or sent by Kiwiply/)).toBeTruthy();
+    expect(within(detail).getByText(/Nothing is signed or sent from here/)).toBeTruthy();
     expect(within(detail).getByText("Offer extended")).toBeTruthy();
     expect(within(detail).getByText("Offer drafted")).toBeTruthy();
     expect(within(detail).queryByRole("button", { name: /accept|decline/i })).toBeNull();
@@ -271,7 +271,7 @@ describe("the Accounts Offers page", () => {
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: "Cloud Architect" } });
     fireEvent.change(screen.getByLabelText("Rate"), { target: { value: "95.50" } });
     expect(submit.disabled).toBe(false);
-    expect(screen.getByText(/Nothing is signed or sent by Kiwiply, and no money moves/)).toBeTruthy();
+    expect(screen.getByText(/Nothing is signed or sent from here, and no money moves/)).toBeTruthy();
     await act(async () => {
       fireEvent.click(submit);
     });

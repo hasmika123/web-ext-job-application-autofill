@@ -472,7 +472,7 @@ function routeWebMessage(msg) {
 // Path 1 — Chrome: the web page messages the extension directly (externally_connectable).
 chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
   // "Prepare selected openings" comes from a tenant host too (*.kiwiply.com); it has its own gate.
-  if (msg && msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender)).then(sendResponse); return true; }
+  if (msg && msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender), sender && sender.tab && sender.tab.id).then(sendResponse); return true; }
   if (!connectOriginAllowed(senderOrigin(sender))) return;
   const p = routeWebMessage(msg);
   if (!p) return;
@@ -488,7 +488,7 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || (msg.type !== "KIWIPLY_CONNECT" && msg.type !== SYNC && msg.type !== PREPARE_MSG)) return;
   if (!sender || !sender.tab) return;           // must come from a page, not another extension page
-  if (msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender)).then(sendResponse); return true; }
+  if (msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender), sender && sender.tab && sender.tab.id).then(sendResponse); return true; }
   if (!connectOriginAllowed(senderOrigin(sender))) return;
   const p = routeWebMessage(msg);
   if (!p) return;
@@ -573,15 +573,31 @@ async function blobToBase64(blob) {
 
 let batchMirrorCheckedAt = 0;
 // The consultant's OWN mirrored profile + the resume they last used (else their default, else the first).
-async function loadBatchMirror() {
+async function loadBatchMirror(job) {
   const J = self.JAF;
   if (Date.now() - batchMirrorCheckedAt > 60 * 1000) {
     batchMirrorCheckedAt = Date.now();
     await runVersionCheck("batch"); // never throws; a stale mirror is still usable
   }
   const [bio, resumes, settings] = await Promise.all([J.storage.getBio(), J.storage.getResumes(), J.storage.getSettings()]);
-  const live = (resumes || []).filter((r) => !r.archived);
-  const resume = live.find((r) => r.id === settings.lastResumeId) || live.find((r) => r.defaultResume) || live[0] || null;
+  // A job that names its resume (the one the consultant's marketer tailored for it, approved by this Prepare) gets exactly that resume, never another.
+  if (job && job.resumeId) {
+    const pinned = await loadPinnedResume(J, resumes, job.resumeId);
+    if (pinned) return { bio, ...pinned };
+  }
+  let resume = J.sync.chooseResume(resumes, settings.lastResumeId);
+  // A resume created on the web has its PDF on the server only: fetch it once so the form gets it too.
+  if (resume && !resume.hasFile) {
+    try {
+      const provider = await trackingProvider();
+      if (provider) resume = await J.sync.ensureResumeFile(provider, J.storage, resume);
+    } catch (e) { /* the fill goes on without the file */ }
+    // Still nothing to attach (offline, or a record-only resume): a live resume that does have a file is better than none.
+    if (!resume.hasFile) {
+      const withFile = (resumes || []).find((r) => r && !r.archived && r.hasFile);
+      if (withFile) resume = withFile;
+    }
+  }
   let file = null;
   if (resume && resume.hasFile) {
     try {
@@ -595,15 +611,43 @@ async function loadBatchMirror() {
   };
 }
 
+// The consultant's resume with this server id, with its PDF: from the mirror (fetching the file once), else straight from the server (their own
+// resume only: GET /api/resumes/{id}/file is owner-only). Null when it cannot be had: the caller then falls back to the usual pick.
+async function loadPinnedResume(J, resumes, resumeId) {
+  let resume = (resumes || []).find((r) => r && r.serverId != null && String(r.serverId) === String(resumeId)) || null;
+  let provider = null;
+  try { provider = await trackingProvider(); } catch (e) { provider = null; }
+  if (resume && !resume.hasFile && provider) {
+    try { resume = await J.sync.ensureResumeFile(provider, J.storage, resume); } catch (e) { /* tried */ }
+  }
+  if (resume && resume.hasFile) {
+    try {
+      const blob = await J.storage.getResumeFile(resume.id);
+      if (blob) {
+        const file = { rawName: resume.fileName || "", type: blob.type || "application/pdf", base64: await blobToBase64(blob) };
+        return { resume, file, resumeRef: { serverId: resume.serverId, label: resume.label } };
+      }
+    } catch (e) { /* try the server */ }
+  }
+  if (!provider || typeof provider.downloadResumeFile !== "function") return null;
+  try {
+    const got = await provider.downloadResumeFile(resumeId);
+    if (!got || !got.blob || !got.blob.size) return null;
+    const file = { rawName: got.fileName || "", type: got.type || got.blob.type || "application/pdf", base64: await blobToBase64(got.blob) };
+    return { resume: resume || null, file, resumeRef: { serverId: Number(resumeId), label: (resume && resume.label) || got.fileName || "" } };
+  } catch (e) { return null; }
+}
+
 let _batch = null;
 function batchController() {
   if (_batch) return _batch;
   const PB = self.JAF.prepareBatch;
+  const activate = (id) => chrome.tabs.update(id, { active: true });
   const preparer = PB.createPreparer({
-    inject: batchInject, scanFrames: batchScanFrames, sendTo: batchSendTo, loadMirror: loadBatchMirror,
+    inject: batchInject, scanFrames: batchScanFrames, sendTo: batchSendTo, loadMirror: loadBatchMirror, activate,
   });
   const controller = PB.createController({
-    tabs: { create: (o) => chrome.tabs.create(o), get: (id) => chrome.tabs.get(id) },
+    tabs: { create: (o) => chrome.tabs.create(o), get: (id) => chrome.tabs.get(id), activate },
     storage: {
       get: (k) => sGet(k),
       set: (k, v) => sSet(k, v),
@@ -622,14 +666,14 @@ function batchController() {
     getProvider: trackingProvider,
     controller,
   });
-  _batch = { controller, receiver };
+  _batch = { controller, receiver, preparer };
   return _batch;
 }
 
-// -> the ACK for the page (always an object for our message type).
-async function handlePrepare(msg, origin) {
+// -> the ACK for the page (always an object for our message type). `originTabId`: the web page's tab.
+async function handlePrepare(msg, origin, originTabId) {
   try {
-    const ackMsg = await batchController().receiver.receive(msg, origin);
+    const ackMsg = await batchController().receiver.receive(msg, origin, { originTabId });
     track("prepare_batch", { accepted: !!(ackMsg && ackMsg.accepted), reason: ackMsg && ackMsg.reason ? ackMsg.reason : "" });
     return ackMsg || { type: self.JAF.prepareBatch.MSG_ACK, accepted: false, reason: "ignored" };
   } catch (e) {
@@ -649,7 +693,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   try { ctl = batchController().controller; } catch (e) { return; }
   if (msg.type === "JAF_BATCH_PROGRESS") {
     if (!sender || !sender.tab || sender.id !== chrome.runtime.id) return;
-    ctl.onProgress(sender.tab.id, msg).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    const tabId = sender.tab.id;
+    ctl.onProgress(tabId, msg)
+      .then(() => { if (msg.phase === "filled") batchController().preparer.fillDone(tabId); sendResponse({ ok: true }); })
+      .catch(() => sendResponse({ ok: false }));
     return true;
   }
   if (!fromOurExtensionPage(sender)) return;

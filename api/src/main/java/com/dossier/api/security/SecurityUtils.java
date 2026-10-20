@@ -103,6 +103,20 @@ public final class SecurityUtils {
     }
 
     /**
+     * The organization the current token is bound to ({@code tid}), when it is: a session minted on a tenant host, or an enterprise extension token.
+     *
+     * @return the organization id of the current tenant-bound token, else empty.
+     */
+    public static Optional<Long> getCurrentTenantId() {
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        return Optional.ofNullable(securityContext.getAuthentication())
+            .filter(authentication -> authentication.getPrincipal() instanceof ClaimAccessor)
+            .map(authentication -> (ClaimAccessor) authentication.getPrincipal())
+            .map(principal -> principal.getClaim(TENANT_CLAIM))
+            .map(v -> v instanceof Number n ? n.longValue() : v instanceof String s && !s.isBlank() ? Long.valueOf(s) : null);
+    }
+
+    /**
      * Check if a user is authenticated.
      *
      * @return true if the user is authenticated, false otherwise.

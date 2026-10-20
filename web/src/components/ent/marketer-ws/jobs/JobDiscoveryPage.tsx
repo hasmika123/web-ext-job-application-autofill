@@ -15,6 +15,8 @@ import {
 } from "@/lib/ent/marketer-ws/jobs";
 import { CARD, Empty, Head, KpiTile, TINTS, VIEW_ALL, type MktPageProps } from "../parts";
 import { AssignSheet, ClientChip, FilterBox, JobSheet, OverlaySelect, PANEL, PriorityChip, SourceCell, Trend, usePanel } from "./JobsParts";
+import { TailorAssignSheet } from "../../demo/TailorJobCard";
+import { tailorPresetFor } from "@/lib/ent/demo/tailorPreset";
 
 /**
  * Job Discovery (design: Job Discovery). One call draws the board: KPI tiles, the search + filter row, the Job Openings table or cards,
@@ -47,6 +49,7 @@ export default function JobDiscoveryPage({ orgId, hrefs }: MktPageProps) {
   const [viewing, setViewing] = useState<JobRow | null>(null);
   const [assigning, setAssigning] = useState<JobRow | null>(null);
   const [saving, setSaving] = useState<JobRow | null>(null);
+  const [tailoring, setTailoring] = useState<JobRow | null>(null); // demo only (DEMO-PLAN section 16)
   const [notice, setNotice] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [showAllSearches, setShowAllSearches] = useState(false);
@@ -533,7 +536,20 @@ export default function JobDiscoveryPage({ orgId, hrefs }: MktPageProps) {
       </div>
 
       {viewing ? (
-        <JobSheet orgId={orgId} job={viewing} matchesHref={matchesHref} canAssign={canAssign} now={now} onClose={() => setViewing(null)} onAssign={() => { setAssigning(viewing); setViewing(null); }} onSave={() => { setSaving(viewing); setViewing(null); }} />
+        <JobSheet orgId={orgId} job={viewing} matchesHref={matchesHref} canAssign={canAssign} now={now} onClose={() => setViewing(null)} onAssign={() => { setAssigning(viewing); setViewing(null); }} onSave={() => { setSaving(viewing); setViewing(null); }} onTailor={() => { setTailoring(viewing); setViewing(null); }} />
+      ) : null}
+      {tailoring && tailorPresetFor(tailoring.title, tailoring.client.name) ? (
+        <TailorAssignSheet
+          orgId={orgId}
+          jobId={tailoring.id}
+          preset={tailorPresetFor(tailoring.title, tailoring.client.name)!}
+          onClose={() => setTailoring(null)}
+          onDone={(message) => {
+            setNotice(message);
+            setTailoring(null);
+            reload();
+          }}
+        />
       ) : null}
       {saving ? (
         <AssignSheet

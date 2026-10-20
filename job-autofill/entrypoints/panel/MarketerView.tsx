@@ -47,7 +47,8 @@ export function MarketerView({ orgId, orgName }: { orgId: number; orgName: strin
   useEffect(() => {
     let alive = true;
     (async () => {
-      const cap = await capturePage();
+      // A page Kiwiply may not read (no host access, a browser page) makes the capture throw: say so, never spin forever.
+      const cap = await capturePage().catch(() => ({ ok: false as const, error: "Kiwiply can't read this page. Open the job posting itself, then click the Kiwiply icon again." }));
       if (!alive) return;
       if (!cap.ok) return setPage({ status: "error", message: cap.error });
       // Trim immediately: the description is dropped before anything is held in state.

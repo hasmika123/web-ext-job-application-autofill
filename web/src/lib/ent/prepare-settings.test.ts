@@ -55,9 +55,10 @@ describe("prepare settings client", () => {
     expect(await savePrepareSettings(7, { enabled: true })).toEqual({ kind: "DENIED" });
   });
 
-  it("says plainly that the consultant always reviews and submits and Kiwiply never submits", () => {
+  it("says plainly that the consultant always reviews and submits and nothing is submitted for them", () => {
     expect(PREPARE_EXPLAINER).toContain("opens each job in its own tab");
     expect(PREPARE_EXPLAINER).toContain("always reviews");
-    expect(PREPARE_EXPLAINER).toContain("Kiwiply never submits");
+    expect(PREPARE_EXPLAINER).toContain("Nothing is ever submitted for them");
+    expect(PREPARE_EXPLAINER).not.toMatch(/kiwiply/i);
   });
 });

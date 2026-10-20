@@ -67,6 +67,8 @@
     async archiveResume(/* serverId, archived */) { throw new NotSupportedError("archiveResume"); }
     async createResume(/* meta */) { throw new NotSupportedError("createResume (Phase 3b)"); }
     async uploadResumeFile(/* serverId, fileBlob, fileName */) { throw new NotSupportedError("uploadResumeFile (Phase 3b)"); }
+    // The stored file of one of the user's resumes (pull-only: the mirror caches it so a fill can attach it).
+    async downloadResumeFile(/* serverId */) { throw new NotSupportedError("downloadResumeFile"); }
     async uploadApplicationAttachment(/* serverId, fileBlob, fileName */) { throw new NotSupportedError("uploadApplicationAttachment (Phase 3d)"); }
     // Phase 3 (application tracking) — implemented by createKiwiplyProvider.
     async pushApplication(/* app */) { throw new NotSupportedError("pushApplication"); }
@@ -625,6 +627,38 @@
           res = await send(t.access);
         }
         return parse(res);
+      },
+
+      // Download the file stored for one of the user's resumes (GET /api/resumes/{id}/file). The mirror
+      // is pull-only, and this is a pull: a resume uploaded on the web gets its bytes cached locally so the
+      // fill can attach it, exactly like one uploaded in the drawer. -> { blob, fileName } or null when the
+      // resume has no file (404). Same single 401 -> refresh -> retry as request().
+      async downloadResumeFile(serverId) {
+        const id = idPath(serverId);
+        const send = async (access) => {
+          const headers = {};
+          if (access) headers["Authorization"] = "Bearer " + access;
+          return doFetch(baseUrl + "/api/resumes/" + id + "/file", { method: "GET", headers });
+        };
+        let t = await tokens();
+        let res = await send(t.access);
+        if (res.status === 401 && t.refresh && (await tryRefresh())) {
+          t = await tokens();
+          res = await send(t.access);
+        }
+        if (res.status === 404) return null;
+        if (!res.ok) throw new ApiError(res.status, "Request failed (" + res.status + ")");
+        const blob = await res.blob();
+        const type = (blob && blob.type) || (res.headers && res.headers.get && res.headers.get("content-type")) || "";
+        const disposition = (res.headers && res.headers.get && res.headers.get("content-disposition")) || "";
+        const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+        let fileName = m ? decodeURIComponent(m[1]).trim() : "";
+        // The server names the download after the label, without an extension: add the one the type implies.
+        if (fileName && !/\.[a-z0-9]{2,5}$/i.test(fileName)) {
+          const ext = /wordprocessingml/i.test(type) ? ".docx" : /msword/i.test(type) ? ".doc" : /text\/plain/i.test(type) ? ".txt" : ".pdf";
+          fileName += ext;
+        }
+        return { blob, fileName: fileName || "resume.pdf", type };
       },
 
       // Upload a one-off PDF attached to a single application (Phase 3d "don't add to list").

@@ -209,7 +209,7 @@ describe("Job Discovery", () => {
 
   it("each card leads with the marketer's quick info, the Sample mark and an Open job link that opens a new tab safely; no Apply button exists", async () => {
     await mount();
-    expect(document.querySelector("[data-apply-helper]")?.textContent).toMatch(/Apply on the source site with the Kiwiply extension/);
+    expect(document.querySelector("[data-apply-helper]")?.textContent).toMatch(/Apply on the source site with the browser extension/);
     expect(document.querySelector("[data-apply-helper]")?.textContent).toMatch(/My Applications/);
     const card = document.querySelector("[data-job='1']") as HTMLElement;
     expect(within(card).getByText("Marketer's quick info")).toBeTruthy();

@@ -36,6 +36,7 @@ import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell
 import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
 import JobLinkButton, { QuickInfo } from "./JobLinkButton";
 import { PrepareBar, PrepareCheck, PrepareConfirmDialog, PrepareProgress, PrepareWhy, usePrepareBatch, type PrepareUi } from "./PrepareBatch";
+import TailoredRowNote from "../demo/TailoredRowNote";
 import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
 import { deltaText, employmentLabel, firstName, initialsOf, placeLabel, shortDate } from "@/lib/ent/consultant-ws/home";
 import {
@@ -282,6 +283,7 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice, prepare 
                   <td className={cn(TD, "max-w-[190px]")}>
                     <span className="block font-semibold text-ink">{r.title}</span>
                     {r.skills.length ? <span className="block truncate text-[12px] text-muted">{r.skills.slice(0, 3).join(" | ")}</span> : null}
+                    <TailoredRowNote title={r.title} company={r.company} />
                     {prepare.active ? <PrepareWhy row={r} p={prepare} /> : null}
                   </td>
                   <td className={TD}>
@@ -468,7 +470,7 @@ function DetailSheet({ row, detail, loading, onClose, a }: { row: OppRow | null;
               {d.appliedAt ? (
                 <section data-applied-note>
                   <h4 className={head}>You applied</h4>
-                  <p className="mt-1 text-ink-soft">You told your marketer you applied on {shortDate(d.appliedAt)}. Kiwiply never applies for you: you submit on the source site yourself.</p>
+                  <p className="mt-1 text-ink-soft">You told your marketer you applied on {shortDate(d.appliedAt)}. Nothing is applied for you: you submit on the source site yourself.</p>
                 </section>
               ) : null}
               {d.resumeUpdateNote ? (
@@ -566,7 +568,7 @@ function AppliedDialog({ row, busy, onCancel, onConfirm }: { row: OppRow | null;
       }
     >
       <p data-applied-confirm className="text-[13.5px] text-ink-soft">
-        Did you submit this application yourself on the source site? This only tells your marketer. Kiwiply never applies or submits for you.
+        Did you submit this application yourself on the source site? This only tells your marketer. No one applies or submits for you.
       </p>
     </Dialog>
   );
@@ -774,7 +776,7 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first, i
 
   return (
     <div data-consultant-opportunities data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Assigned Opportunities" subtitle="Opportunities your marketer assigned to you. Open the job link, apply on the source site with the Kiwiply extension, and keep your marketer updated." />
+      <PageHeader title="Assigned Opportunities" subtitle="Opportunities your marketer assigned to you. Open the job link, apply on the source site with the browser extension, and keep your marketer updated." />
       <ClaimsMascot />
       <ClaimsHelpCard />
 
