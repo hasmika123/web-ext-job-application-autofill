@@ -260,6 +260,17 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
 
   /* ---------------------------------------------------------- 4. scheduling against a mocked chrome.tabs */
   {
+    // a filled tab waiting for review, or a tab stopped at a sign-in wall, no longer holds back the queue: 8 jobs all open
+    const r = rig();
+    await r.ctl.start(batchOf(8), { userId: 42 });
+    await r.ctl.idle();
+    eq("cap: 5 tabs while none is filled", r.tabs.created.length, 5);
+    for (const n of [1, 2, 3, 4]) await r.ctl.onProgress(100 + n, { batch: { sessionId: "sess_abc123", matchId: n }, phase: "filled", gaps: n === 2 ? 1 : 0 });
+    await r.ctl.idle();
+    eq("cap: each filled tab (complete or with fields left) lets the next job open", r.tabs.created.length, 8);
+    eq("cap: all 8 jobs are open", await states(r), ["PREFILLED", "NEEDS_INPUT", "PREFILLED", "PREFILLED", "OPENED", "OPENED", "OPENED", "OPENED"]);
+  }
+  {
     const r = rig();
     await r.ctl.start(batchOf(8), { userId: 42 });
     await r.ctl.idle();
@@ -444,7 +455,8 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     eq("a restarted worker keeps tracking tabs", (await r2.ctl.status()).jobs[0].state, "PREFILLED");
     await r2.ctl.onTabRemoved(102);
     await r2.ctl.idle();
-    eq("...and keeps opening the queue", r2.tabs.created.length, 6);
+    // tab 1's fill freed its place (job 6 opens) and closing tab 2 freed another (job 7 opens)
+    eq("...and keeps opening the queue", r2.tabs.created.length, 7);
     // browser restart: tabs are gone
     r2.tabs.gone = new Set([101, 103, 104, 105, 106]);
     await r2.ctl.reconcile();

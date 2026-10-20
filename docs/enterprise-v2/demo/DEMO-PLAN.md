@@ -423,8 +423,16 @@ pages, of which a batch tab filled only the first. Both are now local copies ser
 **Measured** (`demo-ext-check.mjs`, branded build, Anika, Prepare selected, FILL ONLY): Adobe (Workday copy) **53 of 53 fields across 5
 steps, résumé attached, stops on Review**; ServiceNow (SmartRecruiters copy) **14 of 14 across 2 steps, résumé attached, stops at Submit**;
 in one six-job batch: Figma 13 of 16 + résumé, Ramp 5 of 5 + résumé, TechCorp 9 of 9 + résumé, and the TechCorp Submit is still detected
-and reported (11/12 steps: the 12th only noted that the batch opens five tabs at a time). Extension suites 33/33 green.
+and reported (11/12 steps: the 12th only noted that the batch opened five tabs at a time, fixed in 0.71.1 below). Extension suites 35/35 green.
 
 **Known:** the demo API's stub AI always picks the last option of a list, so questions only the AI can answer come out "No"; the copies ask
 questions the profile answers (relocation, work arrangement). One staged sample email ("Weekend Reads") says "Kiwiply keeps its headers
 only" in its text: API seed data, left for a separate change.
+
+**0.71.1 (user report, same day): jobs after the fifth never opened.** A batch opened five tabs and counted a filled tab waiting for
+review as one of the five, so in a batch of six or more the rest stayed "Waiting" until the consultant closed tabs. In the user's run the
+first five were all Greenhouse pages, so Adobe, ServiceNow and Ramp looked broken. Now the cap counts only tabs still opening or filling
+(a filled tab, or one stopped at a sign-in wall or CAPTCHA, frees its place) and a finished fill opens the next job, so every ticked job
+opens, up to the batch maximum of ten. Rehearsed: 9 and 10-job batches, every tab filled (Adobe 53/53 across 5 steps, ServiceNow 14/14,
+Ramp 5/5, Figma 13/16), TechCorp submit detected, 12/12. The rehearsal presses the review panel's Done before Submit, as the walkthrough does
+(the panel sits over Greenhouse's right-aligned Submit button).

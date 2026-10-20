@@ -280,6 +280,8 @@ try {
   if (standIn) {
     const p = standIn;
     await p.bringToFront();
+    // as the walkthrough has her do: Done closes the review panel, which sits over the right of the page (Greenhouse's Submit is there)
+    await p.locator("#__jaf_host").evaluate((h) => h.shadowRoot.querySelector("#done")?.click()).catch(() => {});
     await p.getByRole("button", { name: "Submit Application" }).click();
     await p.getByText("Thank you for applying!").waitFor({ timeout: 15_000 });
     let submitted = false;

@@ -40,7 +40,7 @@ in Greenhouse's own look). Postings close: run the setup the morning of the demo
 ## One-time setup in your Chrome (10 minutes)
 1. Two Chrome profiles: **Anika** and **Rahul**.
 2. In each: `chrome://extensions` → **Developer mode** → **Load unpacked** → `job-autofill/.output/chrome-mv3-dev-aaruna-technologies` → pin it.
-   Loaded it before? Press **Reload** on its card (it must say version **0.71.0**).
+   Loaded it before? Press **Reload** on its card (it must say version **0.71.1**).
 3. In each: sign in as that person → account menu (top right) → **Connect extension** → **Connect** → "Extension connected".
 4. Anika only: extension gear → Settings → turn on **Use Aaruna AI** and the **I consent** switch.
 5. Anika only: open the drawer once on any page so it pulls her profile; **Choose a resume** should list "Anika Rao - Senior
@@ -75,7 +75,7 @@ in Greenhouse's own look). Postings close: run the setup the morning of the demo
    of her two resumes fits) → **Check fit** (match %, what's missing, what's covered). Ramp works the same way.
 3. **Autopilot**: back on Assigned Opportunities. The **Northbeam** row reads "Resume tailored by Rahul · 58% → 87% · **View changes**":
    open it to show what Rahul changed (read-only, with a link to the PDF). Tick **Figma**, **Ramp**, **Adobe**, **ServiceNow** and
-   **Northbeam · ML Platform Engineer** (five at most: the batch opens five tabs at a time; add Rover in a second batch if you like)
+   **Northbeam · ML Platform Engineer** (Rover too if you like: every ticked job opens, up to ten)
    → **Prepare selected**. The dialog says Northbeam uses the resume Rahul tailored for it and that **preparing approves it**; the
    other jobs keep her usual resume → **Prepare**.
 4. Each job opens in its own tab **already filled**, with the review panel beside the page: Greenhouse, Ashby, Workday, SmartRecruiters

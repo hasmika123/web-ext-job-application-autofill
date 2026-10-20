@@ -29,7 +29,7 @@
   const MSG_ACK = "KIWIPLY_PREPARE_ACK";
   const CONTRACT_VERSION = 1;
   const MAX_JOBS = 10;
-  const MAX_CONCURRENT = 5;       // tabs the batch keeps in play at once
+  const MAX_CONCURRENT = 5;       // tabs the batch is opening or filling at once (a filled tab waiting for review no longer counts)
   const OPEN_DELAY_MS = 1500;     // pause between two tab opens (never "all at once")
   const MAX_ATTEMPTS = 3;         // prepare attempts per job (one per page load, never in a loop)
   const RETRY_GAP_MS = 5000;      // minimum gap between two attempts on the same tab
@@ -322,6 +322,9 @@
     }
 
     const isActive = (j) => ACTIVE_STATES.indexOf(j.state) !== -1;
+    // In play for the opening cap: a tab opened and not yet filled. A filled tab waiting for the consultant's review, or a tab
+    // stopped at a sign-in wall or a CAPTCHA, does not hold back the next job: a batch of up to MAX_JOBS opens every job.
+    const inPlay = (j) => j.state === "OPENED" && !j.filled;
     const isFinal = (j) => FINAL_STATES.indexOf(j.state) !== -1;
 
     async function loadActive() {
@@ -398,7 +401,7 @@
             const st = await loadOwned();
             if (!st || st.stopped) return false;
             const next = st.jobs.find((j) => j.state === "QUEUED");
-            if (!next || st.jobs.filter(isActive).length >= MAX_CONCURRENT) return false;
+            if (!next || st.jobs.filter(inPlay).length >= MAX_CONCURRENT) return false;
             await openJob(st, next);
             return true;
           });
@@ -470,6 +473,7 @@
       });
       if (backTo && deps.tabs.activate) { try { await deps.tabs.activate(backTo); } catch (e) { /* the page may be gone */ } }
       flush();
+      pump(); // this tab is done (filled, at a wall, or failed): it no longer holds back a waiting job
     }
 
     // The content script reports progress of the review overlay: filled once (with how many required
@@ -489,6 +493,7 @@
         await save(st);
       });
       flush();
+      if (info && info.phase === "filled") pump(); // a filled tab frees its place: open the next waiting job
     }
 
     async function onSubmitDetected(tabId) {
@@ -569,7 +574,7 @@
         if (!st || st.stopped) return { ok: false, reason: "no-batch" };
         const next = st.jobs.find((j) => j.state === "QUEUED");
         if (!next) return { ok: false, reason: "none-queued" };
-        if (st.jobs.filter(isActive).length >= MAX_CONCURRENT) return { ok: false, reason: "at-capacity" };
+        if (st.jobs.filter(inPlay).length >= MAX_CONCURRENT) return { ok: false, reason: "at-capacity" };
         await openJob(st, next);
         return { ok: true };
       });
