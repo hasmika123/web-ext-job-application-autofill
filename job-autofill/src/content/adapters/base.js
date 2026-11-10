@@ -152,6 +152,24 @@
     return out;
   }
 
+  // Readable text of a rich-text block (a job description) for job capture. Unlike
+  // textContent, text nodes are joined with a space, so "<p>a</p><p>b</p>" and list
+  // items don't run together. Scripts/styles are skipped; capped like JSON-LD text.
+  const BLOCK_TEXT_MAX = 20000;
+  function blockText(els) {
+    const list = (Array.isArray(els) ? els : [els]).filter(Boolean);
+    const parts = [];
+    (function walk(nodes) {
+      for (const n of nodes) {
+        if (n.nodeType === 3) parts.push(n.nodeValue);
+        else if (n.nodeType === 1 && !/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT)$/i.test(n.tagName)) walk(n.childNodes);
+      }
+    })(list);
+    const s = parts.join(" ").replace(/[\s ]+/g, " ").trim();
+    if (!s) return undefined;
+    return s.length > BLOCK_TEXT_MAX ? s.slice(0, BLOCK_TEXT_MAX) : s;
+  }
+
   // For a radio/checkbox, the meaningful label is the GROUP's question, not the
   // option's own "Yes"/"No". ATS render a Y/N question as a prompt block + a set of
   // options whose inputs aren't linked to the prompt via label[for]/aria — so
@@ -597,7 +615,7 @@
 
   JAF.adapterBase = {
     setNativeValue, fire, fillText, selectOption, setBooleanGroup, setChoiceGroup, numericValue, isoDate, labelText, labelParts, groupPrompt,
-    cssEscape, isFillable, scanGeneric, deepQueryAll, elKind, applyItem, applyItemAsync, attachFile, humanize,
+    cssEscape, isFillable, scanGeneric, deepQueryAll, blockText, elKind, applyItem, applyItemAsync, attachFile, humanize,
     isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
     // exposed for unit tests (dropdown option scoping + matching + autocomplete)
     openListbox, visibleOptions, bestOption, autocompleteField, autocompleteTrusted,

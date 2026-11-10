@@ -1386,6 +1386,15 @@ focused Claude Code session.
 
 ## Log
 > One line per completed task: date · task · note.
+- 2026-10-19 · **Fix: full job description on Greenhouse / Lever / SmartRecruiters (ext v0.66.0)** · Those
+  pages publish no usable JSON-LD, so capture fell back to the `<meta>` description (`sources "generic"`) and
+  the drawer hid best-resume match + Check fit. The Greenhouse (`job-boards`) and Lever adapters now read
+  role/company/location/description from the page, and a new capture-only SmartRecruiters reader
+  (`JAF.jobReaders`, not a fill adapter) reads its JobPosting microdata. Markup came from the real Figma,
+  Rover and ServiceNow postings, and the trimmed fixtures are in `test/fixtures/job-capture/`. Limit: Lever
+  `/apply` has no description in its DOM, so it still reads "generic". Also carries the `ent-demo-p1` TDZ fix
+  (`3954088c`, same lines): `captureJob()` with no arguments threw on every page because a local `const location`
+  shadowed the global.
 - 2026-10-06 · **Fix: resume upload failing in production** · Reported right after the promotion: "Couldn't
   upload the file". Cause: the box's **S3 key is invalid** (AWS `InvalidClientTokenId`) — every resume file
   upload fails at storage; the user replaces it in IAM + `.env` (DEPLOY.md §1 policy). Two code gaps found on
