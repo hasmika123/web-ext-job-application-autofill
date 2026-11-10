@@ -263,7 +263,7 @@ public class EscalationService {
             c.e().setAssigneeMemberId(memberId);
             save(c.e(), c.now());
             String who = names.memberNames(c.e().getOrgId(), Set.of(memberId)).getOrDefault(memberId, "a member");
-            event(c.e(), MktEscalationEvent.ASSIGNED, me.memberId(), "Assigned to " + who + ".", c.now());
+            event(c.e(), MktEscalationEvent.ASSIGNED, me.memberId(), "Assigned to " + who + (who.endsWith(".") ? "" : "."), c.now()); // short names already end in "." ("Priya N.")
             audit(me, AUDIT_ASSIGN, c.e(), "assignee=" + memberId);
         }
         return out(c);

@@ -336,7 +336,7 @@ public class ApprovalService {
         clearLink(r);
         String who = names.memberNames(orgId, Set.of(manager.memberId())).getOrDefault(manager.memberId(), "A manager");
         if (approve) {
-            subjectEvent(r, ApprovalKinds.EVENT_APPROVED, manager.memberId(), "Approved by " + who + ".", now);
+            subjectEvent(r, ApprovalKinds.EVENT_APPROVED, manager.memberId(), "Approved by " + who + (who.endsWith(".") ? "" : "."), now); // short names already end in "." ("Priya N.")
         } else {
             subjectEvent(r, ApprovalKinds.EVENT_DECLINED, manager.memberId(), "Manager declined: " + decisionNote, now);
         }

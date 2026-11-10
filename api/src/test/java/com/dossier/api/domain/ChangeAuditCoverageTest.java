@@ -54,6 +54,9 @@ class ChangeAuditCoverageTest {
         // Marketer workspace working data and views.
         "MktBenchmark", "MktFollowup", "MktGoal", "MktInterviewMeta", "MktJobMeta", "MktJobStream", "MktOpportunity", "MktSavedView", "MktStreamRule",
         "MktSubmissionView", "MktTask",
+        // Marketing Manager (d-mm): an approval request names who asked (requested_by) and who decided (decided_by); an escalation's every change is a
+        // MktEscalationEvent row with its actor, plus an org audit row.
+        "MktApprovalRequest", "MktEscalation",
         // HR / finance / reports (record-only; their own audit rows).
         "FinanceForecastInput", "FinancePlacementPeriod", "FinancePlacementTerms", "HrDocumentRequirement", "HrEmployee", "ReportDefinition",
         // Talent directory.
