@@ -1,21 +1,15 @@
 package com.dossier.api.service.inbox;
 
-import com.dossier.api.domain.ent.billing.ConsultantLicense;
-import com.dossier.api.domain.ent.billing.LicenseFeature;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgStatus;
 import com.dossier.api.domain.org.OrgMember;
-import com.dossier.api.repository.ent.billing.ConsultantLicenseRepository;
-import com.dossier.api.repository.ent.billing.LicenseFeatureRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.EntitlementService;
-import java.time.Instant;
-import java.util.List;
+import com.dossier.api.service.ent.licenses.OrgLicenseGate;
 import java.util.Optional;
-import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,9 +38,6 @@ public class InboxEntitlement {
     /** The catalog key of the add-on (docs/enterprise-v2/21-feature-catalog.md). */
     public static final String FEATURE = "inbox.monitoring";
 
-    /** License states that still grant their features: a license that is ending keeps them until it ends. */
-    private static final Set<String> GRANTING = Set.of("ACTIVE", "CANCEL_AT_PERIOD_END");
-
     /** Why an inbox may be used. */
     public enum Ground {
         PERSONAL,
@@ -64,23 +55,20 @@ public class InboxEntitlement {
     private final OrgMemberRepository members;
     private final OrganizationRepository orgs;
     private final ConsultantProfileRepository consultants;
-    private final ConsultantLicenseRepository licenses;
-    private final LicenseFeatureRepository features;
+    private final OrgLicenseGate licenses;
 
     public InboxEntitlement(
         EntitlementService personal,
         OrgMemberRepository members,
         OrganizationRepository orgs,
         ConsultantProfileRepository consultants,
-        ConsultantLicenseRepository licenses,
-        LicenseFeatureRepository features
+        OrgLicenseGate licenses
     ) {
         this.personal = personal;
         this.members = members;
         this.orgs = orgs;
         this.consultants = consultants;
         this.licenses = licenses;
-        this.features = features;
     }
 
     /** Whether anything at all lets this account have an inbox: an enterprise account its organization license only, a personal account its plan first, then any seat that grants it. */
@@ -119,18 +107,6 @@ public class InboxEntitlement {
         if (!orgLive) return false;
         Optional<ConsultantProfile> profile = consultants.findByOrgIdAndMemberId(orgId, seat.getId());
         if (profile.isEmpty() || !"ACTIVE".equals(profile.get().getStatus())) return false;
-        Instant now = Instant.now();
-        for (ConsultantLicense l : licenses.findByOrgIdAndConsultantIdOrderByStartsAtDesc(orgId, profile.get().getId())) {
-            if (!GRANTING.contains(l.getStatus()) || !current(l.getStartsAt(), l.getEndsAt(), now)) continue;
-            List<LicenseFeature> fs = features.findByOrgIdAndLicenseIdOrderByIdAsc(orgId, l.getId());
-            for (LicenseFeature f : fs) {
-                if (FEATURE.equals(f.getFeatureKey()) && Boolean.TRUE.equals(f.getLive()) && current(f.getStartsAt(), f.getEndsAt(), now)) return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean current(Instant start, Instant end, Instant now) {
-        return (start == null || !start.isAfter(now)) && (end == null || end.isAfter(now));
+        return licenses.has(orgId, profile.get().getId(), FEATURE);
     }
 }

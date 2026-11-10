@@ -191,6 +191,7 @@ are no longer nav data. Plan & Billing is the one "Soon" row.
 | Teams & Departments → `/w/admin/teams` | `TeamsPage` + `DepartmentsPage` as tabs Teams · Departments (`?tab=departments`) | `GET …/groups` | `groups.manage` | — | "Group people into departments and teams" | X4.5 |
 | Roles → `/w/admin/roles` | `RolesPage` | `GET …/roles`, `GET …/roles/{id}` | `roles.manage` (view: `member.view_summary`) | `flag.enterprise.roles` | "Start from a template" | X4.1 |
 | Consultants → `/w/admin/consultants` | `ConsultantDirectory` (D, X7.1) scope ORG | `GET …/consultants` | `consultants.view` | marketing (directory itself is Phase 7) | "No consultants yet" → [Invite consultants] | X7.1 (D) |
+| Licenses → `/w/admin/licenses` | `LicensesPage` + Configure sheet (LICENCES-BUILD.md L4), no money yet | `GET …/licenses`, `…/licenses/catalog` | `licenses.view` (changes: `licenses.manage`) | none (works without the billing module) | "No consultants yet" | X5.4 (partial) |
 | Assignments → `/w/admin/marketing-assignments` | `MarketingAssignmentsPage` (live, ent-marketing) | `GET …/marketing-assignments/*` | `assignments.manage`, `workload.view` | — | "Pair consultants with marketers" | X4.7 (D) |
 | Resumes → `/w/admin/resumes` | `OrgResumesPage` (D, X7.3) scope ORG | `GET …/resumes` | `resumes.view_for` | marketing | "No resumes shared with Acme yet" (explains consent) | X7.3 (D) |
 | Jobs → `/w/admin/jobs` | `OrgJobsPage` (D, X8.2 job banks) scope ORG | `GET …/jobs` | `pipeline.view` | marketing | "No curated jobs yet" | X8.2 (D) |

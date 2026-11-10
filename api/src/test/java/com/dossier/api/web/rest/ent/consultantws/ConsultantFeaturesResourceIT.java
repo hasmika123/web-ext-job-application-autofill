@@ -86,6 +86,9 @@ class ConsultantFeaturesResourceIT {
     @Autowired private TalentApplicationRepository applications;
     @Autowired private CwsMatchViewRepository matchViews;
     @Autowired private CwsPrepSessionRepository prepSessions;
+    @Autowired private com.dossier.api.repository.ent.billing.ConsultantLicenseRepository licenseRows;
+    @Autowired private com.dossier.api.repository.ent.billing.LicenseFeatureRepository licenseFeatureRows;
+    @Autowired private com.dossier.api.repository.catalog.ProductRepository products;
 
     private OrgFixtures fx;
     private Organization a;
@@ -280,16 +283,20 @@ class ConsultantFeaturesResourceIT {
         prep(c1, lastMonth);
         application(c1, r1, "SUBMITTED", null, null);
 
+        license(c1, "inbox.monitoring", "ai.job_matching", "ai.resume_tailoring", "interview.ai_prep", "resume.optimization");
+
         JsonNode p = page("cws-ft-a-c1", a);
         assertThat(p.path("orgId").asLong()).isEqualTo(a.getId());
-        assertThat(p.path("entitlementsSample").asBoolean()).isTrue();
+        assertThat(p.path("entitlementsSample").asBoolean()).as("what is on comes from the licence (LICENCES-BUILD.md L5)").isFalse();
         assertThat(p.path("features")).hasSize(5);
 
         JsonNode m = feature(p, "job-matching");
         assertThat(m.path("used").asInt()).isEqualTo(2);
         assertThat(m.path("usedLastMonth").asInt()).isEqualTo(1);
         assertThat(m.path("allowance").isNull()).as("unlimited").isTrue();
-        assertThat(m.path("sample").asBoolean()).isTrue();
+        assertThat(m.path("status").asText()).isEqualTo("ENABLED");
+        assertThat(m.path("sample").asBoolean()).as("no stand-in allowance left on it").isFalse();
+        assertThat(feature(p, "interview-prep").path("sample").asBoolean()).as("its allowance is still the catalog stand-in").isTrue();
 
         JsonNode prep = feature(p, "interview-prep");
         assertThat(prep.path("used").asInt()).isEqualTo(3);
@@ -304,9 +311,46 @@ class ConsultantFeaturesResourceIT {
         assertThat(t.path("active").asInt()).isEqualTo(5);
         assertThat(t.path("premium").asInt()).isEqualTo(3);
         assertThat(t.path("usedThisMonth").asInt()).isEqualTo(2 + 3 + 1);
-        assertThat(t.path("creditsTotal").asInt()).isEqualTo(50);
-        assertThat(t.path("creditsLeft").asInt()).isEqualTo(50);
-        assertThat(t.path("creditsSample").asBoolean()).isTrue();
+        assertThat(t.path("creditsLeft").isNull()).as("tailoring is not metered yet: no made-up credits").isTrue();
+        assertThat(t.path("creditsTotal").isNull()).isTrue();
+        assertThat(t.path("activeSample").asBoolean()).isFalse();
+    }
+
+    @Test
+    void aFeatureTheLicenceDoesNotCarryIsNotInThePlan() throws Exception {
+        license(c1, "inbox.monitoring");
+        JsonNode p = page("cws-ft-a-c1", a);
+        assertThat(feature(p, "application-tracking").path("status").asText()).isEqualTo("ENABLED");
+        assertThat(feature(p, "resume-tailoring").path("status").asText()).isEqualTo("NOT_AVAILABLE");
+        assertThat(feature(p, "interview-prep").path("status").asText()).isEqualTo("NOT_AVAILABLE");
+        assertThat(p.path("tiles").path("active").asInt()).isEqualTo(1);
+    }
+
+    /** A live licence for {@code c} carrying exactly {@code keys} (what the Consultant Licenses page writes). */
+    private void license(ConsultantProfile c, String... keys) {
+        java.time.Instant start = java.time.Instant.now().minus(java.time.Duration.ofDays(1)).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        com.dossier.api.domain.ent.billing.ConsultantLicense l = new com.dossier.api.domain.ent.billing.ConsultantLicense();
+        l.setOrgId(c.getOrgId());
+        l.setConsultantId(c.getId());
+        l.setMemberId(c.getMemberId());
+        l.setStatus("ACTIVE");
+        l.setBaseProductId(products.findByCode("ORG_BASE_LICENSE").orElseThrow().getId());
+        l.setBaseAmountMinor(0L);
+        l.setStartsAt(start);
+        l = licenseRows.saveAndFlush(l);
+        for (String key : keys) {
+            com.dossier.api.domain.ent.billing.Product prod = products.findByKindOrderBySortOrderAsc("FEATURE").stream().filter(x -> key.equals(x.getFeatureKey())).findFirst().orElseThrow();
+            com.dossier.api.domain.ent.billing.LicenseFeature f = new com.dossier.api.domain.ent.billing.LicenseFeature();
+            f.setOrgId(c.getOrgId());
+            f.setLicenseId(l.getId());
+            f.setFeatureKey(key);
+            f.setProductId(prod.getId());
+            f.setUnitAmountMinor(0L);
+            f.setQuantity(1);
+            f.setStartsAt(start);
+            f.setLive(true);
+            licenseFeatureRows.saveAndFlush(f);
+        }
     }
 
     @Test

@@ -44,7 +44,7 @@ class InboxEntitlementTest {
     ConsultantProfileRepository consultants = mock(ConsultantProfileRepository.class);
     ConsultantLicenseRepository licenses = mock(ConsultantLicenseRepository.class);
     LicenseFeatureRepository features = mock(LicenseFeatureRepository.class);
-    InboxEntitlement entitlement = new InboxEntitlement(personal, members, orgs, consultants, licenses, features);
+    InboxEntitlement entitlement = new InboxEntitlement(personal, members, orgs, consultants, new com.dossier.api.service.ent.licenses.OrgLicenseGate(licenses, features, mock(com.dossier.api.repository.catalog.FeatureDefinitionRepository.class)));
 
     OrgMember seat = seat(OrgMemberStatus.ACTIVE);
     Organization org = new Organization();

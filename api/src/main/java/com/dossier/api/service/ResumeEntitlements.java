@@ -20,6 +20,9 @@ public class ResumeEntitlements {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.dossier.api.service.ent.resumes.OrgResumeCap orgResumeCap;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess enterpriseLicenses;
+
     public ResumeEntitlements(EntitlementService entitlementService, ResumeRepository resumeRepository) {
         this.entitlementService = entitlementService;
         this.resumeRepository = resumeRepository;
@@ -27,8 +30,10 @@ public class ResumeEntitlements {
 
     /** Whether the plan includes the builder's AI features (today: Pro, which Autopilot includes). */
     public boolean builderAiAllowed(String login) {
-        // inside an organization workspace the plan is not what grants AI (no license grants it yet): off, as the API refuses it (OrgResumePolicy.requireAiLicensed)
-        if (orgResumeCap != null && orgResumeCap.forThisRequest().isPresent()) return false;
+        // inside an organization workspace the plan is not what grants AI: the consultant's licence does (OrgResumePolicy.requireAiLicensed, LICENCES-BUILD.md L2)
+        if (orgResumeCap != null && orgResumeCap.forThisRequest().isPresent()) {
+            return enterpriseLicenses != null && enterpriseLicenses.hasAny(login, com.dossier.api.service.ent.resumes.OrgResumePolicy.BUILDER_AI_FEATURES);
+        }
         return entitlementService.has(login, com.dossier.api.service.entitlement.FeatureKeys.BUILDER_AI);
     }
 
