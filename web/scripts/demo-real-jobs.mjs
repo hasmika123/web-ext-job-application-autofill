@@ -7,9 +7,13 @@
  *   Autopilot fill: Greenhouse (Figma 8 fields + an AI-written answer, Robinhood 6), Ashby (Ramp 4), Lever (Rover 5).
  *   Best resume + Check fit in the drawer: Workday (Adobe) and Ashby (Ramp). Greenhouse, Lever and SmartRecruiters pages do not give the
  *   extension the full job text, so the drawer shows no best-resume line there.
- *   Workday and SmartRecruiters: the application sits behind the site's own sign-in, so those show saving the job and the fit check.
- * liveSave: left out of the setup so Rahul saves it from the extension on stage (Act 2 of DEMO-WALKTHROUGH.md).
- * NEVER press Submit on these pages: they are real employers.
+ *
+ * Workday (Adobe) and SmartRecruiters (ServiceNow) are LOCAL stand-ins since 2026-10-19 (web/scripts/demo-ats/, served by demo-ats-server.mjs):
+ * the real SmartRecruiters form refuses automated browsers and the real Workday form is five steps long, so the demo shows the whole multi-step
+ * Autopilot fill on a copy of each site (Adobe's real Workday pages captured, ServiceNow's SmartRecruiters page rebuilt). Their links are plain
+ * http on *.localhost and need the development build of the extension built with those hosts (DEMO-PLAN.md section 16).
+ * liveSave: left out of the setup so Rahul saves it from the extension on stage (Act 2 of DEMO-WALKTHROUGH.md); DEMO_SAVE_LIVE=1 saves it too.
+ * NEVER press Submit on the real employers' pages (Figma, Ramp, Rover, Robinhood). Submitting on a local stand-in sends nothing anywhere.
  */
 export const REAL_JOBS = [
   {
@@ -41,16 +45,16 @@ export const REAL_JOBS = [
     priority: "MEDIUM", dueInDays: 5,
   },
   {
-    ats: "workday", fills: false, liveSave: true,
-    title: "Senior Backend Engineer - Cloud Platform", company: "Adobe", location: "San Jose, CA", workMode: "HYBRID",
-    jobUrl: "https://adobe.wd5.myworkdayjobs.com/external_experienced/job/San-Jose/Senior-Backend-Engineer---Cloud-Platform_R168509", externalJobId: "R168509",
-    note: "Adobe's cloud platform group. Workday asks you to sign in to their careers site before the form; check the fit first.",
+    ats: "workday", fills: true, liveSave: true, standIn: true,
+    title: "Senior Backend Engineer - Cloud Platform", company: "Adobe", location: "San Jose, CA", workMode: "ONSITE",
+    jobUrl: "http://adobe.wd5.myworkdayjobs.localhost:3399/en-US/external_experienced/job/San-Jose/Senior-Backend-Engineer---Cloud-Platform_R168509", externalJobId: "R168509",
+    note: "Adobe's cloud platform group: Java, AWS and Kubernetes at scale. Check the fit, then let Autopilot do the five Workday steps.",
     priority: "MEDIUM", dueInDays: 6,
   },
   {
-    ats: "smartrecruiters", fills: false,
-    title: "Senior Staff Platform Engineer - Kubernetes", company: "ServiceNow", location: "Santa Clara, CA", workMode: "ONSITE",
-    jobUrl: "https://jobs.smartrecruiters.com/ServiceNow/744000156132859", externalJobId: "744000156132859",
+    ats: "smartrecruiters", fills: true, standIn: true,
+    title: "Senior Staff Platform Engineer - Kubernetes", company: "ServiceNow", location: "Santa Clara, CA", workMode: "HYBRID",
+    jobUrl: "http://jobs.smartrecruiters.localhost:3399/oneclick-ui/company/ServiceNow/publication/a430bd4c-3faf-4272-a33f-82720f9bc34f?dcr_ci=ServiceNow", externalJobId: "744000156132859",
     note: "Kubernetes platform role on ServiceNow's federal team. Senior staff level; worth a look.",
     priority: "LOW", dueInDays: 7,
   },

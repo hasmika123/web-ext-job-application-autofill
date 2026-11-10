@@ -104,22 +104,22 @@ public class MktInterviewsService {
     private final MktInterviewFeedbackRepository feedback;
     private final MktInterviewEventRepository events;
     private final OrgAuditService audit;
-    private final MktInterviewPrepTx prepTx;
+    private final MktInterviewPrepProvisioner prepProvisioner;
     private final Clock clock;
 
     @Autowired
     public MktInterviewsService(
         MktScope scope, MktInterviewRepository interviews, MktInterviewMetaRepository metas, MktInterviewPrepItemRepository prep,
-        MktInterviewFeedbackRepository feedback, MktInterviewEventRepository events, OrgAuditService audit, MktInterviewPrepTx prepTx
+        MktInterviewFeedbackRepository feedback, MktInterviewEventRepository events, OrgAuditService audit, MktInterviewPrepProvisioner prepProvisioner
     ) {
-        this(scope, interviews, metas, prep, feedback, events, audit, prepTx, Clock.systemUTC());
+        this(scope, interviews, metas, prep, feedback, events, audit, prepProvisioner, Clock.systemUTC());
     }
 
     MktInterviewsService(
         MktScope scope, MktInterviewRepository interviews, MktInterviewMetaRepository metas, MktInterviewPrepItemRepository prep,
-        MktInterviewFeedbackRepository feedback, MktInterviewEventRepository events, OrgAuditService audit, MktInterviewPrepTx prepTx, Clock clock
+        MktInterviewFeedbackRepository feedback, MktInterviewEventRepository events, OrgAuditService audit, MktInterviewPrepProvisioner prepProvisioner, Clock clock
     ) {
-        this.prepTx = prepTx;
+        this.prepProvisioner = prepProvisioner;
         this.scope = scope;
         this.interviews = interviews;
         this.metas = metas;
@@ -390,13 +390,9 @@ public class MktInterviewsService {
     private List<PrepItem> ensurePrep(Long orgId, Long interviewId) {
         List<MktInterviewPrepItem> items = prep.findByOrgIdAndInterviewIdOrderByPositionAsc(orgId, interviewId);
         if (items.isEmpty()) {
-            // First touch: created in its own transaction so a request that loses the race to another page (home + interviews) does not fail the page;
-            // it re-reads what the winner committed (a plain read here would not see it: this transaction's snapshot predates the winner's commit).
-            try {
-                items = new ArrayList<>(prepTx.create(orgId, interviewId, DEFAULT_PREP, clock.instant()));
-            } catch (org.springframework.dao.DataIntegrityViolationException lostRace) {
-                items = new ArrayList<>(prepTx.read(orgId, interviewId));
-            }
+            // First touch: created under a per-interview lock, so a request that races another page (home + interviews) uses the winner's rows
+            // instead of failing the page on the unique key (see MktInterviewPrepProvisioner).
+            items = new ArrayList<>(prepProvisioner.getOrCreate(orgId, interviewId, DEFAULT_PREP, clock.instant()));
         }
         List<PrepItem> out = new ArrayList<>();
         for (MktInterviewPrepItem it : items) out.add(new PrepItem(it.getId(), it.getLabel(), it.isDone()));

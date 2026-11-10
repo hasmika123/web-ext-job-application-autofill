@@ -33,7 +33,7 @@
   },
   "counts": { "experience": 5, "education": 3, "skills": 12 },
   "expected": {
-    "fields": 53,
-    "groups": { "contact": 12, "links": 3, "work": 16, "education": 8, "skills": 1, "preferences": 8, "eeo": 5 }
+    "fields": 54,
+    "groups": { "contact": 13, "links": 3, "work": 16, "education": 8, "skills": 1, "preferences": 8, "eeo": 5 }
   }
 }

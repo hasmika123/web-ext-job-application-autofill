@@ -234,7 +234,7 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 2. API: `.claude/ent-demo-api.cmd` (worktree, port 18183, all demo flags, inbox key, sandbox switch, job-link base, FK variable). Log: `C:\work_bench_claude\ent-demo-api.log`. For the live Gmail set `DOSSIER_DEMO_INBOX_SANDBOX=false` in it and restart.
 3. Web: in the worktree `web/`: `node scripts/sync-parser-core.mjs && npx next build --webpack`, then `.claude/ent-demo-web.cmd` (port 3200). Stop the web before rebuilding in the same folder.
 4. Stand-in employer pages: `node web/scripts/demo-ats-server.mjs` (port 3399).
-5. Extension: `cd job-autofill && WXT_DEV_WEB_ORIGINS=http://localhost:3200,http://localhost:3000 WXT_DEV_API_ORIGINS=http://localhost:18183,http://localhost:8080 WXT_DEV_TENANT_ORIGINS=http://*.localhost:3200 WXT_DEV_ATS_ORIGINS=http://jobs.localhost:3399 npx wxt build --mode development` → load `job-autofill/.output/chrome-mv3-dev` unpacked in Chrome (one profile per person: Anika, Omar). In the drawer's settings the API base must be `http://localhost:18183` (the rehearsal script sets it in storage).
+5. Extension: `cd job-autofill && WXT_DEV_WEB_ORIGINS=http://localhost:3200,http://localhost:3000 WXT_DEV_API_ORIGINS=http://localhost:18183,http://localhost:8080 WXT_DEV_TENANT_ORIGINS=http://*.localhost:3200 WXT_DEV_ATS_ORIGINS=http://jobs.localhost:3399,http://adobe.wd5.myworkdayjobs.localhost:3399,http://jobs.smartrecruiters.localhost:3399 npx wxt build --mode development` (the three stand-in hosts: TechCorp/Northbeam, Adobe's Workday copy, ServiceNow's SmartRecruiters copy; section 17), then brand it (section 12) → load `job-autofill/.output/chrome-mv3-dev` unpacked in Chrome (one profile per person: Anika, Omar). In the drawer's settings the API base must be `http://localhost:18183` (the rehearsal script sets it in storage).
 6. Demo tenant: `http://acme.localhost:3200/login` → Demo accounts tab (left edge).
 
 ## 8. Workflow run-through (2026-10-18, late night; everything except live email and Pro AI)
@@ -267,7 +267,7 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 | Stand-in job pages | improved | carry structured job data (title, company, description) like real Greenhouse pages; seeded links name the real client |
 | Fresh data + setup | yes | after a fresh database run `node web/scripts/demo-setup.mjs` (AI budgets, emails held back, resumes, readiness checks) |
 
-**Known limits to say out loud:** the extension does not download resume files created on the web, so the resume field is one click (or upload once in the drawer); Check now works once a minute; the Inbox page notes it is a sample mailbox.
+**Known limits to say out loud:** Check now works once a minute; the Inbox page notes it is a sample mailbox. (The resume-file limit is gone since section 15.)
 
 Click-by-click: `docs/enterprise-v2/demo/DEMO-WALKTHROUGH.md`.
 
@@ -313,3 +313,126 @@ most of the first layout. The demo resumes now use a layout it reads fully: plai
 wrap, one "Group: a, b, c" line per skill group, the school above the degree. `node web/scripts/demo-resume-parse-check.mjs anika` (10/10)
 and `ben` (9/9); `PDF=<file>` checks a saved PDF. `REFRESH_RESUMES=1 node web/scripts/demo-setup.mjs` re-creates them and the Desktop PDF.
 The parser itself is fixed separately (its own session and PR).
+
+## 14. Autopilot fills the real postings almost completely (2026-10-19)
+
+Measured with `node web/scripts/demo-fill-gaps.mjs <urls>` (Anika, branded extension, resume uploaded in the drawer, FILL ONLY):
+
+| Posting | Before | Now | Left for the person |
+|---|---|---|---|
+| Figma (Greenhouse) | 8 fields, 4 required dropdowns left | 13 offered, 0 required left | nothing |
+| Ramp (Ashby) | 4 fields | 4 fields + résumé | "Where do you plan to work from?" |
+| Rover (Lever) | 5 fields, 6 required left | 11 fields + résumé | "Who referred you?" and the certify box (never ticked by design) |
+
+What changed: Anika's profile is complete (setup: salary, notice, start, relocation, work preference, GitHub, Chicago contact); the extension
+reads react-select dropdowns correctly (Greenhouse picks were landing but counted as failures), reads Lever's custom questions (text and
+radios), answers "City, ST" questions, tells a work-permit question from "authorized to work", fills both salary and total compensation,
+and lets the AI pick required yes/no dropdowns and custom-styled radios (extension 0.69.3, ruleset 7). The demo API's fake AI no longer
+"reads" resumes (`DOSSIER_AI_STUB_PARSE_RESUME=false`), so an upload shows the real resume, and its pick reads only the option list.
+
+## 15. Autopilot fills by itself and attaches the resume (2026-10-19, user report)
+
+The user ran a batch and saw forms left empty and no resume on them. Two causes, both in the extension (0.70.0):
+
+1. **A batch tab waited for a click.** It opened the review panel and wrote nothing until "Fill selected" was pressed on every tab.
+   "Prepare" on the web is the consultant's click, so a batch tab now fills at once and the panel becomes the **review**: "Filled N of M
+   fields · résumé attached", every answer with a mark, **Still needs you** with Go buttons (follows her own edits), **Done**. The panel
+   is no longer modal, so the page can be read and completed beside it. The drawer's own "Scan & fill" keeps the look-then-press step.
+2. **The batch picked the resume without a file.** Her account resume (made by the setup, PDF on the server) reached the extension as a
+   record only; the drawer upload makes a second resume with a file, but the batch took the account default. The extension now fetches
+   a web resume's PDF once (`GET /api/resumes/{id}/file`, pull-only, cached locally) for the batch, the drawer fill and the picker's
+   PDF badge, and a batch falls back to any resume that has a file. The drawer upload step in the walkthrough is now optional.
+
+Measured before the change with `demo-fill-gaps.mjs` (drawer path): Figma 13 offered / 0 required left · Ramp 5 / 0 · Rover 11 + résumé /
+2 (referral, certify box) · TechCorp 9 / 0. So the answers themselves were complete; the batch path was the gap. Rehearsal
+`demo-ext-check.mjs` now waits for the review instead of pressing a button.
+
+## 16. Tailor a resume, then assign (2026-10-19, demo mock)
+
+The marketer tailors a consultant's resume for a job her resume doesn't fit yet, assigns the job, and her Prepare attaches that resume.
+**The tailoring is a preset, not AI:** one job (*ML Platform Engineer · Northbeam Media*, a local stand-in page) and one consultant (Anika), with fixed
+changes and scores in `web/src/lib/ent/demo/tailor-preset.json`. Everything around it is real: the job on Job Discovery, the assignment,
+a real tailored resume with its PDF in Anika's account, the per-job resume in the Prepare batch, the extension attaching that PDF, the Submit.
+
+| Piece | Where | Real or preset |
+|---|---|---|
+| Job + archived tailored resume | `web/scripts/demo-tailor-setup.mjs` (also step 5 of `demo-setup.mjs`); the PDF is built from the preset's text, and the script fails if the preset's "before" text is not on her resume | real data |
+| Rahul: Job Discovery → job sheet card "Anika Rao · 58%" → **Tailor** sheet (AI steps, before/after per change, keep/skip, "Add only if true", score 58 → 87, keywords) → **Save & assign** | `components/ent/demo/TailorJobCard.tsx`, `TailorResumeSheet.tsx`; `JobsParts.tsx`, `JobDiscoveryPage.tsx` | sheet preset; Save = the real Assign call |
+| Anika: row note "Resume tailored by Rahul · 58% → 87% · View changes" (read-only sheet + PDF link) | `components/ent/demo/TailoredRowNote.tsx`; `OpportunitiesPage.tsx` | preset text, real resume |
+| Prepare: the dialog names the tailored resume; confirming **approves** it (restores it to her list) and pins it to that job | `PrepareBatch.tsx`; `app/api/demo/tailored-resume/route.ts` (her own session, demo only) | real |
+| Extension: a job with `resumeId` gets exactly that resume (mirror, else `GET /api/resumes/{id}/file`), never another; other jobs keep the usual pick | `prepare-batch.js` (validate, stored job, `loadMirror(job)`), `service-worker.js` `loadPinnedResume` | real (unit test in `prepare_batch.test.js`) |
+
+Shown only when `GET /api/demo` says the demo is on **and** the job's title + company match the preset, so no real organization sees it.
+The rule "the consultant approves marketer-made resumes" holds: her Prepare click is the approval, said in the dialog.
+
+**Not built (product follow-up):** marketer tailoring for any job (a marketer endpoint over `ResumeTailorService` acting for the consultant),
+a computed before/after score, a resume pinned on the opportunity in the database (`mkt_opportunity.resume_id`), and act-for on shared-account
+organizations (Aaruna's consultants have no organization account, so "New resume for…" is greyed there).
+
+**Rehearsal:** `node web/scripts/demo-tailor-check.mjs` (Rahul tailors and assigns; Anika connects, sees the note, prepares, the stand-in page
+gets the tailored PDF, byte for byte, and the review names it, she submits, the web says Submitted): **12/12 on the 3200 stack with the
+branded extension** (2026-10-19). A rehearsal leaves Anika assigned to the job. To undo only that without a fresh database, run
+`C:\work_bench_claude\tailor-reset.sql` against `dossier_ent_demo`. It removes Anika's Northbeam assignment, its prepare rows and her Northbeam
+application, and it is written for this database's ids. Then run `node web/scripts/demo-tailor-setup.mjs`, which archives the tailored resume again.
+The extension renames every upload `first_last_resume.pdf`, so the review panel's "Résumé file" row also names the resume used.
+
+## 17. Local copies of Workday and SmartRecruiters; Autopilot fills every page up to Submit (2026-10-19, user request)
+
+The user asked for Autopilot on Anika's Assigned Opportunities to open pages that look exactly like the real hiring systems, to keep the
+real sites that already fill well, to copy the ones that don't, and to see a multi-page form filled to the step right before submission.
+
+**Which site stays real and which became a copy.** Greenhouse (Figma), Ashby (Ramp) and Lever (Rover) fill well and stay real. Two did not
+work on stage: **SmartRecruiters** puts its application behind a DataDome bot check (we never get past a CAPTCHA), and **Workday** is five
+pages, of which a batch tab filled only the first. Both are now local copies served by `web/scripts/demo-ats-server.mjs` (port 3399):
+- `http://adobe.wd5.myworkdayjobs.localhost:3399/en-US/external_experienced/job/San-Jose/Senior-Backend-Engineer---Cloud-Platform_R168509`:
+  Adobe's real job page, "Start Your Application" page and step 1 captured from adobe.wd5.myworkdayjobs.com (markup, stylesheet, Roboto,
+  Adobe's logo and banner, Workday footer; scripts removed). `demo-ats/workday/flow.js` builds steps 2 to 5 from the same Workday
+  components (button dropdowns with a listbox popup, multiselect prompts with pills, Add rows, month/year date sections, file upload,
+  validation with "Errors Found", Review with a Submit button). Submit shows "Application Submitted" and sends nothing.
+- `http://jobs.smartrecruiters.localhost:3399/oneclick-ui/company/ServiceNow/publication/a430bd4c-...`: ServiceNow's real posting
+  (captured, with SmartRecruiters' stylesheet) and a two-page application in SmartRecruiters' look (`demo-ats/smartrecruiters/`).
+- The TechCorp/Northbeam practice page now uses Greenhouse's own job-board stylesheet, Untitled Sans and the "Powered by Greenhouse"
+  footer (`demo-ats/greenhouse/`); same fields, Submit button and confirmation as before. The video 09 fixture is unchanged
+  (`DEMO_ATS_LOOK=fixture` serves it). The Gmail page shows Gmail's logo and tab title.
+- `demo-real-jobs.mjs`: Adobe and ServiceNow point at the copies; the setup checks a copy's link on 127.0.0.1 (Node does not resolve
+  *.localhost) and, with `DEMO_SAVE_LIVE=1`, also saves Rahul's live-save job (rehearsals). It also gives Anika's profile "I do not wish to
+  answer" for the voluntary self-identification questions (no demographics), and raises the demo stack's Autopilot daily allowance to
+  200 (platform setting `enterprise.autopilot.prepare.daily_cap`): a morning of rehearsals had used the 30 and the web said "Today 0 left".
+- This database only: the two jobs Rahul had saved from the real Adobe/ServiceNow pages kept their real links (the API reuses a job by
+  ATS + job id), so their `client_requirement.job_url` was pointed at the copies (ids 119 and 100). A fresh database does not need this.
+
+**Extension 0.71.0 (product changes, all tested):**
+1. **A batch tab walks a form split into steps.** After a step is filled, if no required field is left and the page shows no submit-like
+   button, it presses the site's own Next / Continue and fills the next step; it stops on the last step before submission (a page with a
+   Submit), on a step with required fields left (listed in the review), or when the site keeps the step (its own check). Submit, Apply,
+   Send and Finish are never pressed; the review counts every step ("Filled 53 of 53 fields across 5 steps"). The no-submit guard tests now
+   pin exactly one click in `batch-prepare.js` (the checked Next) and a jsdom two-step form proves Submit is never pressed.
+2. A saved Workday job link opens its application (`.../apply/applyManually`, Workday's own Apply Manually address).
+3. Workday adapter: Workday's Review step puts Submit on the same automation id as Next (`pageFooterNextButton`), so a button that says
+   Submit is never "next"; "How Did You Hear About Us?" and Field of Study are picked from their multiselect prompts; relocation, work
+   arrangement and referral questions asked as Workday dropdowns take the profile's answers; dates are read from a resume's single
+   "dates" line ("Mar 2022 - Present") and a school's "year"; more degree names (B.Tech, Bachelor's / Master's Degree).
+4. The popup finder ignores Workday's chosen-item pills (`selectedItemList`), which are a listbox too; the required-field audit sees a
+   Workday multiselect with a pill as filled and a Workday dropdown marked "Required" showing "Select One" as empty.
+5. The AI field mapper no longer types into pick-list search boxes or date sections, and no longer puts a value the plan already placed
+   into a second field (the demo stub had put the phone number into "Country Phone Code" and "Phone Extension"); a "Confirm your email"
+   repeat is still allowed.
+6. The submit watcher no longer calls a page "submitted" while it still shows a Submit button: a Review page's certify line ("...this
+   application is true and complete") had been taken for a confirmation.
+
+**Measured** (`demo-ext-check.mjs`, branded build, Anika, Prepare selected, FILL ONLY): Adobe (Workday copy) **53 of 53 fields across 5
+steps, résumé attached, stops on Review**; ServiceNow (SmartRecruiters copy) **14 of 14 across 2 steps, résumé attached, stops at Submit**;
+in one six-job batch: Figma 13 of 16 + résumé, Ramp 5 of 5 + résumé, TechCorp 9 of 9 + résumé, and the TechCorp Submit is still detected
+and reported (11/12 steps: the 12th only noted that the batch opened five tabs at a time, fixed in 0.71.1 below). Extension suites 35/35 green.
+
+**Known:** the demo API's stub AI always picks the last option of a list, so questions only the AI can answer come out "No"; the copies ask
+questions the profile answers (relocation, work arrangement). One staged sample email ("Weekend Reads") says "Kiwiply keeps its headers
+only" in its text: API seed data, left for a separate change.
+
+**0.71.1 (user report, same day): jobs after the fifth never opened.** A batch opened five tabs and counted a filled tab waiting for
+review as one of the five, so in a batch of six or more the rest stayed "Waiting" until the consultant closed tabs. In the user's run the
+first five were all Greenhouse pages, so Adobe, ServiceNow and Ramp looked broken. Now the cap counts only tabs still opening or filling
+(a filled tab, or one stopped at a sign-in wall or CAPTCHA, frees its place) and a finished fill opens the next job, so every ticked job
+opens, up to the batch maximum of ten. Rehearsed: 9 and 10-job batches, every tab filled (Adobe 53/53 across 5 steps, ServiceNow 14/14,
+Ramp 5/5, Figma 13/16), TechCorp submit detected, 12/12. The rehearsal presses the review panel's Done before Submit, as the walkthrough does
+(the panel sits over Greenhouse's right-aligned Submit button).

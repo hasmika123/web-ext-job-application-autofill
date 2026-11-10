@@ -34,6 +34,7 @@ import ConsultantMatchesPage from "./MatchesPage";
 import JobDiscoveryPage from "./JobDiscoveryPage";
 import { PageTabs, useUrlTab } from "./tabs";
 import { PrepareBar, PrepareCheck, PrepareConfirmDialog, PrepareProgress, PrepareWhy, usePrepareBatch, type PrepareUi } from "./PrepareBatch";
+import TailoredRowNote from "../demo/TailoredRowNote";
 import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
 import { employmentLabel, initialsOf, placeLabel, scoreText, shortDate } from "@/lib/ent/consultant-ws/home";
 import {
@@ -264,6 +265,7 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice, prepare,
                   <td className={cn(TD, "max-w-[190px]")}>
                     <span className="block font-semibold text-ink">{r.title}</span>
                     {r.skills.length ? <span className="block truncate text-[12px] text-muted">{r.skills.slice(0, 3).join(" | ")}</span> : null}
+                    <TailoredRowNote title={r.title} company={r.company} />
                     {prepare.active ? <PrepareWhy row={r} p={prepare} /> : null}
                   </td>
                   <td className={TD}>

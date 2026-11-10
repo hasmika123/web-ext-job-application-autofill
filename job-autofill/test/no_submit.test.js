@@ -90,9 +90,15 @@ const PREPARE_FILES = [
   "entrypoints/panel/prepare-actions.ts",
   "entrypoints/panel/PrepareBatch.tsx",
 ];
+// batch-prepare.js walks a form split into steps (Workday): its ONE click is the step's Next, so it may look buttons up
+// (findNextButton, a submit-type selector to recognise the last step). Section 4b pins that click.
+const STEP_ALLOWED = new Set([".click(", "base-adapter click helpers", "type=submit selector"]);
 for (const f of PREPARE_FILES) {
   const src = code(read(f));
-  for (const [re, label] of FORBIDDEN) ok(f + " has no " + label, !re.test(src));
+  for (const [re, label] of FORBIDDEN) {
+    if (f === "src/content/batch-prepare.js" && STEP_ALLOWED.has(label)) continue;
+    ok(f + " has no " + label, !re.test(src));
+  }
   ok(f + " never ticks or checks a box", !/\.checked\s*=[^=]|\.checked\s*=\s*true|setAttribute\(\s*["']checked/.test(src));
   ok(f + " never writes into a page field", !/\.value\s*=[^=]/.test(src));
 }
@@ -100,6 +106,13 @@ for (const f of PREPARE_FILES) {
 const bp = code(read("src/content/batch-prepare.js"));
 ok("batch-prepare.js: a page element is only scrolled to and focused", /scrollIntoView/.test(bp) && /\.focus\(/.test(bp) && !/\.(blur|select|reset)\s*\(/.test(bp));
 ok("batch-prepare.js forces auto-advance off for batch tabs", /autoAdvance:\s*false/.test(bp));
+/* ---- 4b. the step walk's one click ---- */
+eq("batch-prepare.js has exactly one .click() (a step's Next)", (bp.match(/\.click\(/g) || []).length, 1);
+ok("that click is next.click(), and next comes from nextStepButton()", /next\.click\(\)/.test(bp) && /const next = nextStepButton\(\);/.test(bp));
+ok("nextStepButton returns nothing on a page that shows a submit-like button", /function nextStepButton\(\) \{\s*if \(submitOnPage\(\)\) return null;/.test(bp));
+ok("nextStepButton checks the button's own words (Next/Continue, never Submit/Apply/Send/Finish)", /SUBMIT_TEXT\.test\(t\) \|\| !NEXT_TEXT\.test\(t\)\) return null/.test(bp));
+ok("a step with required fields still empty is never left", /if \(\(r\.gaps && r\.gaps\.length\) \|\| step >= MAX_STEPS - 1\) return false;/.test(bp));
+ok("batch-prepare.js never calls submit()/requestSubmit() or dispatches events", !/\.(submit|requestSubmit)\s*\(|dispatchEvent\s*\(|realClick/.test(bp));
 // The controller can open tabs; it has no way to close one, press anything or run page code of its own.
 const pb = code(read("src/lib/prepare-batch.js"));
 ok("prepare-batch.js: opens tabs only (chrome.tabs.create / get), never removes or navigates one", !/tabs\.(remove|update|executeScript)|scripting|chrome\./.test(pb));

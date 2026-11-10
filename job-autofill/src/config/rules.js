@@ -18,7 +18,7 @@
   const JAF = (window.JAF = window.JAF || {});
 
   JAF.defaultRules = {
-    version: 6,
+    version: 7,
     updatedAt: "2026-09-22",
 
     // W3C `autocomplete` attribute handling. Valid field tokens (given-name, email,
@@ -42,19 +42,24 @@
       { field: "fullName", any: ["full name", "your name", "name"], neg: ["first", "last", "company", "school", "user", "file", "preferred", "middle"] },
       { field: "addressLine2", any: ["address line 2", "apt", "suite", "unit", "address 2"] },
       { field: "addressLine1", any: ["address line 1", "street address", "address", "address 1"], neg: ["email", "line 2", "city", "website", "postal", "zip", "country", "region", "state", "province", "phone", "subdivision"] },
-      { field: "city", any: ["city", "town"], neg: ["capacity"] },
+      // One box for "City, ST" (Figma, Greenhouse: "From where do you intend to work? Please list city and state"). Listed before "city"
+      // so a label naming both reads as this one; never "current location" (Lever's location field autocompletes from the city).
+      { field: "cityState", any: ["intend to work", "city and state", "city, state", "city/state", "city & state"] },
+      { field: "city", any: ["city", "town"], neg: ["capacity", "city and state", "city, state", "city/state", "city & state"] },
       { field: "state", any: ["state", "province", "region"] },
       { field: "postalCode", any: ["zip", "postal", "post code", "postcode"] },
       { field: "country", any: ["country"], neg: ["code"] },
       { field: "summary", any: ["summary", "about you", "tell us about", "professional summary", "profile"] },
       { field: "coverLetter", any: ["cover letter", "why are you", "why do you want", "additional information", "message to"] },
       { field: "skills", any: ["skills", "technical skills", "key skills"] },
-      { field: "authorizedToWork", any: ["authorized to work", "legally authorized", "right to work", "work authorization", "eligible to work", "authorization to work"] },
-      { field: "requireSponsorship", any: ["sponsorship", "require visa", "need visa", "visa support", "require sponsorship", "immigration"] },
+      // "Will you now (or in the future) require a work permit or work authorization…" is a SPONSORSHIP question: the neg words keep it from
+      // being read as "are you authorized to work" (which answers Yes, the opposite of what it asks).
+      { field: "authorizedToWork", any: ["authorized to work", "legally authorized", "right to work", "work authorization", "eligible to work", "authorization to work"], neg: ["require a work", "require work", "require an employment", "require a visa", "in the future require", "or in the future", "sponsor"] },
+      { field: "requireSponsorship", any: ["sponsorship", "require visa", "need visa", "visa support", "require sponsorship", "immigration", "require a work permit", "require work authorization", "require a visa", "require an employment visa"] },
       // Job preferences (Phase 10.3a). Phrases, not single words: "salary", "start date" and
       // "remote" on their own also appear in a work-history block ("Start date") or in questions
       // these values can't answer ("Current salary", "Can you work on-site 3 days a week?").
-      { field: "desiredSalary", any: ["desired salary", "salary expectation", "expected salary", "salary requirement", "desired compensation", "expected compensation", "compensation expectation", "desired pay", "expected pay", "pay expectation", "target salary", "target compensation", "desired base", "expected base"], neg: ["current", "previous", "last salary", "currency"] },
+      { field: "desiredSalary", any: ["desired salary", "salary expectation", "expected salary", "salary requirement", "desired compensation", "expected compensation", "desired total compensation", "expected total compensation", "compensation expectation", "desired pay", "expected pay", "pay expectation", "target salary", "target compensation", "desired base", "expected base"], neg: ["current", "previous", "last salary", "currency"] },
       { field: "noticePeriod", any: ["notice period", "notice required", "how much notice", "weeks notice", "weeks' notice"] },
       { field: "earliestStartDate", any: ["earliest start", "when can you start", "when could you start", "when would you be able to start", "available to start", "availability to start", "desired start date", "preferred start date", "potential start date", "available start date", "start date availability", "date available", "availability date"], neg: ["end date", "graduation"] },
       { field: "workPreference", any: ["work preference", "workplace preference", "work arrangement", "work setting", "work model", "preferred work location", "work location preference", "working preference", "remote, hybrid", "remote/hybrid", "remote or on-site", "remote or onsite", "remote or in-office"] },

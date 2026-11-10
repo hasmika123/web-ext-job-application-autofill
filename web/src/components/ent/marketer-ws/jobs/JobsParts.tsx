@@ -12,6 +12,7 @@ import {
 import { DUPLICATE_WARNING, plainRefusal } from "@/lib/ent/marketer-ws/duplicate";
 import { DuplicateNotice, useDuplicateAsk } from "../DuplicateConfirm";
 import { scoreText } from "@/lib/ent/marketer-ws/score";
+import { TailorJobCard, useTailorPreset } from "../../demo/TailorJobCard";
 import { TINTS, withQuery } from "../parts";
 
 /** Small building blocks of the Job Discovery board: the square client logo chip, priority chip, delta text, filter boxes, and the View / Assign drawers. */
@@ -259,8 +260,9 @@ export function AssignSheet({
 }
 
 /** The "View" drawer: the job's facts, description and the best matches among the consultants the caller may see. */
-export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign, onSave, now }: { orgId: number; job: JobRow; matchesHref: string | null; canAssign: boolean; onClose: () => void; onAssign: () => void; onSave?: () => void; now: number }) {
+export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign, onSave, onTailor, now }: { orgId: number; job: JobRow; matchesHref: string | null; canAssign: boolean; onClose: () => void; onAssign: () => void; onSave?: () => void; onTailor?: () => void; now: number }) {
   const id = useId();
+  const tailor = useTailorPreset(job.title, job.client.name); // demo only (DEMO-PLAN section 16)
   const [detail, setDetail] = useState<JobDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -313,6 +315,7 @@ export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign
             ))}
           </ul>
         ) : null}
+        {tailor && canAssign && onTailor ? <TailorJobCard preset={tailor} onTailor={onTailor} /> : null}
         {error ? <p role="alert" className="text-[13px] text-v2-pink-ink">{error}</p> : null}
         {!detail && !error ? <p aria-busy="true" className="flex items-center gap-2 text-[13px] text-muted"><Spinner /> Loading the job...</p> : null}
         {detail?.description ? <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-ink-soft">{detail.description}</p> : null}

@@ -45,9 +45,20 @@ public final class StubAiProvider implements AiProvider {
     private static final int LATENCY_MS = 5;
 
     private final String defaultModel;
+    private final boolean readsResumes;
 
     public StubAiProvider(String defaultModel) {
+        this(defaultModel, true);
+    }
+
+    /**
+     * @param readsResumes false = resume parsing answers "unavailable" (503) instead of the canned resume, so a client falls back to its own
+     *     parser and shows the real resume. The enterprise demo sets this ({@code DOSSIER_AI_STUB_PARSE_RESUME=false}): the canned
+     *     "Ada Stub" resume would replace the presenter's real one on stage.
+     */
+    public StubAiProvider(String defaultModel, boolean readsResumes) {
         this.defaultModel = defaultModel == null || defaultModel.isBlank() ? "gemini-2.5-flash-lite" : defaultModel.trim();
+        this.readsResumes = readsResumes;
     }
 
     @Override
@@ -74,6 +85,7 @@ public final class StubAiProvider implements AiProvider {
     public AiResult generate(AiTask task, String model, String question, String context, int maxOutputTokens) {
         String prompt = (question == null ? "" : question) + "\n" + (context == null ? "" : context);
         failIfAsked(prompt);
+        if (task == AiTask.PARSE && !readsResumes) throw new AiProviderException("The stub does not read resumes (dossier.ai.stub-parse-resume=false)", 503, null);
         String text = answer(task, prompt, question == null ? "" : question);
         return result(text, model, prompt);
     }
@@ -87,6 +99,7 @@ public final class StubAiProvider implements AiProvider {
     public AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) {
         String prompt = text == null ? "" : text;
         failIfAsked(prompt);
+        if (!readsResumes) throw new AiProviderException("The stub does not read resumes (dossier.ai.stub-parse-resume=false)", 503, null);
         return result(parsedResume(prompt), model, prompt);
     }
 
@@ -121,7 +134,10 @@ public final class StubAiProvider implements AiProvider {
     /** The LAST option under "Options (choose ONE):" - deterministic, and not the first, so a lazy default is visible. */
     private static String pick(String question) {
         int at = question.indexOf("Options");
-        Matcher m = PICK_OPTION.matcher(at < 0 ? question : question.substring(at));
+        // only the option list itself: the candidate background that follows it has "- " bullet lines too
+        String list = at < 0 ? question : question.substring(at);
+        int end = list.indexOf("\n\n");
+        Matcher m = PICK_OPTION.matcher(end > 0 ? list.substring(0, end) : list);
         String last = "Yes";
         while (m.find()) last = m.group(1).trim();
         return last;

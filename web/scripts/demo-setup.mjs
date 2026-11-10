@@ -11,6 +11,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { RESUMES, parsedResume, resumeHtml } from "./demo-resumes.mjs";
+import { setupTailorStory } from "./demo-tailor-setup.mjs";
 import { REAL_JOBS } from "./demo-real-jobs.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +41,15 @@ for (const who of ["anika", "ben"]) {
   const r = await fetch(`${API}/api/admin/users/demo-ent-acme-${who}/ai-quota`, { method: "PUT", headers: { ...json, authorization: `Bearer ${admin}` }, body: JSON.stringify({ budgetCents: 600 }) });
   line(r.ok, `AI budget for ${who} (${r.status})`);
 }
+// Rehearsals spend Autopilot's daily allowance (platform default 30 openings a day per consultant): the demo stack allows 200, so a
+// morning of rehearsing never leaves "Today 0 left" on stage. A platform setting (admin settings registry), not a code change.
+{
+  const r = await fetch(`${API}/api/admin/settings/enterprise.autopilot.prepare.daily_cap`, {
+    method: "PUT", headers: { ...json, authorization: `Bearer ${admin}` },
+    body: JSON.stringify({ value: 200, reason: "Demo stack: rehearsals use up the daily Autopilot allowance" }),
+  });
+  line(r.ok, `Autopilot daily allowance on the demo stack: 200 openings (${r.status})`);
+}
 const reset = await fetch(`${API}/api/admin/demo/inbox/reset`, { method: "POST", headers: { authorization: `Bearer ${admin}` } });
 line(reset.ok, `demo emails held back again (${reset.status}${reset.status === 404 ? ": start the API with DOSSIER_DEMO_INBOX_STAGED=true" : ""})`);
 
@@ -59,7 +69,15 @@ async function ensureResume(who) {
   const name = `${bio.firstName || who} ${bio.lastName || ""}`.trim();
   const label = `${name} - ${r.title}`;
   const have = await (await fetch(`${API}/api/profile/resumes`, { headers: h })).json();
-  const list = Array.isArray(have) ? have.filter((x) => !x.archived) : [];
+  // A copy the extension saved from an earlier rehearsal's upload of the same PDF ("Anika-Rao-Resume"): gone, so the upload on stage is fresh.
+  const uploaded = `${name.replace(/\s+/g, "-")}-Resume`;
+  for (const x of Array.isArray(have) ? have.filter((x) => x.label === uploaded && !x.archived) : []) {
+    const del = await fetch(`${API}/api/profile/resumes/${x.id}`, { method: "DELETE", headers: h });
+    // a resume a rehearsal fill attached to tracked applications can't be deleted: archived instead (it leaves the pick list either way)
+    const arch = del.ok ? null : await fetch(`${API}/api/profile/resumes/${x.id}`, { method: "PUT", headers: { ...h, "content-type": "application/json" }, body: JSON.stringify({ ...x, archived: true }) });
+    console.log(`      ${del.ok ? "removed" : arch && arch.ok ? "archived" : `could not remove (${del.status}/${arch && arch.status})`} the rehearsal upload "${uploaded}"`);
+  }
+  const list = Array.isArray(have) ? have.filter((x) => !x.archived && x.label !== uploaded) : [];
   if (list.some((x) => x.label === label) && !process.env.REFRESH_RESUMES) return line(true, `${who} already has "${label}"`);
   for (const old of list.filter((x) => x.label === label || (x.label || "").startsWith(`${name} - `))) {
     await fetch(`${API}/api/profile/resumes/${old.id}`, { method: "DELETE", headers: h });
@@ -91,6 +109,35 @@ async function ensureResume(who) {
   }
   line(up.ok, `${who}: resume "${label}" with a PDF, set as default (${up.status})`);
 }
+// 2b. Anika's profile, complete and consistent (Chicago), so the extension answers the questions real applications ask: contact, links,
+//     work authorization, salary, notice, start, work preference, relocation. No sensitive data (no date of birth, IDs, or demographics): the
+//     voluntary self-identification questions (Workday's Voluntary Disclosures step) are answered with the "I do not wish to answer" choices.
+{
+  const PROFILE = {
+    anika: {
+      phone: "(312) 555-0142", city: "Chicago", state: "IL", postalCode: "60601", country: "United States",
+      preferredName: "Anika", github: "https://github.com/anikarao-dev", linkedin: "https://www.linkedin.com/in/anika-rao-example",
+      authorizedToWork: "Yes", requireSponsorship: "No",
+      desiredSalary: "185000", noticePeriod: "2 weeks", earliestStartDate: "2 weeks after an offer",
+      workPreference: "Hybrid", willingToRelocate: "Yes", referralSource: "LinkedIn",
+      gender: "I do not wish to answer", ethnicity: "I do not wish to answer", race: "I do not wish to answer",
+      veteranStatus: "I do not wish to self-identify", disabilityStatus: "I do not wish to answer",
+    },
+  };
+  for (const [who, extra] of Object.entries(PROFILE)) {
+    const t = await token(`demo-ent-acme-${who}`, acme);
+    const h = { ...acme, authorization: `Bearer ${t}`, accept: "application/json", "content-type": "application/json" };
+    let cur = {};
+    try {
+      cur = JSON.parse((await (await fetch(`${API}/api/profile`, { headers: h })).json()).payload || "{}");
+    } catch {
+      cur = {};
+    }
+    const r = await fetch(`${API}/api/profile`, { method: "PUT", headers: h, body: JSON.stringify({ payload: JSON.stringify({ ...cur, ...extra }) }) });
+    line(r.ok, `${who}: profile filled in (salary, notice, start, relocation, links) (${r.status})`);
+  }
+}
+
 for (const who of ["anika", "ben"]) {
   try {
     await ensureResume(who);
@@ -121,11 +168,15 @@ for (const who of ["anika", "ben"]) {
   const opts = await (await fetch(`${API}/api/orgs/${orgId}/mkt/opportunities/options?q=Anika`, { headers: rahul })).json();
   const anikaId = (opts.consultants || []).find((c) => c.name === "Anika Rao")?.id;
   if (!anikaId) line(false, "real postings: Anika is not one of Rahul's consultants");
-  // A liveSave posting (Adobe, Workday) is left for Rahul to save from the extension during the demo.
-  for (const j of anikaId ? REAL_JOBS.filter((x) => !x.liveSave) : []) {
+  // A liveSave posting (Adobe, Workday) is left for Rahul to save from the extension during the demo (DEMO_SAVE_LIVE=1: saved here too, for rehearsals).
+  for (const j of anikaId ? REAL_JOBS.filter((x) => !x.liveSave || process.env.DEMO_SAVE_LIVE === "1") : []) {
     let live = false;
     try {
-      const r = await fetch(j.jobUrl, { redirect: "follow", headers: { "user-agent": "Mozilla/5.0" } });
+      // A local stand-in (*.localhost, demo-ats-server.mjs) is asked on the loopback address with its host name: Node does not resolve *.localhost.
+      const u = new URL(j.jobUrl);
+      const r = j.standIn
+        ? await fetch(`http://127.0.0.1:${u.port || 80}${u.pathname}${u.search}`, { headers: { host: u.host } })
+        : await fetch(j.jobUrl, { redirect: "follow", headers: { "user-agent": "Mozilla/5.0" } });
       live = r.ok;
     } catch (e) {
       live = false;
@@ -137,12 +188,20 @@ for (const who of ["anika", "ben"]) {
     };
     const r = await fetch(`${API}/api/orgs/${orgId}/mkt/opportunities/from-extension`, {
       method: "POST",
-      headers: { ...rahul, "content-type": "application/json", "idempotency-key": `demo-${j.externalJobId}` },
+      headers: { ...rahul, "content-type": "application/json", "idempotency-key": `demo-${j.externalJobId}${j.standIn ? "-local" : ""}` },
       body: JSON.stringify(body),
     });
     const saved = r.ok || r.status === 409;
-    line(saved && live, `real posting (${j.ats}): ${j.company}, ${j.title} ${saved ? "saved for Anika" : `not saved (${r.status})`}${live ? "" : " - LINK DID NOT ANSWER: the posting may have closed"}`);
+    const why = saved ? "" : ` ${(await r.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 220)}`;
+    line(saved && live, `real posting (${j.ats}): ${j.company}, ${j.title} ${saved ? "saved for Anika" : `not saved (${r.status})${why}`}${live ? "" : " - LINK DID NOT ANSWER: the posting may have closed"}`);
   }
+}
+
+// 5. The "tailor a resume, then assign" story (DEMO-PLAN section 16): its job on Job Discovery and Anika's tailored resume (demo-tailor-setup.mjs).
+try {
+  await setupTailorStory({ API, acme, token, line });
+} catch (e) {
+  line(false, `tailor story failed (${String(e.message).slice(0, 120)})`);
 }
 
 const anika = await token("demo-ent-acme-anika", acme);

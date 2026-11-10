@@ -125,6 +125,23 @@ function docWith(text) {
   ok("pushSaved carries the captured job fields", pSave.calls[0].app.company === "Acme" && pSave.calls[0].app.externalJobId === "JR-3");
   ok("pushSaved returns the saved entry", savedJob.serverId === 42);
 
+  // The submit watcher: a last step whose certify line reads like a confirmation is not one while its Submit is on screen.
+  {
+    const mk = (html) => {
+      const win = makeWindow("<!doctype html><html><body>" + html + "</body></html>");
+      const sent = [];
+      win.chrome.runtime.sendMessage = (m) => sent.push(m);
+      load(win, "src/content/adapters/base.js");
+      load(win, "src/lib/app-tracking.js");
+      load(win, "src/content/submit-detect.js");
+      return { win, sent };
+    };
+    const review = mk("<h3>Review</h3><p>I certify that the information in this application is true and complete.</p><button>Submit</button>");
+    ok("submit watch: a Review step with its Submit button is not a confirmation", review.win.JAF.submitDetect.signal() === false && review.sent.length === 0);
+    const done = mk("<h2>Thank you for applying!</h2><p>Your application has been submitted.</p>");
+    ok("submit watch: the confirmation that replaces the form is one", done.win.JAF.submitDetect.signal() === true && done.sent.some((m) => m.type === "JAF_SUBMIT_DETECTED"));
+  }
+
   console.log(`\n[app_tracking] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[app_tracking] All green.");
