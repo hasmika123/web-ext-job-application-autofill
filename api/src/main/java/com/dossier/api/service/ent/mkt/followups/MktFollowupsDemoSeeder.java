@@ -1,5 +1,7 @@
 package com.dossier.api.service.ent.mkt.followups;
 
+import com.dossier.api.service.ent.DemoRoster;
+
 import com.dossier.api.domain.ent.mkt.MktFollowup;
 import com.dossier.api.domain.ent.mkt.MktFollowupEvent;
 import com.dossier.api.domain.ent.talent.ClientAccount;
@@ -52,7 +54,7 @@ public class MktFollowupsDemoSeeder {
         "Send offer update", "Follow up on background check", "Client decision status", "Confirm start date", "Follow up on submitted profiles", "Schedule final interview",
         "Send engagement letter", "Follow up after client meeting", "Check consultant interest", "Share interview prep materials",
     };
-    private static final String[] COUNTERPARTS = { "TechCorp", "Global Bank", "AWS", "HealthPlus", "CloudScale", "Deloitte", "FinTech Solutions", "RetailCo", "NextGen Tech", "ACME Internal" };
+    private static final String[] COUNTERPARTS = { "TechCorp", "Global Bank", "AWS", "HealthPlus", "CloudScale", "Deloitte", "FinTech Solutions", "RetailCo", "NextGen Tech", DemoRoster.INTERNAL_CLIENT };
     private static final String[] CHANNELS = { "PHONE", "EMAIL", "PHONE", "EMAIL", "TEAMS" };
     private static final String[] PRIORITIES = { "HIGH", "MEDIUM", "MEDIUM", "LOW", "HIGH" };
     private static final String[] CALL_NOTES = { "Left a voicemail, will try again.", "Spoke with the recruiter; waiting on the client.", "Confirmed the time with the consultant.", "Client asked for one more day." };

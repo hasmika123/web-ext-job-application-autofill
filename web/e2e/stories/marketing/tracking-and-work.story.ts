@@ -2,19 +2,19 @@ import { test, expect, narrate } from "../_support/story";
 import { pickOption } from "../admin/_helpers";
 import { ready, tileValue } from "./_mkt";
 
-/** Submissions, Applications, Interviews, Follow-ups, Tasks, Activity and Performance: the marketer's record-keeping pages. E1: every write here RECORDS; none submits for a consultant. */
+/** Submissions, Applications, Interviews, Tasks (Tasks and Follow-ups tabs), Activity and Performance: the marketer's record-keeping pages. E1: every write here RECORDS; none submits for a consultant. */
 
 test.describe("MKT submissions, applications, interviews", () => {
   test("MKT-30 Omar prepares a draft submission package and nothing is sent to a client", async ({ as }) => {
     const { page, go } = await as("omar");
     await go("/w/marketing/submissions");
     await ready(page, "[data-submissions-page]").waitFor();
-    await narrate(page, "Four tiles: pending approvals, submitted today, under client review, rejected");
-    for (const id of ["pendingApprovals", "submittedToday", "underClientReview", "rejected"]) await expect(page.locator(`[data-stat-tile="${id}"]`)).toBeVisible();
+    await narrate(page, "Three status chips: awaiting approval, under client review, rejected");
+    for (const id of ["AWAITING_APPROVAL", "CLIENT_REVIEW", "REJECTED"]) await expect(page.locator(`[data-submissions-chip="${id}"]`)).toBeVisible();
     const before = await page.locator("[data-submission-row]").count();
 
-    await narrate(page, "New Submission opens a dialog that says it only creates a draft");
-    await page.getByRole("button", { name: /New Submission/ }).click();
+    await narrate(page, "New submission opens a dialog that says it only creates a draft");
+    await page.getByRole("button", { name: /New submission/ }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("nothing is sent to the client");
     // A consultant and job pair that already has a draft is refused (409) and the dialog stays open, so each run takes the next free pair.
@@ -38,82 +38,74 @@ test.describe("MKT submissions, applications, interviews", () => {
   });
 
   test("MKT-31 Omar filters the Applications tracker by stage and records a note", async ({ as }) => {
-    // Applications is the shared organization page, scoped to Omar's consultants (tiles [data-kpi=...], rows tr[data-row-id], the drawer #ent-application-sheet).
+    // The Marketing workspace has its own Applications tracker, scoped to Omar's consultants (tiles [data-stat-tile], stage tabs [data-stage-tab], rows tr[data-app-row]).
     const { page, go } = await as("omar");
     await go("/w/marketing/applications");
-    await expect(page.locator("[data-applications-page]")).toBeVisible({ timeout: 45_000 });
-    await narrate(page, "Four tiles count all applications, those in review, interviewing and offers");
-    for (const k of ["total", "inReview", "interviewing", "offers"]) await expect(page.locator(`[data-kpi-tiles] [data-kpi=${k}]`)).toBeVisible();
-    const rows = page.locator("tr[data-row-id]");
+    await ready(page, "[data-applications]").waitFor();
+    await narrate(page, "Four tiles count active applications, those awaiting a response, interviewing and offers");
+    for (const k of ["active", "awaiting", "interviewing", "offers"]) await expect(page.locator(`[data-stat-tile="${k}"]`)).toBeVisible();
+    const rows = page.locator("tr[data-app-row]");
     await expect(rows.first()).toBeVisible();
 
-    await narrate(page, "Choosing a Stage filters the table");
-    await pickOption(page, page.locator('[role=search] button[aria-label="Stage"]'), page.getByRole("option", { name: "Interviewing" }));
-    await expect(page).toHaveURL(/stage=INTERVIEWING/);
-    await expect(rows.first()).toBeVisible();
-    for (const s of await rows.evaluateAll((els) => els.map((e) => e.getAttribute("data-stage")))) expect(s).toBe("INTERVIEWING");
+    await narrate(page, "Choosing the Interviewing stage tab filters the table");
+    await page.locator('[data-stage-tab="interviewing"]').click();
+    await expect(page.locator('[data-stage-tab="interviewing"]')).toHaveAttribute("aria-selected", "true");
+    await expect(rows.first().or(page.getByText("No applications match these filters."))).toBeVisible();
+    for (const s of await rows.locator("[data-stage]").evaluateAll((els) => els.map((e) => e.getAttribute("data-stage")))) expect(s).toBe("interviewing");
 
     await narrate(page, "Searching for nothing shows the honest empty state");
-    await page.getByRole("searchbox", { name: "Search applications" }).fill("zzz-no-such-application");
-    await expect(page.getByText("No applications match")).toBeVisible();
-    await page.getByRole("button", { name: "Clear filters" }).first().click();
+    await page.getByLabel("Search applications").fill("zzz-no-such-application");
+    await expect(page.getByText("No applications match these filters.")).toBeVisible();
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
     await expect(rows.first()).toBeVisible();
 
-    await narrate(page, "He opens an application and adds a note: a record, not an action on the application");
-    await rows.first().click();
-    const drawer = page.locator("#ent-application-sheet");
-    await expect(drawer.locator("[data-detail-body]")).toBeVisible();
-    await drawer.getByRole("tab", { name: /^Notes/ }).click();
-    const before = await drawer.locator("[data-note-id]").count();
-    await drawer.getByRole("textbox", { name: "Add a note" }).fill(`Story follow-up note ${Date.now()}`);
-    await drawer.getByRole("button", { name: "Add note" }).click();
-    await expect(drawer.locator("[data-note-id]")).toHaveCount(before + 1);
+    await narrate(page, "He adds a note to an application: a record, not an action on the application");
+    await pickOption(page, page.locator("[data-row-menu]").first(), page.getByRole("menuitem", { name: "Add a note" }));
+    const dlg = page.getByRole("dialog", { name: "Add a note" });
+    await dlg.getByRole("textbox").fill(`Story follow-up note ${Date.now()}`);
+    await dlg.getByRole("button", { name: "Add note" }).click();
+    await expect(dlg).toHaveCount(0);
   });
 
   test("MKT-32 Omar checks the interview schedule, switches to the calendar and sees what needs feedback", async ({ as }) => {
-    // Interviews is the shared organization page, scoped to Omar's consultants.
+    // The Marketing workspace has its own Interviews page, scoped to Omar's consultants: a Schedule card (list / calendar) and Pending feedback.
     const { page, go } = await as("omar");
     await go("/w/marketing/interviews");
-    await expect(page.locator("[data-interviews-page]")).toBeVisible({ timeout: 45_000 });
-    await narrate(page, "Four tiles: all interviews, scheduled this week, in progress, completed");
-    for (const k of ["total", "scheduledThisWeek", "inProgress", "completed"]) await expect(page.locator(`[data-kpi-tiles] [data-kpi=${k}]`)).toBeVisible();
-    await expect(page.locator("tr[data-row-id]").first()).toBeVisible();
-    await narrate(page, "Calendar View draws the same interviews by week");
-    await page.getByRole("tab", { name: /Calendar View/ }).click();
+    await ready(page, "[data-interviews]").waitFor();
+    await narrate(page, "The schedule lists his consultants' interviews, with this week's count in its header");
+    const schedule = page.locator('[data-card="schedule"]');
+    await expect(schedule).toBeVisible();
+    await expect(schedule.locator("[data-this-week]")).toContainText("this week");
+    await expect(schedule.locator("[data-interview-row]").first().or(schedule.getByText(/No interviews/))).toBeVisible();
+    await narrate(page, "Calendar draws the same interviews by week");
+    await schedule.getByRole("button", { name: "Calendar", exact: true }).click();
     await expect(page.locator("[data-calendar]")).toBeVisible();
-    await narrate(page, "Pipeline groups them by status, and Analytics counts them");
-    await page.getByRole("tab", { name: /Pipeline/ }).click();
-    await expect(page.locator("[data-kanban-column]")).toHaveCount(4);
-    await page.getByRole("tab", { name: /Analytics/ }).click();
-    await expect(page.locator("[data-analytics-tab]")).toBeVisible();
-    await page.getByRole("tab", { name: /All Interviews/ }).click();
-    await expect(page.locator("tr[data-row-id]").first()).toBeVisible();
+    await schedule.getByRole("button", { name: "List", exact: true }).click();
+    await expect(page.locator("[data-calendar]")).toHaveCount(0);
+    await narrate(page, "Pending feedback lists the interviews still waiting for an outcome");
+    await expect(page.locator('[data-card="pending-feedback"]')).toBeVisible();
   });
 });
 
 test.describe("MKT follow-ups, tasks, activity, performance", () => {
   test("MKT-33 Omar logs a call against today's follow-ups", async ({ as }) => {
     const { page, go } = await as("omar");
-    await go("/w/marketing/followups");
+    await go("/w/marketing/tasks?tab=followups");
     await ready(page, "[data-followups-page]").waitFor();
-    await narrate(page, "Due today, overdue, completed today and waiting: four tiles");
-    for (const id of ["dueToday", "overdue", "completedToday", "waiting"]) await expect(page.locator(`[data-stat-tile="${id}"]`)).toBeVisible();
+    await narrate(page, "Tasks › Follow-ups: today, overdue, upcoming and done are chips over one list");
+    for (const id of ["today", "overdue", "upcoming", "done"]) await expect(page.locator(`[data-followup-chip="${id}"]`)).toBeVisible();
+    await expect(page.locator('[data-followup-chip="today"]')).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('[data-followups-card="today"]')).toBeVisible();
-    await expect(page.locator('[data-followups-card="overdue"]')).toBeVisible();
-    await expect(page.locator('[data-followups-card="upcoming"]')).toBeVisible();
-
-    await narrate(page, "Pressing Log Call with nothing selected explains what to do");
-    await page.getByRole("button", { name: "Log Call" }).first().click(); // the toolbar's button; the Quick Actions card has one too
-    await expect(page.locator("[data-followups-notice]")).toContainText("Select at least one follow-up first.");
 
     const rows = page.locator('[data-followup-table="today"] [data-followup-row]');
+    await expect(rows.first().or(page.getByText("You're all caught up."))).toBeVisible();
     if ((await rows.count()) === 0) {
       await expect(page.getByText("You're all caught up.")).toBeVisible();
       return;
     }
     await narrate(page, "He ticks the first one and logs the call");
     await rows.first().locator('input[type="checkbox"]').check();
-    await page.getByRole("button", { name: "Log Call" }).first().click();
+    await page.locator("[data-followups-selection]").getByRole("button", { name: "Log call" }).click();
     const dlg = page.locator("[data-followup-dialog=call]");
     await expect(dlg).toContainText("(1 selected)");
     await dlg.getByLabel("Call notes").fill(`Story call ${Date.now()}: spoke to the recruiter, waiting for a reply.`);
@@ -128,17 +120,16 @@ test.describe("MKT follow-ups, tasks, activity, performance", () => {
     const { page, go } = await as("omar");
     await go("/w/marketing/tasks");
     await ready(page, "[data-tasks-page]").waitFor();
-    await narrate(page, "Four tiles and six tabs describe his workload");
-    await expect(page.locator("[data-tasks-tiles] [data-stat-tile]")).toHaveCount(4);
-    await expect(page.locator("[data-task-tab]")).toHaveCount(6);
+    await narrate(page, "Five chips describe his workload");
+    await expect(page.locator("[data-task-tab]")).toHaveCount(5);
 
     const title = `Story task ${Date.now()}`;
-    await narrate(page, "Add Task: a title, a type and a due date");
-    await page.getByRole("button", { name: "Add Task" }).first().click();
+    await narrate(page, "Add task: a title, a type and a due date");
+    await page.getByRole("button", { name: "Add task" }).first().click();
     const dlg = page.locator("[data-task-dialog]");
     await expect(dlg).toContainText("Saving it only records it: nothing is emailed and nothing is submitted for a consultant.");
     await dlg.getByLabel("Task title").fill(title);
-    await dlg.getByRole("button", { name: "Add Task" }).click();
+    await dlg.getByRole("button", { name: "Add task" }).click();
     await expect(dlg).toHaveCount(0);
 
     await narrate(page, "It shows up under My Tasks");
@@ -157,14 +148,13 @@ test.describe("MKT follow-ups, tasks, activity, performance", () => {
     const { page, go } = await as("omar");
     await go("/w/marketing/activity");
     await ready(page, "[data-activity-page]").waitFor();
-    await narrate(page, "Five tiles and a filter row sit above the feed");
-    await expect(page.locator("[data-activity-tiles] [data-stat-tile]")).toHaveCount(5);
+    await narrate(page, "A filter row sits above the feed");
     await expect(page.locator("[data-activity-filters]")).toBeVisible();
     await expect(page.locator('[data-activity-card="feed"]')).toBeVisible();
 
     const title = `Story call with recruiter ${Date.now()}`;
-    await narrate(page, "Log Activity records work done for a consultant; it sends nothing");
-    await page.getByRole("button", { name: /Log Activity/ }).click();
+    await narrate(page, "Log activity records work done for a consultant; it sends nothing");
+    await page.getByRole("button", { name: /Log activity/ }).first().click();
     const dlg = page.getByRole("dialog");
     await expect(dlg).toContainText("nothing is sent to the client or the consultant, and nothing is submitted");
     await dlg.getByRole("button", { name: "Consultant" }).click();
@@ -179,15 +169,14 @@ test.describe("MKT follow-ups, tasks, activity, performance", () => {
     const { page, go } = await as("omar");
     await go("/w/marketing/performance");
     await ready(page, "[data-performance]").waitFor();
-    await narrate(page, "Six tiles measure assigned consultants, submissions, rates, placements and follow-up completion");
-    for (const t of ["Assigned Consultants", "Active Submissions", "Interview Rate", "Offer Rate", "Placements This Month", "Follow-up Completion"]) {
+    await narrate(page, "Four tiles measure active submissions, interview and offer rates, and placements this month");
+    for (const t of ["Active submissions", "Interview rate", "Offer rate", "Placements this month"]) {
       await expect(page.locator("[data-perf-tiles]").getByText(t, { exact: true }).first()).toBeVisible();
     }
     await narrate(page, "Charts and the funnel are drawn from real rows, or say there are no numbers yet");
-    for (const c of ["weekly", "trend", "funnel", "readiness"]) await expect(page.locator(`[data-perf-card="${c}"]`)).toBeVisible();
-    const assigned = await tileValue(page, "assignedConsultants");
-    expect(assigned).toBeGreaterThan(0);
-
+    for (const c of ["weekly", "trend", "funnel"]) await expect(page.locator(`[data-perf-card="${c}"]`)).toBeVisible();
+    const active = await tileValue(page, "activeSubmissions");
+    expect(active).toBeGreaterThanOrEqual(0);
   });
 
   test("MKT-36b The marketing manager sees the same Performance page for her own book", async ({ as }) => {

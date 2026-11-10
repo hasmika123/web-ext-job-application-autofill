@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import DashboardPage from "@/components/ent/dashboard/DashboardPage";
 import ReportsPage from "@/components/ent/reports/ReportsPage";
 import { accountsPageFor } from "@/components/ent/accounts-ws/registry";
-import { marketingPageFor } from "@/components/ent/marketer-ws/registry";
+import { marketingPageFor, marketingRedirect } from "@/components/ent/marketer-ws/registry";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
-import { firstNameOf } from "@/lib/ent/dashboard";
 import { getTenantSession } from "@/lib/ent/tenant-session";
 import { catchAllPage } from "@/lib/ent/shell";
 import { can } from "@/lib/ent/workspaces";
@@ -42,17 +42,21 @@ export default async function WorkspaceCatchAll({ params }: { params: Promise<{ 
       <DashboardPage
         orgId={me.org.id}
         orgName={me.org.displayName}
-        firstName={firstNameOf(me.person.name)}
         auditHref={hrefOf("audit")}
         applicationsHref={hrefOf("applications")}
         employeesHref={hrefOf("employees")}
-        invitationsHref={hrefOf("invitations")}
+        invitationsHref={hrefOf("employees") ? `${hrefOf("employees")}?tab=invitations` : null}
       />
     );
   }
   if (hit.kind === "page" && workspace === "admin" && (slug ?? []).length === 1 && slug?.[0] === "reports" && can(me, "reports.view") && me.org.id) {
     // Reports is the Administration workspace's page only; the other workspaces' Reports entries keep "on the way" (their own scopes, their own phase).
     return <ReportsPage orgId={me.org.id} orgName={me.org.displayName} />;
+  }
+  if (workspace === "marketing") {
+    // pages merged into tabs in the UI refresh (Phase 1): the old addresses open their tab
+    const to = marketingRedirect(slug ?? []);
+    if (to) redirect(to);
   }
   if (hit.kind === "page" && workspace === "marketing") {
     // The Marketing workspace's real pages (one folder each under components/ent/marketer-ws); the rest keep "on the way".

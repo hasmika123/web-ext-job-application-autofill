@@ -8,7 +8,7 @@ import type { ResumeScoreGroupId, ResumeSectionKind } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import { COPY, suggestionNeedsReview, type AiProposal } from "@/lib/resume-ai";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
-import { DEFAULT_BUILDER_CONFIG, capabilitiesOf } from "@/lib/resume-builder-config.shared";
+import { DEFAULT_BUILDER_CONFIG, capabilitiesOf, photoSettingsOf } from "@/lib/resume-builder-config.shared";
 import { useBuilderEnv } from "./builderEnv";
 import {
   checkpointDoc,
@@ -68,6 +68,7 @@ import { usePdfStatus } from "./usePdfStatus";
 import { VERSION_TOAST_MS } from "./uiTiming";
 import { useBuilderLayout } from "./useBuilderLayout";
 import { usePresentation } from "./usePresentation";
+import { usePhoto } from "./photo/usePhoto";
 
 /** The right sheet's two document views; Resume settings (R3.12) is the third right view and has no Download entry. */
 type PreviewView = Exclude<RightView, "settings">;
@@ -96,6 +97,8 @@ export interface ResumeEditorProps {
   aiUsageLine?: { headline: string; detail: string } | null;
   /** When the Common Profile last changed; the sync banner (R3.x) compares it to `meta.profileSyncedAt`. */
   profileUpdatedAt?: string | null;
+  /** The profile's country code (`bio.payload.country`, upper-case), or null: the photo dialog's region note keys off it (R7.4). */
+  profileCountry?: string | null;
   /** The resume's metadata (name, primary, visibility, versions...) read on the server for the header bar; null = it reads it itself. */
   initialMeta?: ResumeMeta | null;
   /** The job this resume targets: always null until R5.6. */
@@ -114,7 +117,7 @@ export interface ResumeEditorProps {
  * sheet for Print layout / PDF view (R3.8). A client island over `state/reducer` (document, autosave,
  * undo) and `state/ui` (panels, layout). Phone: a bottom tab bar, every sheet fullscreen.
  */
-export default function ResumeEditor({ initial, plan, config: serverConfig, aiUsageLine = null, entry, initialMeta = null, primaryResumeId = null }: ResumeEditorProps) {
+export default function ResumeEditor({ initial, plan, config: serverConfig, aiUsageLine = null, entry, initialMeta = null, primaryResumeId = null, profileCountry = null }: ResumeEditorProps) {
   const env = useBuilderEnv();
   // Role-based restrictions of the ONE builder (personal, a consultant in an organization, a marketer acting for a consultant), decided by the API for this
   // session. Without AI in the session the AI affordances (rewrite, suggestions, job match, tailor, upsell locks) are not drawn at all; the API refuses them too.
@@ -239,6 +242,22 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
     dispatch(a);
   }, [flashPanel]);
   const presentation = usePresentation({ resumeId, autosave, templateId: state.templateId, theme: state.theme, doc, config, dispatch: presentationDispatch });
+
+  /* ── the profile photo (R7.4): server-owned, so it bypasses the document's undo and the autosave PUT ─────── */
+  const photoSettings = photoSettingsOf(config);
+  const photo = usePhoto({
+    resumeId,
+    autosave,
+    dispatch,
+    doc,
+    theme: state.theme,
+    caps,
+    // The admin switch, and not while acting for someone (the API refuses it there too).
+    enabled: config.features.photo && builderCaps.mode !== "marketer-act-for",
+    discouraged: !!profileCountry && photoSettings.discouragedRegions.includes(profileCountry.toUpperCase()),
+    changeTheme: presentation.changeTheme,
+    onChanged: () => setPresentationSavedAt(Date.now()),
+  });
 
   // Every change of the document tells the controller; it debounces and serialises.
   useEffect(() => {
@@ -941,6 +960,7 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
               ai={rewrite.canvasAi}
               onAddSection={() => openAddFor("SUMMARY")}
               reorder={leftOpen && ui.leftPanel === "swap"}
+              photo={photo}
             />
           </div>
         </main>
@@ -1002,6 +1022,7 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
                 theme={state.theme}
                 templateId={state.templateId}
                 caps={caps}
+                photoSrc={photo.src}
                 controls={presentation}
                 onDownloadPdf={() => void downloadPdfFile(false)}
                 exporting={exporting}

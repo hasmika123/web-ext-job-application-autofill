@@ -74,6 +74,14 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_PIPELINE_MAX_PER_REQUIREMENT = "org.pipeline.max_submissions_per_requirement";
     public static final String ORG_PIPELINE_OPEN_MATCHES_MAX = "org.pipeline.open_matches_max";
     public static final String ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK = "org.assignments.handover_open_work";
+    /**
+     * Sprint 2 / H-assign: the longest temporary cover (days) and how far ahead a handover may be scheduled (days); and the licence allowance
+     * {@code consultants.max}, the most consultants one marketer may carry whatever the capacity on the board says (0 = the licence sets no cap).
+     * An organization may override each in org_setting.
+     */
+    public static final String ORG_ASSIGNMENTS_DELEGATE_MAX_DAYS = "org.assignments.delegate_max_days";
+    public static final String ORG_ASSIGNMENTS_SCHEDULE_MAX_DAYS = "org.assignments.schedule_max_days";
+    public static final String ORG_LICENSE_CONSULTANTS_MAX = "org.license.consultants_max";
     /** Interviews page: how long a status change may be undone (minutes), the most interviewers one interview may list, and the minutes before a reminder may be requested again. An organization may override each in org_setting. */
     public static final String ORG_INTERVIEWS_UNDO_MINUTES = "org.interviews.undo_minutes";
     public static final String ORG_INTERVIEWS_MAX_DURATION_MINUTES = "org.interviews.max_duration_minutes";
@@ -156,7 +164,8 @@ public final class EnterpriseSettingKeys {
     /**
      * Prepare selected openings (docs/enterprise-v2/63, X12.2): the platform switch (default off), the most openings one consultant may prepare per UTC day and
      * per UTC month, the most in one request, and how long a session accepts events. The extension opens and fills the jobs in the consultant's own browser and
-     * stops; nothing is ever submitted for anyone. An organization may override each in {@code org_setting} ({@code enabled} only downwards).
+     * stops; nothing is ever submitted for anyone. The {@code enabled} switch is the MASTER switch: it only makes the feature available. Each organization then opts in itself
+     * (its own {@code org_setting} row of the same key, OFF until its Org Admin turns it on) and may set its own caps and batch size, never above the platform values.
      */
     public static final String PREPARE_ENABLED = "enterprise.autopilot.prepare.enabled";
     public static final String PREPARE_DAILY_CAP = "enterprise.autopilot.prepare.daily_cap";
@@ -221,10 +230,10 @@ public final class EnterpriseSettingKeys {
             null, Risk.HIGH));
         k.add(new Key(PREPARE_ENABLED, Type.BOOL, "false", null, null, null,
             "Prepare selected openings: a consultant ticks assigned openings and the browser extension opens each job in a new tab and fills it from the consultant's own profile, then stops. "
-                + "The consultant reviews, completes anything missing and presses the final button on the real site; Kiwiply never does it for them and never ticks an attestation box. Off = the feature does not exist. An organization can switch it off in org_setting.", null, Risk.HIGH));
-        integer(k, PREPARE_DAILY_CAP, 30, 1, 1000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC day. An organization can override it in org_setting.");
-        integer(k, PREPARE_MONTHLY_CAP, 300, 1, 10000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC calendar month. An organization can override it in org_setting.");
-        integer(k, PREPARE_MAX_BATCH, 10, 1, 50, Risk.LOW, "Prepare selected openings: the most openings in one request. An organization can override it in org_setting.");
+                + "The consultant reviews, completes anything missing and presses the final button on the real site; Kiwiply never does it for them and never ticks an attestation box. Off = the feature does not exist for anyone. On = available: each organization opts in itself (default off) on its Organization Settings page, and only consultants whose license includes the Autopilot prepare add-on can use it.", null, Risk.HIGH));
+        integer(k, PREPARE_DAILY_CAP, 30, 1, 1000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC day. This is the maximum: an organization can set its own lower number in org_setting.");
+        integer(k, PREPARE_MONTHLY_CAP, 300, 1, 10000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC calendar month. This is the maximum: an organization can set its own lower number in org_setting.");
+        integer(k, PREPARE_MAX_BATCH, 10, 1, 50, Risk.LOW, "Prepare selected openings: the most openings in one request. This is the maximum: an organization can set its own lower number in org_setting.");
         integer(k, PREPARE_SESSION_MINUTES, 240, 15, 1440, Risk.LOW, "Prepare selected openings: minutes a prepared batch keeps accepting progress events from the extension. An organization can override it in org_setting.");
         integer(k, HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW,
             "Months of organization application, interview and submission history kept; 0 keeps it as long as the record exists. Older rows are deleted nightly, but the newest row of every record is always kept. An organization can override it in org_setting.");
@@ -265,6 +274,9 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_PIPELINE_OPEN_MATCHES_MAX, 0, 0, 1000, Risk.LOW, "Assignments: the most open opportunities one consultant may hold; the next assignment answers 409 ASSIGNMENT_CAP. 0 = off. An organization can override it in org_setting.");
         k.add(new Key(ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK, Type.BOOL, "true", null, null, null,
             "Marketing Assignments: when a consultant moves to a new marketer, the open opportunities, tasks and follow-ups the previous marketer owned for that consultant move with them (audited, with a note on each). Off: only the assignment moves and the open work stays with the previous owner. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        integer(k, ORG_ASSIGNMENTS_DELEGATE_MAX_DAYS, 90, 1, 365, Risk.LOW, "Marketing Assignments: the longest temporary cover (days) that can be set when a marketer is away. The cover ends by itself on its end date and the consultant goes back. An organization can override it in org_setting.");
+        integer(k, ORG_ASSIGNMENTS_SCHEDULE_MAX_DAYS, 180, 1, 730, Risk.LOW, "Marketing Assignments: how far ahead (days) a handover to a new marketer may be scheduled. An organization can override it in org_setting.");
+        integer(k, ORG_LICENSE_CONSULTANTS_MAX, 0, 0, 500, Risk.MEDIUM, "Marketing Assignments, entitlement consultants.max: the most consultants one marketer may carry, whatever the capacity on the board says; assigning past it answers 409 CONSULTANTS_LIMIT and cannot be overridden. 0 = the licence sets no cap. The marketer license grants it; an organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_UNDO_MINUTES, 10, 1, 120, Risk.LOW, "Interviews: how many minutes a recorded status change may be undone. An organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_MAX_DURATION_MINUTES, 480, 15, 1440, Risk.LOW, "Interviews: the longest interview (minutes) that may be scheduled. An organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_MAX_INTERVIEWERS, 6, 1, 20, Risk.LOW, "Interviews: the most interviewers one interview may list. An organization can override it in org_setting.");
@@ -284,8 +296,8 @@ public final class EnterpriseSettingKeys {
             "Resume Builder in an organization workspace: let a consultant create share links (a recruiter link or named people) for their organization resumes. Off by default; the organization admin can turn it on, and an organization can override it in org_setting. A marketer acting for a consultant can never create share links, whatever this says. Personal accounts are unaffected.", null, Risk.MEDIUM));
         integer(k, ORG_SECURITY_SESSION_TIMEOUT_MIN_MINUTES, 15, 5, 1440, Risk.MEDIUM, "Organization Settings: the shortest idle-session timeout (minutes) an Org Admin may set for their organization.");
         integer(k, ORG_SECURITY_SESSION_TIMEOUT_MAX_MINUTES, 43200, 60, 525600, Risk.MEDIUM, "Organization Settings: the longest idle-session timeout (minutes) an Org Admin may set; 43200 is 30 days.");
-        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR, 4, 4, 32, Risk.HIGH, "Organization Settings: the lowest password minimum length an Org Admin may set (never below the platform's own 4).");
-        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING, 32, 8, 100, Risk.MEDIUM, "Organization Settings: the highest password minimum length an Org Admin may set.");
+        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR, 4, 4, 32, Risk.HIGH, "Organization Settings: the lowest sign-in minimum length an Org Admin may set (never below the platform's own 4).");
+        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING, 32, 8, 100, Risk.MEDIUM, "Organization Settings: the highest sign-in minimum length an Org Admin may set.");
         integer(k, ORG_SETTINGS_REASON_MIN_CHARS, 10, 3, 200, Risk.LOW, "Organization Settings: the fewest characters of the reason an Org Admin must give for a Security change.");
         integer(k, ORG_AUDIT_EXPORT_MAX_ROWS, 5000, 100, 50000, Risk.LOW, "Audit log CSV export: the most rows (newest first) one export carries.");
         k.add(new Key(ORG_SETTINGS_LOCALES, Type.JSON, DEFAULT_LOCALES, null, null, null,

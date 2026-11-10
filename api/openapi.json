@@ -207,6 +207,9 @@
     "name" : "resume-match",
     "description" : "Score the user's resumes against a job description (Pro)."
   }, {
+    "name" : "inbox-review",
+    "description" : "What the inbox held for review, and undo for what it applied."
+  }, {
     "name" : "authentication",
     "description" : "Obtain and refresh the JWT access token. These endpoints are public (no bearer token required)."
   }, {
@@ -804,6 +807,58 @@
         } ]
       }
     },
+    "/api/profile/inbox/settings" : {
+      "get" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "The inbox safety settings",
+        "operationId" : "settings_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "put" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Apply rejections automatically, on or off",
+        "operationId" : "setSettings",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SettingsVM"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/inbox/notify" : {
       "put" : {
         "tags" : [ "inbox" ],
@@ -1328,6 +1383,54 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/OrgSettingsDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/org-settings/prepare" : {
+      "get" : {
+        "tags" : [ "org-settings" ],
+        "summary" : "Prepare selected openings: this organization's switch and limits",
+        "description" : "{platformEnabled (the Kiwiply master switch), enabled (this organization has opted in; off by default), dailyCap, monthlyCap, maxBatch: {value, platformMax, min, custom}, licensed:{consultants, total, featureName}}. Needs org.settings.manage.",
+        "operationId" : "getPrepare",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgPrepareSettingsDTO"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "org-settings" ],
+        "summary" : "Change the Prepare selected openings settings",
+        "description" : "Partial body {enabled?, dailyCap?, monthlyCap?, maxBatch?}: an absent field is left alone, a null number goes back to the platform value. A number above the platform maximum is kept at the maximum (the reply shows it); below the minimum or not a whole number is 422 ORG_INVALID. 409 PREPARE_PLATFORM_OFF while Kiwiply has the feature off. One ORG_SETTINGS audit row with old and new values. The consultant always reviews each prepared application and finishes it themselves on the employer site.",
+        "operationId" : "putPrepare",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgPrepareSettingsDTO"
                 }
               }
             }
@@ -2143,6 +2246,52 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/CheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/inbox/settings" : {
+      "get" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "The inbox safety settings",
+        "operationId" : "settings_2",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Apply rejections automatically, on or off",
+        "operationId" : "setSettings_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SettingsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
                 }
               }
             }
@@ -4227,6 +4376,122 @@
         } ]
       }
     },
+    "/api/profile/resumes/{id}/photo" : {
+      "get" : {
+        "tags" : [ "resume-builder" ],
+        "summary" : "A resume's photo",
+        "description" : "The stored picture. ETag = its storage key (a new upload is a new key); Cache-Control: private, max-age=300; 304 on a matching If-None-Match. 404 when the resume is not yours or has no photo.",
+        "operationId" : "get_5",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "If-None-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "resume-builder" ],
+        "summary" : "Add or replace a resume's photo",
+        "description" : "multipart field 'file': a JPEG, PNG or WebP (magic bytes decide). Metadata (EXIF, GPS, ICC, XMP) is removed server-side; JPEG/PNG are cropped to a centred square, scaled to at most 512 px and stored as JPEG. Answers the saved document (new ETag). 404 if the resume is not yours, 403 FEATURE_DISABLED (feature.resume_photo.enabled), 413 PHOTO_TOO_LARGE (resume.photo.maxBytes), 415 PHOTO_FORMAT, 422 PHOTO_INVALID.",
+        "operationId" : "upload_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeDocDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "delete" : {
+        "tags" : [ "resume-builder" ],
+        "summary" : "Remove a resume's photo",
+        "description" : "Deletes the file and sets basics.photo to null; answers the saved document (new ETag). Idempotent. 404 if not owned.",
+        "operationId" : "remove",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeDocDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/resumes/{id}/export-recorded" : {
       "post" : {
         "tags" : [ "resume-builder" ],
@@ -5187,6 +5452,70 @@
         } ]
       }
     },
+    "/api/profile/inbox/review/{id}/dismiss" : {
+      "post" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Dismiss a held change; the same email never asks again",
+        "operationId" : "dismiss_3",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/inbox/review/{id}/accept" : {
+      "post" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Apply a held change",
+        "operationId" : "accept_2",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AcceptVM"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Applied"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/field-caches/sync" : {
       "post" : {
         "tags" : [ "field-cache-sync" ],
@@ -5632,7 +5961,7 @@
       },
       "post" : {
         "tags" : [ "application-attachment-resource" ],
-        "operationId" : "upload_1",
+        "operationId" : "upload_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -5725,6 +6054,46 @@
         } ]
       }
     },
+    "/api/profile/applications/{applicationId}/inbox-undo/{eventId}" : {
+      "post" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Undo a status change the inbox made",
+        "description" : "409 UNDO_EXPIRED after inbox.undo_window_days; 409 CHANGED_SINCE when the status was changed meanwhile.",
+        "operationId" : "undo",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "eventId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Applied"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/applications/bulk" : {
       "post" : {
         "tags" : [ "applications-sync" ],
@@ -5762,7 +6131,7 @@
       "post" : {
         "tags" : [ "resume-ai" ],
         "summary" : "Dismiss an AI proposal",
-        "operationId" : "dismiss_3",
+        "operationId" : "dismiss_4",
         "parameters" : [ {
           "name" : "pid",
           "in" : "path",
@@ -6558,7 +6927,7 @@
         "tags" : [ "placements" ],
         "summary" : "Undo your latest change",
         "description" : "Body: eventId (from the detail's undo token). Takes back the caller's own latest change within ten minutes. 422 UNDO_NOT_AVAILABLE otherwise. PLACEMENT_UNDO audit row.",
-        "operationId" : "undo",
+        "operationId" : "undo_1",
         "parameters" : [ {
           "name" : "placementId",
           "in" : "path",
@@ -7244,7 +7613,7 @@
         "tags" : [ "mkt-tasks" ],
         "summary" : "The Tasks board (one call)",
         "description" : "{generatedAt, wide, kpis[total, overdue, dueThisWeek, completedThisWeek], tabs{all,my,team,overdue,dueThisWeek,completed}, tasks{items,total,page,size}, upcoming[4], options}. tab = ALL|MY|TEAM|OVERDUE|DUE_WEEK|COMPLETED; filters category, priority, status, owner (member id or me), due (yyyy-MM-dd), q; sort = dueAt|priority|title|status|owner|related[,desc]; size cap 100. 404 without followups.manage.",
-        "operationId" : "get_5",
+        "operationId" : "get_6",
         "parameters" : [ {
           "name" : "tab",
           "in" : "query",
@@ -7723,7 +8092,7 @@
         "tags" : [ "mkt-streams" ],
         "summary" : "The Job Streams board (one call)",
         "description" : "{kpis, streams:{items,total,page,size}, filters, activity, chart, alerts, rules}. Query: q, source, status (ACTIVE|PAUSED|ERROR), client, showInactive (default false: paused streams are hidden), page, size (cap 100), sort (created|source|status|lastSync|openings, '-' prefix = descending), days (7|14, chart). matches.run required; 404 otherwise.",
-        "operationId" : "get_6",
+        "operationId" : "get_7",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -8528,7 +8897,7 @@
       "post" : {
         "tags" : [ "mkt-matches" ],
         "summary" : "Dismiss a suggested match (SUGGESTED to DISMISSED)",
-        "operationId" : "dismiss_4",
+        "operationId" : "dismiss_5",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -8818,7 +9187,7 @@
         "tags" : [ "mkt-followups" ],
         "summary" : "The Follow-ups board (one call)",
         "description" : "{generatedAt, kpis[dueToday, overdue, completedToday, waiting], today, overdue, upcoming: {items,total,page,size}, insights}. window = THIS_WEEK (last 7 days), LAST_WEEK or THIS_MONTH (last 30 days) drives only the insights. 404 without followups.manage.",
-        "operationId" : "get_7",
+        "operationId" : "get_8",
         "parameters" : [ {
           "name" : "window",
           "in" : "query",
@@ -9101,7 +9470,7 @@
         "tags" : [ "mkt-activity" ],
         "summary" : "The Activities board (one call)",
         "description" : "{generatedAt, from, to, canLog, kpis[total,resume,submission,followup,interview], activities:{items,total,page,size}, summary, upcoming, upcomingTotal, options}. from/to are yyyy-MM-dd (UTC, inclusive; default the current month); type = RESUME|OPPORTUNITY|SUBMISSION|FOLLOWUP|INTERVIEW|FEEDBACK|APPLICATION|OFFER|PLACEMENT; status = COMPLETED|SCHEDULED|CANCELLED; ownerId = the member who did it; sort = recent (default) | oldest; summaryRange = THIS_MONTH|LAST_MONTH|LAST_7_DAYS|LAST_30_DAYS; size cap 100. 404 without pipeline.view.",
-        "operationId" : "get_8",
+        "operationId" : "get_9",
         "parameters" : [ {
           "name" : "from",
           "in" : "query",
@@ -10465,7 +10834,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Accept an offer",
         "description" : "Needs offers.respond. Records the consultant's answer only: nothing is signed or sent to a client; accepting creates the placement record (PENDING_START or ACTIVE). 409 OFFER_NOT_OPEN when it is not open, OFFER_EXPIRED after the deadline.",
-        "operationId" : "accept_2",
+        "operationId" : "accept_3",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -10956,7 +11325,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Hide a suggested job",
-        "operationId" : "dismiss_5",
+        "operationId" : "dismiss_6",
         "parameters" : [ {
           "name" : "suggestionId",
           "in" : "path",
@@ -10985,7 +11354,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Add a suggested job to the board",
-        "operationId" : "accept_3",
+        "operationId" : "accept_4",
         "parameters" : [ {
           "name" : "suggestionId",
           "in" : "path",
@@ -11019,6 +11388,64 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/inbox/review/{holdId}/dismiss" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Dismiss a held change; the same email never asks again",
+        "operationId" : "dismiss_7",
+        "parameters" : [ {
+          "name" : "holdId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/inbox/review/{holdId}/accept" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Apply a held change",
+        "operationId" : "accept_5",
+        "parameters" : [ {
+          "name" : "holdId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AcceptRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Applied"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/availability/blocks" : {
       "post" : {
         "tags" : [ "consultant-workspace" ],
@@ -11041,6 +11468,43 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/applications/{applicationId}/inbox-undo/{eventId}" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Undo a status change the inbox made",
+        "description" : "409 UNDO_EXPIRED after the undo window.",
+        "operationId" : "undo_2",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "eventId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Applied"
                 }
               }
             }
@@ -11124,6 +11588,42 @@
         }
       }
     },
+    "/api/orgs/{orgId}/marketing-assignments/schedules/{scheduleId}/cancel" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Cancel a planned change, or end a cover now",
+        "description" : "assignments.manage at a scope covering the marketer. A plan that has not started is cancelled; a running cover ends now and the consultant goes back to the marketer they were taken from. 409 NOT_PENDING for a plan that is over. One audit row. Idempotency-Key required.",
+        "operationId" : "cancelSchedule",
+        "parameters" : [ {
+          "name" : "scheduleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Schedule"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/marketing-assignments/restore" : {
       "post" : {
         "tags" : [ "marketing-assignments" ],
@@ -11155,6 +11655,44 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/reassign" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Reassign one consultant now or on a future date",
+        "description" : "assignments.manage at a scope covering the current and the new marketer. Body: consultantId, newMarketerMemberId, effectiveAt (optional; none or within a minute of now = now, a later date schedules it, at most org.assignments.schedule_max_days ahead), reason (optional, 200 characters), allowOverCapacity. Now: the same change as /assign (answer status DONE with the per-consultant result). Later: a plan the scheduled job applies that day (status SCHEDULED with the plan; history, handover and audit written then). 409 OVER_CAPACITY (waivable), 409 CONSULTANTS_LIMIT (the licence cap, never waivable), 409 SCHEDULE_EXISTS, 409 ALREADY_MARKETER. Idempotency-Key required.",
+        "operationId" : "reassign_2",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReassignRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReassignResult"
                 }
               }
             }
@@ -11218,6 +11756,44 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Marketer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/delegate" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Temporary cover for one consultant",
+        "description" : "assignments.manage at a scope covering the current marketer and the cover. Body: consultantId, coverMarketerMemberId, startsAt (optional, default now), endsAt (required, after the start, at most org.assignments.delegate_max_days later), reason (required, 3 to 200 characters), allowOverCapacity. From the start the cover is the consultant's marketer and the open work moves to them; on the end date the scheduled job gives the consultant back to the marketer they were taken from, with the open work. One cover per consultant at a time (409 SCHEDULE_EXISTS). Idempotency-Key required.",
+        "operationId" : "delegate",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DelegateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Schedule"
                 }
               }
             }
@@ -12101,7 +12677,7 @@
         "tags" : [ "org-dashboard" ],
         "summary" : "Hide an alert for 7 days (for the caller only)",
         "description" : "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT, APPLICATIONS_OVERDUE, LICENSES_ATTENTION, MARKETERS_OVERLOADED, APPLICATIONS_NEW, INTERVIEWS_WEEK, PLACEMENT_NEW, RESUMES_PENDING, CONSULTANTS_UNASSIGNED) or CHECKLIST (the activation checklist card). Other administrators still see it. Unknown key, or no dashboard.view_org: 404.",
-        "operationId" : "dismiss_6",
+        "operationId" : "dismiss_8",
         "parameters" : [ {
           "name" : "alertKey",
           "in" : "path",
@@ -13275,7 +13851,7 @@
         "tags" : [ "org-branding" ],
         "summary" : "Upload a logo, favicon or banner into the draft",
         "description" : "multipart field 'file'. PNG, JPEG or WebP only (magic bytes decide); SVG and anything else -> 415 BRANDING_ASSET_UNSUPPORTED_TYPE; over the size cap -> 413 BRANDING_ASSET_TOO_LARGE; too small -> 422 BRANDING_ASSET_TOO_SMALL; not an image or not square (favicon) -> 422. PNG/JPEG are re-encoded (metadata stripped).",
-        "operationId" : "upload_2",
+        "operationId" : "upload_3",
         "parameters" : [ {
           "name" : "kind",
           "in" : "path",
@@ -17991,7 +18567,7 @@
     "/api/orgs/{orgId}" : {
       "get" : {
         "tags" : [ "org-resource" ],
-        "operationId" : "get_9",
+        "operationId" : "get_10",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -18037,7 +18613,7 @@
         "tags" : [ "roles" ],
         "summary" : "One role with its permission rows and its version (ETag)",
         "description" : "The ETag is what edit and delete expect as If-Match.",
-        "operationId" : "get_10",
+        "operationId" : "get_11",
         "parameters" : [ {
           "name" : "roleId",
           "in" : "path",
@@ -18137,7 +18713,7 @@
         "tags" : [ "requirements" ],
         "summary" : "One requirement: the detail drawer",
         "description" : "Facts, the client text, the consultants it was put in front of, and an ETag (the version PATCH expects as If-Match). 404 for another tenant's id.",
-        "operationId" : "get_11",
+        "operationId" : "get_12",
         "parameters" : [ {
           "name" : "requirementId",
           "in" : "path",
@@ -18393,7 +18969,7 @@
         "tags" : [ "mkt-resumes" ],
         "summary" : "Read-only preview of one resume",
         "description" : "Headline, summary, skills (primary first), experience and the change history. 404 for a consultant outside the caller's scope.",
-        "operationId" : "get_12",
+        "operationId" : "get_13",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -18660,7 +19236,7 @@
         "tags" : [ "members" ],
         "summary" : "One employee: the detail sheet",
         "description" : "Seat, roles, department, team, manager, direct reports, consent scope, what the caller may do with this seat (actions), and recent audit rows about the person (with audit.view or hr.view). phone, location and timezone are null: the platform stores none of them for a member. Never exposes a resume or an application. ETag = the version PATCH expects as If-Match. 404 outside the caller's scope.",
-        "operationId" : "get_13",
+        "operationId" : "get_14",
         "parameters" : [ {
           "name" : "memberId",
           "in" : "path",
@@ -18812,7 +19388,7 @@
         "tags" : [ "jobs" ],
         "summary" : "One job: the detail drawer",
         "description" : "Facts, description, skills, client contact, every match with its score and status (Top Matches), the submissions (applications) and the activity (application events and audit rows). ETag = the version PATCH expects as If-Match. 404 for another tenant's id.",
-        "operationId" : "get_14",
+        "operationId" : "get_15",
         "parameters" : [ {
           "name" : "jobId",
           "in" : "path",
@@ -18933,7 +19509,7 @@
         "tags" : [ "interviews" ],
         "summary" : "One interview: the detail drawer",
         "description" : "Stepper of rounds, timeline, feedback, documents, interviewers, meeting details, what the caller may do (actions) and, for a few minutes after the caller's own latest status change, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_15",
+        "operationId" : "get_16",
         "parameters" : [ {
           "name" : "interviewId",
           "in" : "path",
@@ -19100,7 +19676,7 @@
         "tags" : [ "consultants" ],
         "summary" : "One consultant: the drawer",
         "description" : "Overview data, checklist, marketer, what the caller may do (actions). ETag = the version PATCH expects as If-Match. 404 outside the caller's reach.",
-        "operationId" : "get_16",
+        "operationId" : "get_17",
         "parameters" : [ {
           "name" : "consultantId",
           "in" : "path",
@@ -19174,7 +19750,7 @@
         "tags" : [ "clients" ],
         "summary" : "One client: the detail drawer",
         "description" : "Facts, about, health with the rule's sentence, contacts, requirements, recent submissions and relationship notes. ETag = the version PATCH expects as If-Match. 404 for another tenant's id.",
-        "operationId" : "get_17",
+        "operationId" : "get_18",
         "parameters" : [ {
           "name" : "clientId",
           "in" : "path",
@@ -19335,7 +19911,7 @@
         "tags" : [ "applications" ],
         "summary" : "One application: the detail drawer",
         "description" : "Stepper with the date each stage was recorded, the timeline, notes, activity, the fields of Application Details, what the caller may do (actions) and, for a few minutes after the caller's own latest stage move, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_18",
+        "operationId" : "get_19",
         "parameters" : [ {
           "name" : "applicationId",
           "in" : "path",
@@ -19402,7 +19978,7 @@
         "tags" : [ "Admin retirements" ],
         "summary" : "One retirement",
         "description" : "With its ranked successors, item counts per status and the impact snapshot taken at start.",
-        "operationId" : "get_19",
+        "operationId" : "get_20",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -19901,6 +20477,25 @@
               "*/*" : {
                 "schema" : {
                   "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/legal/subprocessors" : {
+      "get" : {
+        "tags" : [ "subprocessor-resource" ],
+        "operationId" : "publicList",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
                 }
               }
             }
@@ -20610,6 +21205,28 @@
         } ]
       }
     },
+    "/api/profile/inbox/review" : {
+      "get" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Changes the inbox held for the person's review",
+        "operationId" : "review_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReviewList"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/field-caches" : {
       "get" : {
         "tags" : [ "field-cache-sync" ],
@@ -21029,7 +21646,7 @@
         "tags" : [ "resumes" ],
         "summary" : "One resume: the drawer",
         "description" : "The row, the preview data (headline, summary, skills, experience) and what the caller may do with it (actions). 404 outside the caller's scope.",
-        "operationId" : "get_20",
+        "operationId" : "get_21",
         "parameters" : [ {
           "name" : "resumeId",
           "in" : "path",
@@ -21300,7 +21917,7 @@
       "get" : {
         "tags" : [ "org-policies" ],
         "summary" : "One policy: the draft, the live text and the history",
-        "operationId" : "get_21",
+        "operationId" : "get_22",
         "parameters" : [ {
           "name" : "policyKind",
           "in" : "path",
@@ -21328,7 +21945,7 @@
         "tags" : [ "placements" ],
         "summary" : "One placement: the detail drawer",
         "description" : "Placement details, the engagement timeline (start, midpoint, end and how far today is), extension status with every request, post-placement availability, the timeline events and notes, what the caller may do (actions) and, for a few minutes after the caller's own latest change, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_22",
+        "operationId" : "get_23",
         "parameters" : [ {
           "name" : "placementId",
           "in" : "path",
@@ -21461,7 +22078,7 @@
         "tags" : [ "org-settings" ],
         "summary" : "The General and Security settings with the bounds the platform allows",
         "description" : "{general:{legalName (read only), displayName, timeZone, locale, contactEmail}, security:{sessionTimeoutMinutes, passwordMinLength (null = platform behaviour), bounds, reasonMinChars}, locales:[...]}.",
-        "operationId" : "get_23",
+        "operationId" : "get_24",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -21975,7 +22592,7 @@
         "tags" : [ "mkt-performance" ],
         "summary" : "The Performance board (one call)",
         "description" : "{generatedAt, kpis[6], weekly, trend, funnel, readiness, streams, top[5], benchmarks, goals, actions}. weeks = 4w|8w|12w; trend, funnel, streams = 1m|3m|6m; benchmarks, goals = month|lastMonth. A section with no rows is empty or null. 404 without reports.view.",
-        "operationId" : "get_24",
+        "operationId" : "get_25",
         "parameters" : [ {
           "name" : "weeks",
           "in" : "query",
@@ -22275,7 +22892,7 @@
       "get" : {
         "tags" : [ "mkt-matches" ],
         "summary" : "One match with its explanation and insights (Review drawer)",
-        "operationId" : "get_25",
+        "operationId" : "get_26",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -22643,7 +23260,7 @@
         "tags" : [ "mkt-home" ],
         "summary" : "The Marketing Home board (one call)",
         "description" : "{kpis[6], talent[5], streams[5], openings[5], pipeline, tasks[5], interviews[4], activity[5]}. Each section is empty (or null) when its source has no rows or the caller may not read its page. 404 without consultants.view.",
-        "operationId" : "get_26",
+        "operationId" : "get_27",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22725,7 +23342,7 @@
         "tags" : [ "mkt-applications" ],
         "summary" : "The Applications board",
         "description" : "{kpis, tracker{items,total,page,size,tabs,filters,notShared}, funnel, overdue, overdueTotal, updates, perms}. Query: q, consultantId, clientId, stage (applied|awaiting|interviewing|offer|hired|not_selected|all), period and funnelPeriod (1m|3m|6m|12m|all), sort (appliedOn,desc|asc), page (0-based), size (max 100). A consultant who shares less than FULL shows the stage only; one who shares nothing is counted in tracker.notShared and listed nowhere.",
-        "operationId" : "get_27",
+        "operationId" : "get_28",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -23371,7 +23988,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "My career profile",
         "description" : "Identity, strength with the missing details, summary, skills, certifications, experience highlights, preferences, work-authorization choice and career goals, all for the caller's own consultant record. 404 for everyone else.",
-        "operationId" : "get_28",
+        "operationId" : "get_29",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -24106,6 +24723,25 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/inbox/review" : {
+      "get" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "What the inbox held for the consultant's review",
+        "operationId" : "review_2",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReviewList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/home" : {
       "get" : {
         "tags" : [ "consultant-workspace" ],
@@ -24321,6 +24957,35 @@
         }
       }
     },
+    "/api/orgs/{orgId}/marketing-assignments/schedules" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Planned handovers and running cover",
+        "description" : "workload.view or assignments.manage. Query: consultantId (optional; one consultant, who must be inside the caller's scope). The plans still waiting (SCHEDULED) or running (ACTIVE), soonest first, limited to marketers inside the caller's scope.",
+        "operationId" : "schedules",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ScheduleList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/marketing-assignments/marketers/candidates" : {
       "get" : {
         "tags" : [ "marketing-assignments" ],
@@ -24354,6 +25019,43 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Kpis"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/handover-preview" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "What a handover would move",
+        "description" : "workload.view or assignments.manage, for a consultant whose current marketer is inside the caller's scope. Query: consultantId, toMemberId (optional). Counts only (open opportunities, tasks and follow-ups the current marketer owns for that consultant), whether the handover switch is on, the new marketer's load against the board capacity and the licence cap consultants.max, and the plans already pending. Reads only.",
+        "operationId" : "handoverPreview",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "toMemberId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HandoverPreview"
                 }
               }
             }
@@ -24938,7 +25640,7 @@
         "tags" : [ "org-dashboard" ],
         "summary" : "The Org Admin dashboard",
         "description" : "{orgId, generatedAt, widgets: [{key, state: ok|empty|unavailable|error, reason?, module?, data?}]} in board order. dashboard.view_org required; each widget additionally needs its own permission (otherwise it is absent) and its module on (otherwise state unavailable, reason NOT_ENABLED, no data). data is present only when state is ok. 404 for everyone else, and whenever the enterprise or roles flag is off for the organization.",
-        "operationId" : "get_29",
+        "operationId" : "get_30",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -25145,7 +25847,7 @@
       "get" : {
         "tags" : [ "consultant-prepare" ],
         "summary" : "Is Prepare selected on, and what is left of my limits",
-        "description" : "{enabled, maxBatch, remainingToday, remainingMonth, dailyCap, monthlyCap}. Used by the page only.",
+        "description" : "{enabled, maxBatch, remainingToday, remainingMonth, dailyCap, monthlyCap, reason}. enabled needs the platform switch, the organization's own opt-in and an Autopilot prepare add-on on my license; reason (PLATFORM_OFF, ORG_OFF, NO_LICENSE) says which is missing. Used by the page only.",
         "operationId" : "status_7",
         "responses" : {
           "200" : {
@@ -25230,7 +25932,7 @@
       "get" : {
         "tags" : [ "consultant-opportunities" ],
         "summary" : "One of my assigned opportunities (404 for anyone else's)",
-        "operationId" : "get_30",
+        "operationId" : "get_31",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -25418,7 +26120,7 @@
       "get" : {
         "tags" : [ "org-branding" ],
         "summary" : "Published values, the draft, its version and the publish history",
-        "operationId" : "get_31",
+        "operationId" : "get_32",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -25881,7 +26583,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_32",
+        "operationId" : "get_33",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -26218,7 +26920,7 @@
         "tags" : [ "catalog-public" ],
         "summary" : "The public catalog",
         "description" : "PUBLISHED, public, effective individual plans only; drafts and SUNSET plans never appear. Prices per interval (MONTH, QUARTER, YEAR when annual is on), included services, optional add-ons that have a price, and totals for one add-on at quantity 1-2 and every pair at quantity 1. `country` filters plans limited to countries.",
-        "operationId" : "get_33",
+        "operationId" : "get_34",
         "parameters" : [ {
           "name" : "audience",
           "in" : "query",
@@ -26311,7 +27013,7 @@
         "tags" : [ "billing" ],
         "summary" : "Read a quote",
         "description" : "The caller's own quote as a PlanQuoteDTO. 404 when it isn't theirs, 410 QUOTE_EXPIRED once past its time.",
-        "operationId" : "get_34",
+        "operationId" : "get_35",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -27473,7 +28175,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_35",
+        "operationId" : "get_36",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -27703,6 +28405,25 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Stats"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/privacy/subprocessors" : {
+      "get" : {
+        "tags" : [ "subprocessor-resource" ],
+        "operationId" : "adminList",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
                 }
               }
             }
@@ -28264,6 +28985,25 @@
                     "type" : "integer",
                     "format" : "int64"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/inbox/stuck" : {
+      "get" : {
+        "tags" : [ "admin-inbox-resource" ],
+        "operationId" : "stuck",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
                 }
               }
             }
@@ -29343,7 +30083,7 @@
         "tags" : [ "billing" ],
         "summary" : "Undo a scheduled change",
         "description" : "Cancels a PENDING scheduled removal or decrease (Stripe first, then Kiwiply). 409 NOT_PENDING, 404 when it isn't theirs, 502 when Stripe refuses.",
-        "operationId" : "undo_1",
+        "operationId" : "undo_3",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -29903,6 +30643,22 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "SettingsVM" : {
+        "type" : "object",
+        "properties" : {
+          "applyRejectionsAutomatically" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Settings" : {
+        "type" : "object",
+        "properties" : {
+          "applyRejectionsAutomatically" : {
+            "type" : "boolean"
           }
         }
       },
@@ -30526,6 +31282,65 @@
           }
         }
       },
+      "Licensed" : {
+        "type" : "object",
+        "properties" : {
+          "consultants" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "featureName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Limit" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "platformMax" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "custom" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "OrgPrepareSettingsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "platformEnabled" : {
+            "type" : "boolean"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "dailyCap" : {
+            "$ref" : "#/components/schemas/Limit"
+          },
+          "monthlyCap" : {
+            "$ref" : "#/components/schemas/Limit"
+          },
+          "maxBatch" : {
+            "$ref" : "#/components/schemas/Limit"
+          },
+          "licensed" : {
+            "$ref" : "#/components/schemas/Licensed"
+          }
+        }
+      },
       "Person" : {
         "type" : "object",
         "properties" : {
@@ -30880,39 +31695,6 @@
           }
         }
       },
-      "Settings" : {
-        "type" : "object",
-        "properties" : {
-          "profileVisibility" : {
-            "type" : "string"
-          },
-          "shareProfileWithEmployers" : {
-            "type" : "boolean"
-          },
-          "showContactInformation" : {
-            "type" : "boolean"
-          },
-          "allowAnalytics" : {
-            "type" : "boolean"
-          },
-          "theme" : {
-            "type" : "string"
-          },
-          "language" : {
-            "type" : "string"
-          },
-          "timezone" : {
-            "type" : "string"
-          },
-          "isDefault" : {
-            "type" : "boolean"
-          },
-          "updatedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
       "Tiles" : {
         "type" : "object",
         "properties" : {
@@ -31220,6 +32002,14 @@
           "checkedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "SettingsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "applyRejectionsAutomatically" : {
+            "type" : "boolean"
           }
         }
       },
@@ -33471,6 +34261,26 @@
           }
         }
       },
+      "AppState" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Applied" : {
+        "type" : "object",
+        "properties" : {
+          "application" : {
+            "$ref" : "#/components/schemas/AppState"
+          }
+        }
+      },
       "ProposeVM" : {
         "type" : "object",
         "properties" : {
@@ -35342,6 +36152,66 @@
           }
         }
       },
+      "Schedule" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consultantName" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "newMarketer" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "returnMarketer" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "currentMarketer" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "startsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "createdBy" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "appliedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "RestoreRequest" : {
         "type" : "object",
         "properties" : {
@@ -35373,6 +36243,20 @@
           },
           "status" : {
             "type" : "string"
+          }
+        }
+      },
+      "ReassignResult" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string"
+          },
+          "applied" : {
+            "$ref" : "#/components/schemas/BulkResult"
+          },
+          "schedule" : {
+            "$ref" : "#/components/schemas/Schedule"
           }
         }
       },
@@ -35424,6 +36308,33 @@
             "type" : "boolean"
           },
           "canManage" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DelegateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "coverMarketerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "startsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "allowOverCapacity" : {
             "type" : "boolean"
           }
         }
@@ -38599,6 +39510,21 @@
           }
         }
       },
+      "Photo" : {
+        "type" : "object",
+        "properties" : {
+          "maxBytes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "discouragedRegions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "Profile" : {
         "type" : "object",
         "properties" : {
@@ -38687,6 +39613,10 @@
           "capabilities" : {
             "$ref" : "#/components/schemas/BuilderCapabilities",
             "description" : "What this builder session may do (personal, consultant inside an organization, or a marketer acting for a consultant). The web hides controls from it; the API refuses the same actions."
+          },
+          "photo" : {
+            "$ref" : "#/components/schemas/Photo",
+            "description" : "Profile photo tunables (R7.4): the upload cap and the countries where the photo prompt defaults to 'Keep photo off'."
           }
         }
       },
@@ -38893,6 +39823,36 @@
           "sentAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "Candidate" : {
+        "type" : "object",
+        "properties" : {
+          "applicationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "company" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ReviewList" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Item"
+            }
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -39146,6 +40106,13 @@
             "items" : {
               "$ref" : "#/components/schemas/ChangeDTO"
             }
+          },
+          "inboxEventId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "undoable" : {
+            "type" : "boolean"
           }
         }
       },
@@ -39712,34 +40679,6 @@
             "type" : "string"
           },
           "email" : {
-            "type" : "string"
-          }
-        }
-      },
-      "Candidate" : {
-        "type" : "object",
-        "properties" : {
-          "consultantId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "title" : {
-            "type" : "string"
-          },
-          "availability" : {
-            "type" : "string"
-          },
-          "score" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "matchStatus" : {
-            "type" : "string"
-          },
-          "pausedReason" : {
             "type" : "string"
           }
         }
@@ -40735,6 +41674,17 @@
           }
         }
       },
+      "ScheduleList" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Schedule"
+            }
+          }
+        }
+      },
       "MarketerList" : {
         "type" : "object",
         "properties" : {
@@ -40759,6 +41709,67 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Option"
+            }
+          }
+        }
+      },
+      "HandoverPreview" : {
+        "type" : "object",
+        "properties" : {
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consultantName" : {
+            "type" : "string"
+          },
+          "from" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "to" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "opportunities" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "tasks" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "followups" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "handoverEnabled" : {
+            "type" : "boolean"
+          },
+          "toAssigned" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "toCapacity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "licenceMax" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "overCapacity" : {
+            "type" : "boolean"
+          },
+          "overLicence" : {
+            "type" : "boolean"
+          },
+          "pending" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Schedule"
             }
           }
         }
@@ -41316,6 +42327,9 @@
           "monthlyCap" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "reason" : {
+            "type" : "string"
           }
         }
       },

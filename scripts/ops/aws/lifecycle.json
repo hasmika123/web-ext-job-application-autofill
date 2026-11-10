@@ -22,6 +22,13 @@
       "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
     },
     {
+      "ID": "binlog-32-days",
+      "Filter": { "Prefix": "binlog/" },
+      "Status": "Enabled",
+      "Expiration": { "Days": 32 },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 7 }
+    },
+    {
       "ID": "tidy-delete-markers",
       "Filter": {},
       "Status": "Enabled",

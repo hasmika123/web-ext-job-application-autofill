@@ -24,7 +24,9 @@ public class Interview implements Serializable {
     public static final String PASSED = "PASSED";
     public static final String REJECTED = "REJECTED";
     public static final String NO_SHOW = "NO_SHOW";
-    public static final Set<String> OUTCOMES = Set.of(PENDING, PASSED, REJECTED, NO_SHOW);
+    /** The interview was called off (by a cancellation mail, or by hand). */
+    public static final String CANCELLED = "CANCELLED";
+    public static final Set<String> OUTCOMES = Set.of(PENDING, PASSED, REJECTED, NO_SHOW, CANCELLED);
 
     public static final String SRC_WEB = "WEB";
     public static final String SRC_INBOX = "INBOX";
@@ -77,6 +79,18 @@ public class Interview implements Serializable {
 
     @Column(name = "inbox_message_id")
     private Long inboxMessageId;
+
+    /** The calendar UID of an interview read from a mail, so a reschedule or cancellation finds the same row. */
+    @Column(name = "external_uid", length = 255)
+    private String externalUid;
+
+    /** The calendar SEQUENCE last applied (a lower one is stale and ignored). */
+    @Column(name = "sequence_no")
+    private Integer sequenceNo;
+
+    /** Earlier times of a rescheduled interview, newest first, one per line. No mail text. */
+    @Column(name = "schedule_history", length = 1000)
+    private String scheduleHistory;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
@@ -212,6 +226,30 @@ public class Interview implements Serializable {
 
     public void setInboxMessageId(Long inboxMessageId) {
         this.inboxMessageId = inboxMessageId;
+    }
+
+    public String getExternalUid() {
+        return externalUid;
+    }
+
+    public void setExternalUid(String externalUid) {
+        this.externalUid = externalUid;
+    }
+
+    public Integer getSequenceNo() {
+        return sequenceNo;
+    }
+
+    public void setSequenceNo(Integer sequenceNo) {
+        this.sequenceNo = sequenceNo;
+    }
+
+    public String getScheduleHistory() {
+        return scheduleHistory;
+    }
+
+    public void setScheduleHistory(String scheduleHistory) {
+        this.scheduleHistory = scheduleHistory;
     }
 
     public Instant getCreatedAt() {

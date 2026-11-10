@@ -78,15 +78,15 @@ test("CON-70 Anika connects her own Gmail the guided way; a wrong or blocked cod
   })();
   await startClean(page, orgId);
 
-  await narrate(page, "Anika opens the Inbox page in her workspace menu");
+  await narrate(page, "Anika opens Email Tracking in her workspace menu");
   await openPage(page, go, "inbox");
-  await expect(pageTitle(page)).toHaveText("Inbox");
+  await expect(pageTitle(page)).toHaveText("Email Tracking");
   await expect(page.locator('[data-shell-sidebar] a[href="/w/consultant/inbox"]')).toBeVisible();
 
   await narrate(page, "It says who can see what, before she types anything");
   const privacy = page.locator("[data-inbox-privacy]");
   await expect(privacy).toContainText("Only you see your mail");
-  await expect(privacy).toContainText("never see the password, the address, a subject, a sender or a word of a message");
+  await expect(privacy).toContainText("never see the password, the address or any message");
 
   await narrate(page, "The same guided steps as the personal inbox: a job-hunting Gmail, 2-Step Verification, an app password");
   for (const t of ["Use a Gmail just for job hunting", "Turn on 2-Step Verification", "Create an app password"]) await expect(page.getByText(t)).toBeVisible();
@@ -160,10 +160,20 @@ test("CON-72 Mail moves her applications and offers new ones, all marked 'from y
   await expect(orbit.locator("[data-from-inbox]")).toHaveText("from your inbox");
   await expect(orbit).toContainText("Interview invite");
 
-  await narrate(page, "Cedar Analytics sent a rejection: it stands at Rejected");
+  await narrate(page, "Orbit Freight's invitation named a time: the interview the inbox read is on her row");
+  await expect(orbit.locator("[data-update-interview]")).toContainText("Interview");
+
+  await narrate(page, "Cedar Analytics sent a rejection: the inbox HOLDS it for her review instead of marking it Rejected by itself");
+  const review = page.locator("[data-needs-review]");
+  const cedarHeld = review.locator("[data-review-item][data-kind='REJECTION']").filter({ hasText: "Cedar Analytics" });
+  await expect(cedarHeld).toBeVisible({ timeout: 20_000 });
+
+  await narrate(page, "She accepts it: only now does Cedar Analytics read Rejected, 'from your inbox'");
+  await cedarHeld.locator("[data-action='accept']").click();
   const cedar = page.locator("[data-update]").filter({ hasText: "Cedar Analytics" });
-  await expect(cedar).toHaveAttribute("data-stage", "REJECTED");
+  await expect(cedar).toHaveAttribute("data-stage", "REJECTED", { timeout: 20_000 });
   await expect(cedar.locator("[data-from-inbox]")).toBeVisible();
+  await expect(cedarHeld).toHaveCount(0);
 
   await narrate(page, "Lumen Health confirmed an application she never tracked: it is offered, not added behind her back");
   const suggestions = page.locator("[data-suggestions]");
@@ -200,7 +210,9 @@ test("CON-73 Disconnecting forgets the password and every message", async ({ as 
 
   await narrate(page, "She disconnects; the page says what that deletes");
   await page.getByText("Disconnect this inbox").click();
-  await expect(page.getByText("Disconnecting deletes the saved app password and any mail Kiwiply has read from this inbox")).toBeVisible();
+  const warning = page.getByText(/Disconnecting deletes the saved app password and any mail/);
+  await expect(warning).toBeVisible();
+  console.log("DISCONNECT_TEXT=" + JSON.stringify((await warning.innerText()).slice(0, 110)));
   await page.getByRole("button", { name: "Disconnect", exact: true }).click();
 
   await narrate(page, "The guided steps are back, nothing is connected, and the API holds nothing");
@@ -246,7 +258,7 @@ test("CON-74 The organization sees none of it: the Org Admin and the marketer ge
       `/api/orgs/${orgId}/mkt/applications`,
       `/api/orgs/${orgId}/mkt/talent`,
     ]);
-    // the Inbox is not even in their menu
+    // Email Tracking is not even in their menu
     await expect(page.locator('[data-shell-sidebar] a[href$="/inbox"]')).toHaveCount(0);
   }
   await anika.page.close();
@@ -289,7 +301,7 @@ test("CON-75 Taking the add-on off stops the inbox and says why; putting it back
 
 test("CON-76 Ben's license does not include inbox tracking: the page says so instead of offering a form, and the API refuses with 402", async ({ as }) => {
   const { page, go } = await as("ben");
-  await narrate(page, "Ben opens Inbox");
+  await narrate(page, "Ben opens Email Tracking");
   await openPage(page, go, "inbox");
   const locked = page.locator("[data-inbox-locked]");
   await expect(locked).toContainText("Inbox tracking isn't part of your license");

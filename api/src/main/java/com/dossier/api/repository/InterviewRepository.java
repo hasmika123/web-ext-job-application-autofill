@@ -44,11 +44,15 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
     /** Rows of {@code [applicationId, startsAt, kind]} for interviews at or after {@code now}, soonest first. */
     @Query(
         "select i.applicationId, i.startsAt, i.kind from Interview i where i.applicationId in :ids and i.startsAt >= :now " +
+        "and (i.outcome is null or i.outcome <> 'CANCELLED') " +
         "order by i.startsAt asc, i.id asc"
     )
     List<Object[]> upcomingFor(@Param("ids") Collection<Long> ids, @Param("now") Instant now);
 
     List<Interview> findByUserIdOrderByStartsAtAscIdAsc(Long userId);
+
+    /** The interviews an inbox mail may be about: the application's, newest first (the caller matches by calendar UID, start or "the only open one"). */
+    List<Interview> findByApplicationIdAndUserIdOrderByStartsAtDescIdDesc(Long applicationId, Long userId);
 
     @Transactional
     @Modifying

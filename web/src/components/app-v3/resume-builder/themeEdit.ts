@@ -18,7 +18,9 @@ export type ThemeChange =
   | { control: "pages"; value: 1 | 2 }
   /** "Fit to one page" (Print layout, R3.8): the fit-ladder rung the measured document needs. */
   | { control: "fit"; step: number }
-  | { control: "dateStyle"; value: DateStyle };
+  | { control: "dateStyle"; value: DateStyle }
+  /** Show or hide the photo on this resume (R7.4): `theme.showPhoto`; the file is kept either way. */
+  | { control: "photo"; value: boolean };
 
 /** The labels the board shows (DESIGN 4). */
 export const FONT_LABELS: Record<FontPair, string> = {
@@ -82,6 +84,8 @@ export function editTheme(current: Theme | null, change: ThemeChange): Theme {
       return { ...base, fit: { ...fit, mode: "auto", step: clampStep(change.step) }, _touched: touch(base, "fit") };
     case "dateStyle":
       return { ...base, dateStyle: change.value, _touched: touch(base, "dateStyle") };
+    case "photo":
+      return { ...base, showPhoto: change.value, _touched: touch(base, "showPhoto") };
   }
 }
 

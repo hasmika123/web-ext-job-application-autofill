@@ -40,7 +40,7 @@ afterEach(() => {
 
 const settle = () => act(async () => {});
 
-describe("Audit Logs (D9)", () => {
+describe("Audit Log (D9)", () => {
   it("lists who did what to whom, newest first, with words and names", async () => {
     render(<AuditPage orgId={2} />);
     await settle();
@@ -51,6 +51,30 @@ describe("Audit Logs (D9)", () => {
     expect(rows[1].textContent).toContain("Pat Plain");
     expect(document.querySelector("[data-audit-range]")!.textContent).toBe("Showing 1-2 of 30");
     expect(document.body.textContent).not.toContain("ent#");
+  });
+
+  it("never shows a bare key in To whom: the name when there is one, else the type in words", async () => {
+    answer = () => ({
+      status: 200,
+      json: body({
+        items: [
+          { id: 9, at: "2026-10-15T10:00:00Z", action: "MARKETING_BULK", label: "reassigned consultants", actorName: "Priya Sharma", targetType: "CONSULTANT", targetName: null },
+          { id: 8, at: "2026-10-15T09:00:00Z", action: "REQ_CREATE", label: "added a requirement", actorName: "Priya Sharma", targetType: "REQUIREMENT", targetName: null },
+          { id: 7, at: "2026-10-15T08:00:00Z", action: "ORG_SETTINGS_UPDATE", label: "changed the settings", actorName: "Priya Sharma", targetType: "ORG", targetName: null },
+          { id: 6, at: "2026-10-15T07:00:00Z", action: "MEMBER_INVITE", label: "invited a member", actorName: "Priya Sharma", targetType: "MEMBER", targetName: "Pat Plain" },
+          { id: 5, at: "2026-10-15T06:00:00Z", action: "SOMETHING_ELSE", label: "SOMETHING_ELSE", actorName: "Priya Sharma", targetType: "ASSIGNMENT", targetName: null },
+        ],
+      }),
+    });
+    render(<AuditPage orgId={2} />);
+    await settle();
+    const cells = (id: number) => Array.from(document.querySelectorAll(`[data-audit-row="${id}"] td`)).map((c) => c.textContent);
+    expect(cells(9)[3]).toBe("a consultant");
+    expect(cells(8)[3]).toBe("a requirement");
+    expect(cells(7)[3]).toBe("the organization");
+    expect(cells(6)[3]).toBe("Pat Plain");
+    expect(cells(5)[2]).toBe("something else"); // a label that is only the stored key reads as words
+    expect(cells(5)[3]).toBe("an assignment");
   });
 
   it("filters by kind and pages, asking the API for exactly that", async () => {

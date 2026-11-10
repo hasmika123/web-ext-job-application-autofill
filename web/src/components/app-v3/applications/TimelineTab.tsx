@@ -20,6 +20,8 @@ import {
 import { actorLine, type Viewer } from "@/lib/actors";
 import { getApplicationEvents, statusLabel, timeAgo, type FieldChange, type TimelineEvent } from "@/lib/applications";
 import { RelationTag, absoluteTime } from "./UpdatedBy";
+import InboxUndo from "@/components/inbox/InboxUndo";
+import { PERSONAL_REVIEW } from "@/lib/inbox-review";
 
 const KIND_ICON: Record<string, ReactNode> = {
   CREATED: <BookmarkIcon className="h-4 w-4" />,
@@ -134,6 +136,7 @@ export default function TimelineTab({
   me,
   applicationId,
   phone = false,
+  onChanged,
 }: {
   events: TimelineEvent[];
   now: number;
@@ -141,6 +144,8 @@ export default function TimelineTab({
   /** Enables "Show all history" (the paged endpoint). */
   applicationId?: number;
   phone?: boolean;
+  /** After an inbox change was undone: the sheet re-reads the application. */
+  onChanged?: () => void;
 }) {
   const [all, setAll] = useState<TimelineEvent[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -205,6 +210,9 @@ export default function TimelineTab({
                   </>
                 )}
               </p>
+              {e.undoable && e.inboxEventId && applicationId !== undefined && (
+                <InboxUndo endpoints={PERSONAL_REVIEW} applicationId={applicationId} eventId={e.inboxEventId} at={e.createdAt} onUndone={onChanged} />
+              )}
               {details.length > 1 && (
                 <details className="mt-1 text-[12px] text-v2-muted">
                   <summary className="cursor-pointer select-none">Details</summary>

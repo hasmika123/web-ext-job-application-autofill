@@ -3,6 +3,9 @@ import Link from "next/link";
 import { serverApiFetch } from "@/lib/api";
 import { getPlan } from "@/lib/billing";
 import InboxConnect, { type InboxView } from "@/components/settings/InboxConnect";
+import NeedsReviewCard from "@/components/inbox/NeedsReviewCard";
+import RejectionToggle from "@/components/inbox/RejectionToggle";
+import { PERSONAL_REVIEW } from "@/lib/inbox-review";
 
 export const metadata: Metadata = { title: "Inbox · Settings" };
 
@@ -30,6 +33,12 @@ export default async function InboxSettingsPage() {
         </p>
       </header>
       <InboxConnect isPro={isPro} view={view} />
+      {view?.connected && isPro ? (
+        <>
+          <NeedsReviewCard endpoints={PERSONAL_REVIEW} />
+          <RejectionToggle endpoints={PERSONAL_REVIEW} />
+        </>
+      ) : null}
     </div>
   );
 }

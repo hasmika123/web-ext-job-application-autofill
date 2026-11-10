@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertIcon, ArrowRightIcon, CheckIcon, EyeIcon, EyeOffIcon, LockIcon, cn } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import { AUTH_CARD_COLUMN, LoginBackdrop } from "@/components/ent/login/AuthBackdrop";
 import PolicyLinks from "@/components/ent/policy/PolicyLinks";
 import { SCOPE_COPY, newPasswordProblem, type JoinPreview, type ShareScope } from "@/lib/ent/join";
 
@@ -12,7 +13,7 @@ import { SCOPE_COPY, newPasswordProblem, type JoinPreview, type ShareScope } fro
  * invitation creates an account) choosing a password, then the consent choice, then the workspace.
  *
  * Wording is deliberate: an invitation to a SEPARATE organization creates a NEW account that belongs to the organization and is
- * separate from any personal Kiwiply account. There is no "sign in with your existing account" step and nothing here reads, links or
+ * separate from any personal job-search account. There is no "sign in with your existing account" step and nothing here reads, links or
  * reveals another account. A legacy (shared account) invitation (`createsAccount` false) needs the person to be signed in on this host.
  */
 export interface JoinInviteProps {
@@ -83,8 +84,9 @@ export default function JoinInvite({ token, name, logoUrl, preview, signedIn }: 
 
   return (
     <main className="tenant-sky relative isolate min-h-dvh overflow-x-hidden text-[var(--brand-900)]" data-tenant-join>
-      <div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
-        <section aria-label="Join" className="tenant-glass rounded-[28px] px-5 py-7 sm:px-9 sm:py-9">
+      <LoginBackdrop />
+      <div className={`mx-auto flex min-h-dvh w-full max-w-[1600px] flex-col items-center justify-center px-4 py-10 ${AUTH_CARD_COLUMN}`}>
+        <section aria-label="Join" className="tenant-glass w-full max-w-[560px] rounded-[28px] px-5 py-7 sm:px-9 sm:py-9">
           <div className="mb-6 flex items-center gap-4">
             <div className="min-w-0 flex-1">
               <h1 className="font-body text-[30px] font-extrabold leading-tight tracking-tight sm:text-[34px]">
@@ -117,7 +119,7 @@ export default function JoinInvite({ token, name, logoUrl, preview, signedIn }: 
               {preview.message ? <p className="mb-5 rounded-xl bg-[var(--brand-subtle)] px-3 py-2.5 text-[15px] leading-snug">{preview.message}</p> : null}
               {preview.createsAccount ? (
                 <p data-join-account-note className="mb-5 text-[14px] leading-snug text-[var(--brand-800)]">
-                  Accepting creates a new {name} account for you. It belongs to {name} and is separate from any personal Kiwiply account: nothing is shared or linked between them.
+                  Accepting creates a new {name} account for you. It belongs to {name} and is separate from any personal job-search account: nothing is shared or linked between them.
                 </p>
               ) : null}
               {needsLogin ? (
@@ -197,7 +199,7 @@ export default function JoinInvite({ token, name, logoUrl, preview, signedIn }: 
             </form>
           )}
         </section>
-        <PolicyLinks tone="plain" className="mt-5 text-[var(--brand-800)]" />
+        <PolicyLinks tone="plain" className="mt-5 w-full max-w-[560px] text-[var(--brand-800)]" />
       </div>
     </main>
   );

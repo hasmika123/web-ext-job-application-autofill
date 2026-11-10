@@ -1,52 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
-  BriefcaseIcon,
-  CalendarCheckIcon,
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
   Dialog,
-  DollarIcon,
   ErrorState,
-  FileTextIcon,
-  MapPinIcon,
   Menu,
   MinusCircleIcon,
-  MonitorIcon,
   MoreVerticalIcon,
   PencilIcon,
-  SendIcon,
-  ShareNodesIcon,
   Button,
   Skeleton,
-  Sparkline,
   TrashIcon,
-  ZapIcon,
-  chartColor,
   cn,
   useToast,
 } from "@kiwiply/ui";
-import type { IconProps } from "@kiwiply/ui";
-import { CARD, TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
+import { CARD, TONES } from "@/components/ent/dashboard/parts";
+import PageHeader from "@/components/ent/shell/ShellContext";
+import { BASE, Card, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
 import { AvailabilitySheet, BlockSheet, PreferencesSheet, failureText, type BlockSheetState } from "./AvailabilitySheets";
-import { deltaText, firstName } from "@/lib/ent/consultant-ws/home";
 import {
-  AUTH_LABEL,
   STATUS_LABEL,
   WORK_MODE_LABEL,
   blockStatusInfo,
   changeBlock,
   createBlock,
   dayText,
-  employmentText,
   fetchAvailability,
-  fromNowText,
   historyStatusInfo,
   historyWhen,
   kindInfo,
@@ -55,14 +39,11 @@ import {
   noticeText,
   paintDay,
   rangeLabel,
-  rateText,
   removeBlock,
   savePreferences,
   saveStatus,
   shiftMonth,
-  travelText,
   upcomingUnavailable,
-  workModeHint,
   type AvailabilityView,
   type Block,
   type BlockDraft,
@@ -78,123 +59,6 @@ import {
  * Preferred locations, employment types and work authorization are read from My Career Profile and edited there. Vacation approval is the
  * marketer's step (not connected yet), so a seeded status carries a Sample mark; nothing is sent to a marketer from this page.
  */
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-function Tile({ title, icon: Icon, tone, value, sub, spark, index, loading }: { title: string; icon: ComponentType<IconProps>; tone: IconTone; value: ReactNode; sub: ReactNode; spark?: number[]; index: number; loading: boolean }) {
-  return (
-    <section aria-label={title} data-stat-tile={title} data-tone={tone} data-state={loading ? "loading" : "ok"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-[14px]", TONES[tone])}>
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[13.5px] font-bold leading-tight text-ink">{title}</h3>
-        {loading ? (
-          <>
-            <Skeleton className="mt-2 h-8 w-20" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        ) : (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="min-w-0 truncate text-[24px] font-extrabold leading-none tabular-nums text-ink 2xl:text-[26px]">
-                {value}
-              </p>
-              {spark && spark.length > 1 ? (
-                <div className="mb-0.5 hidden w-[36%] max-w-[72px] flex-none 2xl:block">
-                  <Sparkline values={spark} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">{sub}</p>
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function Tiles({ view }: { view: AvailabilityView | null }) {
-  const t = view?.tiles;
-  const d = t ? deltaText(t.openOpportunities.deltaPct) : null;
-  const af = t?.availableFrom;
-  const dateValue = !af ? "" : af.date ? dayText(af.date) : af.status === "AVAILABLE" ? "Now" : "Not set";
-  return (
-    <section aria-label="Key numbers" data-availability-tiles className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
-      <Tile
-        index={0}
-        loading={!view}
-        title="Available From"
-        icon={CalendarCheckIcon}
-        tone="green"
-        value={dateValue}
-        sub={
-          af ? (
-            <>
-              <span aria-hidden className={cn("h-2 w-2 rounded-full", af.date || af.status === "AVAILABLE" ? "bg-v2-green-ink" : "bg-muted")} />
-              <span>{fromNowText(af)}</span>
-            </>
-          ) : null
-        }
-      />
-      <Tile
-        index={1}
-        loading={!view}
-        title="Open Opportunities"
-        icon={BriefcaseIcon}
-        tone="violet"
-        value={t?.openOpportunities.value ?? 0}
-        spark={t?.openOpportunities.sparkline}
-        sub={
-          d ? (
-            <>
-              <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                {d.dir === "up" ? "↑" : d.dir === "down" ? "↓" : "→"} {d.text}
-              </span>
-              <span>vs last month</span>
-            </>
-          ) : (
-            <span>Matches you can still act on</span>
-          )
-        }
-      />
-      <Tile
-        index={2}
-        loading={!view}
-        title="Preferred Work Mode"
-        icon={MapPinIcon}
-        tone="amber"
-        value={t?.workMode ? WORK_MODE_LABEL[t.workMode] : "Not set"}
-        sub={<span>{workModeHint(t?.workMode ?? null) ?? "Set it in Work Preferences"}</span>}
-      />
-      <Tile
-        index={3}
-        loading={!view}
-        title="Notice Period"
-        icon={ClockIcon}
-        tone="accent"
-        value={noticeText(t?.notice.weeks ?? null)}
-        sub={<span>{t?.notice.availableOn ? `Available ${dayText(t.notice.availableOn)}` : view ? STATUS_LABEL[view.availability.status] : ""}</span>}
-      />
-      <Tile
-        index={4}
-        loading={!view}
-        title={t ? `Vacation Days (${t.vacation.year})` : "Vacation Days"}
-        icon={SendIcon}
-        tone="coral"
-        value={t?.vacation.approvedDays ?? 0}
-        sub={
-          t ? (
-            <span>
-              {t.vacation.scheduledDays} {t.vacation.scheduledDays === 1 ? "day" : "days"} scheduled
-              {t.vacation.pendingDays > 0 ? `, ${t.vacation.pendingDays} pending` : ""}
-            </span>
-          ) : null
-        }
-      />
-    </section>
-  );
-}
 
 /* ── the calendar ───────────────────────────────────────────────────────────────────── */
 
@@ -362,95 +226,37 @@ function CalendarCard({ view, onPick }: { view: AvailabilityView; onPick: (iso: 
   );
 }
 
-/* ── work preferences ───────────────────────────────────────────────────────────────── */
+/* ── the one-line summary (replaces the tiles and the Work preferences card; the preferences that live on My Profile are edited there) ── */
 
-interface PrefRowSpec {
-  key: string;
-  label: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-  title: ReactNode;
-  detail: string | null;
-  /** A link to the Profile page, or opens the preferences sheet. */
-  href?: string;
-}
-
-function PrefRow({ spec, onEdit }: { spec: PrefRowSpec; onEdit: () => void }) {
-  const Icon = spec.icon;
-  const inner = (
-    <>
-      <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl", TONES[spec.tone])}>
-        <Icon size={19} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block break-words text-[12px] font-semibold text-muted">{spec.label}</span>
-        <span className="block break-words text-[13.5px] font-bold leading-tight text-ink">{spec.title}</span>
-        {spec.detail ? <span className="block break-words text-[12px] leading-snug text-muted">{spec.detail}</span> : null}
-      </span>
-      <ChevronRightIcon size={16} className="flex-none text-muted" />
-    </>
-  );
-  const cls = "flex w-full items-center gap-3 rounded-xl px-1.5 py-2.5 text-left hover:bg-paper-2/60";
+function SummaryLine({ view, onUpdate, onBlocked, onPrefs }: { view: AvailabilityView; onUpdate: () => void; onBlocked: () => void; onPrefs: () => void }) {
+  const t = view.tiles;
+  const af = t.availableFrom;
+  const first = af.date ? `Available from ${dayText(af.date)}` : af.status === "AVAILABLE" ? "Available now" : STATUS_LABEL[af.status];
+  const parts = [first, t.notice.weeks !== null ? `${noticeText(t.notice.weeks)} notice` : null, t.workMode ? WORK_MODE_LABEL[t.workMode] : null].filter((x): x is string => x !== null);
   return (
-    <li data-pref={spec.key} className="min-w-0 border-b border-line last:border-b-0">
-      {spec.href ? (
-        <Link href={spec.href} aria-label={`${spec.label}: edit on My Career Profile`} className={cls}>
-          {inner}
-        </Link>
-      ) : (
-        <button type="button" onClick={onEdit} aria-label={`Edit ${spec.label}`} className={cls}>
-          {inner}
-        </button>
-      )}
-    </li>
-  );
-}
-
-function PreferencesCard({ view, onEdit }: { view: AvailabilityView; onEdit: () => void }) {
-  const p = view.preferences;
-  const auth = p.workAuthorization ? AUTH_LABEL[p.workAuthorization] : null;
-  const emp = employmentText(p.employmentTypes);
-  const travel = travelText(p);
-  const rows: PrefRowSpec[] = [
-    {
-      key: "locations",
-      label: "Preferred Locations",
-      icon: MapPinIcon,
-      tone: "accent",
-      title: p.locations.length ? (
-        <>
-          {p.locations[0]} <span className="text-v2-green-ink">(Primary)</span>
-        </>
-      ) : (
-        "Not set"
-      ),
-      detail: p.locations.length > 1 ? `Open to ${p.locations.slice(1).join(", ")}` : p.locations.length ? null : "Add where you want to work",
-      href: `${BASE}/profile`,
-    },
-    { key: "authorization", label: "Work Authorization", icon: FileTextIcon, tone: "accent", title: auth?.title ?? "Not set", detail: auth?.detail ?? "Choose it on your profile", href: `${BASE}/profile` },
-    { key: "mode", label: "Preferred Work Mode", icon: MonitorIcon, tone: "accent", title: p.workMode ? WORK_MODE_LABEL[p.workMode] : "Not set", detail: workModeHint(p.workMode) },
-    { key: "employment", label: "Employment Type", icon: BriefcaseIcon, tone: "amber", title: emp.title, detail: emp.detail, href: `${BASE}/profile` },
-    { key: "rate", label: "Preferred Rate", icon: DollarIcon, tone: "green", title: rateText(p), detail: p.rateNote },
-    { key: "travel", label: "Travel Willingness", icon: SendIcon, tone: "teal", title: travel.title, detail: travel.detail },
-  ];
-  return (
-    <Card
-      id="avail-prefs"
-      title="Work Preferences"
-      icon={MinusCircleIcon}
-      extra={
-        <button type="button" onClick={onEdit} className="flex-none rounded-md px-1.5 text-[13px] font-semibold text-accent-deep hover:underline">
-          Edit
-        </button>
-      }
-    >
-      <ul>
-        {rows.map((r) => (
-          <PrefRow key={r.key} spec={r} onEdit={onEdit} />
-        ))}
-      </ul>
-      <p className="mt-2 text-[12px] text-muted">Rates are only recorded for your marketer. Nothing is charged or paid through Kiwiply.</p>
-    </Card>
+    <section aria-label="Availability summary" data-avail-summary className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div className="min-w-0">
+        <p data-tile-value className="text-[16px] font-bold leading-tight text-ink">
+          {parts.join(" · ")}
+        </p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted">
+          <Link href={`${BASE}/profile`} className="font-semibold text-accent-deep hover:underline">
+            Edit work preferences on My Profile
+          </Link>
+          <button type="button" onClick={onPrefs} data-edit-prefs className="font-semibold text-accent-deep hover:underline">
+            Edit notice, work mode, rate and travel
+          </button>
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="accent" size="sm" onClick={onUpdate} data-update-availability>
+          Update availability
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onBlocked} data-add-blocked>
+          Add blocked dates
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -463,7 +269,7 @@ function ViewAllToggle({ total, all, set, label }: { total: number; all: boolean
   if (total <= SHOWN) return null;
   return (
     <button type="button" aria-expanded={all} aria-label={all ? `Show fewer ${label}` : `View all ${total} ${label}`} onClick={() => set(!all)} className="flex-none text-[13px] font-semibold text-accent-deep hover:underline">
-      {all ? "Show Less" : "View All"}
+      {all ? "Show less" : "View all"}
     </button>
   );
 }
@@ -473,18 +279,17 @@ function UpcomingCard({ view, onEdit, onDelete }: { view: AvailabilityView; onEd
   const rows = useMemo(() => upcomingUnavailable(view.blocks, view.today), [view.blocks, view.today]);
   const shown = all ? rows : rows.slice(0, SHOWN);
   return (
-    <Card id="avail-upcoming" title="Upcoming Unavailable Dates" icon={MinusCircleIcon} tone="coral" extra={<ViewAllToggle total={rows.length} all={all} set={setAll} label="unavailable dates" />}>
-      <p className="-mt-1 mb-3 text-[12.5px] text-muted">View and manage your scheduled time off, holidays and unavailable dates.</p>
-      {rows.length === 0 ? (
-        <Empty>No time off scheduled. Use Add Blocked Dates to mark vacation or other commitments.</Empty>
+    <Card id="avail-upcoming" title="Upcoming unavailable dates" icon={MinusCircleIcon} tone="coral" extra={<ViewAllToggle total={rows.length} all={all} set={setAll} label="unavailable dates" />}>
+            {rows.length === 0 ? (
+        <Empty>No time off scheduled. Use Add blocked dates to mark vacation or other commitments.</Empty>
       ) : (
         <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[560px]")}>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">
-                {["Date Range", "Type", "Reason", "Status", "Actions"].map((c) => (
-                  <th key={c} scope="col" className="whitespace-nowrap bg-paper-2/60 px-2.5 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg">
-                    {c}
+                {["Date range", "Type", "Reason", "Status", ""].map((c, i) => (
+                  <th key={`${c}-${i}`} scope="col" className="whitespace-nowrap bg-paper-2/60 px-2.5 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg">
+                    {c || <span className="sr-only">Actions</span>}
                   </th>
                 ))}
               </tr>
@@ -531,12 +336,6 @@ function UpcomingCard({ view, onEdit, onDelete }: { view: AvailabilityView; onEd
           </table>
         </div>
       )}
-      {rows.some((b) => b.sample) ? (
-        <p data-sample-note className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted">
-          <SampleMark />
-          Entries marked Sample were seeded for the demo. Approval of time off is your marketer&apos;s step and has no screen on their side yet.
-        </p>
-      ) : null}
     </Card>
   );
 }
@@ -545,7 +344,7 @@ function HistoryCard({ view }: { view: AvailabilityView }) {
   const [all, setAll] = useState(false);
   const rows = all ? view.history : view.history.slice(0, SHOWN);
   return (
-    <Card id="avail-history" title="Availability History" icon={ClockIcon} extra={<ViewAllToggle total={view.history.length} all={all} set={setAll} label="history rows" />}>
+    <Card id="avail-history" title="Availability history" icon={ClockIcon} extra={<ViewAllToggle total={view.history.length} all={all} set={setAll} label="history rows" />}>
       {view.history.length === 0 ? (
         <Empty>No changes yet. Each time you update your availability here, it is recorded.</Empty>
       ) : (
@@ -553,7 +352,7 @@ function HistoryCard({ view }: { view: AvailabilityView }) {
           <table className={cn(TABLE, "min-w-[300px]")}>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">
-                {["Effective Date", "Availability", "Work Mode", "Status"].map((c) => (
+                {["Effective date", "Availability", "Work mode", "Status"].map((c) => (
                   <th key={c} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", c === "Status" && "hidden sm:table-cell xl:hidden 2xl:table-cell")}>
                     {c}
                   </th>
@@ -589,56 +388,6 @@ function HistoryCard({ view }: { view: AvailabilityView }) {
   );
 }
 
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-function QuickActions({ onUpdate, onShare, onBlocked, shared }: { onUpdate: () => void; onShare: () => void; onBlocked: () => void; shared: boolean }) {
-  const items: { key: string; label: string; hint: string; icon: ComponentType<IconProps>; tone: IconTone; run?: () => void; href?: string }[] = [
-    { key: "update", label: "Update Availability", hint: "Set your available dates", icon: CalendarCheckIcon, tone: "accent", run: onUpdate },
-    { key: "share", label: "Share with Marketer", hint: "Let your marketer know you're open", icon: ShareNodesIcon, tone: "accent", run: onShare },
-    { key: "locations", label: "Set Preferred Locations", hint: "Manage where you want to work", icon: MapPinIcon, tone: "accent", href: `${BASE}/profile` },
-    { key: "blocked", label: "Add Blocked Dates", hint: "Mark time off, vacation, or other commitments", icon: MinusCircleIcon, tone: "coral", run: onBlocked },
-  ];
-  const cls = "flex h-full min-h-[64px] w-full items-center gap-2.5 rounded-xl border border-line bg-paper p-2.5 text-left hover:bg-paper-2/60";
-  return (
-    <Card id="avail-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-1">
-        {items.map((q) => {
-          const Icon = q.icon;
-          const body = (
-            <>
-              <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES[q.tone])}>
-                <Icon size={18} />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-[13px] font-bold leading-tight text-ink">{q.label}</span>
-                <span className="block text-[11.5px] leading-snug text-muted">{q.hint}</span>
-              </span>
-            </>
-          );
-          return (
-            <li key={q.key} className="min-w-0">
-              {q.href ? (
-                <Link href={q.href} data-quick={q.key} className={cls}>
-                  {body}
-                </Link>
-              ) : (
-                <button type="button" data-quick={q.key} onClick={q.run} className={cls}>
-                  {body}
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {shared ? (
-        <p role="status" data-share-note className="mt-3 rounded-lg bg-accent-soft p-2.5 text-[12.5px] leading-snug text-accent-deep">
-          Your marketer is not notified from here. Nothing was sent.
-        </p>
-      ) : null}
-    </Card>
-  );
-}
-
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
 
 export interface AvailabilityPageProps {
@@ -646,7 +395,7 @@ export interface AvailabilityPageProps {
   firstName: string;
 }
 
-export default function ConsultantAvailabilityPage({ orgId, firstName: first }: AvailabilityPageProps) {
+export default function ConsultantAvailabilityPage({ orgId }: AvailabilityPageProps) {
   const toast = useToast();
   const { view, status, reload, setView } = useWorkspaceData(useCallback(() => fetchAvailability(orgId), [orgId]));
   const [block, setBlock] = useState<BlockSheetState | null>(null);
@@ -655,7 +404,6 @@ export default function ConsultantAvailabilityPage({ orgId, firstName: first }: 
   const [deleting, setDeleting] = useState<Block | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [shared, setShared] = useState(false);
 
   /** Applies a write's answer: the fresh page replaces the old one; a refusal is handed back to the form. */
   const apply = (r: WriteResult, done: string, close: () => void): WriteResult => {
@@ -695,16 +443,14 @@ export default function ConsultantAvailabilityPage({ orgId, firstName: first }: 
 
   return (
     <div data-consultant-availability data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Availability" subtitle="Manage your availability, work preferences, and let your team know when you're ready for new opportunities." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="Availability" subtitle="When you can start, and the dates you're away." />
 
       {status === "failed" ? (
         <ErrorState what="your availability" description="Your availability didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <>
-          <Tiles view={view} />
-          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.44fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,0.52fr)_minmax(0,0.4fr)]">
+          {view ? <SummaryLine view={view} onUpdate={() => setStatusOpen(true)} onBlocked={() => setBlock({ block: null, startDate: view.today, endDate: view.today, kind: "VACATION" })} onPrefs={() => setPrefsOpen(true)} /> : null}
+          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.5fr)]">
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
               {view ? (
                 <>
@@ -725,31 +471,7 @@ export default function ConsultantAvailabilityPage({ orgId, firstName: first }: 
                 </div>
               )}
             </div>
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)] 2xl:contents">
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
-                {view ? (
-                  <>
-                    <PreferencesCard view={view} onEdit={() => setPrefsOpen(true)} />
-                    <HistoryCard view={view} />
-                  </>
-                ) : (
-                  <Skeleton className="h-96 w-full" />
-                )}
-              </div>
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
-                <BeeCard
-                  name={firstName(first)}
-                  title="Keep your availability up to date!"
-                  body="Let your marketer know when you're available and your preferences so we can match you with the best opportunities. Update your calendar, set your preferences, and add any upcoming time off."
-                />
-                <QuickActions
-                  shared={shared}
-                  onUpdate={() => setStatusOpen(true)}
-                  onShare={() => setShared(true)}
-                  onBlocked={() => view && setBlock({ block: null, startDate: view.today, endDate: view.today, kind: "VACATION" })}
-                />
-              </div>
-            </div>
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">{view ? <HistoryCard view={view} /> : <Skeleton className="h-96 w-full" />}</div>
           </div>
         </>
       )}

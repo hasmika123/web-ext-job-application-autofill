@@ -209,11 +209,24 @@ class DemoAccountServiceTest {
     }
 
     @Test
+    void theAppAdminIsOfferedAfterTheJobSeekerOnlyWhileTheAdminDemoIsOn() {
+        DemoAccountService off = service("pw", true);
+        assertThat(off.accounts()).extracting(DemoAccountService.DemoAccount::login).containsExactly("demo");
+        assertThat(off.isAdminDemoEnabled()).isFalse();
+
+        DemoAccountService on = service("pw", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(on, "adminEnabled", true);
+        assertThat(on.accounts()).extracting(DemoAccountService.DemoAccount::login).containsExactly("demo", "demo-admin");
+        assertThat(on.accounts()).extracting(DemoAccountService.DemoAccount::landing).containsExactly("/dashboard", "/admin");
+        assertThat(on.isAdminDemoEnabled()).isTrue();
+    }
+
+    @Test
     void theAccountListNeverCarriesAPassword() {
         List<DemoAccountService.DemoAccount> accounts = service("super-secret").accounts();
 
-        assertThat(accounts).extracting(DemoAccountService.DemoAccount::login).containsExactly("demo", "demo-org");
-        assertThat(accounts).extracting(DemoAccountService.DemoAccount::landing).containsExactly("/dashboard", "/org");
+        assertThat(accounts).extracting(DemoAccountService.DemoAccount::login).containsExactly("demo");
+        assertThat(accounts).extracting(DemoAccountService.DemoAccount::landing).containsExactly("/dashboard");
         assertThat(accounts.toString()).doesNotContain("super-secret");
     }
 

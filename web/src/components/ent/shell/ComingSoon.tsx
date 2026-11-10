@@ -16,7 +16,7 @@ export function ComingSoon({ title }: { title: string }) {
           {`${title} isn't ready yet. Everything else in your menu works, and we'll let you know when this one opens.`}
         </p>
         <Link href="/" className={`${buttonVariants("primary", "md")} mt-6`}>
-          Back to my home
+          Back to home
         </Link>
       </section>
     </div>

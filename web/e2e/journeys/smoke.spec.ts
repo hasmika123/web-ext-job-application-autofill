@@ -31,20 +31,6 @@ export const USER_ROUTES = [
   "/welcome",
 ];
 
-/** The organization console's routes (10): section 1.2. */
-export const ORG_ROUTES = [
-  "/org",
-  "/org/team",
-  "/org/opportunities",
-  "/org/applications",
-  "/org/interviews",
-  "/org/analytics",
-  "/org/resumes",
-  "/org/integrations",
-  "/org/billing",
-  "/org/settings",
-];
-
 const WIDTHS = [
   { name: "390", width: 390, height: 844 },
   { name: "1440", width: 1440, height: 900 },
@@ -81,15 +67,6 @@ for (const w of WIDTHS) {
   test.describe(`user routes at ${w.name}px`, () => {
     test.use({ storageState: STATE.demo, viewport: { width: w.width, height: w.height } });
     for (const route of USER_ROUTES) {
-      test(route, async ({ page }) => {
-        await visit(page, route);
-      });
-    }
-  });
-
-  test.describe(`org routes at ${w.name}px`, () => {
-    test.use({ storageState: STATE["demo-org"], viewport: { width: w.width, height: w.height } });
-    for (const route of ORG_ROUTES) {
       test(route, async ({ page }) => {
         await visit(page, route);
       });

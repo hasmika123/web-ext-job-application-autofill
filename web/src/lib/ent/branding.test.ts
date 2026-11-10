@@ -66,7 +66,7 @@ describe("the publish diff", () => {
   it("lists exactly the changed keys, with colours flagged for swatches", () => {
     const rows = changeRows(published, { ...published, primary: "#7c3aed", welcomeTitle: "Hello", logoHash: "bbb" });
     expect(rows.map((r) => r.key)).toEqual(["primary", "welcomeTitle", "logoHash"]);
-    expect(rows[0]).toMatchObject({ label: "Primary colour", from: "#0f5fc4", to: "#7c3aed", colour: true });
+    expect(rows[0]).toMatchObject({ label: "Primary color", from: "#0f5fc4", to: "#7c3aed", colour: true });
     expect(rows[1]).toMatchObject({ from: "not set", to: "Hello" });
     expect(rows[2]).toMatchObject({ label: "Logo", to: "new file" });
   });

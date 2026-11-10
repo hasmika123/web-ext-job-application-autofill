@@ -419,6 +419,78 @@ public class ResumeDocService {
         }
     }
 
+    private static String photoKeyOf(JsonNode doc) {
+        JsonNode k = doc == null ? null : doc.path("basics").path("photo").get("key");
+        return k != null && k.isTextual() && !k.textValue().isBlank() ? k.textValue() : null;
+    }
+
+    /** The result of {@link #setPhoto}: the document as saved, and the key of the file it no longer names (to delete once the row is committed). */
+    public record PhotoChange(ResumeDocDTO dto, String previousKey) {}
+
+    /** The id of the user who owns resume {@code resumeId}; 404 (the generic one) when it is not the caller's. */
+    @Transactional(readOnly = true)
+    public Long ownerIdOf(Long resumeId) {
+        return ownedDoc(resumeId).getUser().getId();
+    }
+
+    /** The key of the caller's resume photo, or null when it has none (404 when the resume is not theirs). */
+    @Transactional(readOnly = true)
+    public String photoKeyFor(Long resumeId) {
+        ResumeDoc d = ownedDoc(resumeId);
+        String key = photoKeyOf(storedDoc(d));
+        // The mirror column and the document say the same thing; a key that is not this resume's own is never followed.
+        return key != null && StorageKeys.isResumeKey(d.getUser().getId(), resumeId, key) ? key : null;
+    }
+
+    /**
+     * Point the document's {@code basics.photo} at {@code newKey} (a file the caller's photo upload just stored under THIS resume's
+     * own prefix), or at nothing ({@code null}). Written like any other server-side change to the content: validated, hashed, projected,
+     * a {@code PHOTO} version row, the PDF queued at once, a new ETag. No If-Match (it is not a merge of client state). The photo
+     * never reaches the profile projection (it is not text). A key that is not this resume's own is a plain 404.
+     */
+    public PhotoChange setPhoto(Long resumeId, String newKey) {
+        ResumeDoc d = ownedDoc(resumeId);
+        Long ownerId = d.getUser().getId();
+        if (newKey != null && !StorageKeys.isResumeKey(ownerId, resumeId, newKey)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume document not found");
+        }
+        JsonNode stored = storedDoc(d);
+        String previousKey = photoKeyOf(stored);
+        ObjectNode doc = (ObjectNode) stored.deepCopy();
+        if (!doc.path("basics").isObject()) doc.putObject("basics");
+        ObjectNode basics = (ObjectNode) doc.get("basics");
+        Instant now = Instant.now();
+        if (newKey == null) {
+            basics.putNull("photo");
+        } else {
+            ObjectNode photo = basics.putObject("photo");
+            photo.put("key", newKey);
+            photo.put("updatedAt", now.toString());
+        }
+        JsonNode storedTailoredFrom = tailoredFromOf(stored);
+        ResumeDocumentValidator.validate(
+            doc,
+            ResumeDocumentValidator.Options.DEFAULTS.withAllowTailoredFrom(storedTailoredFrom != null).withPhotoKeyPrefix(PHOTO_KEY_PREFIX + ownerId + "/").withLimits(limits())
+        ).ifPresent(v -> {
+            throw v.tooLarge() ? ResumeDocException.tooLarge(v.message()) : ResumeDocException.invalid(v.path(), v.message());
+        });
+
+        String login = currentLogin();
+        // What was here is kept as its own row unless the newest row already holds it (the same rule as AI apply and restore).
+        boolean captured = versionService
+            .latest(d.getResumeId(), ownerId)
+            .map(latest -> latest.getContentHash().equals(d.getContentHash()) && latest.getTemplateId().equals(d.getTemplateId()) && latest.getThemeJson().equals(d.getThemeJson()))
+            .orElse(false);
+        if (!captured) versionService.record(d, ResumeDocVersionService.AUTOSAVE, null, login);
+
+        applyContent(d, d.getResume(), doc, now);
+        markPdfPending(d, true); // a photo change is a checkpoint: no settle delay
+        resumeDocRepository.saveAndFlush(d);
+        versionService.record(d, ResumeDocVersionService.PHOTO, null, login);
+        publish(ResumeDocEvent.Type.CONTENT_CHANGED, d.getResume());
+        return new PhotoChange(toDto(d, d.getResume()), previousKey != null && !previousKey.equals(newKey) ? previousKey : null);
+    }
+
     /** Acting for the owner: {@code basics.photo} of a save is the stored one, whatever the client sent (the acting editor never held its key). */
     private static void keepPhoto(JsonNode doc, JsonNode stored) {
         if (doc == null || !doc.path("basics").isObject()) return;
@@ -685,6 +757,15 @@ public class ResumeDocService {
         if (!tailoredFromUnchanged) {
             throw ResumeDocException.invalid("$.meta.tailoredFrom", "is set by the server and cannot be changed by a save");
         }
+        // basics.photo is server-set (DESIGN 3.1, 5.1): a save may echo THIS resume's own photo key (or leave the photo out), never name a file that
+        // belongs to another resume or user. Uploading and replacing go through POST .../photo, which stores the file first.
+        JsonNode storedForPhoto = storedDoc(d);
+        String incomingPhotoKey = photoKeyOf(doc);
+        if (incomingPhotoKey != null && !StorageKeys.isResumeKey(d.getUser().getId(), resumeId, incomingPhotoKey)) {
+            throw ResumeDocException.invalid("$.basics.photo.key", "must be this resume's own photo");
+        }
+        String droppedPhotoKey = photoKeyOf(storedForPhoto);
+        if (droppedPhotoKey != null && droppedPhotoKey.equals(incomingPhotoKey)) droppedPhotoKey = null;
         JsonNode theme = body.get("theme");
         if (theme != null && !theme.isNull()) {
             if (!theme.isObject()) throw ResumeDocException.invalid("$.theme", "must be an object");
@@ -700,6 +781,8 @@ public class ResumeDocService {
         applyContent(d, d.getResume(), doc, now);
         markPdfPending(d, false);
         resumeDocRepository.saveAndFlush(d);
+        // A save that took the photo out (the old key is no longer named) leaves a file nothing points at: remove it now (best effort; erasure sweeps by prefix anyway).
+        if (droppedPhotoKey != null && StorageKeys.isResumeKey(d.getUser().getId(), resumeId, droppedPhotoKey)) deleteQuietly(droppedPhotoKey);
         versionService.recordAutosave(d, previousHash, currentLogin());
         publish(ResumeDocEvent.Type.CONTENT_CHANGED, d.getResume());
         return toDto(d, d.getResume());
@@ -794,6 +877,8 @@ public class ResumeDocService {
         }
         if (enabledTemplateIds().contains(v.getTemplateId())) d.setTemplateId(v.getTemplateId());
         d.setThemeJson(v.getThemeJson());
+        // The photo is not part of time travel: an earlier version may name a file that has since been replaced and deleted.
+        keepPhoto(doc, storedDoc(d));
         applyContent(d, d.getResume(), doc, Instant.now());
         markPdfPending(d, true); // a restore is a checkpoint: no settle delay
         resumeDocRepository.saveAndFlush(d);

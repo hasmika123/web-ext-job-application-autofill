@@ -514,6 +514,13 @@ export function createPlansState({ stripeEnabled = process.env.MOCK_STRIPE !== "
     if (path === "/mock/plans/reset" && method === "POST") {
       retirements.handle({ method: "POST", path: "/mock/retirements/reset" });
       plans = seedPlans();
+      // ?published=PRO_STUDENT: the retirement journey needs a second sellable plan to offer as the successor (the wizard lists PUBLISHED plans only)
+      for (const key of (query.get("published") ?? "").split(",").filter(Boolean)) {
+        const plan = plans.find((p) => p.planKey === key);
+        if (!plan) continue;
+        plan.status = "PUBLISHED";
+        for (const v of plan.versions) if (v.status === "DRAFT") Object.assign(v, { status: "PUBLISHED", effectiveFrom: v.effectiveFrom ?? NOW });
+      }
       prices = PRICES.map((p) => ({ currency: CURRENCY, ...p }));
       catalogVersion = 17;
       published = new Map();

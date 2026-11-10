@@ -205,6 +205,14 @@ export default function PrivacyPage() {
           service; they process data only on our behalf, or, in the payment processor&apos;s case,
           as an independent processor of the payment itself (see <strong>Payments</strong> below).
         </p>
+        <p>
+          The companies that process personal data for us, what each does, which data it can reach
+          and where, are listed on our{" "}
+          <Link href="/legal/subprocessors" className="font-medium text-accent-deep hover:underline">
+            subprocessors page
+          </Link>
+          .
+        </p>
       </Section>
 
       <Section title="Payments">

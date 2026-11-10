@@ -33,7 +33,7 @@ public class ConPrepareResource {
         this.service = service;
     }
 
-    @Operation(summary = "Is Prepare selected on, and what is left of my limits", description = "{enabled, maxBatch, remainingToday, remainingMonth, dailyCap, monthlyCap}. Used by the page only.")
+    @Operation(summary = "Is Prepare selected on, and what is left of my limits", description = "{enabled, maxBatch, remainingToday, remainingMonth, dailyCap, monthlyCap, reason}. enabled needs the platform switch, the organization's own opt-in and an Autopilot prepare add-on on my license; reason (PLATFORM_OFF, ORG_OFF, NO_LICENSE) says which is missing. Used by the page only.")
     @GetMapping("/status")
     @OrgPermissionRequired
     public ConPrepareDTO.Status status(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {

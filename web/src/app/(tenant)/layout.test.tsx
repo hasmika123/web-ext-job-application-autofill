@@ -33,7 +33,7 @@ describe("(tenant)/_t layout: three branches", () => {
     state.value = { kind: "TENANT", tenant: { kind: "TENANT", displayName: "Acme", branding: { faviconUrl: "/tenant-assets/favicon?v=4" } } };
     const meta = await generateMetadata();
     expect(meta.icons).toEqual({ icon: "/tenant-assets/favicon?v=4", apple: "/tenant-assets/favicon?v=4" });
-    expect(meta.openGraph).toBeUndefined();
+    expect(meta.openGraph).toBeNull(); // cleared: the root layout's link previews never reach a tenant page
   });
 
   it("falls back to the org logo when there is no favicon", async () => {

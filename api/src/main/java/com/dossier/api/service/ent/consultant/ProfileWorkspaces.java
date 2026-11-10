@@ -9,6 +9,7 @@ import com.dossier.api.repository.ent.consultant.ConProfileRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.ent.EnterpriseDemoSeeder;
 import com.dossier.api.service.ent.EnterpriseFeatureFlag;
 import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.ent.TenantModule;
@@ -98,8 +99,11 @@ public class ProfileWorkspaces {
     @Transactional(readOnly = true)
     public Account accountOfCurrentUser() {
         Optional<User> user = SecurityUtils.getCurrentUserLogin().flatMap(users::findOneByLogin);
-        if (user.isEmpty() || user.get().getOrgId() == null) return Account.PERSONAL;
+        if (user.isEmpty()) return Account.PERSONAL;
         Long orgId = user.get().getOrgId();
+        // A seeded enterprise DEMO member (shared-mode login, no org on its user row) is the enterprise account of the tenant its token is bound to.
+        if (orgId == null && EnterpriseDemoSeeder.isEnterpriseDemoLogin(user.get().getLogin())) orgId = SecurityUtils.getCurrentTenantId().orElse(null);
+        if (orgId == null) return Account.PERSONAL;
         Optional<Organization> org = organizations.findByOrgId(orgId);
         if (org.isEmpty()) return Account.PERSONAL;
         boolean consultant = false;

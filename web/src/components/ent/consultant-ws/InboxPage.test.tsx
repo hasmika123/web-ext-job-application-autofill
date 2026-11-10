@@ -77,7 +77,9 @@ describe("ConsultantInboxPage", () => {
     await mount();
     const privacy = document.querySelector("[data-inbox-privacy]")!;
     expect(privacy.textContent).toContain("Only you see your mail");
-    expect(privacy.textContent).toContain("never see the password, the address, a subject, a sender or a word of a message");
+    expect(privacy.textContent).toContain("never see the password, the address or any message");
+    expect(privacy.textContent).toContain("they only see the stage an application reaches");
+    expect(privacy.textContent).toContain("Your organization, your marketer and your administrators");
   });
 
   it("walks through the guided steps and checks the pair against Gmail through the tenant route", async () => {
@@ -140,6 +142,77 @@ describe("ConsultantInboxPage", () => {
     expect(post.url).toBe("/api/orgs/2/me-workspace/inbox/suggestions/5/accept");
   });
 
+  const upd = (o: Record<string, unknown> = {}) => ({ applicationId: 9, company: "Orbit Freight", role: "Platform Engineer", stage: "INTERVIEW", stageLabel: "Interview", reading: "Interview invite", at: "2026-10-13T10:00:00Z", source: "INBOX", interview: null, undo: null, ...o });
+  const connected = { connected: true, address: "anika@gmail.com", status: "CONNECTED", messages: 6 };
+  const iv = (o: Record<string, unknown> = {}) => ({ id: 3, startsAt: "2026-10-27T21:00:00Z", tz: "America/Los_Angeles", kind: "PHONE", link: null, location: null, cancelled: false, ...o });
+
+  it("shows the interview the mail announced in its own time zone, with an https Join link", async () => {
+    current = page(connected, { updates: [upd({ interview: iv({ link: "https://meet.example.com/orbit" }) })] });
+    await mount();
+    const line = document.querySelector("[data-update='9'] [data-update-interview]")!;
+    expect(line.textContent).toContain("Interview Tue Oct 27, 2:00 PM PDT · Phone");
+    const join = line.querySelector("a")!;
+    expect(join.textContent).toBe("Join");
+    expect(join.getAttribute("href")).toBe("https://meet.example.com/orbit");
+    expect(join.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  it("never turns a non-https or Kiwiply address into a link", async () => {
+    current = page(connected, {
+      updates: [upd({ interview: iv({ link: "http://meet.example.com/x" }) }), upd({ applicationId: 10, company: "B", interview: iv({ link: "https://kiwiply.com/x" }) }), upd({ applicationId: 11, company: "C", interview: iv({ link: "javascript:alert(1)" }) })],
+    });
+    await mount();
+    expect(document.querySelectorAll("[data-update-interview] a")).toHaveLength(0);
+  });
+
+  it("marks a cancelled interview and offers no Join link for it", async () => {
+    current = page(connected, { updates: [upd({ interview: iv({ cancelled: true, link: "https://meet.example.com/orbit" }) })] });
+    await mount();
+    const line = document.querySelector("[data-update-interview]")!;
+    expect(line.textContent).toContain("Cancelled");
+    expect(line.querySelector("a")).toBeNull();
+    expect(line.querySelector(".line-through")).toBeTruthy();
+  });
+
+  it("shows no interview line when the mail announced none", async () => {
+    current = page(connected, { updates: [upd()] });
+    await mount();
+    expect(document.querySelector("[data-update-interview]")).toBeNull();
+    expect(document.querySelector("[data-update-undo]")).toBeNull();
+  });
+
+  it("offers Undo for a change the inbox made, asks first, then calls the consultant undo route and reloads", async () => {
+    current = page(connected, { updates: [upd({ undo: { eventId: "55", undoable: true } })] });
+    await mount();
+    const box = document.querySelector("[data-update='9'] [data-update-undo]")!;
+    fireEvent.click(box.querySelector("[data-action='undo']")!);
+    expect(box.textContent).toContain("Put it back the way it was?");
+    const before = calls.filter((c) => c.method === "GET").length;
+    fireEvent.click(box.querySelector("[data-action='undo-confirm']")!);
+    await flush();
+    const post = calls.find((c) => c.method === "POST")!;
+    expect(post.url).toBe("/api/orgs/2/me-workspace/applications/9/inbox-undo/55");
+    expect(calls.filter((c) => c.method === "GET").length).toBeGreaterThan(before);
+  });
+
+  it("offers no Undo once the change is past the undo window", async () => {
+    current = page(connected, { updates: [upd({ undo: { eventId: "55", undoable: false } })] });
+    await mount();
+    expect(document.querySelector("[data-update-undo]")).toBeNull();
+  });
+
+  it("says 'Too late to undo' when the server answers 409 UNDO_EXPIRED", async () => {
+    current = page(connected, { updates: [upd({ undo: { eventId: "55", undoable: true } })] });
+    await mount();
+    const base = global.fetch as unknown as (u: string, i?: RequestInit) => Promise<Response>;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit = {}) => (url.includes("/inbox-undo/") ? new Response(JSON.stringify({ code: "UNDO_EXPIRED", error: "x" }), { status: 409, headers: { "content-type": "application/json" } }) : base(url, init))));
+    const box = document.querySelector("[data-update-undo]")!;
+    fireEvent.click(box.querySelector("[data-action='undo']")!);
+    fireEvent.click(box.querySelector("[data-action='undo-confirm']")!);
+    await flush();
+    expect(box.textContent).toContain("Too late to undo");
+  });
+
   it("on the demo stack it names the sample address to use", async () => {
     current = page({ sandbox: true, sandboxAddress: "kiwiply.demo.anika@gmail.com" });
     await mount();
@@ -156,5 +229,36 @@ describe("ConsultantInboxPage", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 404 })));
     await mount();
     expect(screen.getByText("This page isn't part of your role")).toBeTruthy();
+  });
+});
+
+describe("Check now (the consultant workspace only)", () => {
+  it("offers Check now on a connected inbox, posts to the check-now route and says it is reading", async () => {
+    current = page({ connected: true, address: "anika@gmail.com", status: "CONNECTED", lastCheckedAt: "2026-10-18T12:00:00Z", messages: 12 });
+    await mount();
+    const button = document.querySelector("[data-inbox-check-now]") as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    expect(button.textContent).toBe("Check now");
+    fireEvent.click(button);
+    await flush();
+    expect(calls.some((c) => c.method === "POST" && c.url === "/api/orgs/2/me-workspace/inbox/check-now")).toBe(true);
+    expect(document.querySelector("[data-inbox-checking]")?.textContent).toContain("Reading your mailbox now");
+    expect((document.querySelector("[data-inbox-check-now]") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("explains a too-soon answer instead of a red error", async () => {
+    current = page({ connected: true, address: "anika@gmail.com", status: "CONNECTED", lastCheckedAt: "2026-10-18T12:00:00Z" });
+    await mount();
+    const fetchMock = globalThis.fetch as unknown as { mockImplementation: (f: (url: string, init?: RequestInit) => Promise<Response>) => void };
+    fetchMock.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      const method = init.method ?? "GET";
+      calls.push({ method, url, body: undefined });
+      if (method === "POST" && url.endsWith("/check-now")) return new Response(JSON.stringify({ code: "TOO_SOON", message: "Checked a moment ago. Try again in 40 seconds." }), { status: 429, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify(current), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    fireEvent.click(document.querySelector("[data-inbox-check-now]")!);
+    await flush();
+    expect(document.querySelector("[data-inbox-check-note]")?.textContent).toContain("Checked a moment ago");
+    expect(document.querySelector("[data-inbox-checking]")).toBeNull();
   });
 });

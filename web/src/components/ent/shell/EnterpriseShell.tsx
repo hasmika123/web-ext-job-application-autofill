@@ -29,7 +29,7 @@ import { activeKey, bannersFor, defaultTitle, navSections, primaryRoleName, swit
 import { readCollapsed, readDismissed, readLandingPref, writeCollapsed, writeDismissed, writeLandingPref } from "@/lib/ent/shell-prefs";
 import { bottomBar, showSwitcher, type MeTenant, type Workspace } from "@/lib/ent/workspaces";
 import AccountMenu, { signOut } from "./AccountMenu";
-import HelpCard from "./HelpCard";
+import HelpPanelHost from "./HelpCard";
 import { NavIcon } from "./nav-icons";
 import { ShellSlotContext, type PageHeaderValue } from "./ShellContext";
 import ShellBell from "./ShellBell";
@@ -106,9 +106,8 @@ export default function EnterpriseShell({
 
   const [collapsedPref, setCollapsedPref] = useState<boolean | null>(null);
   const [header, setHeader] = useState<PageHeaderValue | null>(null);
-  // pages that draw their own bee / help card claim them (ClaimsMascot / ClaimsHelpCard); the shell draws neither any more
+  // a page that draws its own bee claims it (ClaimsMascot); the shell draws none
   const [, setMascotClaimed] = useState(false);
-  const [, setHelpClaimed] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -119,7 +118,7 @@ export default function EnterpriseShell({
   const firstPath = useRef(pathname);
   useBottomBar(tabsRef);
 
-  const slot = useMemo(() => ({ setHeader, claimMascot: setMascotClaimed, claimHelp: setHelpClaimed }), []);
+  const slot = useMemo(() => ({ setHeader, claimMascot: setMascotClaimed }), []);
   const changed = useAccessChanged(etag);
 
   // Per-browser conveniences live in storage (an external store the server cannot see): read them once after hydration.
@@ -141,6 +140,8 @@ export default function EnterpriseShell({
   }, [pathname]);
 
   const multi = showSwitcher(me);
+  // the bell panel links to the Consultant workspace's Activity page, for members who have that workspace (nothing for the others)
+  const bellSeeAll = me.workspaces.some((w) => w.key === "consultant") ? "/w/consultant/activity" : undefined;
   const openSwitcher = () => {
     if (multi) setSwitcherOpen(true);
   };
@@ -180,10 +181,10 @@ export default function EnterpriseShell({
   };
   const firstName = me.person.name.trim().split(/\s+/)[0] ?? me.person.name;
   const { tabs } = bottomBar(workspace);
-  // a workspace's home page opens with a welcome message; the page's own title becomes the small label above it
+  // a workspace's home page opens with a welcome message and the page's one-line subtitle (no eyebrow, no handwritten note: D7)
   const isHome = pathname.replace(/\/+$/, "") === workspace.home.replace(/\/+$/, "");
   const look = heroLook(pathname, isHome);
-  const homeSubtitle =subtitle ?? `Here's what's happening at ${tenant.displayName} today.`;
+  const homeSubtitle = subtitle ?? `Here's what's happening at ${tenant.displayName} today.`;
 
   const choose = (row: SwitcherRow) => {
     setSwitcherOpen(false);
@@ -251,26 +252,29 @@ export default function EnterpriseShell({
                   </>
                 )}
               </Link>
-              {collapsed || wide ? null : (
-                <Tooltip content="Collapse sidebar" side="right">
-                  <IconButton aria-label="Collapse sidebar" onClick={toggleCollapsed} className="h-8 w-8 flex-none">
-                    <ChevronLeftIcon size={16} />
-                  </IconButton>
-                </Tooltip>
-              )}
             </div>
-            {collapsed ? (
-              <div className="flex justify-center pb-2">
-                <Tooltip content="Expand sidebar" side="right">
-                  <IconButton aria-label="Expand sidebar" onClick={toggleCollapsed} className="h-8 w-8">
-                    <ChevronLeftIcon size={16} className="rotate-180" />
-                  </IconButton>
-                </Tooltip>
-              </div>
-            ) : null}
             {/* the menu scrolls by itself; the logo above stays put (16 s2.1) */}
             <div data-shell-scroll className="ent-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
               <ShellNav sections={sections} active={active} collapsed={collapsed} />
+            </div>
+            {/* one collapse control at every width from md up, pinned at the foot of the sidebar; the choice is remembered per browser */}
+            <div data-shell-collapse className={cn("flex flex-none border-t border-line py-2", collapsed ? "justify-center" : "px-3")}>
+              {collapsed ? (
+                <Tooltip content="Expand" side="right">
+                  <IconButton aria-label="Expand sidebar" onClick={toggleCollapsed} className="h-9 w-9">
+                    <ChevronLeftIcon size={16} className="rotate-180" />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Collapse sidebar"
+                  onClick={toggleCollapsed}
+                  className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-[13px] font-semibold text-[color:var(--ent-soft)] hover:bg-paper-2"
+                >
+                  <ChevronLeftIcon size={16} /> Collapse
+                </button>
+              )}
             </div>
           </div>
         </aside>
@@ -287,7 +291,7 @@ export default function EnterpriseShell({
                 <SearchIcon size={20} />
               </IconButton>
             </Tooltip>
-            <ShellBell />
+            <ShellBell seeAllHref={bellSeeAll} />
             <AccountMenu me={me} onSwitchWorkspace={openSwitcher} />
           </header>
 
@@ -308,7 +312,7 @@ export default function EnterpriseShell({
                 <SearchIcon size={20} />
               </IconButton>
             </Tooltip>
-            <ShellBell />
+            <ShellBell seeAllHref={bellSeeAll} />
             <Tooltip content="Menu" side="bottom">
               <IconButton aria-label="Open menu" aria-haspopup="dialog" aria-expanded={navOpen} onClick={() => setNavOpen(true)} className="h-11 w-11">
                 <MenuIcon size={22} />
@@ -350,7 +354,6 @@ export default function EnterpriseShell({
             {/* the page title band every Kiwiply page opens with: brand-tinted wash, bold title, one-line subtitle, the bee on the right (every size; it shrinks on a phone) */}
             <section className={cn("ent-hero mb-4 flex", focus && "!hidden")} data-page-header data-home={isHome ? "true" : undefined} data-variant={look.variant}>
               <div className="min-w-0 flex-1">
-                {isHome ? <p className="ent-hero-eyebrow">{title}</p> : null}
                 <h1 className="ent-hero-title" title={isHome ? undefined : title}>
                   {isHome ? <Welcome name={firstName} /> : title}
                 </h1>
@@ -360,11 +363,6 @@ export default function EnterpriseShell({
                   <p className="ent-hero-subtitle" title={subtitle}>{subtitle}</p>
                 ) : null}
               </div>
-              {isHome ? (
-                <p aria-hidden className="ent-hero-note">
-                  Let&apos;s make today count!
-                </p>
-              ) : null}
               {/* decoration only */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`${ENT_MASCOT_BASE}/${look.pose}.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />
@@ -375,8 +373,8 @@ export default function EnterpriseShell({
           <DemoRefusalNotice />
         </div>
 
-        {/* the help panel the pages' own "Ask a question..." cards open (the sidebar card is gone; this is only the panel) */}
-        <HelpCard firstName={firstName} orgName={tenant.displayName} supportEmail={tenant.supportEmail} cardHidden />
+        {/* "Help & support": opened from the account menu and the footer's Support link */}
+        <HelpPanelHost orgName={tenant.displayName} supportEmail={tenant.supportEmail} />
         {/* the workspace switcher (desktop): opened from the profile menu, or Ctrl+Shift+W */}
         {multi ? switcher("panel") : null}
 

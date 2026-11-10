@@ -34,6 +34,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       config={data.config}
       aiUsageLine={data.aiUsageLine}
       profileUpdatedAt={data.profileUpdatedAt}
+      profileCountry={data.profileCountry}
       initialMeta={data.initialMeta}
       primaryResumeId={data.primaryResumeId}
       jobTarget={null}

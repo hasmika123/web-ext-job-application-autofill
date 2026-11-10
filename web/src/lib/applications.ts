@@ -113,6 +113,10 @@ export interface TimelineEvent {
   actorKind?: string | null;
   onBehalfOf?: ChangeActor | null;
   changes?: FieldChange[] | null;
+  /** Set on a change the Gmail inbox applied: the id the undo route takes. */
+  inboxEventId?: string | null;
+  /** True while that change can still be undone (the server decides; an expired one answers 409 UNDO_EXPIRED). */
+  undoable?: boolean;
 }
 
 export interface ApplicationNote {

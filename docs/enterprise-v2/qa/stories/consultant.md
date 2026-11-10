@@ -89,7 +89,7 @@ Fixed in the specs, none weakened: **CON-01 and CON-30** (D12: Home and My Marke
 | CON-57 | Privacy and analytics choices | Anika | `workday.story.ts` CON-57 | AUTOMATED |
 | CON-70 | Guided connect of her own Gmail; wrong or blocked code gets a calm sentence | Anika | `inbox.story.ts` CON-70 | AUTOMATED |
 | CON-71 | Connect: live Gmail check passes, mailbox read, password never shown again | Anika | `inbox.story.ts` CON-71 | AUTOMATED |
-| CON-72 | Mail moves her applications and offers new ones, "from your inbox"; add at Interview; dismiss | Anika | `inbox.story.ts` CON-72 | AUTOMATED (consumes the Harbor Cloud suggestion once) |
+| CON-72 | Mail moves her applications and offers new ones, "from your inbox"; add at Interview; dismiss | Anika | `inbox.story.ts` CON-72 | AUTOMATED (consumes the Harbor Cloud suggestion once; the sample mailbox now has ten mails, see CON-90..92) |
 | CON-73 | Disconnect forgets the password and every message | Anika | `inbox.story.ts` CON-73 | AUTOMATED |
 | CON-74 | The organization sees none of it (Org Admin and marketer: 404, no mail in their pages) | Sarah, Omar, Anika | `inbox.story.ts` CON-74 | AUTOMATED |
 | CON-75 | Taking the add-on off stops the inbox and says why; putting it back resumes it | Anika | `inbox.story.ts` CON-75 | AUTOMATED (needs docker + the QA MySQL container; skips itself otherwise) |
@@ -106,6 +106,14 @@ Fixed in the specs, none weakened: **CON-01 and CON-30** (D12: Home and My Marke
 | CON-86 | Prepare selected openings (the page, confirm, progress, no-extension fallback, phone note) | Anika | (spec pending) | BUILT, NOT RUN IN A BROWSER (vitest + API ITs only; the extension half X12.9 is built by another agent; doc 63) |
 | CON-87 | Prepare selected is off, or capped, by the admin settings | Anika, admin | (spec pending) | BUILT, NOT RUN IN A BROWSER (`ConPrepareIT`) |
 | CON-88 | Prepare selected never submits, never marks applied, never reaches another consultant | Anika, Ben | (spec pending) | BUILT, NOT RUN IN A BROWSER (`ConPrepareIT`, `OrgIsolationIT`, `ExtensionRoutesTest`) |
+| CON-90 | An interview invitation in her Gmail sets the interview (time, zone, link) and the application stands at Interview | Anika | none | BUILT, NOT RUN IN A BROWSER (`InterviewScheduleCorpusTest` 37 mails, `InboxInterviewApplierTest`, `ConsultantInboxDemoIT`) |
+| CON-91 | A reschedule moves the interview, a cancellation cancels it, neither moves the status backwards; the organization sees a time and a kind only | Anika, Sarah | none | BUILT, NOT RUN IN A BROWSER (`InboxInterviewApplierTest`, `LinkedInterviewMirrorWorkTest`) |
+| CON-92 | A mail with no readable time still moves the application to Interview and leaves a note to enter the time | Anika | none | BUILT, NOT RUN IN A BROWSER (`InboxInterviewApplierTest`, corpus `none-*` cases) |
+| CON-93 | A mail the inbox is not sure about waits under "Needs your review" (rejection, stage change, or two applications that could match); Accept or "Not this one" | Anika | none | BUILT, NOT RUN IN A BROWSER (vitest: `inbox-review.components.test.tsx`, `review.routes.test.ts`; needs the API half) |
+| CON-94 | A change the inbox applied has an Undo on its timeline row, with a confirm; after the window "Too late to undo" | Anika | none | BUILT, NOT RUN IN A BROWSER (vitest; needs the API half) |
+| CON-95 | "Apply rejections automatically" is off by default, explained in plain words, and can be turned on or off | Anika | none | BUILT, NOT RUN IN A BROWSER (vitest; needs the API half) |
+| CON-96 | The Inbox page shows the interview the inbox read from a mail on the application's row ("Interview Tue Oct 27, 2:00 PM PDT · Phone"), in the interview's own time zone, with a Join link only for an https meeting link and a Cancelled mark for a called-off one | Anika | none | BUILT, NOT RUN IN A BROWSER (vitest `InboxPage.test.tsx`, `inbox.test.ts`; IT `ConsultantInboxResourceIT`) |
+| CON-97 | A change the inbox applied has an Undo right on the "Applications your mail is tracking" row, with a confirm; after the window nothing is offered, a late press reads "Too late to undo" | Anika | none | BUILT, NOT RUN IN A BROWSER (vitest `InboxPage.test.tsx`; IT `ConsultantInboxResourceIT`) |
 | CON-60 | Apply on the source site with the extension; application appears in My Applications | Anika | none | BLOCKED: needs the extension loaded on a live ATS page, and tracked-application-to-job matching is not built (`pipeline_application_link`, doc 59 section 5) |
 | CON-61 | Marketer enters the job source link and quick info | Omar | none | NOT-BUILT: no marketer write for `cws_job_source` (Marketing workspace; `consultant-job-source-flow.md` "What the marketer role must later write") |
 | CON-62 | Marketer captures a job with the extension and assigns it | Omar, Anika | none | NOT-BUILT: doc 59/60, stories X9.x |
@@ -328,7 +336,7 @@ Fixed in the specs, none weakened: **CON-01 and CON-30** (D12: Home and My Marke
 
 ### CON-72 Mail moves her applications and offers new ones
 - **Steps:** after connecting, reload until the first read finishes; read "Applications your mail is tracking" and "Found in your mail"; add the Harbor Cloud interview invite to the board; dismiss the Lumen Health confirmation.
-- **Expected:** Orbit Freight (her tracked application) stands at **Interview** after the invite and Cedar Analytics at **Rejected**, each row labelled "from your inbox" (the stage is the application's current one, so it also reads right on a repeat connect); Lumen Health and Harbor Cloud are offered, not added behind her back; "Add to my board as Interview" puts Harbor Cloud on her board at Interview and lists it with the others; Dismiss removes a suggestion. **Not covered here:** the organization's mirror of the stage (needs a linked opportunity with FULL consent): covered by `PipelineApplicationLinkerTest` and `LinkedApplicationProjectionInboxTest`. **Automation:** `inbox.story.ts` "CON-72 ...". **Status:** AUTOMATED; the Harbor step consumes a seeded suggestion (re-seed to repeat; the spec handles a repeat run).
+- **Expected:** Orbit Freight (her tracked application) stands at **Interview** after the invite and Cedar Analytics at **Rejected**, each row labelled "from your inbox" (the stage is the application's current one, so it also reads right on a repeat connect); Lumen Health and Harbor Cloud are offered, not added behind her back; "Add to my board as Interview" puts Harbor Cloud on her board at Interview (and, from the calendar invitation among its mails, the interview time, zone and Zoom link: CON-90) and lists it with the others (a company with two mails, an availability request and a confirmed invitation, is one suggestion, the newest); Dismiss removes a suggestion. **Not covered here:** the organization's mirror of the stage (needs a linked opportunity with FULL consent): covered by `PipelineApplicationLinkerTest` and `LinkedApplicationProjectionInboxTest`. **Automation:** `inbox.story.ts` "CON-72 ...". **Status:** AUTOMATED; the Harbor step consumes a seeded suggestion (re-seed to repeat; the spec handles a repeat run).
 
 ### CON-73 Disconnect forgets everything
 - **Steps:** Disconnect this inbox, read the sentence about what it deletes, confirm.
@@ -432,6 +440,47 @@ Fixed in the specs, none weakened: **CON-01 and CON-30** (D12: Home and My Marke
 
 ### CON-68 Connected tools, password/2FA, placement documents (NOT-BUILT)
 - Settings shows these as disabled or "managed on your Kiwiply account"; Placement "Download Documents" says documents arrive with the HR workspace. Asserted as honest empty states in CON-44 and CON-56.
+
+### CON-90 An interview invitation sets the interview
+- **Persona:** Anika (connected to the demo sample mailbox). **Goal:** an invitation in her own Gmail becomes an interview with a time she can trust, without her typing it.
+- **Steps:** connect the sample mailbox; open her board: Orbit Freight (a phone screen "Tuesday, <date> at 2:00 PM PST", 30 minutes, then moved by a reschedule mail) and, after "Add to my board as Interview" on the Harbor Cloud suggestion, Harbor Cloud (a calendar invitation with a Zoom link, 10:00 to 10:45 Pacific).
+- **Expected:** each application has an **Interview** row (source "inbox") at the right local time and zone (the date decides daylight saving: "PST" in October is Pacific time, so 2:00 PM shows as 2:00 PM PDT), the kind (phone, video), the end when the mail gives a length, and "Meeting link: https://...zoom.us/j/..." in the notes; the timeline reads "Moved to Interview - from an email" then "Interview Tue Oct 27, 2:00 PM PDT, phone" (no sender, subject or body anywhere in the row); it shows in the interviews calendar and the next-interview column. The calendar file itself is never stored (only the start, zone, UID, SEQUENCE and link). Mail dates are read in the zone the mail names; with none, in the zone of the mail's Date header, then UTC at a lower confidence.
+- **Pages / APIs:** `/board`, application detail Timeline, Interviews calendar; `GET /api/profile/interviews`. **Automation:** none (Java: `InterviewScheduleCorpusTest`, `InboxInterviewApplierTest`, `ConsultantInboxDemoIT`). **Status: BUILT, NOT RUN IN A BROWSER.**
+
+### CON-91 Reschedules and cancellations; the organization sees a time and a kind only
+- **Steps:** with the sample mailbox read, Orbit Freight's interview has been moved by "Rescheduled: your phone screen with Orbit Freight". A cancellation mail (calendar `METHOD:CANCEL`, or "we need to cancel our interview ...") arrives for it. When Anika shares her applications in full with the organization and the job is linked, Sarah (marketer) or the org admin opens the consultant's Interviews page.
+- **Expected:** the same row moves to the new time (the earlier time is kept in its history, the reminders restart); a cancelled interview shows as **Cancelled** (outcome) and the status does not change in either direction. On the organization's Interviews page the interview appears with its time, duration and kind (Phone screen / Video / Onsite ...) and a status (Scheduled / Cancelled); never the meeting link, the location, the interviewer, a note, the sender, the subject or a word of the mail. A consultant who shares only a summary, or nothing, shows no interview. Stale versions (a lower calendar SEQUENCE) are ignored.
+- **Pages / APIs:** `/w/consultant/interviews` (own workspace), the org Interviews page. **Automation:** none (Java: `InboxInterviewApplierTest`, `LinkedInterviewMirrorWorkTest`). **Status: BUILT, NOT RUN IN A BROWSER** (the org-side mirror needs a linked job with FULL consent).
+
+### CON-92 A mail with no readable time
+- **Steps:** the sample mailbox's first Orbit Freight invitation asks for her availability "next week"; an availability request or a list of options arrives for another job.
+- **Expected:** the application moves to Interview (forward only) but **no interview is made and no time is invented**: the timeline says "Interview invitation read, but the time could not be read from the email. Add the interview yourself." The same happens when the reading is below the admin setting `inbox.interview_min_confidence` (default 60; for example a date like 03/04/2026, or a weekday that does not match the date).
+- **Pages / APIs:** application detail Timeline; Settings registry key `inbox.interview_min_confidence`. **Automation:** none (Java: `InboxInterviewApplierTest`, corpus `none-*` and `weak-*` cases). **Status: BUILT, NOT RUN IN A BROWSER.**
+
+### CON-93 Mail the inbox is not sure about waits for her review
+- **Persona:** Anika (Inbox connected, inbox tracking in her license). **Steps:** open Inbox in the workspace. Under "Needs your review" read the rows: a rejection ("Acme says: not selected for Data Engineer. Mark as Rejected?"), a stage change, and a mail that could belong to two applications ("Two applications could match this email from Orbit Freight: choose one" with a list to choose from). Press Accept on the first, choose one application and Accept on the second, "Not this one" on the third. Open the page on a phone (390 px).
+- **Expected:** nothing on an application changes until she presses Accept; a row whose confidence is under 80 carries a small "Not sure" label; Accept on the ambiguous row stays off until she has chosen; the count and the list update after each action; with nothing waiting the card says "Nothing needs your review"; a failed load shows a retry, never a blank. The words say "this workspace", never the product name, and the card has no links. On a phone the rows stack and the buttons fill the width. The organization sees only the stage an application reaches, as before.
+- **Pages / APIs:** `/w/consultant/inbox`; `GET /api/orgs/{orgId}/me-workspace/inbox/review`, `POST .../review/{id}/accept` (`{ applicationId }` when the mail has candidates), `POST .../review/{id}/dismiss`. **Automation:** none (vitest only). **Status: BUILT, NOT RUN IN A BROWSER** (the API half is built separately).
+
+### CON-94 Undo what the inbox did
+- **Persona:** Anika. **Steps:** open an application whose stage the inbox moved (timeline row "Updated by Inbox from mail on <date>"). Press Undo, read "Put it back the way it was?", choose "Keep it", then Undo again and "Yes, undo". Try an old change.
+- **Expected:** the confirm comes first, "Keep it" changes nothing; "Yes, undo" puts the stage back and the timeline reloads; past the window the server answers 409 `UNDO_EXPIRED` and the row says "Too late to undo". Only rows with `undoable` true show the control.
+- **Pages / APIs:** the Applications page detail sheet; `POST /api/orgs/{orgId}/me-workspace/applications/{applicationId}/inbox-undo/{eventId}`. **Automation:** none. **Status: BUILT, NOT RUN IN A BROWSER.**
+
+### CON-95 Apply rejections automatically (off by default)
+- **Persona:** Anika. **Steps:** on the Inbox page read the "Apply rejections automatically" switch and its explanation; turn it on, reload, turn it off.
+- **Expected:** it starts off; the sentence says that off means the workspace asks first and on means the application is marked Rejected as soon as the email is read, with a short time to undo; the choice is kept; a failed save puts the switch back and says so.
+- **Pages / APIs:** `GET/PUT /api/orgs/{orgId}/me-workspace/inbox/settings` (`{ applyRejectionsAutomatically }`). **Automation:** none. **Status: BUILT, NOT RUN IN A BROWSER.**
+
+### CON-96 The interview the inbox read, on the Inbox page
+- **Persona:** Anika. **Steps:** connect the sample mailbox; read the Orbit Freight (phone screen) and Harbor Cloud (video) rows under "Applications your mail is tracking".
+- **Expected:** a second line "Interview <weekday> <date>, <time> <zone> · <Phone|Video>" in the interview's own zone; a "Join" link only when the mail carried an https meeting link (opens in a new tab, never a kiwiply.com address); a cancelled interview is struck through with a "Cancelled" mark and no link. The line wraps under the company at 390 px. Selector `data-update-interview`.
+- **Pages / APIs:** Inbox page; `GET /api/orgs/{orgId}/me-workspace/inbox` (`updates[].interview`). The organization-facing routes carry none of it. **Automation:** `inbox-review-walk` (assertion). **Status: BUILT, NOT RUN IN A BROWSER.**
+
+### CON-97 Undo from the Inbox page row
+- **Persona:** Anika. **Steps:** accept the held Cedar Analytics rejection; on its row press Undo, read "Put it back the way it was?", "Yes, undo".
+- **Expected:** the row shows Applied again and the page reloads; only rows whose latest inbox change is inside the undo window (`updates[].undo.undoable`) show the control; a 409 `UNDO_EXPIRED` reads "Too late to undo". Selector `data-update-undo`.
+- **Pages / APIs:** Inbox page; `POST /api/orgs/{orgId}/me-workspace/applications/{applicationId}/inbox-undo/{eventId}`. **Automation:** none. **Status: BUILT, NOT RUN IN A BROWSER.**
 
 ## 6. Running the specs
 

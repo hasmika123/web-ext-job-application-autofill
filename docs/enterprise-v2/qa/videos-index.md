@@ -115,3 +115,31 @@ Still open: Sarah's Marketing Manager workspace is a placeholder (MKT-03, MKT-36
 
 Own stack: MySQL `kiwiply-v2-mysql` database `dossier_ent_stories`, API on 18220 (`DEMO_ENABLED ENT_DEMO_SEED DEMO_ALLOW_WRITES`), web from a production build on 3220, `STORY_WORKERS=1 PW_CHANNEL=chrome`. Kit changes: a cached sign-in older than 9 minutes is renewed before a browser opens (a long suite signed itself out: the refresh token is single-use), `STORY_REUSE_SIGNIN_MIN` keeps a fresh sign-in between runs, and the marketing `ready()` helper now requires the signed-in shell (a signed-out page's own heading used to count as "ready"). Keep `DOSSIER_INBOX_KEY` fixed across API restarts: a different key switches the inbox off (the canary check) and CON-70..77 then fail.
 
+
+## v3 narrated videos (2026-10-18)
+
+Second round of the narrated videos, one story per video, voice Ava (`STORY_TTS=edge`, rate -5%), walkthrough style `STORY_HUMAN=1`, spoken intro over a title card. Folder: `C:\work_bench\2026_april\claude_code_work_bench\kiwiply-videos\v3\` (outside the repo; each video has a `.srt`; drafts in `_drafts\`). Specs: `web/e2e/videos/v3/`. Rows for videos 11 and 12 (branch `rec-c`, stack on `dossier_rec_c`, web 3303, API 18303); other agents add their own rows.
+
+| # | File | Length | Roles | Spec |
+|---|---|---|---|---|
+| 11 | `11-interviews-and-prep.mp4` | 5.9 min | Consultant (Anika), Marketer (Omar), Acme | `web/e2e/videos/v3/11-interviews-and-prep.video.ts` |
+| 12 | `12-offers-and-placements.mp4` | about 6.5 min | Account Manager (Amara), Consultant (Anika), Org Admin (Sarah), Marketer (Omar), Acme | `web/e2e/videos/v3/12-offers-and-placements.video.ts` |
+
+### 11 Interviews and interview prep
+
+- Shows: Anika's Interviews page (numbers, schedule, calendar); opens the Global Media interview and saves the mode, the https meeting link, the interviewer's title and a private prep note (Join switches on); the Inbox: connects the demo stack's sample mailbox, the interviews read from the mail (a phone screen that was moved, a video interview with a Zoom link from a calendar invitation, a rejection held for her review, Undo), the calendar file for that interview; Interview Prep (checklist tick with Undo, a self-scored Behavioral practice session, history); Omar's Interviews page (Anika's interview among his consultants, "Record slot confirmed", his preparation checklist, "Request reminder"); Anika records feedback on an earlier interview.
+- Honest notes: the "Gmail" is the built-in sample mailbox (`DemoImapGateway`), no real Gmail. Practice is self-scored: AI scoring is not built and the page says so. There is no calendar-file (.ics) button inside the organization workspace (the export lives in the personal app), so the video shows the real response of `GET /api/interviews/{id}/ics` in a panel and says a download cannot be shown. Interviews read from email stay private to the consultant and are not on the organization's Interviews page (the privacy note says the organization sees only the stage). Setup off camera: Omar is made Anika's marketer through the Marketing Assignments reassign call (Sarah is her marketer in the seed, and the Marketing workspace does not open for Sarah), and the inbox is disconnected first.
+
+### 12 Offers and placements
+
+- Shows: Amara records an offer for Anika at Northwind Logistics ("Record as extended"); Anika compares offers, opens it and asks to negotiate; Amara sees it as Negotiating, revises the rate (back to Extended); Anika accepts; her My Placement shows the new active placement, she posts a status update; Amara's Placements page (the Timeline shows "Hired: the consultant accepted the offer"), Sarah's Placements page, Omar's Performance page.
+- Honest notes: Kiwiply records offers and placements only; nothing is signed, sent or paid. The new placement's onboarding checklist and milestones are empty (only the demo seeder writes them; there is no authoring page yet) and the video says so. Omar has no offers or placements page, so only his Performance page is shown. The seeded offers carry a Sample mark.
+
+### Findings from videos 11 and 12 (fixed on `rec-c`, each with a test)
+
+1. `Dialog` (`packages/ui`) took focus away on every keystroke when the caller passed an inline `onClose`: typing in the consultant's "Ask to negotiate" or decline note moved focus to the dialog's close button after the first character, so the next space closed the dialog (commit 28daa935, `Dialog.test.tsx`).
+2. The consultant's Accept dialog and offer sheet said accepting does not start a placement, but the accept creates it (commit 45f265ca, `offers.test.ts`).
+
+Not fixed (reported): at 1440 px the Marketing Interviews table scrolls sideways and its Action column is off screen, and the row menu closes when the table scrolls under it; the seeded Anika has no inbox state until a mailbox is connected, and the first read of the sample mailbox takes about 40 seconds.
+
+How to re-record: restore a clean seeded database (an Anika with no connected mailbox and no placement), `STORY_HUMAN=1 STORY_TTS=edge STORY_TTS_VOICE=en-US-AvaMultilingualNeural STORY_TTS_RATE=-5% STORY_TTS_CACHE=<folder>\_tts-cache STORY_SLOWMO=40 STORY_NARRATION_LOG=<folder>\_drafts\11.json STORY_PERSONAS=anika,omar,sarah E2E_REAL_PORT=<port> PW_CHANNEL=chrome npx playwright test -c playwright.videos.config.ts e2e/videos/v3/11-interviews-and-prep.video.ts`, then `node scripts/story-video/render.cjs --log <log> --out <mp4> --srt`. For 12 use `STORY_PERSONAS=anika,amara,sarah,omar`. Wait until the API has finished its demo seeders (a few minutes after "Started") or the Demo accounts tab is missing and the sign-ins fail.

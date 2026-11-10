@@ -64,6 +64,10 @@ public class TalentInterview implements Serializable {
     @Column(name = "reminder_requested_at")
     private Instant reminderRequestedAt;
 
+    /** The consultant's own (personal) interview this row follows, when it came from their inbox; null for every other row. */
+    @Column(name = "personal_interview_id")
+    private Long personalInterviewId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -124,4 +128,12 @@ public class TalentInterview implements Serializable {
     public void setCreatedByMemberId(Long createdByMemberId) { this.createdByMemberId = createdByMemberId; }
     public Long getUpdatedByMemberId() { return updatedByMemberId; }
     public void setUpdatedByMemberId(Long updatedByMemberId) { this.updatedByMemberId = updatedByMemberId; }
+
+    public Long getPersonalInterviewId() {
+        return personalInterviewId;
+    }
+
+    public void setPersonalInterviewId(Long personalInterviewId) {
+        this.personalInterviewId = personalInterviewId;
+    }
 }

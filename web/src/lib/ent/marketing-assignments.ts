@@ -143,6 +143,75 @@ export interface RestoreRow {
   status: string;
 }
 
+/* ── planned changes: reassign later, temporary cover (H-assign) ───────────────────── */
+
+export type ScheduleKind = "REASSIGN" | "DELEGATE";
+export type ScheduleStatus = "SCHEDULED" | "ACTIVE" | "DONE" | "ENDED" | "CANCELLED" | "FAILED";
+
+/** One plan: a handover on a future date, or a temporary cover that gives the consultant back by itself. */
+export interface Schedule {
+  id: number;
+  consultantId: number;
+  consultantName: string | null;
+  kind: ScheduleKind;
+  status: ScheduleStatus;
+  newMarketer: Person;
+  returnMarketer: Person | null;
+  currentMarketer: Person | null;
+  startsAt: string;
+  endsAt: string | null;
+  reason: string | null;
+  outcome: string | null;
+  createdBy: Person | null;
+  createdAt: string;
+  appliedAt: string | null;
+  finishedAt: string | null;
+}
+
+/** What the Reassign sheet shows before anything happens. Counts only, never the work itself. */
+export interface HandoverPreview {
+  consultantId: number;
+  consultantName: string;
+  from: Person | null;
+  to: Person | null;
+  opportunities: number;
+  tasks: number;
+  followups: number;
+  total: number;
+  handoverEnabled: boolean;
+  toAssigned: number | null;
+  toCapacity: number | null;
+  licenceMax: number | null;
+  overCapacity: boolean;
+  overLicence: boolean;
+  pending: Schedule[];
+}
+
+export interface ReassignResult {
+  status: "DONE" | "SCHEDULED";
+  applied: BulkResult | null;
+  schedule: Schedule | null;
+}
+
+export interface ReassignBody {
+  consultantId: number;
+  newMarketerMemberId: number;
+  /** ISO instant; leave out to reassign now. */
+  effectiveAt?: string;
+  reason?: string;
+  allowOverCapacity?: boolean;
+}
+
+export interface DelegateBody {
+  consultantId: number;
+  coverMarketerMemberId: number;
+  /** ISO instant; leave out to start now. */
+  startsAt?: string;
+  endsAt: string;
+  reason: string;
+  allowOverCapacity?: boolean;
+}
+
 /* ── query <-> URL ───────────────────────────────────────────────────────────────── */
 
 export type SortKey = "name" | "priority" | "status" | "activeApps" | "lastActivity" | "assigned";
@@ -328,7 +397,10 @@ const REASON_TEXT: Record<string, string> = {
   UNCHANGED: "Nothing to change.",
   OVER_CAPACITY: "That would put the marketer over capacity.",
   MARKETER_INVALID: "That person can't carry consultants.",
-  ALREADY_MARKETER: "That person is already a marketer.",
+  ALREADY_MARKETER: "That person already carries this consultant.",
+  CONSULTANTS_LIMIT: "The licence allows no more consultants for that marketer.",
+  SCHEDULE_EXISTS: "This consultant already has a plan of that kind. Cancel it first.",
+  NOT_PENDING: "That plan is already over.",
 };
 
 export function reasonText(code: string | undefined | null): string | null {
@@ -360,6 +432,69 @@ export function overCapacityOf(r: { ok: false; status: number; code?: string; ex
   const n = (v: unknown) => (typeof v === "number" ? v : NaN);
   const out = { marketerMemberId: n(e.marketerMemberId), capacity: n(e.capacity), current: n(e.current), adding: n(e.adding), projected: n(e.projected) };
   return Object.values(out).some(Number.isNaN) ? null : out;
+}
+
+/** The 409 CONSULTANTS_LIMIT answer's figures (the licence cap, which no "anyway" button waives), or null. */
+export interface LicenceLimit {
+  marketerMemberId: number;
+  max: number;
+  current: number;
+  adding: number;
+  projected: number;
+}
+
+export function licenceLimitOf(r: { ok: false; status: number; code?: string; extra: Record<string, unknown> }): LicenceLimit | null {
+  if (r.status !== 409 || r.code !== "CONSULTANTS_LIMIT") return null;
+  const e = r.extra;
+  const n = (v: unknown) => (typeof v === "number" ? v : NaN);
+  const out = { marketerMemberId: n(e.marketerMemberId), max: n(e.max), current: n(e.current), adding: n(e.adding), projected: n(e.projected) };
+  return Object.values(out).some(Number.isNaN) ? null : out;
+}
+
+/* ── dates of the sheet ─────────────────────────────────────────────────────────── */
+
+/** A day picked in a date box ("2026-11-03") as the instant that day starts in the browser's own time zone; null for anything else. */
+export function dayStartIso(day: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0);
+  return Number.isNaN(d.getTime()) || d.getMonth() !== Number(m[2]) - 1 ? null : d.toISOString();
+}
+
+/** Today plus `days` as a date-box value, in the browser's time zone (the earliest day a plan can name). */
+export function dayInput(days: number, from: Date = new Date()): string {
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + days);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** "Nov 3, 2026" for an instant, in the viewer's time zone (plans are named by day, so the day must not slip into UTC). */
+export function formatLocalDay(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** The plain-words line for a preview: "3 open opportunities, 2 tasks and 1 follow-up move to Priya", or why nothing moves. */
+export function previewLine(p: HandoverPreview, toName: string | null): string {
+  if (!p.from) return "This consultant has no marketer yet, so there is no open work to move.";
+  if (!p.handoverEnabled) return "Open work stays with the previous marketer: the handover switch is off for your organization.";
+  if (p.total === 0) return `${p.from.name} has no open work for ${p.consultantName}, so nothing needs to move.`;
+  const part = (n: number, one: string, many: string) => (n === 0 ? null : `${n} ${n === 1 ? one : many}`);
+  const bits = [part(p.opportunities, "open opportunity", "open opportunities"), part(p.tasks, "task", "tasks"), part(p.followups, "follow-up", "follow-ups")].filter((x): x is string => !!x);
+  const list = bits.length > 1 ? `${bits.slice(0, -1).join(", ")} and ${bits[bits.length - 1]}` : bits[0];
+  return `${list} ${p.total === 1 ? "moves" : "move"} ${toName ? `to ${toName}` : "with the consultant"}.`;
+}
+
+/** The note under a consultant row for a pending plan: "Covered by Priya until Nov 10, 2026" / "Moves to Priya on Nov 3, 2026". */
+export function planNote(s: Schedule): string {
+  if (s.kind === "DELEGATE") {
+    return s.status === "ACTIVE"
+      ? `Covered by ${s.newMarketer.name} until ${formatLocalDay(s.endsAt)}`
+      : `${s.newMarketer.name} covers from ${formatLocalDay(s.startsAt)} to ${formatLocalDay(s.endsAt)}`;
+  }
+  return `Moves to ${s.newMarketer.name} on ${formatLocalDay(s.startsAt)}`;
 }
 
 /* ── client ──────────────────────────────────────────────────────────────────────── */
@@ -417,6 +552,17 @@ export const marketingApi = {
   update: (orgId: number | string, body: UpdateBody, key: string = newKey()) => call<BulkResult>(`${base(orgId)}/update`, post("POST", body, key)),
   unassign: (orgId: number | string, consultantIds: number[], key: string = newKey()) => call<BulkResult>(`${base(orgId)}/unassign`, post("POST", { consultantIds }, key)),
   restore: (orgId: number | string, rows: RestoreRow[], key: string = newKey()) => call<BulkResult>(`${base(orgId)}/restore`, post("POST", { rows }, key)),
+  /** What a handover would move (counts only) and how full the new marketer would be. */
+  preview: (orgId: number | string, consultantId: number, toMemberId?: number | null) => {
+    const p = new URLSearchParams({ consultantId: String(consultantId) });
+    if (toMemberId != null) p.set("toMemberId", String(toMemberId));
+    return call<HandoverPreview>(`${base(orgId)}/handover-preview?${p}`, { cache: "no-store" });
+  },
+  reassign: (orgId: number | string, body: ReassignBody, key: string = newKey()) => call<ReassignResult>(`${base(orgId)}/reassign`, post("POST", body, key)),
+  delegate: (orgId: number | string, body: DelegateBody, key: string = newKey()) => call<Schedule>(`${base(orgId)}/delegate`, post("POST", body, key)),
+  schedules: (orgId: number | string, consultantId?: number | null) =>
+    call<{ items: Schedule[] }>(`${base(orgId)}/schedules${consultantId != null ? `?consultantId=${consultantId}` : ""}`, { cache: "no-store" }),
+  cancelSchedule: (orgId: number | string, scheduleId: number, key: string = newKey()) => call<Schedule>(`${base(orgId)}/schedules/${scheduleId}/cancel`, post("POST", {}, key)),
 };
 
 /* ── Undo: the reverse of a change, from the `previous` values ───────────────────── */

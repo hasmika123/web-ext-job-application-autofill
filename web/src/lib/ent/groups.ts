@@ -195,7 +195,10 @@ export function failMessage(f: ApiFail): string {
 
 const base = (orgId: number | string) => `/api/orgs/${orgId}/groups`;
 
-async function call<T>(url: string, init?: RequestInit): Promise<ApiResult<T>> {
+/** A body that is not the contract (a proxy answering 200 with something else) must fail loudly, not crash the page on its first `.map`. */
+const UNEXPECTED: ApiFail = { ok: false, status: 502, message: "The server sent something we didn't expect. Try again in a moment." };
+
+async function call<T>(url: string, init?: RequestInit, valid?: (body: unknown) => boolean): Promise<ApiResult<T>> {
   let res: Response;
   try {
     res = await fetch(url, { ...init, headers: { accept: "application/json", ...(init?.headers ?? {}) } });
@@ -204,7 +207,7 @@ async function call<T>(url: string, init?: RequestInit): Promise<ApiResult<T>> {
   }
   if (res.status === 204) return { ok: true, data: undefined as T };
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (res.ok) return { ok: true, data: body as T };
+  if (res.ok) return valid && !valid(body) ? UNEXPECTED : { ok: true, data: body as T };
   return {
     ok: false,
     status: res.status,
@@ -239,8 +242,13 @@ export function directoryQueryString(q: DirectoryQuery): string {
 }
 
 export const groupsApi = {
-  directory: (orgId: number | string, q: DirectoryQuery) => call<DirectoryPage>(`${base(orgId)}/directory?${directoryQueryString(q)}`, { cache: "no-store" }),
-  structure: (orgId: number | string) => call<Structure>(`${base(orgId)}/structure`, { cache: "no-store" }),
+  directory: (orgId: number | string, q: DirectoryQuery) =>
+    call<DirectoryPage>(`${base(orgId)}/directory?${directoryQueryString(q)}`, { cache: "no-store" }, (b) => Array.isArray((b as Partial<DirectoryPage>)?.items)),
+  structure: (orgId: number | string) =>
+    call<Structure>(`${base(orgId)}/structure`, { cache: "no-store" }, (b) => {
+      const st = b as Partial<Structure> | null;
+      return Array.isArray(st?.departments) && Array.isArray(st?.unassignedTeams) && Array.isArray(st?.cohorts);
+    }),
   detail: (orgId: number | string, id: number) => call<GroupDetail>(`${base(orgId)}/${id}`, { cache: "no-store" }),
   people: (orgId: number | string, q: string) => call<PersonOption[]>(`${base(orgId)}/people?${new URLSearchParams({ q, limit: "20" })}`, { cache: "no-store" }),
   create: (orgId: number | string, body: GroupBody) => call<Group>(base(orgId), jsonInit("POST", body)),

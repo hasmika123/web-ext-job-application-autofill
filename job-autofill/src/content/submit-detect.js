@@ -20,9 +20,21 @@
   let observer = null;
   let timer = null;
 
+  // A page that still offers its Submit button is the form (often its last step, whose certify line reads like a
+  // confirmation: "...this application is true and complete"), not the confirmation that follows it.
+  function submitStillOffered() {
+    const B = JAF.adapterBase;
+    const els = Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"]'));
+    return els.some((b) => {
+      const t = String(b.innerText || b.textContent || b.value || "").replace(/\s+/g, " ").trim();
+      if (!t || t.length > 40 || !/\bsubmit\b/i.test(t)) return false;
+      return B && B.isVisible ? B.isVisible(b) : true;
+    });
+  }
+
   function signal() {
     try {
-      if (JAF.appTracking && JAF.appTracking.hasSuccessSignal(document)) {
+      if (JAF.appTracking && JAF.appTracking.hasSuccessSignal(document) && !submitStillOffered()) {
         disarm();
         try { chrome.runtime.sendMessage({ type: "JAF_SUBMIT_DETECTED" }); } catch (e) {}
         return true;

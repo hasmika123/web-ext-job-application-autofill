@@ -42,19 +42,22 @@ public class AccountDeletionRequestService {
     private final AccountDeletionService deletion;
     private final ResumeBuilderSettings settings;
     private final TransactionTemplate tx;
+    private final AccountDeletionMailer mailer;
 
     public AccountDeletionRequestService(
         AccountDeletionRequestRepository requests,
         UserRepository users,
         AccountDeletionService deletion,
         ResumeBuilderSettings settings,
-        PlatformTransactionManager transactionManager
+        PlatformTransactionManager transactionManager,
+        AccountDeletionMailer mailer
     ) {
         this.requests = requests;
         this.users = users;
         this.deletion = deletion;
         this.settings = settings;
         this.tx = new TransactionTemplate(transactionManager);
+        this.mailer = mailer;
     }
 
     public int graceHours() {
@@ -64,9 +67,11 @@ public class AccountDeletionRequestService {
     /** Records (or re-arms, or returns the existing) request for this account. */
     public View request(Long userId, String source, Instant now) {
         int grace = graceHours();
+        boolean[] created = { false };
         AccountDeletionRequest r = tx.execute(s -> {
             AccountDeletionRequest existing = requests.findByUserId(userId).orElse(null);
-            if (existing != null && !AccountDeletionRequest.CANCELLED.equals(existing.getStatus())) return existing; // already asked: idempotent
+            if (existing != null && !AccountDeletionRequest.CANCELLED.equals(existing.getStatus())) return existing; // already asked: idempotent (and no second e-mail)
+            created[0] = true;
             AccountDeletionRequest row = existing != null ? existing : new AccountDeletionRequest();
             row.setUserId(userId);
             row.setStatus(AccountDeletionRequest.PENDING);
@@ -79,7 +84,22 @@ public class AccountDeletionRequestService {
             row.setLastError(null);
             return requests.save(row);
         });
+        if (created[0]) mailer.scheduled(emailOf(userId), r.getPurgeAfter());
         return view(r, grace);
+    }
+
+    /**
+     * Erases the signed-in account at once (the zero-hour window: no undo) and then tells its own address. The address is read BEFORE the erasure, the mail is sent only after the
+     * erasure succeeded (a failed erasure throws first and sends nothing), and it is held in memory for that one send.
+     */
+    public void eraseNow(Long userId) {
+        String email = emailOf(userId);
+        deletion.deleteCurrentUserAccount();
+        mailer.completed(email);
+    }
+
+    private String emailOf(Long userId) {
+        return users.findById(userId).map(u -> u.getEmail()).orElse(null);
     }
 
     public View status(Long userId) {
@@ -96,6 +116,7 @@ public class AccountDeletionRequestService {
             row.setCancelledAt(now);
             return requests.save(row);
         });
+        mailer.cancelled(emailOf(userId));
         return view(r, graceHours());
     }
 
@@ -116,11 +137,14 @@ public class AccountDeletionRequestService {
         for (Long id : ids) {
             AccountDeletionRequest r = requests.findById(id).orElse(null);
             if (r == null) continue;
-            String login = users.findById(r.getUserId()).map(u -> u.getLogin()).orElse(null);
+            var user = users.findById(r.getUserId()).orElse(null);
+            String login = user == null ? null : user.getLogin();
+            String email = user == null ? null : user.getEmail(); // read before the erasure: the completed mail is the last thing sent to it
             try {
                 if (login != null) deletion.deleteUserAccountByLogin(login, r.getSource(), r.getRequestedAt()); // the request row goes with the user (FK cascade)
                 else requests.deleteById(id);
                 done++;
+                if (login != null) mailer.completed(email); // only after the erasure succeeded
             } catch (RuntimeException e) {
                 LOG.warn("Scheduled account erasure (request {}) failed; it will be retried", id, e);
                 String why = e.getClass().getSimpleName();

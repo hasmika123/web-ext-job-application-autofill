@@ -1699,3 +1699,8 @@
   font-weight: 800;
   color: var(--ent-title);
 }
+
+/* main is a flex column (so the footer sits at the bottom of a short page): its children must never shrink, or a tall child is squashed to fit the viewport */
+.theme-tenant main[data-shell-main] > * {
+  flex-shrink: 0;
+}

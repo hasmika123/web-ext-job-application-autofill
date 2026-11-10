@@ -113,7 +113,7 @@ function FormDialog({
           Cancel
         </Button>
         <Button variant="accent" onClick={submit} disabled={busy || invalid}>
-          {busy ? "Saving..." : editing ? "Save changes" : "Add Task"}
+          {busy ? "Saving..." : editing ? "Save changes" : "Add task"}
         </Button>
       </div>
     </>
@@ -195,7 +195,7 @@ export default function TaskDialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={state.kind === "create" ? "Add Task" : state.kind === "edit" ? "Edit task" : state.kind === "reassign" ? "Reassign task" : "Delete task"}
+        aria-label={state.kind === "create" ? "Add task" : state.kind === "edit" ? "Edit task" : state.kind === "reassign" ? "Reassign task" : "Delete task"}
         data-task-dialog={state.kind}
         className="w-full max-w-lg rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-xl"
       >

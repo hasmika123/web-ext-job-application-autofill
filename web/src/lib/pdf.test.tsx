@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ResumePreview } from "@kiwiply/ui";
+import { ResumePreview, TEMPLATE_IDS } from "@kiwiply/ui";
 import type { ResumeDocument } from "@kiwiply/ui";
 import {
   PdfBusyError,
@@ -13,6 +13,7 @@ import {
   createLimiter,
   exportResumePdf,
   pagePixels,
+  photoDataUri,
   printPdf,
   printPdfWithThumb,
   readPdfConfig,
@@ -20,6 +21,7 @@ import {
   warmPdfBrowser,
   renderResumeHtml,
   resetPdfLimiter,
+  resolvePhotoSrc,
 } from "./pdf";
 import { pdfFileName } from "./pdf-name";
 
@@ -130,6 +132,70 @@ describe("renderResumeHtml", () => {
     const html = renderResumeHtml({ doc });
     expect(html).not.toContain("<script>alert");
     expect(html).not.toContain("<img src=x");
+  });
+});
+
+describe("the photo in the PDF (R7.4)", () => {
+  const BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+  const SRC = photoDataUri(BYTES, "image/jpeg")!;
+  const withPhoto = (): ResumeDocument => {
+    const doc = fixture("full-v2");
+    doc.basics.photo = { key: "resume-photos/7/3-abc-photo.jpg" };
+    return doc;
+  };
+
+  it("inlines the bytes as a base64 data URI, for the three picture types the API stores and nothing else", () => {
+    expect(SRC).toBe(`data:image/jpeg;base64,${Buffer.from(BYTES).toString("base64")}`);
+    expect(photoDataUri(BYTES, "image/png")).toMatch(/^data:image\/png;base64,/);
+    expect(photoDataUri(BYTES.buffer, "image/webp; charset=binary")).toMatch(/^data:image\/webp;base64,/);
+    expect(photoDataUri(BYTES, "image/svg+xml")).toBeNull();
+    expect(photoDataUri(BYTES, "text/html")).toBeNull();
+    expect(photoDataUri(BYTES, null)).toBeNull();
+  });
+
+  it("the sidebar template prints the photo from the data URI when the theme shows it", () => {
+    const html = renderResumeHtml({ doc: withPhoto(), theme: { showPhoto: true }, templateId: "sidebar", photoSrc: SRC });
+    expect(html).toContain('class="rz-photo"');
+    expect(html).toContain(`src="${SRC}"`);
+    expect(html).not.toMatch(/<link|<script|@import/); // still no network anywhere
+  });
+
+  it("the photo is off by default: a resume with a photo and no showPhoto prints without it", () => {
+    const html = renderResumeHtml({ doc: withPhoto(), templateId: "sidebar", photoSrc: SRC });
+    expect(html).not.toContain('class="rz-photo"');
+    expect(html).not.toContain(SRC);
+  });
+
+  it("NO other template prints it, even when the theme asks and a source is given (ATS and the rest)", () => {
+    const others = TEMPLATE_IDS.filter((id) => id !== "sidebar");
+    expect(others.length).toBeGreaterThanOrEqual(8);
+    for (const templateId of others) {
+      const html = renderResumeHtml({ doc: withPhoto(), theme: { showPhoto: true }, templateId, photoSrc: SRC });
+      expect(html, templateId).not.toContain('class="rz-photo"');
+      expect(html, templateId).not.toContain(SRC);
+    }
+  });
+
+  it("resolvePhotoSrc asks for the bytes only when the document, theme and template would draw a photo", async () => {
+    const load = vi.fn(async () => ({ bytes: BYTES, contentType: "image/jpeg" }));
+    // drawn: sidebar + showPhoto + a photo on the document
+    expect(await resolvePhotoSrc({ doc: withPhoto(), theme: { showPhoto: true }, templateId: "sidebar" }, load)).toBe(SRC);
+    expect(load).toHaveBeenCalledTimes(1);
+    // not drawn: hidden by the theme, an ATS template, no photo on the document
+    load.mockClear();
+    expect(await resolvePhotoSrc({ doc: withPhoto(), theme: { showPhoto: false }, templateId: "sidebar" }, load)).toBeNull();
+    expect(await resolvePhotoSrc({ doc: withPhoto(), theme: { showPhoto: true }, templateId: "modern" }, load)).toBeNull();
+    const none = withPhoto();
+    none.basics.photo = null;
+    expect(await resolvePhotoSrc({ doc: none, theme: { showPhoto: true }, templateId: "sidebar" }, load)).toBeNull();
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it("a photo that cannot be loaded leaves the PDF without it instead of failing it", async () => {
+    const input = { doc: withPhoto(), theme: { showPhoto: true }, templateId: "sidebar" };
+    expect(await resolvePhotoSrc(input, async () => null)).toBeNull();
+    expect(await resolvePhotoSrc(input, async () => { throw new Error("storage down"); })).toBeNull();
+    expect(await resolvePhotoSrc(input, async () => ({ bytes: BYTES, contentType: "image/svg+xml" }))).toBeNull();
   });
 });
 

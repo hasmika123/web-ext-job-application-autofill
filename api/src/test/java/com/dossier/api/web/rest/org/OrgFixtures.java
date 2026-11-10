@@ -10,6 +10,7 @@ import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
+import com.dossier.api.service.ent.OrgRoleService;
 import java.time.Instant;
 
 /**
@@ -21,11 +22,22 @@ public final class OrgFixtures {
     private final UserRepository users;
     private final OrganizationRepository orgs;
     private final OrgMemberRepository members;
+    private OrgRoleService roleService;
 
     public OrgFixtures(UserRepository users, OrganizationRepository orgs, OrgMemberRepository members) {
         this.users = users;
         this.orgs = orgs;
         this.members = members;
+    }
+
+    /**
+     * Also writes the role rows of every ACTIVE seat created in an organization with SEPARATE accounts. Such an organization reads its roles from
+     * data alone (X4.10: no role rows, no permissions), so a seat written straight through the repository would be a non-member to the access
+     * check. Production writes the row beside the seat ({@code OrgRoleService.syncFromLegacy}); this is the fixtures' version of that.
+     */
+    public OrgFixtures withRoles(OrgRoleService roleService) {
+        this.roleService = roleService;
+        return this;
     }
 
     /** An activated account with this login (created once; later calls return it). */
@@ -61,7 +73,9 @@ public final class OrgFixtures {
         m.setRole(role);
         m.setStatus(status);
         m.setJoinedAt(Instant.now());
-        return members.saveAndFlush(m);
+        m = members.saveAndFlush(m);
+        if (roleService != null && org.isSeparateAccounts() && status == OrgMemberStatus.ACTIVE) roleService.syncFromLegacy(m);
+        return m;
     }
 
     public OrgMember active(Organization org, String login, OrgRole role) {

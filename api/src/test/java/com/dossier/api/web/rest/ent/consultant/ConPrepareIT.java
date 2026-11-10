@@ -8,6 +8,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.ent.OrgMemberRole;
+import com.dossier.api.domain.ent.OrgSetting;
+import com.dossier.api.domain.ent.billing.ConsultantLicense;
+import com.dossier.api.domain.ent.billing.FeatureDefinition;
+import com.dossier.api.domain.ent.billing.LicenseFeature;
+import com.dossier.api.domain.ent.billing.Product;
 import com.dossier.api.domain.ent.OrgRoleDefinition;
 import com.dossier.api.domain.ent.OrgRolePermission;
 import com.dossier.api.domain.ent.mkt.MktOpportunity;
@@ -23,7 +28,12 @@ import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.repository.catalog.FeatureDefinitionRepository;
+import com.dossier.api.repository.catalog.ProductRepository;
 import com.dossier.api.repository.ent.OrgMemberRoleRepository;
+import com.dossier.api.repository.ent.OrgSettingRepository;
+import com.dossier.api.repository.ent.billing.ConsultantLicenseRepository;
+import com.dossier.api.repository.ent.billing.LicenseFeatureRepository;
 import com.dossier.api.repository.ent.OrgRolePermissionRepository;
 import com.dossier.api.repository.ent.OrgRoleRepository;
 import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
@@ -35,6 +45,7 @@ import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.ResumeBuilderSettings;
+import com.dossier.api.service.ent.consultant.PrepareBatchEntitlement;
 import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import com.dossier.api.web.rest.org.OrgFixtures;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -82,6 +93,11 @@ class ConPrepareIT {
     @Autowired private RequirementMatchRepository matches;
     @Autowired private MktOpportunityRepository opportunities;
     @Autowired private PrepareSessionRepository sessions;
+    @Autowired private OrgSettingRepository orgSettings;
+    @Autowired private ProductRepository products;
+    @Autowired private FeatureDefinitionRepository featureDefs;
+    @Autowired private ConsultantLicenseRepository licenses;
+    @Autowired private LicenseFeatureRepository licenseFeatures;
 
     private OrgFixtures fx;
     private Organization a;
@@ -110,6 +126,9 @@ class ConPrepareIT {
         actor(b, "prep-b-consultant", new String[][] { { "opportunities.respond", "OWN" } });
         anika = consultant(a, "Anika Rao", anikaSeat.getId());
         ben = consultant(a, "Ben Cole", benSeat.getId());
+        orgSwitch(a, "true"); // the Org Admin has opted the organization in
+        license(a, anika, true); // both consultants hold the Autopilot prepare add-on unless a test says otherwise
+        license(a, ben, true);
         ClientAccount client = client(a, "TechCorp");
         mine = match(client, anika, "Java Developer", "https://boards.greenhouse.io/techcorp/jobs/101", "OPEN", "ASSIGNED");
         mine2 = match(client, anika, "Kotlin Developer", "https://boards.greenhouse.io/techcorp/jobs/102", "IN_REVIEW", "INTERESTED");
@@ -140,6 +159,74 @@ class ConPrepareIT {
 
     private void put(String key, String value) {
         settingRows.save(new AppSetting(key, value, WHO, Instant.now()));
+    }
+
+    /** The organization's own opt-in row (the same registry key the platform switch uses). */
+    private void orgSwitch(Organization org, String json) {
+        OrgSetting row = orgSettings.findByOrgIdAndSettingKey(org.getId(), EnterpriseSettingKeys.PREPARE_ENABLED).orElseGet(OrgSetting::new);
+        row.setOrgId(org.getId());
+        row.setSettingKey(EnterpriseSettingKeys.PREPARE_ENABLED);
+        row.setValueJson(json);
+        row.setUpdatedBy(WHO);
+        orgSettings.saveAndFlush(row);
+    }
+
+    /** A live base license for the consultant, with or without the Autopilot prepare add-on. */
+    private void license(Organization org, ConsultantProfile c, boolean withPrepare) {
+        String code = "PREP-" + System.nanoTime() + "-" + c.getId();
+        Instant now = Instant.now();
+        Product base = new Product();
+        base.setCode(code);
+        base.setName("Base " + code);
+        base.setKind("BASE_LICENSE");
+        base.setActive(true);
+        base.setSortOrder(1);
+        base.setDemoData(true);
+        base.setCreatedAt(now);
+        base = products.save(base);
+        ConsultantLicense l = new ConsultantLicense();
+        l.setOrgId(org.getId());
+        l.setConsultantId(c.getId());
+        l.setStatus("ACTIVE");
+        l.setBaseProductId(base.getId());
+        l.setBaseAmountMinor(100L);
+        l.setStartsAt(now.minus(30, ChronoUnit.DAYS));
+        l = licenses.saveAndFlush(l);
+        if (!withPrepare) return;
+        if (featureDefs.findByFeatureKey(PrepareBatchEntitlement.FEATURE).isEmpty()) {
+            FeatureDefinition d = new FeatureDefinition();
+            d.setFeatureKey(PrepareBatchEntitlement.FEATURE);
+            d.setName("Autopilot prepare");
+            d.setUsageType("AI_FEATURE");
+            d.setUsageUnit("operations");
+            d.setDefaultAllowance(300L);
+            d.setAllowancePeriod("MONTH");
+            d.setActive(true);
+            d.setSortOrder(120);
+            d.setDemoData(true);
+            d.setCreatedAt(now);
+            featureDefs.save(d);
+        }
+        Product addon = new Product();
+        addon.setCode(code + "-FEAT");
+        addon.setName("Prepare " + code);
+        addon.setKind("FEATURE");
+        addon.setFeatureKey(PrepareBatchEntitlement.FEATURE);
+        addon.setActive(true);
+        addon.setSortOrder(2);
+        addon.setDemoData(true);
+        addon.setCreatedAt(now);
+        addon = products.save(addon);
+        LicenseFeature f = new LicenseFeature();
+        f.setOrgId(org.getId());
+        f.setLicenseId(l.getId());
+        f.setFeatureKey(PrepareBatchEntitlement.FEATURE);
+        f.setProductId(addon.getId());
+        f.setUnitAmountMinor(100L);
+        f.setQuantity(1);
+        f.setStartsAt(now.minus(30, ChronoUnit.DAYS));
+        f.setLive(true);
+        licenseFeatures.saveAndFlush(f);
     }
 
     // ---- fixtures ---------------------------------------------------------------------------------------------------
@@ -382,14 +469,60 @@ class ConPrepareIT {
     }
 
     @Test
-    void anOrganizationCanSwitchItOffForItself() throws Exception {
-        com.dossier.api.domain.ent.OrgSetting off = new com.dossier.api.domain.ent.OrgSetting();
-        off.setOrgId(a.getId());
-        off.setSettingKey(EnterpriseSettingKeys.PREPARE_ENABLED);
-        off.setValueJson("false");
-        off.setUpdatedBy(WHO);
-        em.persist(off);
+    void anOrganizationThatHasNotOptedInHasNothing() throws Exception {
+        orgSettings.delete(orgSettings.findByOrgIdAndSettingKey(a.getId(), EnterpriseSettingKeys.PREPARE_ENABLED).orElseThrow());
         em.flush();
+        assertGeneric404(call("prep-anika", post(base(a)).content(ids(mine))), "no organization opt-in");
+        JsonNode status = json(call("prep-anika", get(base(a) + "/status")), 200);
+        assertThat(status.path("enabled").asBoolean()).isFalse();
+        assertThat(status.path("reason").asText()).isEqualTo("ORG_OFF");
+    }
+
+    @Test
+    void anOrganizationSwitchedOffAgainHasNothingEither() throws Exception {
+        orgSwitch(a, "false");
         assertGeneric404(call("prep-anika", post(base(a)).content(ids(mine))), "organization switched it off");
+        assertThat(json(call("prep-anika", get(base(a) + "/status")), 200).path("reason").asText()).isEqualTo("ORG_OFF");
+    }
+
+    @Test
+    void theOrganizationSwitchCanNotTurnOnWhatThePlatformHasOff() throws Exception {
+        settings(false, null);
+        assertGeneric404(call("prep-anika", post(base(a)).content(ids(mine))), "platform off, organization on");
+        assertThat(json(call("prep-anika", get(base(a) + "/status")), 200).path("reason").asText()).isEqualTo("PLATFORM_OFF");
+    }
+
+    @Test
+    void aConsultantWhoseLicenseLacksTheAddOnIsDisabledWhileAColleagueWhoHasItIsNot() throws Exception {
+        // Ben gets a new, add-on-free license (his earlier one is ended first so only the add-on-free one is live); Anika keeps hers
+        for (ConsultantLicense l : licenses.findByOrgIdAndConsultantIdOrderByStartsAtDesc(a.getId(), ben.getId())) {
+            l.setStatus("ENDED");
+            licenses.saveAndFlush(l);
+        }
+        license(a, ben, false);
+        JsonNode benStatus = json(call("prep-ben", get(base(a) + "/status")), 200);
+        assertThat(benStatus.path("enabled").asBoolean()).isFalse();
+        assertThat(benStatus.path("reason").asText()).isEqualTo("NO_LICENSE");
+        assertGeneric404(call("prep-ben", post(base(a)).content(ids(bens))), "no add-on on the license");
+        assertThat(json(call("prep-anika", get(base(a) + "/status")), 200).path("enabled").asBoolean()).isTrue();
+    }
+
+    @Test
+    void anOrganizationsNumbersAreClampedToThePlatformMaximum() throws Exception {
+        for (String[] kv : new String[][] { { EnterpriseSettingKeys.PREPARE_DAILY_CAP, "99" }, { EnterpriseSettingKeys.PREPARE_MONTHLY_CAP, "5000" }, { EnterpriseSettingKeys.PREPARE_MAX_BATCH, "40" } }) {
+            OrgSetting row = new OrgSetting();
+            row.setOrgId(a.getId());
+            row.setSettingKey(kv[0]);
+            row.setValueJson(kv[1]);
+            row.setUpdatedBy(WHO);
+            orgSettings.saveAndFlush(row);
+        }
+        JsonNode status = json(call("prep-anika", get(base(a) + "/status")), 200);
+        assertThat(status.path("dailyCap").asInt()).isEqualTo(30);
+        assertThat(status.path("monthlyCap").asInt()).isEqualTo(300);
+        assertThat(status.path("maxBatch").asInt()).isEqualTo(10);
+        // lowering the platform maximum lowers the organization too
+        settings(true, EnterpriseSettingKeys.PREPARE_DAILY_CAP + "=20");
+        assertThat(json(call("prep-anika", get(base(a) + "/status")), 200).path("dailyCap").asInt()).isEqualTo(20);
     }
 }

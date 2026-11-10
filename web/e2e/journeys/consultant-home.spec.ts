@@ -26,17 +26,16 @@ test.describe("consultant home (real stack)", () => {
     await expect(page).toHaveURL(/\/w\/consultant$/);
     await expect(page.locator("[data-consultant-home][data-status=ready]")).toBeVisible();
 
-    for (const key of ["jobMatches", "assignedOpportunities", "activeApplications", "upcomingInterviews", "submissionsPending", "activePlacement"]) {
+    for (const key of ["assignedOpportunities", "activeApplications", "upcomingInterviews", "submissionsPending"]) {
       await expect(page.locator(`[data-stat-tile=${key}] [data-tile-value]`)).toBeVisible();
     }
     await expect(page.locator("[data-stat-tile=upcomingInterviews] [data-tile-value]")).toHaveText("3");
     await expect(page.locator("[data-stat-tile=submissionsPending] [data-sample]")).toHaveCount(0); // real now: the consultant's own pending submissions
 
-    for (const id of ["home-matches", "home-assigned", "home-applications", "home-interviews", "home-resume", "home-tasks", "home-focus", "home-quick", "home-messages", "help"]) {
+    for (const id of ["home-focus", "home-assigned", "home-interviews", "home-applications"]) {
       await expect(page.locator(`[data-home-card=${id}]`)).toBeVisible();
     }
     await expect(page.locator("[data-interview]")).toHaveCount(3);
-    await expect(page.locator("[data-home-card=home-tasks] [data-task]").first()).toBeVisible();
     await page.screenshot({ path: resolve(shots, "home-1440.png"), fullPage: true });
   });
 

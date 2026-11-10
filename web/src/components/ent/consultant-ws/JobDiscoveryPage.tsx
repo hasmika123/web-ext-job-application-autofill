@@ -7,7 +7,6 @@ import {
   BuildingIcon,
   CalendarIcon,
   Button,
-  ClockIcon,
   DollarIcon,
   DonutChart,
   ErrorState,
@@ -15,27 +14,20 @@ import {
   HomeIcon,
   Input,
   MapPinIcon,
-  Menu,
-  MoreVerticalIcon,
   SearchIcon,
   Select,
   SideSheet,
   SlidersIcon,
   Skeleton,
   StarIcon,
-  Tab,
-  TabList,
-  Tabs,
-  TrashIcon,
-  TrendingUpIcon,
+  XIcon,
   ZapIcon,
   cn,
   useMediaQuery,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BeeCard, Card, Empty, Pill, useWorkspaceData } from "./parts";
+import { Empty, Pill, useWorkspaceData } from "./parts";
 import JobLinkButton, { QuickInfo } from "./JobLinkButton";
 import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
 import { initialsOf } from "@/lib/ent/consultant-ws/home";
@@ -47,13 +39,11 @@ import {
   countFilters,
   createSavedSearch,
   deleteSavedSearch,
-  demandText,
   employmentText,
   experienceText,
   fetchDetail,
   fetchOverview,
   fetchSearch,
-  filtersSummary,
   hasFilters,
   isChipOn,
   markSavedSearchViewed,
@@ -72,7 +62,6 @@ import {
   type Filters,
   type Job,
   type Option,
-  type OverviewView,
   type SavedSearch,
   type Sort,
 } from "@/lib/ent/consultant-ws/jobDiscovery";
@@ -82,13 +71,13 @@ import {
  * jobs (paged, never filtered here); one overview call draws the filter options, the recommended chips, trending skills and the saved
  * and recent searches. Saving a job and a search are the consultant's own rows. Kiwiply holds no full job posting: each card shows the
  * marketer's quick info and an "Open job link" to the source site, where the consultant applies with the extension (the application
- * is tracked in My Applications). A full in-app job search is a later phase.
+ * is tracked in My Applications).
  */
 
 const PAGE_SIZE = 10;
 const RECOMMENDED_MIN_SCORE = 60;
 
-type TabKey = "search" | "saved" | "recommended";
+type TabKey = "search" | "recommended";
 
 const CHIP_ICONS: Record<Chip["kind"], { icon: ComponentType<IconProps>; tone: IconTone }> = {
   workMode: { icon: HomeIcon, tone: "accent" },
@@ -231,110 +220,6 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
 
 const labelled = (opts: Option[], fmt: (v: string) => string, withCount = false): { value: string; label: string }[] => opts.map((o) => ({ value: o.value, label: withCount && o.count !== null ? `${fmt(o.label)} (${o.count})` : fmt(o.label) }));
 
-/* ── right rail ─────────────────────────────────────────────────────────────────────── */
-
-function RailRow({ children }: { children: ReactNode }) {
-  return <li className="flex items-center gap-2 py-2">{children}</li>;
-}
-
-function SavedSearchesCard({ ov, onRun, onDelete, onViewAll }: { ov: OverviewView; onRun: (s: SavedSearch) => void; onDelete: (s: SavedSearch) => void; onViewAll: () => void }) {
-  const list = ov.savedSearches.slice(0, 5);
-  return (
-    <Card
-      id="jd-saved"
-      title="Saved Searches"
-      icon={BookmarkIcon}
-      extra={
-        ov.savedSearches.length > 0 ? (
-          <button type="button" onClick={onViewAll} className="flex-none text-[13px] font-semibold text-accent-deep hover:underline">
-            View All
-          </button>
-        ) : null
-      }
-    >
-      {list.length === 0 ? (
-        <Empty>No saved searches yet. Search, then choose &ldquo;Save this search&rdquo; under More Filters.</Empty>
-      ) : (
-        <ul className="divide-y divide-line">
-          {list.map((s) => (
-            <RailRow key={s.id}>
-              <SearchIcon size={15} className="flex-none text-muted" />
-              <button type="button" onClick={() => onRun(s)} className="min-w-0 flex-1 text-left" aria-label={`Run saved search ${s.name}`}>
-                <span className="block truncate text-[13.5px] font-semibold text-ink">{s.name}</span>
-                <span className="block text-[12px] font-medium text-v2-green-ink">
-                  {s.newResults} new result{s.newResults === 1 ? "" : "s"}
-                </span>
-              </button>
-              <Menu
-                trigger={
-                  <button type="button" aria-label={`More actions for ${s.name}`} className="grid h-8 w-8 flex-none place-items-center rounded-lg text-muted hover:bg-paper-2">
-                    <MoreVerticalIcon size={16} />
-                  </button>
-                }
-                items={[
-                  { label: "Run search", icon: <SearchIcon size={14} />, onSelect: () => onRun(s) },
-                  { label: "Delete", icon: <TrashIcon size={14} />, danger: true, onSelect: () => onDelete(s) },
-                ]}
-              />
-            </RailRow>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-function TrendingCard({ ov, onSkill }: { ov: OverviewView; onSkill: (skill: string) => void }) {
-  return (
-    <Card id="jd-trending" title="Trending Skills" icon={TrendingUpIcon} tone="violet">
-      {ov.trending.length === 0 ? (
-        <Empty>Not enough open jobs yet to show what is in demand.</Empty>
-      ) : (
-        <ol className="divide-y divide-line">
-          {ov.trending.map((t, i) => {
-            const d = demandText(t);
-            return (
-              <li key={t.skill} data-trending={t.skill} className="flex items-center gap-2.5 py-2">
-                <span aria-hidden className="grid h-6 w-6 flex-none place-items-center rounded-full bg-paper-2 text-[12px] font-bold text-ink-soft">
-                  {i + 1}
-                </span>
-                <button type="button" onClick={() => onSkill(t.skill)} className="min-w-0 flex-1 truncate text-left text-[13.5px] font-semibold text-ink hover:underline" aria-label={`Search jobs needing ${t.skill}`}>
-                  {t.skill}
-                </button>
-                <span className={cn("flex-none text-[12px] font-semibold", d?.dir === "up" ? "text-v2-green-ink" : d?.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                  {d ? (d.dir === "up" ? "↗ " : d.dir === "down" ? "↘ " : "") + d.text : `${t.openJobs} open job${t.openJobs === 1 ? "" : "s"}`}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </Card>
-  );
-}
-
-function RecentCard({ ov, onRun }: { ov: OverviewView; onRun: (f: Filters) => void }) {
-  return (
-    <Card id="jd-recent" title="Recent Searches" icon={ClockIcon} tone="accent">
-      {ov.recentSearches.length === 0 ? (
-        <Empty>Your last searches will show up here.</Empty>
-      ) : (
-        <ul className="divide-y divide-line">
-          {ov.recentSearches.map((r) => (
-            <RailRow key={r.id}>
-              <SearchIcon size={14} className="flex-none text-muted" />
-              <button type="button" onClick={() => onRun(r.filters)} className="min-w-0 flex-1 truncate text-left text-[13.5px] text-ink hover:underline" aria-label={`Search again: ${r.label}`}>
-                {r.label}
-              </button>
-              <span className="flex-none text-[12px] text-muted">{relativeTime(r.at)}</span>
-            </RailRow>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
 /* ── job detail sheet ───────────────────────────────────────────────── */
 
 function DetailBody({ d, onSave }: { d: DetailView; onSave: (j: Job) => void }) {
@@ -423,10 +308,9 @@ interface Results {
 
 export interface JobDiscoveryPageProps {
   orgId: number;
-  firstName: string;
 }
 
-export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageProps) {
+export default function JobDiscoveryPage({ orgId }: JobDiscoveryPageProps) {
   const { view: ov, status, reload } = useWorkspaceData(useCallback(() => fetchOverview(orgId), [orgId]));
   const narrow = useMediaQuery("(max-width: 639px)", false);
 
@@ -447,10 +331,10 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
   const filters = tab === "recommended" ? EMPTY_FILTERS : applied;
   const effSort: Sort = tab === "recommended" ? "match" : sort;
   const minScore = tab === "recommended" ? RECOMMENDED_MIN_SCORE : 0;
-  const baseKey = useMemo(() => JSON.stringify([tab === "saved" ? "search" : tab, filters, effSort]), [tab, filters, effSort]);
+  const baseKey = useMemo(() => JSON.stringify([tab, filters, effSort]), [tab, filters, effSort]);
   const pageKey = `${baseKey}|${page}`;
   const query = useMemo(() => searchQuery(filters, effSort, page, PAGE_SIZE, minScore), [filters, effSort, page, minScore]);
-  const wantsResults = tab !== "saved";
+  const wantsResults = true;
 
   useEffect(() => {
     if (!wantsResults) return;
@@ -561,9 +445,6 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
 
   return (
     <div data-job-discovery data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Job Discovery" subtitle="These are the jobs your marketer loaded for you. Open the job link, apply on the source site with the Kiwiply extension, and track it in My Applications. A full job search arrives in a later phase." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
 
       <p role="status" aria-live="polite" className={cn("min-h-0 text-[13px] font-medium text-accent-deep", notice ? "" : "sr-only")}>
         {notice ?? ""}
@@ -572,22 +453,31 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
       {status === "failed" ? (
         <ErrorState what="Job Discovery" description="Your workspace didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
             <section aria-label="Search jobs" className="rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-5">
-              <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)} variant="underline">
-                <TabList aria-label="Job Discovery views">
-                  <Tab value="search">
-                    <SearchIcon size={16} /> Search Jobs
-                  </Tab>
-                  <Tab value="saved">
-                    <BookmarkIcon size={16} /> Saved Searches
-                  </Tab>
-                  <Tab value="recommended">
-                    <StarIcon size={16} /> Recommended for You
-                  </Tab>
-                </TabList>
-              </Tabs>
+              <div role="group" aria-label="Saved and recommended searches" data-saved-chips className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  aria-pressed={tab === "recommended"}
+                  data-reco-toggle
+                  onClick={() => setTab(tab === "recommended" ? "search" : "recommended")}
+                  className={cn("inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold", tab === "recommended" ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink hover:bg-paper-2")}
+                >
+                  <StarIcon size={14} /> Recommended for you
+                </button>
+                {(ov?.savedSearches ?? []).map((s) => (
+                  <span key={s.id} data-saved-search={s.id} className="inline-flex min-h-8 items-center overflow-hidden rounded-full border border-line bg-paper text-[13px] font-semibold text-ink">
+                    <button type="button" onClick={() => runSaved(s)} aria-label={`Run saved search ${s.name}`} className="px-3 py-1 hover:bg-paper-2">
+                      {s.name}
+                      {s.newResults > 0 ? <span className="ml-1.5 text-v2-green-ink">{s.newResults} new</span> : null}
+                    </button>
+                    <button type="button" onClick={() => void removeSaved(s)} aria-label={`Delete saved search ${s.name}`} className="grid h-8 w-8 place-items-center text-muted hover:bg-paper-2">
+                      <XIcon size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
 
               {tab === "search" ? (
                 <>
@@ -608,15 +498,15 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
                   </form>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Filters">
-                    <FilterSelect label="Job Type" value={applied.jobType} options={labelled(opts?.jobTypes ?? [], (v) => employmentText(v) ?? v, true)} onChange={(v) => setFilter({ jobType: v })} />
+                    <FilterSelect label="Job type" value={applied.jobType} options={labelled(opts?.jobTypes ?? [], (v) => employmentText(v) ?? v, true)} onChange={(v) => setFilter({ jobType: v })} />
                     <FilterSelect label="Location" value={applied.workMode} options={labelled(opts?.workModes ?? [], (v) => workModeText(v) ?? v, true)} onChange={(v) => setFilter({ workMode: v })} />
                     <FilterSelect label="Experience" value={applied.experience} options={labelled(opts?.experience ?? [], experienceText)} onChange={(v) => setFilter({ experience: v })} />
-                    <FilterSelect label="Rate / Compensation" value={applied.minRateMinor ? String(applied.minRateMinor) : ""} options={RATE_STEPS} onChange={(v) => setFilter({ minRateMinor: v ? Number(v) : null })} />
+                    <FilterSelect label="Rate / compensation" value={applied.minRateMinor ? String(applied.minRateMinor) : ""} options={RATE_STEPS} onChange={(v) => setFilter({ minRateMinor: v ? Number(v) : null })} />
                     <FilterSelect label="Skills" value={applied.skill} options={labelled(opts?.skills ?? [], (v) => v, true)} onChange={(v) => setFilter({ skill: v })} />
                     <FilterSelect label="Industry" value={applied.industry} options={labelled(opts?.industries ?? [], (v) => v, true)} onChange={(v) => setFilter({ industry: v })} />
                     <FilterSelect label="Client" value={applied.clientId ? String(applied.clientId) : ""} options={labelled(opts?.clients ?? [], (v) => v, true)} onChange={(v) => setFilter({ clientId: v ? Number(v) : null })} />
                     <button type="button" onClick={clearAll} className="px-1 text-[13px] font-semibold text-accent-deep hover:underline">
-                      Clear All
+                      Clear all
                     </button>
                     <button
                       ref={toggleRef}
@@ -626,7 +516,7 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
                       onClick={() => setMore((m) => !m)}
                       className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft"
                     >
-                      <SlidersIcon size={15} /> More Filters{active > 0 ? ` (${active})` : ""}
+                      <SlidersIcon size={15} /> More filters{active > 0 ? ` (${active})` : ""}
                     </button>
                   </div>
                   {more ? (
@@ -656,7 +546,7 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
             {tab === "search" && ov && ov.recommended.length > 0 ? (
               <section aria-labelledby="jd-reco" className="rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-4">
                 <h2 id="jd-reco" className="flex items-center gap-2 text-[14px] font-bold text-ink">
-                  <StarIcon size={16} className="text-accent-deep" /> Recommended Filters
+                  <StarIcon size={16} className="text-accent-deep" /> Recommended filters
                 </h2>
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {ov.recommended.map((c) => {
@@ -687,33 +577,7 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
               </section>
             ) : null}
 
-            {tab === "saved" ? (
-              <section aria-label="Saved searches" className="rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-5">
-                {!ov || ov.savedSearches.length === 0 ? (
-                  <Empty>No saved searches yet. Run a search, open More Filters and save it to get a count of new jobs each time.</Empty>
-                ) : (
-                  <ul className="divide-y divide-line">
-                    {ov.savedSearches.map((s) => (
-                      <li key={s.id} data-saved-search={s.id} className="flex flex-wrap items-center gap-3 py-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14.5px] font-bold text-ink">{s.name}</p>
-                          <p className="truncate text-[12.5px] text-muted">{filtersSummary(s.filters)}</p>
-                        </div>
-                        <Pill tone={s.newResults > 0 ? "green" : "slate"}>
-                          {s.newResults} new result{s.newResults === 1 ? "" : "s"}
-                        </Pill>
-                        <Button variant="accent" size="sm" onClick={() => runSaved(s)} aria-label={`Run saved search ${s.name}`}>
-                          Run
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => void removeSaved(s)} aria-label={`Delete saved search ${s.name}`}>
-                          <TrashIcon size={14} />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            ) : (
+            {(
               <section aria-label="Opportunities" className="grid gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 data-results-count className="text-[19px] font-extrabold text-ink">
@@ -775,21 +639,6 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
             )}
           </div>
 
-          <aside aria-label="Help and shortcuts" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-1">
-            <BeeCard
-              name={firstName.trim().split(/\s+/)[0] || "there"}
-              body="Tell me what kind of roles you're looking for, and I'll help you find the best opportunities that match your skills, experience and goals."
-            />
-            {ov ? (
-              <>
-                <SavedSearchesCard ov={ov} onRun={runSaved} onDelete={(s) => void removeSaved(s)} onViewAll={() => setTab("saved")} />
-                <TrendingCard ov={ov} onSkill={(skill) => runSearch({ ...EMPTY_FILTERS, skill }, false)} />
-                <RecentCard ov={ov} onRun={(f) => runSearch(f, false)} />
-              </>
-            ) : (
-              <Skeleton className="h-56 w-full" />
-            )}
-          </aside>
         </div>
       )}
 

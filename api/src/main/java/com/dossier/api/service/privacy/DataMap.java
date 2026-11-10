@@ -51,6 +51,7 @@ public final class DataMap {
         owned(e, "field_cache", "user_id", "AccountDeletionService", "fieldCache");
         owned(e, "inbox_connection", "user_id", "InboxService.deleteAllForUser (the stored App Password goes with the row)", "inbox");
         owned(e, "inbox_folder_state", "user_id", "InboxService.deleteAllForUser", null, "polling bookkeeping (a mailbox cursor), no content");
+        owned(e, "inbox_hold", "user_id", "InboxService.deleteAllForUser (the rows go with the mail and the account by cascade)", null, "a status change a mail proposed and the person has not answered yet: a scrubbed snippet, ids and a state, no mail text");
         owned(e, "inbox_message", "user_id", "InboxService.deleteAllForUser; also the nightly inbox retention", "inbox");
         owned(e, "job_feedback", "user_id", "JobSearchDataService.deleteAllForUser", "jobFeedback");
         owned(e, "job_fit", "user_id", "JobFitService.deleteAllForUser", null, "derived AI score, regenerated on demand");
@@ -66,7 +67,7 @@ public final class DataMap {
         owned(e, "profile_suggestion", "user_id", "ProfileSuggestionService.deleteAllForUser", "profileSuggestions");
         owned(e, "refresh_token", "user_id", "RefreshTokenService.deleteAllForUser; also the retention sweep for expired rows", null, "session security records, no personal content", "REFRESH_TOKEN");
         owned(e, "resume", "user_id", "AccountDeletionService (files first, then rows)", "resumes");
-        owned(e, "resume_doc", "user_id", "ResumeBuilderDataService.deleteAllForUser (files first)", "resumeDocs");
+        owned(e, "resume_doc", "user_id", "ResumeBuilderDataService.deleteAllForUser (files first: built PDFs, profile photos, originals, thumbnails, by prefix)", "resumeDocs");
         owned(e, "resume_doc_version", "user_id", "ResumeBuilderDataService.deleteAllForUser", null, "version history of resumeDocs, the current version is exported");
         owned(e, "subscription", "user_id", "AccountDeletionService.endBilling (Stripe subscription cancelled first)", null, "billing record; Stripe holds the payment history and the person asks Stripe for that copy");
         // personal subscription module (subscription-merge): what the person bought, the plan grants and usage ledger behind their entitlements, and the notices sent to them
@@ -144,7 +145,7 @@ public final class DataMap {
             "cws_saved_search", "cws_setting", "cws_setting_event", "cws_submission", "cws_task", "cws_task_detail", "cws_work_preference", "data_share",
             "feature_credit", "finance_forecast_input", "finance_invoice", "finance_payment", "finance_placement_period", "finance_placement_terms",
             "finance_timesheet", "hr_document_requirement", "hr_employee_note", "hr_lifecycle_event", "hr_offboarding_task", "hr_onboarding_item",
-            "hr_training", "hr_training_record", "job_data_event", "license_change", "license_feature", "marketer_assignment", "marketer_assignment_event", "marketer_capacity",
+            "hr_training", "hr_training_record", "job_data_event", "license_change", "license_feature", "marketer_assignment", "marketer_assignment_event", "marketer_assignment_schedule", "marketer_capacity",
             "mkt_activity", "mkt_benchmark", "mkt_followup", "mkt_followup_event", "mkt_goal", "mkt_interview_event", "mkt_interview_feedback",
             "mkt_interview_meta", "mkt_interview_prep_item", "mkt_job_meta", "mkt_job_stream", "mkt_opportunity", "mkt_opportunity_event",
             "mkt_resume_event", "mkt_saved_search", "mkt_saved_view", "mkt_stream_alert", "mkt_stream_rule", "mkt_stream_sync_log", "mkt_submission",
@@ -157,7 +158,9 @@ public final class DataMap {
             "subscription_change", "talent_application", "talent_application_event", "talent_application_note", "talent_interview",
             "talent_interview_event", "talent_interview_feedback", "talent_interview_interviewer", "talent_placement", "usage_alert", "usage_counter",
             "usage_event",
-            "mkt_approval_request", "mkt_escalation", "mkt_escalation_event"
+            "mkt_approval_request", "mkt_escalation", "mkt_escalation_event",
+            // Sprint 2 "prepare": a consultant's prepared-application batches. They carry the organization and seat/match ids, never an account
+            "prepare_event", "prepare_item", "prepare_session"
         )) {
             add(e, new Entry(t, DataClass.ORG_TENANT, List.of(), "organization-owned: follows the organization; the person is a seat (org_member), which erasure anonymises", null, "organization data, reachable through the organization's own exports, not a personal account export", null));
         }

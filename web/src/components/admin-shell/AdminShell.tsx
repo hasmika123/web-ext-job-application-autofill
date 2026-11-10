@@ -28,6 +28,7 @@ import {
   MessageIcon,
   MonitorIcon,
   SearchIcon,
+  ShieldCheckIcon,
   ShieldIcon,
   SignOutIcon,
   UsersIcon,
@@ -65,6 +66,7 @@ const NAV: NavItem[] = [
   { href: "/admin/subscribers", label: "Email", icon: <MailIcon className={ICON} /> },
   { href: "/admin/bug-reports", label: "Bug reports", icon: <BugIcon className={ICON} /> },
   { href: "/admin/inquiries", label: "Inquiries", icon: <MessageIcon className={ICON} /> },
+  { href: "/admin/subprocessors", label: "Subprocessors", icon: <ShieldCheckIcon className={ICON} /> },
   { href: "/admin/system", label: "System", icon: <MonitorIcon className={ICON} /> },
   { href: "/admin/audit", label: "Audit log", icon: <FileTextIcon className={ICON} /> },
 ];
@@ -233,7 +235,6 @@ export default function AdminShell({ account, children }: { account?: AdminAccou
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-[9px] text-[14px] transition-colors",
                   active ? "bg-v2-nav-active-bg font-bold text-v2-nav-active-text" : "font-medium text-ink-soft hover:bg-paper-2 hover:text-ink",
-                  item.soon && !active && "text-ink-soft/70",
                 )}
               >
                 <span className="flex-none">{item.icon}</span>

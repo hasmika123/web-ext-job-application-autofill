@@ -8,12 +8,12 @@ import { CardHead, Chip, INFO, PeriodSelect } from "./bits";
 import { NO_NUMBERS } from "./Cards";
 import Link from "next/link";
 
-/** Job Stream Effectiveness (per client) and Top Performing Consultants. */
+/** Results by client and Top performing consultants. */
 
 export function StreamsCard({ data, period, onPeriod, loading }: { data: Streams | null; period: string; onPeriod: (p: string) => void; loading: boolean }) {
   return (
     <section data-perf-card="streams" className={CARD}>
-      <CardHead icon={BriefcaseIcon} title="Job Stream Effectiveness" info={INFO.streams}>
+      <CardHead icon={BriefcaseIcon} title="By client" info={INFO.streams}>
         <PeriodSelect value={period} onChange={onPeriod} options={MONTH_PERIODS} label="Streams period" width="w-[142px]" />
       </CardHead>
       {loading ? (
@@ -25,12 +25,12 @@ export function StreamsCard({ data, period, onPeriod, loading }: { data: Streams
           <table className="w-full min-w-[460px] text-left text-[13px]">
             <thead>
               <tr className={HEAD_ROW}>
-                <th className={`${TH} rounded-l-lg`}>Job Stream</th>
+                <th className={`${TH} rounded-l-lg`}>Client</th>
                 <th className={`${TH} text-center`}>Submissions</th>
                 <th className={`${TH} text-center`}>Interviews</th>
                 <th className={`${TH} text-center`}>Offers</th>
                 <th className={`${TH} text-center`}>Placements</th>
-                <th className={`${TH} rounded-r-lg text-center`}>Offer Rate</th>
+                <th className={`${TH} rounded-r-lg text-center`}>Offer rate</th>
               </tr>
             </thead>
             <tbody>
@@ -42,7 +42,7 @@ export function StreamsCard({ data, period, onPeriod, loading }: { data: Streams
                   <td className="px-2 text-center text-ink-soft">{r.offers}</td>
                   <td className="px-2 text-center text-ink-soft">{r.placements}</td>
                   <td className="px-2 text-center">
-                    {r.offerRatePct === null ? <span className="text-muted">-</span> : <Chip tone={r.good ? "green" : "red"} data-offer-rate={r.good ? "good" : "low"}>{rateText(r.offerRatePct)}</Chip>}
+                    {r.offerRatePct === null ? <span className="text-muted">—</span> : <Chip tone={r.good ? "green" : "red"} data-offer-rate={r.good ? "good" : "low"}>{rateText(r.offerRatePct)}</Chip>}
                   </td>
                 </tr>
               ))}
@@ -57,7 +57,7 @@ export function StreamsCard({ data, period, onPeriod, loading }: { data: Streams
 export function TopCard({ rows, loading, viewAll, now }: { rows: TopConsultant[]; loading: boolean; viewAll: string | null; now: number }) {
   return (
     <section data-perf-card="top" className={CARD}>
-      <CardHead icon={TrophyIcon} title="Top Performing Consultants" tint="amber" info={INFO.top}>
+      <CardHead icon={TrophyIcon} title="Top performing consultants" tint="amber" info={INFO.top}>
         {viewAll ? (
           <Link href={viewAll} className="inline-flex h-8 flex-none items-center rounded-lg border border-line bg-paper px-3 text-[12.5px] font-semibold text-accent-deep hover:bg-accent-soft">
             View all
@@ -79,8 +79,8 @@ export function TopCard({ rows, loading, viewAll, now }: { rows: TopConsultant[]
                 <th className={`${TH} text-center`}>Interviews</th>
                 <th className={`${TH} text-center`}>Offers</th>
                 <th className={`${TH} text-center`}>Placements</th>
-                <th className={`${TH} text-center`}>Match Rate</th>
-                <th className={TH}>Last Activity</th>
+                <th className={`${TH} text-center`}>Match rate</th>
+                <th className={TH}>Last activity</th>
                 <th className={TH}>Trend</th>
                 <th className={`${TH} rounded-r-lg`} />
               </tr>
@@ -101,8 +101,8 @@ export function TopCard({ rows, loading, viewAll, now }: { rows: TopConsultant[]
                     <td className="px-2 text-center text-ink-soft">{r.interviews}</td>
                     <td className="px-2 text-center text-ink-soft">{r.offers}</td>
                     <td className="px-2 text-center text-ink-soft">{r.placements}</td>
-                    <td className="px-2 text-center">{tone === "none" ? <span className="text-muted">-</span> : <Chip tone={tone}>{r.matchRatePct}%</Chip>}</td>
-                    <td className="whitespace-nowrap px-2 text-ink-soft">{r.lastActivityAt ? relativeTime(r.lastActivityAt, now) : "-"}</td>
+                    <td className="px-2 text-center">{tone === "none" ? <span className="text-muted">—</span> : <Chip tone={tone}>{r.matchRatePct}%</Chip>}</td>
+                    <td className="whitespace-nowrap px-2 text-ink-soft">{r.lastActivityAt ? relativeTime(r.lastActivityAt, now) : "—"}</td>
                     <td className="px-2">
                       <div className="w-[84px]">
                         <Sparkline values={r.trend} color={chartColor(3)} />

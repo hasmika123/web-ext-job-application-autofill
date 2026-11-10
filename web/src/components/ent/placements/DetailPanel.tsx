@@ -61,7 +61,7 @@ function Row({ label, children, testId }: { label: string; children: ReactNode; 
 
 const TONE_TEXT: Record<string, string> = { amber: "text-[color:var(--pl-amber)]", red: "text-[color:var(--pl-red)]" };
 
-/* ── Engagement Timeline: started, midpoint, ends ─────────────────────────────────────────────────────── */
+/* ── Engagement timeline: started, midpoint, ends ─────────────────────────────────────────────────────── */
 
 export function EngagementTimeline({ d }: { d: PlacementDetail }) {
   const e = d.engagement;
@@ -385,7 +385,7 @@ export default function DetailPanel(p: DetailPanelProps) {
         </TabList>
 
         <TabPanel value="overview" className="pt-3.5">
-          <h4 className={HEADING}>Placement Details</h4>
+          <h4 className={HEADING}>Placement details</h4>
           <dl className="mt-2">
             <Row label="Client" testId="client">
               <span className="flex items-center gap-2">
@@ -394,12 +394,12 @@ export default function DetailPanel(p: DetailPanelProps) {
               </span>
             </Row>
             <Row label="Role" testId="role">{d.roleTitle}</Row>
-            <Row label="Placement Type" testId="type">{typeLabel(d.placementType)}</Row>
-            <Row label="Start Date" testId="start">
+            <Row label="Placement type" testId="type">{typeLabel(d.placementType)}</Row>
+            <Row label="Start date" testId="start">
               {formatDay(d.startDate)}
               {d.startsInDays !== null && <span className="text-[color:var(--pl-soft)]"> (in {d.startsInDays} {d.startsInDays === 1 ? "day" : "days"})</span>}
             </Row>
-            <Row label="End Date" testId="end">
+            <Row label="End date" testId="end">
               {d.endDate ? (
                 <span className={`font-medium ${d.status === "ACTIVE" || d.status === "ENDING" ? endTone : ""}`}>
                   {formatDay(d.endDate)}
@@ -419,8 +419,8 @@ export default function DetailPanel(p: DetailPanelProps) {
                 <span className="text-muted">Not assigned</span>
               )}
             </Row>
-            <Row label="Bill Rate" testId="rate">{rate || <span className="text-muted">Not shown</span>}</Row>
-            <Row label="Client Contact" testId="contact">
+            <Row label="Bill rate" testId="rate">{rate || <span className="text-muted">Not shown</span>}</Row>
+            <Row label="Client contact" testId="contact">
               {d.clientContact ? (
                 <span className="flex items-center gap-2">
                   <MemberAvatar name={d.clientContact.name} size={26} />
@@ -435,7 +435,7 @@ export default function DetailPanel(p: DetailPanelProps) {
             </Row>
           </dl>
 
-          <h4 className={`${HEADING} mt-4`}>Engagement Timeline</h4>
+          <h4 className={`${HEADING} mt-4`}>Engagement timeline</h4>
           <div className="mt-2.5">
             <EngagementTimeline d={d} />
           </div>
@@ -445,7 +445,7 @@ export default function DetailPanel(p: DetailPanelProps) {
               <ClockIcon size={24} aria-hidden className="mt-0.5 flex-none text-[color:var(--pl-amber)]" />
               <div className="min-w-0 flex-1">
                 <h4 id="ext-h" className="text-[12.5px] font-bold leading-tight text-[color:var(--ent-title)]">
-                  {ext.title === "Extension status" ? "Extension Status" : ext.title}
+                  {ext.title === "Extension status" ? "Extension status" : ext.title}
                 </h4>
                 <p className="mt-0.5 text-[10.5px] leading-snug text-[color:var(--pl-soft)]">{ext.body}</p>
               </div>
@@ -500,7 +500,7 @@ export default function DetailPanel(p: DetailPanelProps) {
           {hasQuick && (
             <section aria-labelledby="quick-h" className="mt-3.5" data-quick-actions>
               <h4 id="quick-h" className="text-[12.5px] font-bold text-[color:var(--ent-title)]">
-                Quick Actions
+                Actions
               </h4>
               <div className="mt-2 grid grid-cols-[1.14fr_1fr] gap-2">
                 {d.actions.extend && (
@@ -514,17 +514,17 @@ export default function DetailPanel(p: DetailPanelProps) {
                     data-quick="extend"
                     className="inline-flex h-[38px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-2 text-[11px] font-semibold text-on-accent transition hover:brightness-95 disabled:opacity-50"
                   >
-                    <CalendarIcon size={16} aria-hidden /> Extend Placement
+                    <CalendarIcon size={16} aria-hidden /> Extend placement
                   </button>
                 )}
                 {d.actions.complete && (
                   <button type="button" onClick={() => void complete()} disabled={busy} data-quick="complete" className={`${OUTLINE_BTN} !h-[38px] !gap-1.5 whitespace-nowrap !px-2`}>
-                    <CheckIcon size={16} aria-hidden /> Mark Complete
+                    <CheckIcon size={16} aria-hidden /> Mark complete
                   </button>
                 )}
                 {d.actions.giveNotice && (
                   <button type="button" onClick={() => { setDialogErr(null); setDialog("notice"); }} disabled={busy} data-quick="notice" className={`${OUTLINE_BTN} !h-[38px] !gap-1.5 whitespace-nowrap !px-2`}>
-                    <CalendarIcon size={16} aria-hidden /> Record Notice
+                    <CalendarIcon size={16} aria-hidden /> Record notice
                   </button>
                 )}
                 {d.actions.terminate && (
@@ -534,7 +534,7 @@ export default function DetailPanel(p: DetailPanelProps) {
                 )}
                 {d.actions.redeploy && (
                   <button type="button" onClick={() => void redeploy()} disabled={busy} data-quick="redeploy" className={`${OUTLINE_BTN} !h-[38px] col-span-2`}>
-                    <UsersIcon size={16} aria-hidden /> Start Redeployment
+                    <UsersIcon size={16} aria-hidden /> Start redeployment
                   </button>
                 )}
               </div>

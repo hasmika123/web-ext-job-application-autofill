@@ -10,8 +10,11 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
  * `/api/auth/login` does: put the access + refresh tokens in the httpOnly session cookies, so the
  * rest of the app cannot tell a demo session from a password one. The browser only sees
  * `{ ok, landing }`. `landing` comes from THIS table, never from the client.
+ *
+ * Personal accounts only (decision O4): no organization account opens here. Those sign in on their own tenant host
+ * (`/api/auth/tenant-demo`).
  */
-const LANDING: Record<string, string> = { demo: "/dashboard", "demo-org": "/org", "demo-admin": "/admin" };
+const LANDING: Record<string, string> = { demo: "/dashboard", "demo-admin": "/admin" };
 
 export async function POST(request: Request) {
   const rl = rateLimit(request, "demo-login", 20, 5 * 60_000); // 20 / 5 min per client IP

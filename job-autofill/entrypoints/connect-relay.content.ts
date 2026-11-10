@@ -46,19 +46,36 @@ export default defineContentScript({
   // other one). The dev web app is added only to development builds, for the same reason it is
   // kept out of the manifest there: on a released build, any page on a developer's
   // localhost:3000 could otherwise hand this extension a session.
+  //
+  // Chrome gets this script too, but ONLY on the tenant hosts and ONLY for the prepare batch (below):
+  // a consultant's tenant page (acme.kiwiply.com) cannot use `externally_connectable`, which is for
+  // platform origins, so without a relay "Prepare selected openings" never reached the extension on
+  // Chrome. Connect and sync keep the direct path there.
   matches: [
-    "https://kiwiply.com/*",
-    "https://www.kiwiply.com/*",
-    "https://app.kiwiply.com/*",
+    ...(import.meta.env.BROWSER === "firefox"
+      ? [
+          "https://kiwiply.com/*",
+          "https://www.kiwiply.com/*",
+          "https://app.kiwiply.com/*",
+          ...(import.meta.env.MODE === "production"
+            ? []
+            : (import.meta.env.WXT_DEV_WEB_ORIGINS || "http://localhost:3000").split(",").map((o: string) => o.trim().replace(/\/+$/, "") + "/*")),
+        ]
+      : []),
     // Tenant hosts, for the prepare batch only (the background applies the exact-origin gate to
     // everything else). Same list as externally_connectable in wxt.config.ts.
     "https://*.kiwiply.com/*",
-    ...(import.meta.env.MODE === "production" ? [] : ["http://localhost:3000/*"]),
+    // Dev builds only: local tenant hosts (WXT_DEV_TENANT_ORIGINS, e.g. http://*.localhost:3200).
+    ...(import.meta.env.MODE === "production" || !import.meta.env.WXT_DEV_TENANT_ORIGINS
+      ? []
+      : import.meta.env.WXT_DEV_TENANT_ORIGINS.split(",").map((o: string) => o.trim().replace(/\/+$/, "") + "/*").filter((o: string) => o !== "/*")),
   ],
-  include: ["firefox"],
   runAt: "document_start",
   allFrames: false,
   main() {
+    // On Chrome this relay exists for the prepare batch alone; the session handoff and the sync
+    // signals keep using externally_connectable, so they are not answered here.
+    const prepareOnly = import.meta.env.BROWSER !== "firefox";
     window.addEventListener("message", (event: MessageEvent) => {
       // Only this exact document may hand over a session — not an embedded frame, not an
       // opener, and not another origin that happens to have a handle on this window.
@@ -67,6 +84,7 @@ export default defineContentScript({
 
       const data = event.data as { type?: unknown; tokens?: unknown; event?: unknown } | null;
       if (!data) return;
+      if (prepareOnly && data.type !== PREPARE) return;
 
       // Presence check: answering this is how /connect learns a relay is listening, so it can
       // show "install the extension" instead of minting a session pair nobody will collect.

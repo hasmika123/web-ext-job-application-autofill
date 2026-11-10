@@ -6,15 +6,14 @@
 
 export type TaskKpiKey = "total" | "overdue" | "dueThisWeek" | "completedThisWeek";
 export const TASK_KPI_KEYS: TaskKpiKey[] = ["total", "overdue", "dueThisWeek", "completedThisWeek"];
-export const TASK_KPI_TITLES: Record<TaskKpiKey, string> = { total: "Total Tasks", overdue: "Overdue", dueThisWeek: "Due This Week", completedThisWeek: "Completed This Week" };
+export const TASK_KPI_TITLES: Record<TaskKpiKey, string> = { total: "Total tasks", overdue: "Overdue", dueThisWeek: "Due this week", completedThisWeek: "Completed this week" };
 
 export type TaskTab = "ALL" | "MY" | "TEAM" | "OVERDUE" | "DUE_WEEK" | "COMPLETED";
 export const TASK_TABS: { key: TaskTab; label: string; countKey: keyof TaskTabs }[] = [
-  { key: "ALL", label: "All Tasks", countKey: "all" },
-  { key: "MY", label: "My Tasks", countKey: "my" },
-  { key: "TEAM", label: "Team Tasks", countKey: "team" },
+  { key: "ALL", label: "All", countKey: "all" },
+  { key: "MY", label: "My tasks", countKey: "my" },
   { key: "OVERDUE", label: "Overdue", countKey: "overdue" },
-  { key: "DUE_WEEK", label: "Due This Week", countKey: "dueThisWeek" },
+  { key: "DUE_WEEK", label: "Due this week", countKey: "dueThisWeek" },
   { key: "COMPLETED", label: "Completed", countKey: "completed" },
 ];
 
@@ -24,13 +23,13 @@ export type TaskStatus = "NOT_STARTED" | "PENDING" | "IN_PROGRESS" | "COMPLETED"
 
 export const CATEGORY_ORDER: TaskCategory[] = ["JOB_OPPORTUNITY", "RESUME", "CLIENT", "JOB_MATCH", "APPLICATION", "JOB_STREAM", "INTERVIEW", "CONTENT", "MARKETING", "FOLLOW_UP"];
 export const CATEGORY_LABEL: Record<TaskCategory, string> = {
-  JOB_OPPORTUNITY: "Job Opportunity", RESUME: "Resume", CLIENT: "Client", JOB_MATCH: "Job Match", APPLICATION: "Application", JOB_STREAM: "Job Stream",
+  JOB_OPPORTUNITY: "Job opportunity", RESUME: "Resume", CLIENT: "Client", JOB_MATCH: "Job match", APPLICATION: "Application", JOB_STREAM: "Job stream",
   INTERVIEW: "Interview", CONTENT: "Content", MARKETING: "Marketing", FOLLOW_UP: "Follow-up",
 };
 export const PRIORITY_ORDER: TaskPriority[] = ["HIGH", "MEDIUM", "LOW"];
 export const PRIORITY_LABEL: Record<TaskPriority, string> = { HIGH: "High", MEDIUM: "Medium", LOW: "Low" };
 export const STATUS_ORDER: TaskStatus[] = ["NOT_STARTED", "PENDING", "IN_PROGRESS", "COMPLETED"];
-export const STATUS_LABEL: Record<TaskStatus, string> = { NOT_STARTED: "Not Started", PENDING: "Pending", IN_PROGRESS: "In Progress", COMPLETED: "Completed" };
+export const STATUS_LABEL: Record<TaskStatus, string> = { NOT_STARTED: "Not started", PENDING: "Pending", IN_PROGRESS: "In progress", COMPLETED: "Completed" };
 
 export interface TaskKpi { key: TaskKpiKey; value: number; deltaPct: number | null; sparkline: number[] }
 export interface TaskTabs { all: number; my: number; team: number; overdue: number; dueThisWeek: number; completed: number }

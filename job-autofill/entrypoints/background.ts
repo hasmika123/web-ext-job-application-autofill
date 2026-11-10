@@ -25,6 +25,21 @@ export default defineBackground(() => {
   // All work happens at module load (the imports above). The listeners must be registered
   // synchronously at the top level for MV3, which the side-effect import does.
 
+  // Development builds only: a build made for a local stack (WXT_DEV_API_ORIGINS, see wxt.config.ts) talks to that
+  // API from the start, instead of api.kiwiply.com, so an unpacked dev extension needs no storage edit. The store
+  // build has no such origin and keeps its default; a value the person changed by hand is never overwritten.
+  const devApi = import.meta.env.MODE === "production" ? "" : (import.meta.env.WXT_DEV_API_ORIGINS || "").split(",")[0]?.trim();
+  if (devApi) {
+    chrome.runtime.onInstalled.addListener(() => {
+      chrome.storage.local.get("settings", (o) => {
+        const cur = (o && o.settings) || {};
+        const base = typeof cur.apiBaseUrl === "string" ? cur.apiBaseUrl : "";
+        if (base && base !== "https://api.kiwiply.com") return;
+        chrome.storage.local.set({ settings: { ...cur, apiBaseUrl: devApi.replace(/\/+$/, "") } });
+      });
+    });
+  }
+
   // Toolbar-icon click (no popup, no native side panel) toggles an on-page drawer: an iframe
   // hosting panel.html, injected into the active tab at a high z-index so it FLOATS OVER the
   // page without resizing it — unlike Chrome's native side panel, which docks and compresses

@@ -5,7 +5,7 @@ import type { Dispatch } from "react";
 import { controlStates } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme, TemplateCapabilities } from "@kiwiply/ui";
 import { NO_AI, type CanvasAi } from "./ai/types";
-import { CanvasProvider, type FocusRequest } from "./canvasContext";
+import { CanvasProvider, NO_PHOTO, type CanvasPhoto, type FocusRequest } from "./canvasContext";
 import CanvasReorder from "./CanvasReorder";
 import HeaderBlock from "./HeaderBlock";
 import { useMoveAnnouncement } from "./moveLink";
@@ -37,6 +37,7 @@ export default function DocumentCanvas({
   ai = NO_AI,
   onAddSection,
   reorder = false,
+  photo = NO_PHOTO,
 }: {
   doc: ResumeDocument;
   caps: TemplateCapabilities;
@@ -58,6 +59,8 @@ export default function DocumentCanvas({
   onAddSection: () => void;
   /** The Swap Section panel is open: item rows get a drag grip (R2.2). */
   reorder?: boolean;
+  /** The photo slot's behaviour (R7.4); absent = the slot only shows what the document holds. */
+  photo?: CanvasPhoto;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const pending = useRef<FocusRequest | null>(null);
@@ -96,8 +99,8 @@ export default function DocumentCanvas({
 
   const controls = useMemo(() => controlStates(doc, caps), [doc, caps]);
   const value = useMemo(
-    () => ({ dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, aiVisible, ai, reorder }),
-    [dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, aiVisible, ai, reorder],
+    () => ({ dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, aiVisible, ai, reorder, photo }),
+    [dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, aiVisible, ai, reorder, photo],
   );
 
   return (

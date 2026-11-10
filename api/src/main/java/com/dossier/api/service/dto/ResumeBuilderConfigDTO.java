@@ -30,8 +30,12 @@ public record ResumeBuilderConfigDTO(
     Share share,
     Versions versions,
     @Schema(description = "Onboarding v2 tunables (R1.8): the dashboard card, the time estimates, the draft cap, the payoff.") Onboarding onboarding,
-    @Schema(description = "What this builder session may do (personal, consultant inside an organization, or a marketer acting for a consultant). The web hides controls from it; the API refuses the same actions.") BuilderCapabilities capabilities
+    @Schema(description = "What this builder session may do (personal, consultant inside an organization, or a marketer acting for a consultant). The web hides controls from it; the API refuses the same actions.") BuilderCapabilities capabilities,
+    @Schema(description = "Profile photo tunables (R7.4): the upload cap and the countries where the photo prompt defaults to 'Keep photo off'.") Photo photo
 ) {
+    /** Profile photo settings the photo dialog needs: {@code resume.photo.maxBytes} and {@code resume.photo.discouragedRegions}. */
+    public record Photo(int maxBytes, List<String> discouragedRegions) {}
+
     /**
      * Role-based restrictions of the ONE builder. {@code mode} is personal | consultant | marketer-act-for. Every flag is also enforced by the API
      * (404 / 409 / 402 per the policy table in OrgResumePolicy); {@code approvalNotice} is shown by the editor next to the save state when set.

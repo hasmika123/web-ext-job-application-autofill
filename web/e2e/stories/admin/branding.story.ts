@@ -3,11 +3,11 @@ import { test, expect, narrate } from "../_support/story";
 test("ADM-70 Org admin drafts new welcome copy on the Branding page, sees it differ from live, and discards the draft", async ({ as }) => {
   const { page, go } = await as("sarah");
   await go("/w/admin");
-  await narrate(page, "Sarah opens Organization Branding from the sidebar");
-  await page.getByRole("link", { name: "Organization Branding", exact: true }).first().click();
+  await narrate(page, "Sarah opens Branding from the sidebar");
+  await page.locator("[data-shell-sidebar]").getByRole("link", { name: "Branding", exact: true }).first().click();
   await page.waitForURL(/\/w\/admin\/branding/);
   await expect(page.locator("[data-branding-page]")).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator("[data-shell-sidebar] [aria-current=page]")).toContainText("Organization Branding");
+  await expect(page.locator("[data-shell-sidebar] [aria-current=page]")).toContainText("Branding");
 
   await narrate(page, "The seeded Acme brand is live");
   await expect(page.locator('[data-branding-section="identity"]')).toBeVisible();
@@ -38,7 +38,7 @@ test("ADM-70 Org admin drafts new welcome copy on the Branding page, sees it dif
 test("ADM-71 Beta's owner sees Beta's own branding, not Acme's", async ({ as }) => {
   const { page, go } = await as("bea");
   await go("/w/admin/branding");
-  await narrate(page, "Bea opens Beta's Organization Branding");
+  await narrate(page, "Bea opens Beta's Branding page");
   await expect(page.locator("[data-branding-page]")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByLabel("Organization name")).toHaveValue(/Beta Talent/);
   await expect(page.locator("[data-branding-page]")).not.toContainText("Acme");

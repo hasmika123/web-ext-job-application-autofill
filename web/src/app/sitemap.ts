@@ -24,6 +24,7 @@ const PAGES: Array<{ path: string; lastModified: string; priority: number }> = [
   { path: "/contact", lastModified: "2026-10-05", priority: 0.4 },
   { path: "/privacy", lastModified: "2026-10-05", priority: 0.3 },
   { path: "/terms", lastModified: "2026-10-05", priority: 0.3 },
+  { path: "/legal/subprocessors", lastModified: "2026-10-17", priority: 0.2 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

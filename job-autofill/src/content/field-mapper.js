@@ -46,6 +46,10 @@
     for (const el of els) {
       if (taken.has(el) || !B().isFillable(el)) continue;
       if (el.type === "file" || el.type === "radio" || el.type === "checkbox" || el.type === "password") continue;
+      // the search box of a pick-from-a-list widget (a Workday multiselect prompt) takes no typed value
+      if (el.closest && el.closest('[data-automation-id="multiselectInputContainer"],[data-uxi-widget-type="multiselect"]')) continue;
+      // nor a part of a date (Workday's Month / Day / Year sections): the adapters fill dates, a label like "From" maps to nothing
+      if (el.getAttribute("role") === "spinbutton" || /^datesection/i.test(el.getAttribute("data-automation-id") || "")) continue;
       const label = (B().labelText(el) || "").replace(/\s+/g, " ").trim();
       if (label.length < 3 || label.length > 160) continue;
       out.push({ el, label, kind: B().elKind(el) });
@@ -65,9 +69,13 @@
     });
   }
 
-  // A mapping only becomes a plan item when the user actually HAS that value.
+  // A mapping only becomes a plan item when the user actually HAS that value, and when the deterministic plan has not
+  // already put that value somewhere on the page ("Phone Extension" is not a second home for the phone number).
+  // Exceptions: desired pay (base and total compensation may both be asked) and a "confirm your email" style repeat.
+  let covered = new Set();
   function itemFor(cand, field, values) {
     if (!field || values[field] === undefined || values[field] === "") return null;
+    if (covered.has(field) && field !== "desiredSalary" && !/\b(confirm|verify|re-?enter|repeat|again)\b/i.test(cand.label)) return null;
     return { el: cand.el, field, value: values[field], label: cand.label, kind: cand.kind, aiMapped: true };
   }
 
@@ -75,6 +83,7 @@
   async function run(plannedItems, values) {
     let cands;
     try { cands = collectUnmatched(plannedItems); } catch (e) { return []; }
+    covered = new Set((plannedItems || []).map((i) => i.field).filter(Boolean));
     if (!cands.length) return [];
     const cache = await cacheGet();
     const items = [];

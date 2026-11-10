@@ -1,33 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, CalendarIcon, ChevronLeftIcon, ChevronRightIcon, ErrorState, ListIcon, PlusIcon, Select, cn } from "@kiwiply/ui";
+import PageHeader from "@/components/ent/shell/ShellContext";
 import {
-  AlarmClockIcon, Button, CalendarIcon, CheckCircleIcon, ChevronLeftIcon, ChevronRightIcon, ClipboardIcon, ErrorState, ListIcon, PlusIcon, Select, UsersIcon, cn,
-} from "@kiwiply/ui";
-import type { IconProps } from "@kiwiply/ui";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import {
-  CATEGORY_LABEL, CATEGORY_ORDER, DEFAULT_QUERY, PRIORITY_LABEL, PRIORITY_ORDER, STATUS_LABEL, STATUS_ORDER, TASK_KPI_KEYS, TASK_KPI_TITLES, TASK_TABS, fetchAssignees, fetchCalendar, fetchTasks,
-  monthKey, pageCount, runTaskAction, shiftMonth, showingText, type CalendarDay, type NewTask, type TaskAction, type TaskKpiKey, type TaskRow, type TasksQuery, type TasksView,
+  CATEGORY_LABEL, CATEGORY_ORDER, DEFAULT_QUERY, PRIORITY_LABEL, PRIORITY_ORDER, STATUS_LABEL, STATUS_ORDER, TASK_TABS, fetchAssignees, fetchTasks,
+  pageCount, runTaskAction, showingText, type NewTask, type TaskAction, type TaskRow, type TasksQuery, type TasksView,
 } from "@/lib/ent/marketer-ws/tasks";
-import { CARD, CardSkeleton, Empty, type MktPageProps, type TintName } from "../parts";
+import { CARD, CardSkeleton, Empty, type MktPageProps } from "../parts";
 import TaskDialog, { type DialogState } from "./TaskDialog";
-import TaskKpiTile from "./TaskKpiTile";
 import TaskTable, { type RowAction } from "./TaskTable";
-import { CalendarCard, HeroCard, QuickActions, UpcomingCard } from "./TasksRail";
 
 /**
- * Tasks (design: Tasks). One call draws the board: four KPI tiles, the tab pills with counts, the filters, the table with its pager, and the right column
- * (hero, Calendar, Upcoming Deadlines, Quick Actions). ASSIGNED scope: a marketer sees the tasks they own. E1: every action only RECORDS on a task; nothing is
+ * Tasks (the Tasks tab of Tasks). One call draws the board: the chip row with counts, the filters and the table with its pager. ASSIGNED scope: a marketer sees the tasks they own. E1: every action only RECORDS on a task; nothing is
  * emailed and nothing is submitted for a consultant.
  */
-
-const KPI: Record<TaskKpiKey, { icon: ComponentType<IconProps>; tint: TintName; lowerIsBetter?: boolean }> = {
-  total: { icon: ClipboardIcon, tint: "blue" },
-  overdue: { icon: AlarmClockIcon, tint: "coral", lowerIsBetter: true },
-  dueThisWeek: { icon: CheckCircleIcon, tint: "green" },
-  completedThisWeek: { icon: UsersIcon, tint: "violet" },
-};
 
 const MESSAGES: Record<TaskAction["kind"], string> = {
   create: "Task added.",
@@ -38,16 +25,10 @@ const MESSAGES: Record<TaskAction["kind"], string> = {
   delete: "Task deleted.",
 };
 
-const KIND_PRESET: Record<"REMINDER" | "CALL" | "SCHEDULE", Partial<NewTask>> = {
-  REMINDER: { title: "Send reminder", category: "FOLLOW_UP" },
-  CALL: { title: "Log call", category: "FOLLOW_UP" },
-  SCHEDULE: { title: "Schedule interview", category: "INTERVIEW" },
-};
-
 const ALL = (label: string) => [{ value: "", label }];
 const FIELD = "min-w-0 flex-1 basis-[140px]";
 
-export default function TasksPage({ orgId, hrefs }: MktPageProps) {
+export default function TasksPage({ orgId, embedded }: MktPageProps) {
   const [query, setQuery] = useState<TasksQuery>(DEFAULT_QUERY);
   const [view, setView] = useState<TasksView | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "failed" | "denied">("loading");
@@ -58,9 +39,6 @@ export default function TasksPage({ orgId, hrefs }: MktPageProps) {
   const [busy, setBusy] = useState(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
-  const [month, setMonth] = useState(() => monthKey(new Date()));
-  const [days, setDays] = useState<CalendarDay[]>([]);
-  const [calLoading, setCalLoading] = useState(false);
   const seq = useRef(0);
 
   const load = useCallback(
@@ -81,30 +59,10 @@ export default function TasksPage({ orgId, hrefs }: MktPageProps) {
     return () => clearTimeout(t);
   }, [load, query]);
 
-  const loadMonth = useCallback(
-    async (m: string) => {
-      setCalLoading(true);
-      const c = await fetchCalendar(orgId, m);
-      if (c) setDays(c.days);
-      setCalLoading(false);
-    },
-    [orgId],
-  );
-  useEffect(() => {
-    const t = setTimeout(() => void loadMonth(month), 0);
-    return () => clearTimeout(t);
-  }, [loadMonth, month]);
-
   const change = (patch: Partial<TasksQuery>) => {
     setRefreshing(true);
     setSelected(new Set());
     setQuery((q) => ({ ...q, ...patch, page: patch.page ?? 0 }));
-  };
-  const reset = (patch: Partial<TasksQuery> = {}) => {
-    setRefreshing(true);
-    setSelected(new Set());
-    setQuery({ ...DEFAULT_QUERY, ...patch });
-    setMonth(monthKey(new Date()));
   };
 
   const toggle = useCallback((id: number) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; }), []);
@@ -133,7 +91,6 @@ export default function TasksPage({ orgId, hrefs }: MktPageProps) {
     setSelected(new Set());
     setNotice({ tone: "ok", text: list.length > 1 ? `${MESSAGES[list[0].kind]} (${list.length} tasks)` : MESSAGES[list[0].kind] });
     void load(query);
-    void loadMonth(month);
   }
 
   const onRowAction = (a: RowAction, row: TaskRow) => {
@@ -161,13 +118,7 @@ export default function TasksPage({ orgId, hrefs }: MktPageProps) {
   };
 
   if (status === "denied") return <ErrorState what="the Tasks page" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
-  const header = (
-    <>
-      <PageHeader title="Tasks" subtitle="Stay on top of your marketing and recruitment tasks to drive placements." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-    </>
-  );
+  const header = embedded ? null : <PageHeader title="Tasks" subtitle="What you owe and when: tasks, calls and reminders." />;
   if (status === "failed")
     return (
       <div data-tasks-page data-status="failed">
@@ -185,31 +136,10 @@ export default function TasksPage({ orgId, hrefs }: MktPageProps) {
   const pageNumbers = Array.from({ length: pages }, (_, i) => i).filter((i) => pages <= 5 || Math.abs(i - query.page) <= 2 || i === 0 || i === pages - 1);
 
   return (
-    <div data-tasks-page data-status={status} className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
-      <div className="col-span-full">{header}</div>
+    <div data-tasks-page data-status={status} className="flex flex-col gap-4 sm:gap-5">
+      {header}
 
       <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
-        <section aria-label="Key numbers" data-tasks-tiles className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 2xl:grid-cols-4">
-          {TASK_KPI_KEYS.map((key) => {
-            const k = v?.kpis.find((x) => x.key === key);
-            const meta = KPI[key];
-            return (
-              <TaskKpiTile
-                key={key}
-                id={key}
-                title={TASK_KPI_TITLES[key]}
-                icon={meta.icon}
-                tint={meta.tint}
-                value={loading ? 0 : (k?.value ?? null)}
-                loading={loading}
-                deltaPct={k?.deltaPct ?? null}
-                bars={k?.sparkline}
-                lowerIsBetter={meta.lowerIsBetter}
-              />
-            );
-          })}
-        </section>
-
         <div className="flex flex-wrap items-center gap-3">
           <div role="tablist" aria-label="Task views" className="flex min-w-0 flex-1 flex-wrap items-center gap-1 rounded-[var(--radius-lg)] border border-line bg-paper p-1.5">
             {TASK_TABS.map((t) => {
@@ -241,34 +171,34 @@ export default function TasksPage({ orgId, hrefs }: MktPageProps) {
           </div>
           <Button variant="accent" onClick={() => openAdd()} className="min-h-11 gap-2 px-5">
             <PlusIcon size={16} />
-            Add Task
+            Add task
           </Button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5" data-task-filters>
           <div className={FIELD}>
-            <Select value={query.category} onChange={(c) => change({ category: c })} aria-label="Category" options={[...ALL("All Categories"), ...CATEGORY_ORDER.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))]} />
+            <Select value={query.category} onChange={(c) => change({ category: c })} aria-label="Category" options={[...ALL("All categories"), ...CATEGORY_ORDER.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))]} />
           </div>
           <div className={FIELD}>
-            <Select value={query.priority} onChange={(c) => change({ priority: c })} aria-label="Priority" options={[...ALL("All Priorities"), ...PRIORITY_ORDER.map((c) => ({ value: c, label: PRIORITY_LABEL[c] }))]} />
+            <Select value={query.priority} onChange={(c) => change({ priority: c })} aria-label="Priority" options={[...ALL("All priorities"), ...PRIORITY_ORDER.map((c) => ({ value: c, label: PRIORITY_LABEL[c] }))]} />
           </div>
           <div className={FIELD}>
-            <Select value={query.status} onChange={(c) => change({ status: c })} aria-label="Status" options={[...ALL("All Statuses"), ...STATUS_ORDER.map((c) => ({ value: c, label: STATUS_LABEL[c] }))]} />
+            <Select value={query.status} onChange={(c) => change({ status: c })} aria-label="Status" options={[...ALL("All statuses"), ...STATUS_ORDER.map((c) => ({ value: c, label: STATUS_LABEL[c] }))]} />
           </div>
           <div className={FIELD}>
             <Select
               value={query.owner}
               onChange={(c) => change({ owner: c })}
               aria-label="Owner"
-              options={[...ALL("All Owners"), ...(v?.options.owners ?? []).map((o) => ({ value: String(o.id), label: o.name }))]}
+              options={[...ALL("All owners"), ...(v?.options.owners ?? []).map((o) => ({ value: String(o.id), label: o.name }))]}
             />
           </div>
           <label className={cn(FIELD, "relative flex min-h-11 items-center gap-2 rounded-[var(--radius)] border border-line bg-paper px-3 text-[14px] text-muted")}>
             <CalendarIcon size={17} aria-hidden className="flex-none" />
-            <span className="sr-only">Due Date</span>
+            <span className="sr-only">Due date</span>
             <input
               type="date"
-              aria-label="Due Date"
+              aria-label="Due date"
               value={query.due}
               onChange={(e) => change({ due: e.target.value })}
               className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-muted"
@@ -342,21 +272,6 @@ export default function TasksPage({ orgId, hrefs }: MktPageProps) {
             </nav>
           </footer>
         </section>
-      </div>
-
-      <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
-        <HeroCard />
-        <CalendarCard
-          month={month}
-          days={days}
-          loading={calLoading}
-          selectedDay={query.due}
-          onMonth={(d) => setMonth((m) => shiftMonth(m, d))}
-          onDay={(key) => change({ due: query.due === key ? "" : key })}
-          onViewAll={() => reset()}
-        />
-        <UpcomingCard rows={v?.upcoming ?? []} loading={loading} onViewAll={() => reset({ tab: "DUE_WEEK" })} />
-        <QuickActions hrefs={hrefs} onAdd={() => openAdd()} onKind={(k) => openAdd(KIND_PRESET[k])} />
       </div>
 
       {dialog ? <TaskDialog state={dialog} options={v?.options ?? { consultants: [], clients: [], owners: [] }} busy={busy} error={dialogError} onClose={() => setDialog(null)} onSubmit={(a) => void submit(a)} /> : null}

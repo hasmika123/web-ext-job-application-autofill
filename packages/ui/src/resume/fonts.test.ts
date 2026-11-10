@@ -32,7 +32,7 @@ describe("bundled fonts", () => {
 
   it("every FontPair has a stack and every family it names first is declared by an @font-face (or is a system font)", () => {
     const declared = new Set([...css.matchAll(/@font-face\s*{[^}]*font-family:\s*"([^"]+)"/g)].map((m) => m[1]));
-    expect(declared).toEqual(new Set(["Inter", "Source Serif 4", "IBM Plex Sans", "EB Garamond"]));
+    expect(declared).toEqual(new Set(["Inter", "Source Serif 4", "IBM Plex Sans", "EB Garamond", "Gelasio", "Arimo"]));
     for (const pair of FONT_PAIRS) {
       const first = /^"([^"]+)"/.exec(FONT_STACKS[pair].body)?.[1];
       if (first) expect(declared.has(first), `${pair} -> ${first}`).toBe(true);
@@ -40,8 +40,18 @@ describe("bundled fonts", () => {
   });
 
   it("each bundled family ships a licence text", () => {
-    for (const f of ["OFL-Inter.txt", "OFL-SourceSerif4.txt", "OFL-IBMPlexSans.txt", "OFL-EBGaramond.txt"]) {
+    for (const f of ["OFL-Inter.txt", "OFL-SourceSerif4.txt", "OFL-IBMPlexSans.txt", "OFL-EBGaramond.txt", "OFL-Gelasio.txt", "OFL-Arimo.txt"]) {
       expect(existsSync(join(fontsDir, f)), f).toBe(true);
     }
+  });
+
+  it("the Georgia / Arial pair names its bundled metric-compatible twin right after the system font, so Linux prints the same page", () => {
+    const declared = new Set([...css.matchAll(/@font-face\s*{[^}]*font-family:\s*"([^"]+)"/g)].map((m) => m[1]));
+    expect(FONT_STACKS["georgia-arial"].body).toMatch(/^Arial, "?Arimo"?, /);
+    expect(FONT_STACKS["georgia-arial"].display).toMatch(/^Georgia, "?Gelasio"?, /);
+    expect(declared.has("Arimo")).toBe(true);
+    expect(declared.has("Gelasio")).toBe(true);
+    // the faces the pair needs: regular + bold of both, and Arial's italic (Georgia is only set upright / bold)
+    for (const f of ["gelasio-latin-400", "gelasio-latin-700", "arimo-latin-400", "arimo-latin-700", "arimo-italic-latin-400"]) expect(referenced, f).toContain(`${f}.woff2`);
   });
 });

@@ -55,6 +55,10 @@ public class AccountResource {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.dossier.api.service.ent.settings.OrgSecurityPolicy orgSecurity;
 
+    // T0.2: the record that the person accepted the terms and the privacy notice when they created the account. Field-injected and optional so the constructor stays as it is.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.privacy.TermsAcceptanceService termsAcceptance;
+
     public AccountResource(
         UserRepository userRepository,
         UserService userService,
@@ -90,7 +94,18 @@ public class AccountResource {
             throw new InvalidPasswordException();
         }
         User user = userService.registerUser(managedUserVM, managedUserVM.getPassword());
+        recordTermsAcceptance(user);
         mailService.sendActivationEmail(user);
+    }
+
+    /** One call, never in the way of the sign-up: if it fails the account still exists and the next sign-in shows the accept banner (the status is then "not up to date"). */
+    private void recordTermsAcceptance(User user) {
+        if (termsAcceptance == null || user == null || user.getId() == null) return;
+        try {
+            termsAcceptance.recordSignup(user.getId(), java.time.Instant.now());
+        } catch (RuntimeException e) {
+            LOG.warn("Terms acceptance could not be recorded at sign-up ({})", e.getClass().getSimpleName());
+        }
     }
 
     /**

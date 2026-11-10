@@ -48,6 +48,8 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate/mfa")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate/demo")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/demo")).permitAll()
+                    // T1.5: the subprocessor register is public, read-only.
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/legal/subprocessors")).permitAll()
                     // Enterprise V2 (X1.3): the host-derived public view of a tenant. 404 while enterprise is off or the host is unknown.
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/demo")).permitAll()

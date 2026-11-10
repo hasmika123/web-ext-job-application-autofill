@@ -67,7 +67,7 @@ export async function shellReady(page: Page) {
   }).toPass({ timeout: 90_000 });
 }
 
-/** Opens the Invite panel's Department list and picks the first department (the list closes when the page scrolls, so retry until an option is up). */
+/** Opens the "Add employee" dialog's Department list and picks the first department (the list closes when the page scrolls, so retry until an option is up). */
 export async function pickFirstDepartment(page: Page, panel: ReturnType<Page["locator"]>) {
   const dept = panel.getByRole("button", { name: "Department" });
   if (!(await dept.isEnabled())) return;

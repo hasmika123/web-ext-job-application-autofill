@@ -20,8 +20,8 @@ public final class ConPrepareDTO {
     /** {@code POST .../con/prepare}. {@code sessionId} and {@code expiresAt} are null when nothing was eligible (no session, nothing charged). */
     public record Created(Long sessionId, Instant expiresAt, List<Job> jobs, List<Skipped> skipped, int remainingToday, int remainingMonth) {}
 
-    /** {@code GET .../con/prepare/status}. */
-    public record Status(boolean enabled, int maxBatch, int remainingToday, int remainingMonth, int dailyCap, int monthlyCap) {}
+    /** {@code GET .../con/prepare/status}. {@code reason} is null when enabled, else {@code PLATFORM_OFF}, {@code ORG_OFF} or {@code NO_LICENSE} (the page words it calmly; the first shows nothing). */
+    public record Status(boolean enabled, int maxBatch, int remainingToday, int remainingMonth, int dailyCap, int monthlyCap, String reason) {}
 
     /** One opening of a session. {@code applied} is true once the existing linker has recorded the consultant's own application. */
     public record Item(Long matchId, String url, String title, String company, String state, String detail, boolean applied, Instant updatedAt) {}

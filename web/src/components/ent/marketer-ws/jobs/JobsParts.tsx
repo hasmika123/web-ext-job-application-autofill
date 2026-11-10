@@ -11,7 +11,9 @@ import {
 } from "@/lib/ent/marketer-ws/jobs";
 import { DUPLICATE_WARNING, plainRefusal } from "@/lib/ent/marketer-ws/duplicate";
 import { DuplicateNotice, useDuplicateAsk } from "../DuplicateConfirm";
-import { TINTS } from "../parts";
+import { scoreText } from "@/lib/ent/marketer-ws/score";
+import { TailorJobCard, useTailorPreset } from "../../demo/TailorJobCard";
+import { TINTS, withQuery } from "../parts";
 
 /** Small building blocks of the Job Discovery board: the square client logo chip, priority chip, delta text, filter boxes, and the View / Assign drawers. */
 
@@ -246,7 +248,7 @@ export function AssignSheet({
                     <span className="block truncate text-[12px] text-muted">{c.pausedReason ?? [c.title, c.availability && c.availability.toLowerCase().replace(/_/g, " ")].filter(Boolean).join(" - ")}</span>
                   </span>
                   {c.matchStatus === "ASSIGNED" ? <span className="rounded-md bg-v2-green-soft px-2 py-0.5 text-[11.5px] font-semibold text-v2-green-ink">Assigned</span> : null}
-                  {c.score !== null ? <span className={cn("rounded-full px-2.5 py-0.5 text-[12px] font-bold", c.score >= 80 ? TINTS.green : TINTS.amber)}>{c.score}%</span> : null}
+                  {c.score !== null ? <span className={cn("rounded-full px-2.5 py-0.5 text-[12px] font-bold", c.score >= 80 ? TINTS.green : TINTS.amber)}>{scoreText(c.score)}</span> : null}
                 </label>
               </li>
             ))}
@@ -258,8 +260,9 @@ export function AssignSheet({
 }
 
 /** The "View" drawer: the job's facts, description and the best matches among the consultants the caller may see. */
-export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign, onSave, now }: { orgId: number; job: JobRow; matchesHref: string | null; canAssign: boolean; onClose: () => void; onAssign: () => void; onSave?: () => void; now: number }) {
+export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign, onSave, onTailor, now }: { orgId: number; job: JobRow; matchesHref: string | null; canAssign: boolean; onClose: () => void; onAssign: () => void; onSave?: () => void; onTailor?: () => void; now: number }) {
   const id = useId();
+  const tailor = useTailorPreset(job.title, job.client.name); // demo only (DEMO-PLAN section 16)
   const [detail, setDetail] = useState<JobDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -290,7 +293,7 @@ export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign
       id={`job-${id}`} side="right" mode="overlay" open width={500} title={job.title} description={job.client.name} onClose={onClose}
       footer={
         <div className="flex items-center justify-end gap-2">
-          {matchesHref ? <Link href={`${matchesHref}?job=${job.id}`} className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-[13.5px] font-semibold text-accent-deep hover:bg-accent-soft">Match</Link> : null}
+          {matchesHref ? <Link href={withQuery(matchesHref, "job", job.id)} className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-[13.5px] font-semibold text-accent-deep hover:bg-accent-soft">Match</Link> : null}
           {canAssign && onSave ? <Button variant="ghost" onClick={onSave}>Save for a consultant</Button> : null}
           {canAssign ? <Button variant="accent" onClick={onAssign}>Assign</Button> : null}
         </div>
@@ -312,6 +315,7 @@ export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign
             ))}
           </ul>
         ) : null}
+        {tailor && canAssign && onTailor ? <TailorJobCard preset={tailor} onTailor={onTailor} /> : null}
         {error ? <p role="alert" className="text-[13px] text-v2-pink-ink">{error}</p> : null}
         {!detail && !error ? <p aria-busy="true" className="flex items-center gap-2 text-[13px] text-muted"><Spinner /> Loading the job...</p> : null}
         {detail?.description ? <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-ink-soft">{detail.description}</p> : null}
@@ -328,7 +332,7 @@ export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign
                     <MemberAvatar name={m.name} size={30} />
                     <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-ink">{m.name}</span>
                     {m.status === "ASSIGNED" ? <span className="rounded-md bg-v2-green-soft px-2 py-0.5 text-[11.5px] font-semibold text-v2-green-ink">Assigned</span> : null}
-                    <span className={cn("rounded-full px-2.5 py-0.5 text-[12px] font-bold", m.score >= 80 ? TINTS.green : TINTS.amber)}>{m.score}%</span>
+                    <span className={cn("rounded-full px-2.5 py-0.5 text-[12px] font-bold", m.score >= 80 ? TINTS.green : TINTS.amber)}>{scoreText(m.score)}</span>
                   </li>
                 ))}
               </ul>

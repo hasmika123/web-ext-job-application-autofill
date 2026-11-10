@@ -3,7 +3,7 @@
  * undo history, and the autosave lifecycle. Pure data - no React imports - so the reducer, the
  * history and the autosave controller are testable without a DOM.
  */
-import type { ResumeDocument, ResumeListStyle, ResumeMark, ResumeSectionKind, ResumeTheme } from "@kiwiply/ui";
+import type { ResumeDocPhoto, ResumeDocument, ResumeListStyle, ResumeMark, ResumeSectionKind, ResumeTheme } from "@kiwiply/ui";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import type { History } from "./history";
 
@@ -171,4 +171,10 @@ export type EditorAction =
    * The server replaced the document under the editor (Restore a version, Pull changes from master, R3.10): adopt it
    * as saved (`docVersion` is the one the next save must send). Undo history starts over from it.
    */
-  | { type: "server/replace"; doc: ResumeDocument; templateId: string; theme: EditorState["theme"]; docVersion: number; at: number };
+  | { type: "server/replace"; doc: ResumeDocument; templateId: string; theme: EditorState["theme"]; docVersion: number; at: number }
+  /**
+   * The photo was added, replaced or removed through `POST/DELETE .../photo` (R7.4). The photo is server-owned content, not an edit:
+   * `basics.photo` is set in the present document AND in every undo / redo snapshot (so Undo never resurrects a deleted file's key),
+   * no history step is recorded, nothing becomes unsaved, and `docVersion` is the ETag the upload answered with.
+   */
+  | { type: "photo/set"; photo: ResumeDocPhoto | null; version: number };

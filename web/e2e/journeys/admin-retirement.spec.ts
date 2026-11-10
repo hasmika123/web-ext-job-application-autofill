@@ -13,12 +13,18 @@ import { expectAccessible, noOverflow, shot, signInAdmin } from "../fixtures/adm
 const mockPort = Number(process.env.E2E_MOCK_PORT ?? 8180);
 
 test.beforeEach(async ({ page }) => {
-  const reset = await page.request.post(`http://localhost:${mockPort}/mock/plans/reset`);
+  // Pro Student is a draft in the plan-builder fixture; a successor has to be a published plan, so this journey publishes it in the mock
+  const reset = await page.request.post(`http://localhost:${mockPort}/mock/plans/reset?published=PRO_STUDENT`);
   expect(reset.ok(), "mock reset").toBeTruthy();
   await signInAdmin(page);
 });
 
-const next = (page: Page) => page.getByRole("button", { name: "Next" }).click();
+const next = (page: Page) => page.getByRole("button", { name: "Next", exact: true }).click();
+
+/** A plan's actions sit beside its row on a desktop and in the sheet the row opens on a phone: open that sheet when there is one. */
+async function openPlanActions(page: Page, width: number) {
+  if (width < 640) await page.getByRole("region", { name: "Plans" }).getByRole("button", { name: /Pro/ }).first().click();
+}
 
 async function walkToReview(page: Page) {
   await page.goto("/admin/pricing/plans/PRO/retire");
@@ -32,7 +38,7 @@ async function walkToReview(page: Page) {
 }
 
 async function startIt(page: Page) {
-  await page.getByLabel("Reason").fill("Pro v1 is replaced by Pro Student for all new buyers");
+  await page.getByLabel("Reason", { exact: true }).fill("Pro v1 is replaced by Pro Student for all new buyers");
   await page.getByLabel("Plan key to confirm").fill("PRO");
   await page.getByRole("button", { name: "Start retirement" }).click();
   await expect(page).toHaveURL(/\/admin\/pricing\/retirements\/\d+$/);
@@ -47,6 +53,7 @@ for (const [name, width, height] of [
 
     test("impact tiles, successor coverage and the would-pay-more refusal", async ({ page }) => {
       await page.goto("/admin/pricing/plans");
+      await openPlanActions(page, width);
       await page.getByRole("button", { name: "Retire…" }).first().waitFor();
       await page.goto("/admin/pricing/plans/PRO/retire");
       await next(page);
@@ -89,6 +96,7 @@ for (const [name, width, height] of [
 
     test("Retire... is the way in from the plans list, and a started retirement shows on the list", async ({ page }) => {
       await page.goto("/admin/pricing/plans");
+      await openPlanActions(page, width);
       await expect(page.getByRole("button", { name: "Retire…" }).first()).toBeVisible();
     });
   });

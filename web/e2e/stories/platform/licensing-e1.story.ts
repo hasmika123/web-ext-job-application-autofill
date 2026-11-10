@@ -3,32 +3,27 @@ import { expectOnTheWay } from "./_platform";
 
 /** PLT: licensing and entitlement surfaces as they are built today, and the E1 rule (Kiwiply prepares, the consultant submits; nothing auto-submits). */
 
-test("PLT-25 The Org Admin's licensing and billing pages are not built yet and say so honestly", async ({ as }) => {
+test("PLT-25 The Org Admin's Plan & Billing page is not built yet and says so honestly", async ({ as }) => {
   const { page, go } = await as("sarah");
-  for (const [path, label] of [
-    ["/w/admin/subscription", "Subscription Overview"],
-    ["/w/admin/licenses", "Consultant Licenses"],
-    ["/w/admin/billing", "Billing"],
-    ["/w/admin/usage", "Feature Usage"],
-  ] as const) {
-    await go(path);
-    await narrate(page, `${label}: a calm placeholder, not an error`, 600);
-    await expectOnTheWay(page);
-    await expect(page.locator("[data-page-header]")).toContainText(label);
-    await expect(page.locator("[data-shell-sidebar]")).toBeVisible();
-  }
+  // Subscription Overview, Consultant Licenses and Feature Usage left the menu in the Phase 1 refresh; Plan & Billing is its one "Soon" row
+  await go("/w/admin/billing");
+  await narrate(page, "Plan & Billing: a calm placeholder, not an error", 600);
+  await expectOnTheWay(page);
+  await expect(page.locator("[data-page-header]")).toContainText("Plan & Billing");
+  await expect(page.locator("[data-shell-sidebar]")).toBeVisible();
 });
 
 test("PLT-26 A consultant sees which features their organization has enabled for them", async ({ as }) => {
   const { page, go } = await as("anika");
   await go("/w/consultant");
-  await narrate(page, "Anika opens My Features from her menu");
-  await page.locator("[data-shell-sidebar] [data-nav-item=features]").click();
-  await page.waitForURL("**/w/consultant/features");
+  await narrate(page, "Anika opens Settings from her menu, then the Plan & features tab");
+  await page.locator("[data-shell-sidebar] [data-nav-item=settings]").click();
+  await page.waitForURL("**/w/consultant/settings**");
+  await page.getByRole("tab", { name: "Plan & features" }).click();
+  await expect(page).toHaveURL(/[?&]tab=features/);
   await expect(page.locator("[data-consultant-features][data-status=ready]")).toBeVisible();
-  await expect(page.locator("[data-page-header]")).toContainText("My Features");
+  await expect(page.locator("[data-page-header]")).toContainText("Settings");
   await narrate(page, "Each enabled feature shows its status, allowance and usage");
-  await expect(page.locator("[data-features-tiles]")).toBeVisible();
   await expect(page.locator("[data-features-table]")).toBeVisible();
   expect(await page.locator("[data-feature-row]").count()).toBeGreaterThan(0);
   await expect(page.locator("[data-features-filter]")).toBeVisible();
@@ -36,11 +31,11 @@ test("PLT-26 A consultant sees which features their organization has enabled for
 
 test("PLT-27 A consultant cannot see the organization's licensing or billing", async ({ as }) => {
   const { page, go } = await as("anika");
-  await go("/w/consultant/features");
-  await expect(page.locator("[data-shell-sidebar] [data-nav-item=billing], [data-shell-sidebar] [data-nav-item=licenses]")).toHaveCount(0);
-  await go("/w/admin/licenses");
+  await go("/w/consultant/settings?tab=features");
+  await expect(page.locator("[data-shell-sidebar] [data-nav-item=billing]")).toHaveCount(0);
+  await go("/w/admin/billing");
   await expect(page.locator("[data-not-your-role]")).toBeVisible();
-  await narrate(page, "The consultant's Licenses address is refused, and nothing about prices shows");
+  await narrate(page, "The consultant's Plan & Billing address is refused, and nothing about prices shows");
   await expect(page.getByText(/\$\d/)).toHaveCount(0);
 });
 

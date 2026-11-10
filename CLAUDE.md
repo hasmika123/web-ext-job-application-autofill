@@ -33,6 +33,8 @@ promote a batch.
 - **Only the user promotes `develop` → `main`.** Don't open or merge that PR unless
   they ask for it by name — that merge is a production deploy.
 - Delete a topic branch once it's merged; don't leave stale branches around.
+- `version2` (the enterprise line) was folded into `develop` on 2026-11-10 and retired: enterprise work branches off
+  `develop` too. There is no other integration branch.
 
 ## Hard rules
 - **Handoff documents live in the root `docs/` folder** (shared by every sub-project: web,

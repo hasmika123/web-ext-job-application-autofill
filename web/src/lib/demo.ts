@@ -6,13 +6,23 @@
  * `demo-server.ts`.
  */
 
-/** The fixed demo logins (the API's `DemoAccountService`; `demo-admin` exists only in the local mock API). */
-export const DEMO_LOGINS = ["demo", "demo-org", "demo-admin"] as const;
+import { tenantOrigin } from "@/lib/tenant-urls";
+
+/**
+ * The demo logins kiwiply.com can open (the API's `DemoAccountService`): the job seeker, and the app admin while the API's
+ * `DEMO_ADMIN_ENABLED` is on. Organization accounts are NOT here (decision O4): they sign in on their own tenant host, through
+ * that host's demo tab (`/api/auth/tenant-demo`), never from the personal site.
+ */
+export const DEMO_LOGINS = ["demo", "demo-admin"] as const;
 export type DemoLogin = (typeof DEMO_LOGINS)[number];
+
+/** `demo-org` is a retired account: nobody can open it, but a session that still carries it is a demo session. */
+const RETIRED_DEMO_LOGINS = ["demo-org"] as const;
 
 /** True when `login` (from `GET /api/account`) is a demo account. */
 export function isDemoLogin(login?: string | null): boolean {
-  return !!login && (DEMO_LOGINS as readonly string[]).includes(login.trim().toLowerCase());
+  const l = login?.trim().toLowerCase() ?? "";
+  return !!l && ((DEMO_LOGINS as readonly string[]).includes(l) || (RETIRED_DEMO_LOGINS as readonly string[]).includes(l));
 }
 
 /** What a demo account sees when it tries to change something. Matches the API's message. */
@@ -32,10 +42,30 @@ export interface DemoAccount {
   landing: string;
 }
 
+/** The demo company the personal site can point at: its host (from the API) and name. Null/absent when no demo company is seeded. */
+export interface TenantDemoLink {
+  host: string;
+  name: string;
+}
+
 /** `GET /api/public/demo`. */
 export interface DemoInfo {
   enabled: boolean;
   accounts: DemoAccount[];
+  tenantDemo?: TenantDemoLink | null;
+}
+
+/**
+ * The sign-in address of the demo company: the host the API names, as the app builds every tenant origin (`tenantOrigin`), plus the
+ * visitor's own port when both sides are loopback (`acme.localhost` next to `localhost:3304` is `http://acme.localhost:3304/login`).
+ * "" when the host is not a plain hostname.
+ */
+export function tenantDemoLoginUrl(tenant: TenantDemoLink, here: { hostname: string; port: string }): string {
+  const origin = tenantOrigin(tenant.host);
+  if (!origin) return "";
+  const loopback = (h: string) => h === "localhost" || h.endsWith(".localhost");
+  const port = loopback(tenant.host.toLowerCase()) && loopback(here.hostname.toLowerCase()) && here.port ? `:${here.port}` : "";
+  return `${origin}${port}/login`;
 }
 
 /** `GET /api/admin/settings/demo`. */

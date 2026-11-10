@@ -9,6 +9,7 @@ import {
 } from "@/lib/ent/marketer-ws/opportunities";
 
 const EMPTY_HAND: HandJobInput = { title: "", company: "", location: "", workMode: "", description: "", jobUrl: "" };
+import { isScored, scoreText } from "@/lib/ent/marketer-ws/score";
 import { DuplicateConfirmDialog, DuplicateNotice } from "../DuplicateConfirm";
 import { INTEREST_TONE, ResumeBadge } from "./bits";
 
@@ -246,8 +247,10 @@ export function DetailDialog({ orgId, id, mode, onClose, onReview, onChanged, bu
   );
 }
 
+/** The match score as a chip; a posting nobody scored reads "Not scored", never "0%". */
 export function MatchChip({ pct }: { pct: number }) {
-  return <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-[12px] font-bold", matchTone(pct) === "green" ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-amber-soft text-v2-amber-ink")}>{pct}%</span>;
+  if (!isScored(pct)) return <span className="inline-block rounded-full bg-paper-2 px-2.5 py-0.5 text-[12px] font-semibold text-muted">{scoreText(pct)}</span>;
+  return <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-[12px] font-bold", matchTone(pct) === "green" ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-amber-soft text-v2-amber-ink")}>{scoreText(pct)}</span>;
 }
 
 /** Add Opportunity: a consultant (in the caller's scope) and an open job become a SUGGESTED opportunity. */

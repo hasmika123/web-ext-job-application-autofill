@@ -1,11 +1,11 @@
 import { test, expect, narrate } from "../_support/story";
 import { lettersStamp, menuAction, openPage, pageTitle, stamp } from "./_helpers";
 
-test("CON-10 Anika reviews her career profile: identity, skills, certifications, preferences, strength", async ({ as }) => {
+test("CON-10 Anika reviews her profile: identity, skills, certifications, preferences, completeness", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens My Career Profile");
+  await narrate(page, "Anika opens My Profile");
   await openPage(page, go, "profile");
-  await expect(pageTitle(page)).toHaveText("My Career Profile");
+  await expect(pageTitle(page)).toHaveText("My Profile");
 
   const top = page.locator("[data-profile-top]");
   await expect(top.getByRole("heading", { name: "Anika Rao" })).toBeVisible();
@@ -21,8 +21,8 @@ test("CON-10 Anika reviews her career profile: identity, skills, certifications,
   await expect(page.locator("[data-work-authorization]")).toBeVisible();
   await expect(page.locator("[data-career-goals]")).toContainText(/backend|full-stack/i);
 
-  await narrate(page, "Profile Strength and Missing Details say plainly what is absent; no photo, no ID numbers are collected");
-  await expect(page.locator("[data-home-card=profile-missing]")).toBeVisible();
+  await narrate(page, "One line under her name says how complete the profile is; no photo, no ID numbers are collected");
+  await expect(top.locator("[data-completeness]")).toContainText(/Profile (complete|\d+% complete)/);
   await expect(page.locator("[data-avatar]")).toBeVisible(); // initials circle: Kiwiply stores no photos
 });
 
@@ -59,7 +59,7 @@ test("CON-11 Anika edits her professional summary, adds and removes a skill; the
   const skill = `Qa${lettersStamp()}`;
   const skills = page.locator("[data-home-card=profile-skills]");
   await narrate(page, "Under Primary Skills she adds a new skill");
-  await skills.getByRole("button", { name: "Add Skills" }).click();
+  await skills.getByRole("button", { name: "Add skills" }).click();
   await skills.getByRole("textbox", { name: "Skill" }).fill(skill);
   await skills.getByRole("button", { name: "Add", exact: true }).click();
   await expect(note).toHaveText("Skill added");
@@ -82,7 +82,7 @@ test("CON-12 Anika adds and removes a preferred role and a certification", async
   const roles = page.locator("[data-home-card=profile-roles]");
   const role = `QA Engineer ${tag}`;
   await narrate(page, "She adds a preferred role");
-  await roles.getByRole("button", { name: "Add Role" }).click();
+  await roles.getByRole("button", { name: "Add role" }).click();
   await roles.getByRole("textbox", { name: "Role" }).fill(role);
   await roles.getByRole("button", { name: "Add", exact: true }).click();
   await expect(note).toHaveText("Role added");
@@ -95,7 +95,7 @@ test("CON-12 Anika adds and removes a preferred role and a certification", async
   const certs = page.locator("[data-home-card=profile-certifications]");
   const cert = `QA Practitioner ${tag}`;
   await narrate(page, "She records a certification (name and issuer only)");
-  await certs.getByRole("button", { name: /Add Certification/ }).click();
+  await certs.getByRole("button", { name: /Add certification/ }).click();
   const certForm = page.getByRole("form", { name: "Add certification" });
   await certForm.getByLabel("Certification name").fill(cert);
   await certForm.getByLabel("Issued by (optional)").fill("QA Institute");
@@ -109,7 +109,7 @@ test("CON-12 Anika adds and removes a preferred role and a certification", async
   await expect(certs).not.toContainText(cert);
 });
 
-test("CON-13 Anika reviews her resumes, previews one and sees the activity counts", async ({ as }) => {
+test("CON-13 Anika reviews her resumes, previews one and sees the resume strength checklist", async ({ as }) => {
   const { page, go } = await as("anika");
   await narrate(page, "Anika opens My Resumes");
   await openPage(page, go, "resumes");
@@ -120,10 +120,8 @@ test("CON-13 Anika reviews her resumes, previews one and sees the activity count
   await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(5);
   await expect(page.locator("[data-resume][data-primary=true]")).toHaveCount(1);
 
-  await narrate(page, "The key numbers and the Resume Strength checklist are real counts");
-  await expect(page.locator("[data-resumes-tiles] [data-tile-value]").first()).toBeVisible();
+  await narrate(page, "The Resume strength checklist is a real count");
   await expect(page.locator("[data-home-card=resumes-strength]")).toBeVisible();
-  await expect(page.locator("[data-home-card=resumes-activity]")).toBeVisible();
 
   const title = (await rows.first().locator("span.font-semibold").first().innerText()).trim();
   await narrate(page, `She previews "${title}"`);

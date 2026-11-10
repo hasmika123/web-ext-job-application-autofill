@@ -1,61 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  BellIcon,
-  BriefcaseIcon,
-  Button,
   ChevronRightIcon,
-  ClockIcon,
   ErrorState,
-  FileTextIcon,
-  KeyIcon,
-  LinkIcon,
-  LockIcon,
-  MailIcon,
-  PencilIcon,
   Select,
-  ShieldCheckIcon,
   ShieldIcon,
   Skeleton,
   SlidersIcon,
   Switch,
-  UserIcon,
-  ZapIcon,
   cn,
   useToast,
 } from "@kiwiply/ui";
-import type { IconProps } from "@kiwiply/ui";
-import { CARD, TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, CompanyMark, Card, Empty, Pill, useWorkspaceData } from "./parts";
-import { firstName } from "@/lib/ent/consultant-ws/home";
+import { CARD } from "@/components/ent/dashboard/parts";
+import PageHeader from "@/components/ent/shell/ShellContext";
+import FeaturesPage from "./FeaturesPage";
+import { PageTabs, useUrlTab } from "./tabs";
+import { BASE, Card, useWorkspaceData } from "./parts";
 import {
-  ACCOUNT_SETTINGS_PATH,
   LANGUAGE_LABEL,
   THEMES,
   THEME_LABEL,
   VISIBILITIES,
   VISIBILITY_LABEL,
-  activityTone,
   applyPrivacy,
-  availabilityText,
-  employmentText,
   fetchSettings,
   inverseAppearance,
   inversePrivacy,
   levelOf,
-  listText,
-  privacyTile,
-  profileTile,
-  rateText,
   saveAppearance,
   savePrivacy,
   timezoneLabel,
   timezoneOptions,
-  toolsTile,
-  whenText,
   type AppearancePatch,
   type PrivacyPatch,
   type SettingsView,
@@ -73,133 +50,16 @@ import {
 
 /* ── small pieces ───────────────────────────────────────────────────────────────────── */
 
-function Tile({ title, icon: Icon, tone, value, sub, loading }: { title: string; icon: ComponentType<IconProps>; tone: IconTone; value: ReactNode; sub: ReactNode; loading: boolean }) {
-  return (
-    <section aria-label={title} data-stat-tile={title} data-tone={tone} data-state={loading ? "loading" : "ok"} className="flex min-h-[104px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-[14px]", TONES[tone])}>
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[13.5px] font-bold leading-tight text-ink">{title}</h3>
-        {loading ? (
-          <>
-            <Skeleton className="mt-2 h-8 w-20" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        ) : (
-          <>
-            <p data-tile-value className="mt-1 min-w-0 truncate text-[24px] font-extrabold leading-none tabular-nums text-ink 2xl:text-[26px]">
-              {value}
-            </p>
-            <p className="mt-2 min-h-5 text-[12px] text-muted">{sub}</p>
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function Tiles({ view }: { view: SettingsView | null }) {
-  const profile = view ? profileTile(view.tiles.profileStatus) : null;
-  const privacy = view ? privacyTile(view.tiles.privacy) : null;
-  return (
-    <section aria-label="Key numbers" data-settings-tiles className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-      <Tile loading={!view} title="Profile Status" icon={UserIcon} tone="accent" value={profile?.value} sub={profile?.sub} />
-      <Tile loading={!view} title="Privacy Level" icon={ShieldIcon} tone="violet" value={privacy?.value} sub={privacy?.sub} />
-      <Tile loading={!view} title="Connected Tools" icon={LinkIcon} tone="green" value={view?.tiles.connectedTools.connected} sub={view ? toolsTile(view.tiles.connectedTools) : null} />
-      <Tile
-        loading={!view}
-        title="Notifications Setup"
-        icon={BellIcon}
-        tone="coral"
-        value="Notifications"
-        sub={
-          <Link href={`${BASE}/notifications`} className="font-semibold text-accent-deep hover:underline">
-            Manage in Notifications
-          </Link>
-        }
-      />
-    </section>
-  );
-}
-
-const EDIT = "inline-flex min-h-8 flex-none items-center gap-1.5 rounded-lg border border-line bg-paper px-3 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft";
-
-function EditLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link href={href} aria-label={label} className={EDIT}>
-      <PencilIcon size={14} />
-      Edit
-    </Link>
-  );
-}
-
-/** A read-only label and value; an empty value is said plainly. */
-function Fact({ label, value, empty = "Not set" }: { label: string; value: ReactNode; empty?: string }) {
-  return (
-    <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)] items-center gap-2 text-[13px]">
-      <dt className="text-ink-soft">{label}</dt>
-      <dd data-fact={label} className={cn("min-w-0 break-words rounded-lg border border-line bg-paper-2/50 px-3 py-2", value ? "text-ink" : "text-muted")}>
-        {value || empty}
-      </dd>
-    </div>
-  );
-}
-
-/* ── cards ──────────────────────────────────────────────────────────────────────────── */
-
-function AccountCard({ view }: { view: SettingsView }) {
-  return (
-    <Card id="settings-account" title="Account Information" icon={UserIcon} extra={<EditLink href={`${BASE}/profile`} label="Edit account information on your profile" />}>
-      <dl className="grid gap-2.5">
-        <Fact label="Full Name" value={view.account.name} />
-        <Fact label="Email Address" value={view.account.email} />
-        <Fact label="Phone Number" value={null} empty="Not collected" />
-        <Fact label="Location" value={view.account.location} />
-      </dl>
-      <p className="mt-3 text-[12px] leading-snug text-muted">Read from your profile. Edit it there. A phone number is never collected.</p>
-    </Card>
-  );
-}
-
-function CareerCard({ view }: { view: SettingsView }) {
-  const c = view.career;
-  return (
-    <Card id="settings-career" title="Career Preferences" icon={BriefcaseIcon} tone="accent" extra={<EditLink href={`${BASE}/profile`} label="Edit career preferences on your profile" />}>
-      <dl className="grid gap-2.5">
-        <Fact label="Preferred Job Types" value={employmentText(c.employmentTypes)} />
-        <Fact label="Preferred Work Mode" value={c.workMode ? c.workMode.charAt(0) + c.workMode.slice(1).toLowerCase() : c.workMode} />
-        <Fact label="Target Roles" value={listText(c.targetRoles)} />
-        <Fact label="Target Locations" value={listText(c.locations)} />
-        <Fact label="Expected Rate (Hourly)" value={rateText(c.rateMinMinor, c.rateMaxMinor)} />
-        <Fact label="Availability" value={availabilityText(c.availabilityStatus)} />
-      </dl>
-    </Card>
-  );
-}
-
-function NotificationsCard() {
-  return (
-    <Card id="settings-notifications" title="Notification Preferences" icon={BellIcon} tone="amber" extra={<EditLink href={`${BASE}/notifications`} label="Open notification preferences" />}>
-      <p className="text-[13px] leading-snug text-muted">Choose what you hear about, and how, on the Notifications page. Nothing is duplicated here, so there is one place to change it.</p>
-      <Link href={`${BASE}/notifications`} className="mt-3 flex min-h-11 items-center gap-2 rounded-xl border border-line bg-paper p-3 text-[13.5px] font-semibold text-accent-deep hover:bg-paper-2/60">
-        <span className="min-w-0 flex-1">Manage in Notifications</span>
-        <ChevronRightIcon size={16} className="flex-none" />
-      </Link>
-    </Card>
-  );
-}
-
 function PrivacyCard({ view, onChange }: { view: SettingsView; onChange: (patch: PrivacyPatch, what: string) => void }) {
   const s = view.settings;
   const vis = VISIBILITY_LABEL[s.profileVisibility](view.orgName);
   const options = VISIBILITIES.map((v) => ({ value: v, label: VISIBILITY_LABEL[v](view.orgName).title }));
   return (
-    <Card id="settings-privacy" title="Privacy & Sharing" icon={ShieldIcon} tone="accent">
+    <Card id="settings-privacy" title="Privacy" icon={ShieldIcon} tone="accent">
       <div className="grid gap-4">
         <div className="grid min-w-0 gap-1.5">
           <label htmlFor="settings-visibility" className="text-[13.5px] font-bold text-ink">
-            Profile Visibility
+            Profile visibility
           </label>
           <Select id="settings-visibility" value={s.profileVisibility} options={options} onChange={(v) => onChange({ profileVisibility: v as PrivacyPatch["profileVisibility"] }, "Profile visibility")} />
           <p data-visibility-hint className="text-[12px] leading-snug text-muted">
@@ -207,112 +67,20 @@ function PrivacyCard({ view, onChange }: { view: SettingsView; onChange: (patch:
           </p>
         </div>
         <Switch
-          label="Share My Profile with Employers"
+          label="Share with employers"
           description={`Allow ${view.orgName} to share your profile with relevant employers.`}
           checked={s.shareProfileWithEmployers}
           onCheckedChange={(v) => onChange({ shareProfileWithEmployers: v }, "Sharing with employers")}
         />
         <Switch
-          label="Show Contact Information"
+          label="Show contact information"
           description="Keep your contact details private until you choose to share them."
           checked={s.showContactInformation}
           onCheckedChange={(v) => onChange({ showContactInformation: v }, "Contact information")}
         />
-        <Switch label="Allow Analytics Usage" description="Help us improve your experience with anonymous usage data." checked={s.allowAnalytics} onCheckedChange={(v) => onChange({ allowAnalytics: v }, "Analytics usage")} />
+        <Switch label="Analytics" description="Help us improve your experience with anonymous usage data." checked={s.allowAnalytics} onCheckedChange={(v) => onChange({ allowAnalytics: v }, "Analytics usage")} />
       </div>
       {s.isDefault ? <p className="mt-3 text-[12px] text-muted">These are the default, private-leaning settings. Nothing has been changed yet.</p> : null}
-    </Card>
-  );
-}
-
-function ManagedRow({ icon: Icon, tone, title, hint }: { icon: ComponentType<IconProps>; tone: IconTone; title: string; hint: string }) {
-  return (
-    <li data-security-row={title} className="flex flex-wrap items-center gap-3">
-      <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl", TONES[tone])}>
-        <Icon size={19} />
-      </span>
-      <div className="min-w-0 flex-1 basis-40">
-        <p className="text-[13.5px] font-bold text-ink">{title}</p>
-        <p className="text-[12px] leading-snug text-muted">{hint}</p>
-      </div>
-      <Pill tone="slate">Managed in your account settings</Pill>
-    </li>
-  );
-}
-
-function SecurityCard() {
-  return (
-    <Card id="settings-security" title="Security" icon={LockIcon} tone="accent" extra={<EditLink href={ACCOUNT_SETTINGS_PATH} label="Open your account settings" />}>
-      <ul className="grid gap-4">
-        <ManagedRow icon={KeyIcon} tone="amber" title="Password" hint="Change it in your account settings. It is never shown here." />
-        <ManagedRow icon={ShieldCheckIcon} tone="green" title="Two-Factor Authentication" hint="Its status is not available on this page." />
-        <ManagedRow icon={BellIcon} tone="coral" title="Login Notifications" hint="Sign-in alerts are managed in your account settings." />
-      </ul>
-      <Link href={ACCOUNT_SETTINGS_PATH} data-security-link className="mt-4 flex min-h-11 items-center gap-2 rounded-xl border border-line bg-paper p-3 text-[13.5px] font-semibold text-accent-deep hover:bg-paper-2/60">
-        <span className="min-w-0 flex-1">Open account settings</span>
-        <ChevronRightIcon size={16} className="flex-none" />
-      </Link>
-    </Card>
-  );
-}
-
-function ToolsCard({ view }: { view: SettingsView }) {
-  return (
-    <Card id="settings-tools" title="Connected Tools" icon={LinkIcon} tone="green">
-      {view.tools.length === 0 ? (
-        <Empty>No tools to connect yet.</Empty>
-      ) : (
-        <ul className="grid gap-3">
-          {view.tools.map((t, i) => (
-            <li key={t.key} data-tool={t.key} className="flex flex-wrap items-center gap-3">
-              <CompanyMark name={t.name} tone={i} />
-              <div className="min-w-0 flex-1 basis-32">
-                <p className="text-[13.5px] font-bold text-ink">{t.name}</p>
-              </div>
-              <Pill tone="slate">Not available yet</Pill>
-              <Button type="button" variant="accent-soft" size="sm" disabled aria-label={`Connect ${t.name} (not available yet)`}>
-                Connect
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="mt-3 text-[12px] leading-snug text-muted">Connections arrive with the integrations module. Nothing is shared with these services.</p>
-    </Card>
-  );
-}
-
-function DocumentsCard({ view }: { view: SettingsView }) {
-  const n = view.documents.resumes;
-  return (
-    <Card id="settings-documents" title="Documents & Permissions" icon={FileTextIcon} tone="violet" extra={<EditLink href={`${BASE}/resumes`} label="Manage your resumes" />}>
-      <ul className="grid gap-3">
-        <li>
-          <Link href={`${BASE}/resumes`} data-doc-row="resumes" className="flex min-h-12 items-center gap-3 rounded-xl hover:bg-paper-2/60">
-            <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl", TONES.violet)}>
-              <FileTextIcon size={19} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13.5px] font-bold text-ink">My Resumes</span>
-              <span className="block text-[12px] text-muted">Manage resume access and sharing</span>
-            </span>
-            <span data-resume-count className="flex-none text-[13px] text-ink-soft">
-              {n === 1 ? "1 resume" : `${n} resumes`}
-            </span>
-            <ChevronRightIcon size={16} className="flex-none text-muted" />
-          </Link>
-        </li>
-        <li data-doc-row="supporting" className="flex min-h-12 items-center gap-3">
-          <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl", TONES.green)}>
-            <ShieldCheckIcon size={19} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[13.5px] font-bold text-ink">Supporting Documents</span>
-            <span className="block text-[12px] text-muted">Identity and tax documents are never collected here.</span>
-          </span>
-          <Pill tone="slate">Not collected</Pill>
-        </li>
-      </ul>
     </Card>
   );
 }
@@ -331,75 +99,13 @@ function AppearanceCard({ view, onChange }: { view: SettingsView; onChange: (pat
     </div>
   );
   return (
-    <Card id="settings-appearance" title="Appearance, Language & Timezone" icon={SlidersIcon} tone="accent">
+    <Card id="settings-appearance" title="Appearance" icon={SlidersIcon} tone="accent">
       <div className="grid gap-3">
         {row("settings-theme", "Theme", <Select id="settings-theme" value={s.theme} options={themes} onChange={(v) => onChange({ theme: v as AppearancePatch["theme"] }, "Theme")} />)}
         {row("settings-language", "Language", <Select id="settings-language" value={s.language} options={langs} onChange={(v) => onChange({ language: v }, "Language")} />)}
-        {row("settings-timezone", "Timezone", <Select id="settings-timezone" value={s.timezone} options={zones} onChange={(v) => onChange({ timezone: v }, "Timezone")} />)}
+        {row("settings-timezone", "Time zone", <Select id="settings-timezone" value={s.timezone} options={zones} onChange={(v) => onChange({ timezone: v }, "Timezone")} />)}
       </div>
-      <p className="mt-3 text-[12px] leading-snug text-muted">Your choices are saved to your account. The language is a label only; the app is not translated yet.</p>
-    </Card>
-  );
-}
-
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-function QuickActions() {
-  const items: { key: string; label: string; hint: string; icon: ComponentType<IconProps>; tone: IconTone; href: string }[] = [
-    { key: "password", label: "Update Password", hint: "Keep your account secure", icon: LockIcon, tone: "accent", href: ACCOUNT_SETTINGS_PATH },
-    { key: "notifications", label: "Manage Notifications", hint: "Customize your notification preferences", icon: BellIcon, tone: "accent", href: `${BASE}/notifications` },
-    { key: "preferences", label: "Edit Preferences", hint: "Update your career and display preferences", icon: SlidersIcon, tone: "accent", href: `${BASE}/profile` },
-    { key: "tools", label: "Connect Tools", hint: "Add or manage your connected accounts", icon: LinkIcon, tone: "accent", href: "#settings-tools" },
-    { key: "marketer", label: "Contact My Marketer", hint: "Get personalized support", icon: MailIcon, tone: "accent", href: `${BASE}/marketer` },
-  ];
-  return (
-    <Card id="settings-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-1">
-        {items.map((q) => {
-          const Icon = q.icon;
-          return (
-            <li key={q.key} className="min-w-0">
-              <Link href={q.href} data-quick={q.key} className="flex h-full min-h-[64px] w-full items-center gap-2.5 rounded-xl border border-line bg-paper p-2.5 text-left hover:bg-paper-2/60">
-                <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES[q.tone])}>
-                  <Icon size={18} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-bold leading-tight text-ink">{q.label}</span>
-                  <span className="block text-[11.5px] leading-snug text-muted">{q.hint}</span>
-                </span>
-                <ChevronRightIcon size={15} className="flex-none text-muted" />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
-  );
-}
-
-const DOT: Record<string, string> = { green: "bg-v2-green-ink", amber: "bg-v2-amber-ink", blue: "bg-accent-deep", red: "bg-v2-coral-ink", violet: "bg-v2-violet-ink", slate: "bg-muted" };
-
-function ActivityCard({ view }: { view: SettingsView }) {
-  return (
-    <Card id="settings-activity" title="Recent Account Activity" icon={ClockIcon} tone="accent">
-      {view.activity.length === 0 ? (
-        <Empty>No activity yet. Changes you make here will show up.</Empty>
-      ) : (
-        <ol className="grid gap-3.5">
-          {view.activity.map((a, i) => (
-            <li key={`${a.kind}-${a.at}-${i}`} data-activity={a.kind} className="flex gap-3">
-              <span aria-hidden className={cn("mt-1.5 h-2.5 w-2.5 flex-none rounded-full", DOT[activityTone(a.kind)])} />
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-baseline justify-between gap-x-2 text-[13px] font-bold text-ink">
-                  <span>{a.label}</span>
-                  <span className="text-[11.5px] font-normal text-muted">{whenText(a.at)}</span>
-                </p>
-                {a.detail ? <p className="text-[12px] leading-snug text-muted">{a.detail}</p> : null}
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
+      <p className="mt-3 text-[12px] leading-snug text-muted">Your choices are saved to your account. English only for now.</p>
     </Card>
   );
 }
@@ -410,10 +116,25 @@ const withPrivacy = (v: SettingsView, settings: SettingsView["settings"]): Setti
 
 export interface SettingsPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
+  /** The member holds `features.view`: the Plan & features tab is drawn only then (the route reads it from the tenant session). */
+  canViewFeatures?: boolean;
 }
 
-export default function ConsultantSettingsPage({ orgId, firstName: first }: SettingsPageProps) {
+const TABS_ALL = ["privacy", "appearance", "features"] as const;
+const TABS_NO_FEATURES = ["privacy", "appearance"] as const;
+const TAB_LABEL = { privacy: "Privacy", appearance: "Appearance", features: "Plan & features" } as const;
+
+/** The three links at the top: what used to be cards here now lives on My Profile and on the account page. */
+const LINKS = [
+  { key: "profile", label: "Profile and contact details", to: "My Profile", href: `${BASE}/profile` },
+  { key: "notifications", label: "Notifications", to: "My profile › Notifications", href: "/me#notifications" },
+  { key: "security", label: "Password and security", to: "My profile › Security", href: "/me#security" },
+] as const;
+
+export default function ConsultantSettingsPage({ orgId, canViewFeatures = true }: SettingsPageProps) {
+  const tabKeys = canViewFeatures ? TABS_ALL : TABS_NO_FEATURES;
+  const [tab, setTab] = useUrlTab(tabKeys, "privacy");
   const toast = useToast();
   const { view, status, reload, setView } = useWorkspaceData(useCallback(() => fetchSettings(orgId), [orgId]));
   const [problem, setProblem] = useState<string | null>(null);
@@ -468,48 +189,42 @@ export default function ConsultantSettingsPage({ orgId, firstName: first }: Sett
 
   return (
     <div data-consultant-settings data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Settings" subtitle="Manage your account, preferences, privacy, and connected tools to personalize your experience." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="Settings" subtitle="Privacy, appearance and your plan." />
+      <ul aria-label="Other settings" data-settings-links className="grid gap-2 sm:grid-cols-3">
+        {LINKS.map((x) => (
+          <li key={x.key}>
+            <Link href={x.href} data-settings-link={x.key} className="flex min-h-14 items-center gap-2.5 rounded-xl border border-line bg-paper px-3 py-2 hover:bg-paper-2/60">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13.5px] font-bold leading-tight text-ink">{x.label}</span>
+                <span className="block text-[12px] leading-snug text-muted">{x.to}</span>
+              </span>
+              <ChevronRightIcon size={15} className="flex-none text-muted" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <PageTabs label="Settings views" tabs={tabKeys.map((k) => ({ value: k, label: TAB_LABEL[k] }))} value={tab} onChange={setTab} />
 
       {status === "failed" ? (
         <ErrorState what="your settings" description="Your settings didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className={cn(CARD, "")} />
       ) : (
         <>
-          <Tiles view={view} />
           {problem ? (
             <p role="alert" data-settings-problem className="rounded-lg bg-v2-coral-soft p-3 text-[13px] text-v2-coral-ink">
               {problem}
             </p>
           ) : null}
-          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.42fr)]">
-            {view ? (
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                <AccountCard view={view} />
-                <CareerCard view={view} />
-                <NotificationsCard />
-                <PrivacyCard view={view} onChange={(p, w) => void changePrivacy(p, w)} />
-                <SecurityCard />
-                <ToolsCard view={view} />
-                <DocumentsCard view={view} />
-                <AppearanceCard view={view} onChange={(p, w) => void changeAppearance(p, w)} />
-              </div>
-            ) : (
-              <div className="grid gap-4" aria-busy="true">
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
-              </div>
-            )}
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-              <BeeCard
-                name={firstName(first)}
-                title="Your marketing buddy, here to help!"
-                body="You can manage your account settings, privacy preferences, notification choices, and connected tools here. Keeping your information up to date helps us find better opportunities for you."
-              />
-              <QuickActions />
-              {view ? <ActivityCard view={view} /> : <Skeleton className="h-64 w-full" />}
+          {tab === "features" ? (
+            <FeaturesPage orgId={orgId} />
+          ) : view ? (
+            <div className="grid max-w-2xl min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
+              {tab === "appearance" ? <AppearanceCard view={view} onChange={(p, w) => void changeAppearance(p, w)} /> : <PrivacyCard view={view} onChange={(p, w) => void changePrivacy(p, w)} />}
             </div>
-          </div>
+          ) : (
+            <div className="grid max-w-2xl gap-4" aria-busy="true">
+              <Skeleton className="h-64 w-full" />
+            </div>
+          )}
         </>
       )}
     </div>

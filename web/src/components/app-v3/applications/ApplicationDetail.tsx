@@ -320,7 +320,7 @@ function DetailBody({ id, seed, isPro, me, onRow, onStale, onMeta }: Application
           />
 
           <div hidden={tab !== "timeline"} role="tabpanel" aria-label="Timeline">
-            <TimelineTab events={detail.events} now={now} me={me} applicationId={id} phone={phone} />
+            <TimelineTab events={detail.events} now={now} me={me} applicationId={id} phone={phone} onChanged={() => { setAttempt((a) => a + 1); onStale(); }} />
           </div>
           {visited.has("notes") && (
             <div hidden={tab !== "notes"} role="tabpanel" aria-label="Notes">

@@ -213,9 +213,9 @@ test("APP-04 Create organization: the owner gets a one-time temporary password a
   const host = tenantHost(org.label);
   await owner.page.goto(`${host}/login`);
   await narrate(owner.page, "The owner signs in on the organization address with the e-mail and the temporary password");
-  await owner.page.getByLabel("User Name").fill(org.ownerEmail);
+  await owner.page.getByLabel("Email", { exact: true }).fill(org.ownerEmail);
   await owner.page.getByLabel("Password", { exact: true }).fill(org.tempPassword ?? "");
-  await owner.page.getByRole("button", { name: /^Sign In/ }).click();
+  await owner.page.getByRole("button", { name: /^Sign in/ }).click();
   await owner.page.waitForURL(/\/change-password$/, { timeout: 30_000 });
   await expect(owner.page.getByRole("heading", { name: "Choose your password", level: 1 })).toBeVisible();
 
@@ -248,12 +248,12 @@ test("APP-04 Create organization: the owner gets a one-time temporary password a
   await narrate(page, "The temporary password no longer works; the new one does");
   const again = await freshContext(browser);
   await again.page.goto(`${host}/login`);
-  await again.page.getByLabel("User Name").fill(org.ownerEmail);
+  await again.page.getByLabel("Email", { exact: true }).fill(org.ownerEmail);
   await again.page.getByLabel("Password", { exact: true }).fill(org.tempPassword ?? "");
-  await again.page.getByRole("button", { name: /^Sign In/ }).click();
+  await again.page.getByRole("button", { name: /^Sign in/ }).click();
   await expect(again.page.getByText("Incorrect email or password.")).toBeVisible();
   await again.page.getByLabel("Password", { exact: true }).fill(fresh);
-  await again.page.getByRole("button", { name: /^Sign In/ }).click();
+  await again.page.getByRole("button", { name: /^Sign in/ }).click();
   await again.page.waitForURL((u) => u.pathname.startsWith("/w/admin"), { timeout: 30_000 });
   await again.context.close();
 

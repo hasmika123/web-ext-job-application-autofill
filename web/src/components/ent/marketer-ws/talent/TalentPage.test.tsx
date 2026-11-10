@@ -92,35 +92,26 @@ afterEach(() => {
 describe("TalentPage: the board", () => {
   it("sets the board's title and subtitle", async () => {
     mount();
-    await screen.findByText("My Assigned Consultants");
-    expect(setHeader).toHaveBeenCalledWith({ title: "My Assigned Talent", subtitle: "Manage your assigned consultants, keep their profiles up to date, and drive them to new opportunities." });
+    await screen.findByText("My consultants");
+    expect(setHeader).toHaveBeenCalledWith({ title: "My Talent", subtitle: "The consultants you market, and what each needs next." });
   });
 
-  it("draws the five KPI tiles with the board's titles, values and deltas", async () => {
-    mount();
-    const tile = await waitFor(() => {
-      const t = document.querySelector('[data-stat-tile="assigned"]') as HTMLElement;
-      expect(within(t).getByText("28")).toBeTruthy();
-      return t;
-    });
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(5);
-    for (const title of ["Total Assigned Consultants", "Available Now", "Profiles Need Updates", "Active Interviews", "Pending Approvals"]) {
-      expect(document.querySelector(`[data-talent-tiles] [aria-label="${title}"]`), title).toBeTruthy();
-    }
-    expect(tile.textContent).toContain("12%");
-    expect((document.querySelector('[data-stat-tile="needUpdates"]') as HTMLElement).textContent).toContain("40%");
-    expect((document.querySelector('[data-stat-tile="activeInterviews"]') as HTMLElement).textContent).toContain("60%");
-  });
-
-  it("draws the consultants card: count, search, Filters, Saved Views, Add Consultant, chips with counts and the four dropdowns", async () => {
+  it("has no KPI tiles: the chip row carries the counts", async () => {
     mount();
     await ready();
-    expect(screen.getByRole("heading", { name: /My Assigned Consultants\s*\(28\)/ })).toBeTruthy();
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
+    expect(document.querySelector("[data-talent-tiles]")).toBeNull();
+  });
+
+  it("draws the consultants card: count, search, Filters, Saved views, Add consultant, chips with counts and the four dropdowns", async () => {
+    mount();
+    await ready();
+    expect(screen.getByRole("heading", { name: /My consultants\s*\(28\)/ })).toBeTruthy();
     expect(screen.getByPlaceholderText("Search by name, skill, or location...")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Filters" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Saved Views" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Add Consultant" }).getAttribute("href")).toBe("/w/admin/consultants");
-    for (const chip of ["All (28)", "Available Now (12)", "In Interview (8)", "Needs Update (6)", "Pending Approval (5)"]) expect(screen.getByRole("button", { name: chip }), chip).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Saved views" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Add consultant" }).getAttribute("href")).toBe("/w/admin/consultants");
+    for (const chip of ["All (28)", "Available now (12)", "In interview (8)", "Needs update (6)", "Pending approval (5)"]) expect(screen.getByRole("button", { name: chip }), chip).toBeTruthy();
     for (const dd of ["Skill", "Location", "Experience", "Availability"]) expect(screen.getAllByRole("button", { name: new RegExp(dd) }).length, dd).toBeGreaterThan(0);
   });
 
@@ -128,55 +119,34 @@ describe("TalentPage: the board", () => {
     mount();
     await ready();
     const heads = Array.from(document.querySelectorAll("thead th")).map((th) => th.textContent?.trim());
-    for (const col of ["Consultant", "Primary Skill", "Experience", "Location", "Availability", "Resume Status", "Active Apps", "Assigned Jobs", "Actions"]) expect(heads, col).toContain(col);
+    for (const col of ["Consultant", "Primary skill", "Experience", "Location", "Availability", "Resume status", "Assigned jobs", "Actions"]) expect(heads, col).toContain(col);
+    expect(heads).not.toContain("Active Apps");
+    expect(heads).not.toContain("Active apps");
     expect(document.querySelectorAll("[data-talent-row]")).toHaveLength(8);
     const alex = document.querySelector('[data-talent-row="1"]') as HTMLElement;
-    for (const text of ["Alex Morgan", "Senior Java Developer", "Java / Spring", "8 yrs", "New York, NY", "Available Now", "Up to date", "5", "3"]) expect(alex.textContent, text).toContain(text);
-    expect(within(alex).getByRole("button", { name: "View Profile" })).toBeTruthy();
+    for (const text of ["Alex Morgan", "Senior Java Developer", "Java / Spring", "8 yrs", "New York, NY", "Available Now", "Up to date", "3"]) expect(alex.textContent, text).toContain(text);
+    expect(within(alex).getByRole("button", { name: "View profile" })).toBeTruthy();
     expect((document.querySelector('[data-talent-row="4"]') as HTMLElement).textContent).toContain("Needs Update");
     expect((document.querySelector('[data-talent-row="3"]') as HTMLElement).textContent).toContain("1 week");
     expect((document.querySelector('[data-talent-row="8"]') as HTMLElement).textContent).toContain("In Interview");
     expect(screen.getByText("Showing 1-8 of 28")).toBeTruthy();
   });
 
-  it("draws the three bottom cards with their counts and row buttons", async () => {
+  it("has no bottom carousels, bee help card or Quick Actions (the page ends with the table)", async () => {
     mount();
     await ready();
-    const avail = document.querySelector('[data-talent-card="available"]') as HTMLElement;
-    expect(avail.textContent).toMatch(/Available Now\s*\(12\)/);
-    expect(within(avail).getAllByRole("button", { name: "View" })).toHaveLength(4);
-    expect(avail.textContent).toContain("Lisa Wong");
-    const needs = document.querySelector('[data-talent-card="needs-update"]') as HTMLElement;
-    expect(needs.textContent).toMatch(/Needs Resume Update\s*\(6\)/);
-    const updates = within(needs).getAllByRole("link", { name: "Update" });
-    expect(updates).toHaveLength(4);
-    expect(updates[0].getAttribute("href")).toBe("/w/marketing/resumes?consultant=4");
-    const iv = document.querySelector('[data-talent-card="in-interview"]') as HTMLElement;
-    expect(iv.textContent).toMatch(/In Interview Process\s*\(8\)/);
-    expect(iv.textContent).toContain("Daniel Wright");
-  });
-
-  it("draws the bee help card and the Quick Actions list that open the sibling pages (E1: nothing submits)", async () => {
-    mount();
-    await ready();
-    expect(screen.getByText("Find the right opportunities for your assigned talent!")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ask a question/ })).toBeTruthy();
-    const quick = document.querySelector('[data-talent-card="quick-actions"]') as HTMLElement;
-    expect(within(quick).getByRole("link", { name: "Find Job Matches" }).getAttribute("href")).toBe("/w/marketing/matches");
-    expect(within(quick).getByRole("link", { name: "Bulk Update Resumes" }).getAttribute("href")).toBe("/w/marketing/resumes");
-    expect(within(quick).getByRole("link", { name: "Schedule Interviews" }).getAttribute("href")).toBe("/w/marketing/interviews");
-    expect(within(quick).getByRole("link", { name: "Send Follow-ups" }).getAttribute("href")).toBe("/w/marketing/followups");
-    expect(within(quick).getByRole("link", { name: "Generate Talent Report" }).getAttribute("href")).toBe("/w/marketing/applications");
+    for (const c of ["available", "needs-update", "in-interview", "quick-actions"]) expect(document.querySelector(`[data-talent-card="${c}"]`), c).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ask a question/ })).toBeNull();
+    expect(screen.queryByText("Quick Actions")).toBeNull();
     expect(screen.queryByRole("button", { name: /submit/i })).toBeNull();
   });
 
-  it("disables Add Consultant (with a reason) when the role has no consultants.edit", async () => {
+  it("shows no Add consultant when the role has no consultants.edit (no dead button)", async () => {
     stub(() => json(200, fixture({ canAddConsultant: false })));
     mount();
     await ready();
-    expect(screen.queryByRole("link", { name: "Add Consultant" })).toBeNull();
-    const btn = screen.getByRole("button", { name: "Add Consultant" });
-    expect(btn.getAttribute("aria-disabled")).toBe("true");
+    expect(screen.queryByRole("link", { name: "Add consultant" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add consultant" })).toBeNull();
   });
 });
 
@@ -184,9 +154,9 @@ describe("TalentPage: filters, views, drawer", () => {
   it("a status chip asks the API for that status and shows it pressed", async () => {
     mount();
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "Needs Update (6)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Needs update (6)" }));
     await waitFor(() => expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("status=NEEDS_UPDATE"))).toBe(true));
-    expect(screen.getByRole("button", { name: "Needs Update (6)" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Needs update (6)" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("typing in the search asks the API once typing rests", async () => {
@@ -199,11 +169,11 @@ describe("TalentPage: filters, views, drawer", () => {
   it("applies a saved view, saves the current filters under a name and never calls anything but this page's routes", async () => {
     mount();
     await ready();
-    fireEvent.click(screen.getByRole("button", { name: "Needs Update (6)" }));
-    fireEvent.click(screen.getByRole("button", { name: "Saved Views" }));
+    fireEvent.click(screen.getByRole("button", { name: "Needs update (6)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Saved views" }));
     fireEvent.click(await screen.findByRole("button", { name: "Available this week" }));
     await waitFor(() => expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("status=AVAILABLE_NOW"))).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "Saved Views" }));
+    fireEvent.click(screen.getByRole("button", { name: "Saved views" }));
     fireEvent.change(await screen.findByPlaceholderText("View name"), { target: { value: "Mine" } });
     fireEvent.click(screen.getByRole("button", { name: "Save view" }));
     await waitFor(() => expect(fetchMock.mock.calls.some((c) => String(c[0]).endsWith("/mkt/talent/views") && (c[1] as RequestInit)?.method === "POST")).toBe(true));
@@ -213,7 +183,7 @@ describe("TalentPage: filters, views, drawer", () => {
   it("View Profile opens the right-hand drawer with the consultant's summary and no contact details", async () => {
     mount();
     await ready();
-    fireEvent.click(within(document.querySelector('[data-talent-row="1"]') as HTMLElement).getByRole("button", { name: "View Profile" }));
+    fireEvent.click(within(document.querySelector('[data-talent-row="1"]') as HTMLElement).getByRole("button", { name: "View profile" }));
     const drawer = await waitFor(() => {
       const d = document.querySelector("[data-talent-drawer]") as HTMLElement;
       expect(within(d).getByText("Spring")).toBeTruthy();
@@ -229,7 +199,7 @@ describe("TalentPage: filters, views, drawer", () => {
   it("View Profile shows the assigned consultant's contact, placement, resumes and applications with who updated them", async () => {
     mount();
     await ready();
-    fireEvent.click(within(document.querySelector('[data-talent-row="1"]') as HTMLElement).getByRole("button", { name: "View Profile" }));
+    fireEvent.click(within(document.querySelector('[data-talent-row="1"]') as HTMLElement).getByRole("button", { name: "View profile" }));
     const drawer = await waitFor(() => {
       const d = document.querySelector("[data-talent-drawer]") as HTMLElement;
       expect(d.querySelector("[data-talent-contact]")).toBeTruthy();
@@ -255,10 +225,7 @@ describe("TalentPage: states", () => {
     stub(() => json(200, fixture({ kpis: [], items: [], total: 0, counts: { all: 0, availableNow: 0, inInterview: 0, needsUpdate: 0, pendingApproval: 0 }, cards: { available: [], needsUpdate: [], inInterview: [] }, views: [] })));
     mount();
     await screen.findByText("No consultants are assigned to you yet.");
-    expect(screen.getAllByText("Nothing yet")).toHaveLength(5);
-    expect(screen.getByText("No one is available right now.")).toBeTruthy();
-    expect(screen.getByText("Every resume is up to date.")).toBeTruthy();
-    expect(screen.getByText("No one is in the interview process.")).toBeTruthy();
+    expect(screen.queryByText("Nothing yet")).toBeNull();
   });
 
   it("offers a retry when the call fails", async () => {

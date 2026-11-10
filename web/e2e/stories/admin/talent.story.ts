@@ -5,6 +5,12 @@ import { bff, orgIdOf } from "./_helpers";
 const rowsOf = (page: Page) => page.locator("tr[data-row-id]");
 const kpi = (page: Page, k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
 const num = async (page: Page, k: string) => Number((await kpi(page, k).innerText()).replace(/,/g, ""));
+/** The bench size from the Consultants list header ("153 consultants"; there is no Total tile any more). */
+const benchTotal = async (page: Page) => {
+  const head = page.locator("[data-consultant-count]");
+  await expect(head).toHaveText(/^[\d,]+ consultants?$/);
+  return Number((await head.innerText()).replace(/[^\d]/g, ""));
+};
 
 // ---------------------------------------------------------------- consultants
 
@@ -17,22 +23,20 @@ test("ADM-40 Org admin browses the consultant bench, filters by availability and
   await expect(page.locator("[data-consultants-page]")).toBeVisible();
   await expect(rowsOf(page)).toHaveCount(10);
 
-  await narrate(page, "The tiles count the demo bench of 150+ consultants");
-  await expect(kpi(page, "total")).not.toHaveText("");
-  const total = await num(page, "total");
-  expect(total).toBeGreaterThanOrEqual(150);
+  await narrate(page, "The list counts the demo bench of 150+ consultants; the tiles show who is available and who is on a project");
+  expect(await benchTotal(page)).toBeGreaterThanOrEqual(150);
+  await expect(kpi(page, "available")).not.toHaveText("");
   expect(await num(page, "available")).toBeGreaterThan(0);
   expect(await num(page, "onProject")).toBeGreaterThan(0);
-  await expect(page.locator("[data-kpi=total] [data-kpi-delta]")).toContainText("vs last month");
 
-  await narrate(page, "Filter: On Project only. The address carries the filter");
+  await narrate(page, "Filter: On project only. The address carries the filter");
   await page.locator('[role=search] button[aria-label="Availability"]').click();
-  await page.getByRole("option", { name: "On Project" }).click();
+  await page.getByRole("option", { name: "On project", exact: true }).click();
   await expect(page).toHaveURL(/availability=ON_PROJECT/);
   await expect(rowsOf(page).first()).toBeVisible();
   const pills = await rowsOf(page).locator("[data-state-pill=consultant-availability]").allInnerTexts();
   expect(pills.length).toBeGreaterThan(0);
-  expect(new Set(pills)).toEqual(new Set(["On Project"]));
+  expect(new Set(pills)).toEqual(new Set(["On project"]));
   await page.getByRole("button", { name: "Clear filters" }).click();
   await expect(page).not.toHaveURL(/availability=/);
 
@@ -42,7 +46,7 @@ test("ADM-40 Org admin browses the consultant bench, filters by availability and
   await expect(sheet.locator("[data-detail-body]")).toBeVisible();
   await expect(page).toHaveURL(/c=\d+/);
   await expect(sheet.locator("[data-checklist] li")).toHaveCount(5);
-  await expect(sheet.locator("[data-quick-actions]")).toContainText("Assign Marketer");
+  await expect(sheet.locator("[data-quick-actions]")).toContainText("Assign marketer");
   for (const tab of ["Assignments", "Applications", "Activity"]) {
     await sheet.getByRole("tab", { name: tab }).click();
     await expect(sheet.locator(`[data-tab-panel=${tab.toLowerCase()}]`)).toBeVisible();
@@ -74,16 +78,15 @@ test("ADM-41 Org admin flips a consultant's availability (autosaved, with Undo) 
   await expect(page.getByText(`Availability set to ${before}`)).toBeVisible();
 });
 
-test("ADM-42 Org admin adds a consultant (the tiles move) and deactivates them with a reason", async ({ as }) => {
+test("ADM-42 Org admin adds a consultant (the count moves) and deactivates them with a reason", async ({ as }) => {
   const { page, go } = await as("sarah");
   await go("/w/admin/consultants");
   await expect(page.locator("[data-consultants-page]")).toBeVisible();
-  await expect(kpi(page, "total")).not.toHaveText("");
-  const total = await num(page, "total");
+  const total = await benchTotal(page);
   const stamp = String(Date.now() % 1_000_000);
-  await narrate(page, "Add Consultant");
-  await page.getByRole("button", { name: /Add Consultant/ }).first().click();
-  const add = page.getByRole("dialog", { name: "Add Consultant" });
+  await narrate(page, "Add consultant");
+  await page.getByRole("button", { name: /Add consultant/ }).first().click();
+  const add = page.getByRole("dialog", { name: "Add consultant" });
   await add.getByLabel("Full name").fill(`Story Consultant${stamp}`);
   await add.getByLabel("Work email").fill(`story.consultant${stamp}@acme-story.example.org`);
   await add.getByLabel("Job title").fill("QA Engineer");
@@ -91,14 +94,14 @@ test("ADM-42 Org admin adds a consultant (the tiles move) and deactivates them w
   await expect(page.getByText(`Story Consultant${stamp} was added`)).toBeVisible();
   const sheet = page.locator("#ent-consultant-sheet");
   await expect(sheet).toContainText(`Story Consultant${stamp}`);
-  await expect.poll(() => num(page, "total")).toBe(total + 1);
-  await narrate(page, "Deactivate with a reason: the total returns to what it was");
+  await expect.poll(() => benchTotal(page)).toBe(total + 1);
+  await narrate(page, "Deactivate with a reason: the count returns to what it was");
   await sheet.locator("[data-quick-action=deactivate]").click();
   const off = page.getByRole("dialog", { name: /Deactivate Story Consultant/ });
   await off.getByLabel("Reason (required)").fill("Story test clean-up of the added consultant");
   await off.getByRole("button", { name: "Deactivate" }).click();
   await expect(page.getByText(`Story Consultant${stamp} is deactivated`)).toBeVisible();
-  await expect.poll(() => num(page, "total")).toBe(total);
+  await expect.poll(() => benchTotal(page)).toBe(total);
 });
 
 test("ADM-43 Beta cannot read Acme's consultants and sees its own smaller bench", async ({ as }) => {
@@ -131,19 +134,17 @@ test("ADM-44 Org admin reviews the resume library: tabs, visibility filter, sear
   await go("/w/admin/resumes");
   await narrate(page, "Sarah opens Resumes");
   await expect(page.locator("[data-resumes-page]")).toBeVisible();
-  await expect(kpi(page, "total")).not.toHaveText("");
-  const total = await num(page, "total");
+  await expect(page.locator("[data-range]")).toHaveText(/of \d+ resumes/);
+  const total = Number((await page.locator("[data-range]").innerText()).match(/of (\d+)/)![1]);
   expect(total).toBeGreaterThan(50);
-  await expect(page.locator("[data-kpi=primary] [data-kpi-delta]")).toHaveCount(0); // not versioned: no invented delta
   await expect(rowsOf(page)).toHaveCount(10);
-  await expect(page.locator("[data-range]")).toContainText(`of ${total}`);
 
-  await narrate(page, "Pending Approval keeps only pending resumes");
-  await page.getByRole("tab", { name: /Pending Approval/ }).click();
+  await narrate(page, "Pending approval keeps only pending resumes");
+  await page.getByRole("tab", { name: /^Pending approval/ }).click();
   await expect(page).toHaveURL(/tab=pending/);
   await expect(rowsOf(page).first()).toBeVisible();
   for (const r of await rowsOf(page).all()) await expect(r).toContainText("Pending");
-  await page.getByRole("tab", { name: /All Resumes/ }).click();
+  await page.getByRole("tab", { name: "All", exact: true }).click();
   await expect(page).not.toHaveURL(/tab=/);
 
   await narrate(page, "Filter by visibility: Private");
@@ -180,9 +181,9 @@ test("ADM-45 Adding a resume refuses an SSN in the text and starts the new resum
   const { page, go } = await as("sarah");
   await go("/w/admin/resumes");
   await expect(page.locator("[data-resumes-page]")).toBeVisible();
-  await narrate(page, "Sarah opens Upload Resume and picks a consultant");
+  await narrate(page, "Sarah opens Upload resume and picks a consultant");
   await page.locator("[data-upload-open]").click();
-  const up = page.getByRole("dialog", { name: "Upload Resume" });
+  const up = page.getByRole("dialog", { name: "Upload resume" });
   await up.locator('button[aria-label="Consultant"]').click();
   await page.getByRole("option").first().click();
   const name = `Story Resume ${Date.now() % 100000}`;
@@ -227,16 +228,14 @@ const tableOf = (page: Page) => page.getByRole("table", { name: "Assigned consul
 test("ADM-47 Org admin reads the marketing workload board and drills into one marketer", async ({ as }) => {
   const { page, go } = await as("sarah");
   await go("/w/admin/marketing-assignments");
-  await narrate(page, "Sarah opens Marketing Assignments");
+  await narrate(page, "Sarah opens Assignments");
   await expect(page.locator("[data-marketing-assignments-page]")).toBeVisible();
-  for (const k of ["assigned", "marketers", "unassigned", "overloaded"]) await expect(kpi(page, k)).toHaveText(/^\d+$/);
-  await expect(page.locator("[data-kpi=assigned] [data-kpi-delta]")).toContainText("vs last month");
-  await expect(page.locator("[data-help-bee]")).toContainText("Need help with marketing assignments?");
+  for (const k of ["unassigned", "overloaded"]) await expect(kpi(page, k)).toHaveText(/^\d+$/);
 
   await narrate(page, "Marketers are listed by load, each with 'n / capacity'");
   await expect(page.locator("[data-marketer]").first()).toBeVisible();
   await expect(card(page, "Jessica Davis").locator("[data-load]")).toHaveText(/^\d+ \/ \d+$/);
-  await expect(page.locator("[data-marketers-summary]")).toContainText("Marketing Specialists");
+  await expect(page.locator("[data-marketers-count]")).toHaveText(/^\d+ marketers? · \d+ assigned$/);
 
   await narrate(page, "Pick Jessica Davis: her consultants, ten to a page, and the URL names her");
   await card(page, "Jessica Davis").getByRole("button", { name: /Show their consultants/ }).click();
@@ -257,13 +256,15 @@ test("ADM-48 Org admin assigns two unassigned consultants to a marketer and undo
   const { page, go } = await as("sarah");
   await go("/w/admin/marketing-assignments");
   await expect(page.locator("[data-marketing-assignments-page]")).toBeVisible();
+  await expect(kpi(page, "unassigned")).toHaveText(/^\d+$/);
+  await expect(page.locator("[data-marketers-count]")).toHaveText(/ assigned$/);
   const unassigned0 = await kpi(page, "unassigned").innerText();
-  const assigned0 = await kpi(page, "assigned").innerText();
+  const assigned0 = await page.locator("[data-marketers-count]").innerText(); // "8 marketers · 141 assigned"
   const david = card(page, "David Kim");
   await david.getByRole("button", { name: /Show their consultants/ }).click();
   const load0 = await david.locator("[data-load]").innerText();
-  await narrate(page, "Assign Consultants to David Kim");
-  await page.getByRole("button", { name: "Assign Consultants" }).first().click();
+  await narrate(page, "Assign consultants to David Kim");
+  await page.getByRole("button", { name: "Assign consultants" }).first().click();
   const dlg = page.getByRole("dialog", { name: /Assign consultants to David Kim/ });
   const boxes = dlg.getByRole("checkbox");
   await expect(boxes.first()).toBeVisible();
@@ -273,12 +274,12 @@ test("ADM-48 Org admin assigns two unassigned consultants to a marketer and undo
   await dlg.getByRole("button", { name: "Assign 2 consultants" }).click();
   await expect(page.getByText("Assigned 2 consultants")).toBeVisible();
   await expect(david.locator("[data-load]")).not.toHaveText(load0);
-  await narrate(page, "Undo: the tiles and the load return");
+  await narrate(page, "Undo: the counts and the load return");
   await page.getByRole("button", { name: "Undo" }).last().click();
   await expect(page.getByText("Undone")).toBeVisible();
   await expect(david.locator("[data-load]")).toHaveText(load0);
   await expect(kpi(page, "unassigned")).toHaveText(unassigned0);
-  await expect(kpi(page, "assigned")).toHaveText(assigned0);
+  await expect(page.locator("[data-marketers-count]")).toHaveText(assigned0);
 });
 
 test("ADM-49 Assigning past a marketer's capacity warns first and changes nothing; the workload report opens", async ({ as }) => {
@@ -289,7 +290,7 @@ test("ADM-49 Assigning past a marketer's capacity warns first and changes nothin
   await michael.getByRole("button", { name: /Show their consultants/ }).click();
   const load0 = await michael.locator("[data-load]").innerText();
   await narrate(page, "Michael Park is nearly full: pick two more consultants");
-  await page.getByRole("button", { name: "Assign Consultants" }).first().click();
+  await page.getByRole("button", { name: "Assign consultants" }).first().click();
   const over = page.getByRole("dialog", { name: /Assign consultants to Michael Park/ });
   const boxes = over.getByRole("checkbox");
   await expect(boxes.first()).toBeVisible();
@@ -304,7 +305,7 @@ test("ADM-49 Assigning past a marketer's capacity warns first and changes nothin
   await expect(michael.locator("[data-load]")).toHaveText(load0);
 
   await narrate(page, "The workload report lists every marketer");
-  await page.getByRole("button", { name: /View Workload Report/ }).click();
+  await page.getByRole("button", { name: /View workload report/ }).click();
   await expect(page.getByRole("table", { name: "Workload by marketer" })).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).last().click();
 });

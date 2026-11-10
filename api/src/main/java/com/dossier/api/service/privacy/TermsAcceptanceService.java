@@ -71,6 +71,16 @@ public class TermsAcceptanceService {
             });
     }
 
+    /**
+     * Sign-up (T0.2): the sign-up screen says "By creating an account, you agree to our Terms of Service and Privacy Policy", so creating the account is the act of acceptance.
+     * Records both documents at the versions in force, source SIGNUP. A repeat is a no-op.
+     */
+    public void recordSignup(Long userId, Instant now) {
+        for (String doc : List.of(TermsAcceptance.TERMS, TermsAcceptance.PRIVACY)) {
+            accept(userId, doc, currentVersion(doc), "SIGNUP", now);
+        }
+    }
+
     /** What is in force, what the account accepted, and whether the account is up to date with both. */
     @Transactional(readOnly = true)
     public Map<String, Object> status(Long userId) {

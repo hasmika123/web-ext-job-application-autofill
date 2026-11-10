@@ -253,6 +253,8 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/org-settings", Case.read()),
         Map.entry("PUT /api/orgs/{orgId}/org-settings/general", Case.write("{\"timeZone\":\"America/Chicago\"}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("PUT /api/orgs/{orgId}/org-settings/security", Case.write("{\"passwordMinLength\":10,\"reason\":\"Isolation check\"}", 200, OrgAuditService.ORG_SETTINGS)),
+        Map.entry("GET /api/orgs/{orgId}/org-settings/prepare", Case.read()),
+        Map.entry("PUT /api/orgs/{orgId}/org-settings/prepare", Case.write("{\"enabled\":true,\"dailyCap\":5}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("GET /api/orgs/{orgId}/resume-policy", Case.read()),
         Map.entry("PUT /api/orgs/{orgId}/resume-policy", Case.write("{\"consultantShareLinks\":true}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("GET /api/orgs/{orgId}/branding", Case.read()),
@@ -384,10 +386,17 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox", Case.consultantWrite("{\"address\":\"hijack.jobs@gmail.com\",\"appPassword\":\"abcdefghijklmnop\"}", 402)),
         Map.entry("DELETE /api/orgs/{orgId}/me-workspace/inbox", Case.consultantWrite(null, 200)),
         Map.entry("PUT /api/orgs/{orgId}/me-workspace/inbox/notify", Case.consultantWrite("{\"email\":false}", 409)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/check-now", Case.consultantWrite(null, 409)), // no inbox connected in this world
         Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/suggestions", Case.consultantRead()),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/accept", Case.consultantWrite("{\"company\":\"Hijack Co\",\"roleTitle\":\"Hijacked\"}", 404)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/dismiss", Case.consultantWrite(null, 404)),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/updates", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/review", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/review/{holdId}/accept", Case.consultantWrite("{\"applicationId\":1}", 404)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/review/{holdId}/dismiss", Case.consultantWrite(null, 404)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/applications/{applicationId}/inbox-undo/{eventId}", Case.consultantWrite(null, 404)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/settings", Case.consultantRead()),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/inbox/settings", Case.consultantWrite("{\"applyRejectionsAutomatically\":false}", 409)),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/tasks", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/tasks/list", Case.consultantRead()),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/tasks", Case.consultantWrite("{\"title\":\"A valid title\"}", 201)),
@@ -494,6 +503,12 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/kpis", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/workload", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/consultants/{consultantId}/history", Case.read()),
+        // Sprint 2 / H-assign: reassign now or on a date, temporary cover, the plans, and the preview of what a handover moves.
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/handover-preview", Case.people(200, null, 1, null, null, w -> w.mktAssigned())),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/schedules", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/reassign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantId\":" + w.mktConsultantId + ",\"newMarketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/delegate", Case.people(200, "MARKETING_DELEGATE_START", 2, w -> "{\"consultantId\":" + w.mktConsultantId + ",\"coverMarketerMemberId\":" + w.mktCoverId + ",\"endsAt\":\"" + java.time.Instant.now().plus(java.time.Duration.ofDays(5)) + "\",\"reason\":\"Isolation check\"}", null, w -> w.mktCover())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/schedules/{scheduleId}/cancel", Case.people(200, "MARKETING_SCHEDULE_CANCEL", 1, w -> null, null, w -> w.mktPlan())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/marketers", Case.people(201, "MARKETER_ADD", 1, w -> "{\"memberId\":" + w.mktFreshMarketer() + ",\"capacity\":9}", null, null)),
         Map.entry("PATCH /api/orgs/{orgId}/marketing-assignments/marketers/{memberId}", Case.people(200, "MARKETER_UPDATE", 1, w -> "{\"capacity\":7}", null, w -> w.mktCapacity())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),
@@ -748,6 +763,8 @@ class OrgIsolationIT {
         // The Marketing workspace (mkt/**) answers the generic 404 to EVERYONE, the owner included, while the marketing module is off for the org: switched on here so that the
         // hostile callers below are refused by the tenant and permission checks themselves, and the legitimate calls really run the services.
         settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_MARKETING, "{\"on\":true}", FLAG_WRITER, Instant.now()));
+        // Prepare selected openings: the Kiwiply master switch is on so the Org Admin's settings route can be changed by its owner (the organization itself starts opted out)
+        settingRows.save(new AppSetting(EnterpriseSettingKeys.PREPARE_ENABLED, "true", FLAG_WRITER, Instant.now()));
         settingsCache.invalidate();
     }
 
@@ -775,6 +792,7 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository mktConsultants;
     @Autowired private com.dossier.api.repository.ent.talent.MarketerCapacityRepository mktCapacities;
     @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentRepository mktAssignments;
+    @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentScheduleRepository mktSchedules;
     @Autowired private com.dossier.api.repository.ent.mkt.MktOpportunityRepository mktOpportunities;
     @Autowired private com.dossier.api.repository.ent.mgmt.MktApprovalRequestRepository mgmtApprovals;
     @Autowired private com.dossier.api.repository.ent.mgmt.MktEscalationRepository mgmtEscalations;
@@ -1283,6 +1301,36 @@ class OrgIsolationIT {
             mktConsultantId = mktConsultants.saveAndFlush(k).getId();
         }
 
+        /** H-assign: a second active marketer (a capacity row), who can cover. */
+        Long mktCoverId = 1L;
+
+        void mktCover() {
+            mktAssigned();
+            OrgMember seat = fx.active(org, p + "-mkt-cover", OrgRole.MARKETER);
+            roleService.syncFromLegacy(seat);
+            com.dossier.api.domain.ent.talent.MarketerCapacity c = new com.dossier.api.domain.ent.talent.MarketerCapacity();
+            c.setOrgId(org.getId());
+            c.setMemberId(seat.getId());
+            c.setCapacity(5);
+            mktCapacities.saveAndFlush(c);
+            mktCoverId = seat.getId();
+        }
+
+        /** H-assign: a handover planned for next month, which the cancel route removes. */
+        Long mktScheduleId = 1L;
+
+        void mktPlan() {
+            mktCover();
+            com.dossier.api.domain.ent.talent.MarketerAssignmentSchedule s = new com.dossier.api.domain.ent.talent.MarketerAssignmentSchedule();
+            s.setOrgId(org.getId());
+            s.setConsultantId(mktConsultantId);
+            s.setKind(com.dossier.api.domain.ent.talent.MarketerAssignmentSchedule.REASSIGN);
+            s.setStatus(com.dossier.api.domain.ent.talent.MarketerAssignmentSchedule.SCHEDULED);
+            s.setNewMarketerMemberId(mktCoverId);
+            s.setStartsAt(java.time.Instant.now().plus(java.time.Duration.ofDays(30)));
+            mktScheduleId = mktSchedules.saveAndFlush(s).getId();
+        }
+
         void mktAssigned() {
             mktCapacity();
             com.dossier.api.domain.ent.talent.MarketerAssignment a = new com.dossier.api.domain.ent.talent.MarketerAssignment();
@@ -1606,6 +1654,8 @@ class OrgIsolationIT {
             ids.put("alertKey", "MEMBERS_SUSPENDED");
             ids.put("id", "999999999"); // the consultant routes' opportunity id: nobody's, and the routes answer 404 before looking (the flag is off in this world)
             ids.put("suggestionId", "999999999"); // an inbox suggestion nobody owns: the routes answer 404 for the legitimate caller too
+            ids.put("holdId", "999999999"); // an inbox review item nobody owns: the review routes answer 404 for the legitimate caller too
+            ids.put("eventId", "999999999"); // an application event nobody owns: the undo route answers 404 for the legitimate caller too
             ids.put("skillId", String.valueOf(skillId));
             ids.put("certId", String.valueOf(certId));
             ids.put("prefId", String.valueOf(prefId));
@@ -1655,6 +1705,8 @@ class OrgIsolationIT {
             ids.put("mktPrepItemId", String.valueOf(mktPrepItemId));
             ids.put("mktResumeId", String.valueOf(resumeId)); // {id} of mkt/resumes
             ids.put("mktBuilderConsultantId", String.valueOf(cwsConsultantId)); // {consultantId} of mkt/resumes/consultants/...: the owner's own consultant profile, which has a seat and an account (act-for needs one)
+            ids.put("mktConsultantIdValue", String.valueOf(mktConsultantId));
+            ids.put("scheduleId", String.valueOf(mktScheduleId)); // H-assign: a planned handover
             ids.put("streamId", String.valueOf(mktStreamId));
             ids.put("searchId", String.valueOf(mktSearchId));
             ids.put("ruleKey", "DEFAULT_KEYWORDS"); // a fixed word of the stream rules, not a row
@@ -1727,6 +1779,7 @@ class OrgIsolationIT {
         if (pattern.contains("/me-workspace/")) {
             pattern = pattern.replace("{matchId}", "{cwsMatchId}").replace("{resumeId}", "{cwsResumeId}").replace("{requirementId}", "{cwsRequirementId}").replace("{applicationId}", "{cwsApplicationId}").replace("{interviewId}", "{cwsInterviewId}");
         }
+        if (route.pattern().endsWith("/marketing-assignments/handover-preview")) pattern += "?consultantId={mktConsultantIdValue}"; // the required parameter: a made-up id answers the same generic 404
         if (route.pattern().endsWith("/mkt/matches/compare")) pattern += "?a={mktMatchId}&b={matchId}"; // two different matches (the second is the jobs page's), both required query parameters
         Matcher m = VAR.matcher(pattern);
         StringBuilder out = new StringBuilder();

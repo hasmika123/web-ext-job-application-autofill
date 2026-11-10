@@ -135,7 +135,8 @@ public class ResumeBuilderConfigService {
                     s.getJson(ONBOARDING_DELIGHT_COPY, JsonNode.class)
                 )
             ),
-            com.dossier.api.service.ent.resumes.OrgResumePolicy.capabilities(orgPolicy != null && orgPolicy.consultantShareLinksForThisRequest())
+            com.dossier.api.service.ent.resumes.OrgResumePolicy.capabilities(orgPolicy != null && orgPolicy.consultantShareLinksForThisRequest()),
+            new ResumeBuilderConfigDTO.Photo(s.getInt(PHOTO_MAX_BYTES), strings(PHOTO_DISCOURAGED_REGIONS))
         );
     }
 

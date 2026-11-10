@@ -33,8 +33,11 @@ public class WorkspaceDefinitions {
 
     public static final String RESOURCE = "config/ent/workspaces.json";
 
-    /** One page of a workspace. {@code needs} is any-of; {@code module} is a {@link TenantModule#wire()} or null. */
-    public record NavDef(String key, String label, String icon, String href, List<String> needs, String module, String badge) {
+    /**
+     * One page of a workspace. {@code needs} is any-of; {@code module} is a {@link TenantModule#wire()} or null; {@code group} is the key of
+     * one of the workspace's {@link GroupDef groups} the menu draws it under, or null (drawn without a group label).
+     */
+    public record NavDef(String key, String label, String icon, String href, List<String> needs, String module, String badge, String group) {
         public boolean isHome(WorkspaceDef w) {
             return href.equals(w.home());
         }
@@ -44,11 +47,14 @@ public class WorkspaceDefinitions {
      * One workspace. {@code key} is the stored key ({@code ADMIN}, what a role's {@code workspace_key} holds), {@code slug} the URL
      * segment; {@code primaryFor} the system templates whose primary workspace this is (documentation, and the doc-sync test).
      */
-    public record WorkspaceDef(String key, String slug, String label, int order, String home, List<String> primaryFor, List<String> bottomTabs, List<NavDef> nav) {
+    public record WorkspaceDef(String key, String slug, String label, int order, String home, List<String> primaryFor, List<String> bottomTabs, List<GroupDef> groups, List<NavDef> nav) {
         public NavDef homeItem() {
             return nav.get(0);
         }
     }
+
+    /** A labelled group of menu rows ("People", "Pipeline"): display only, it never changes who sees a page. */
+    public record GroupDef(String key, String label) {}
 
     private final int version;
     private final List<WorkspaceDef> workspaces;
@@ -101,6 +107,13 @@ public class WorkspaceDefinitions {
             if (!keys.add(key)) throw bad("duplicate workspace key " + key);
             if (!slugs.add(slug)) throw bad("duplicate workspace slug " + slug);
             if (!home.equals("/w/" + slug)) throw bad(key + ": home must be /w/" + slug);
+            List<GroupDef> groups = new ArrayList<>();
+            Set<String> groupKeys = new HashSet<>();
+            for (JsonNode g : w.path("groups")) {
+                GroupDef group = new GroupDef(text(g, "key"), text(g, "label"));
+                if (!groupKeys.add(group.key())) throw bad(key + ": duplicate group " + group.key());
+                groups.add(group);
+            }
             JsonNode navNode = w.path("nav");
             if (!navNode.isArray() || navNode.isEmpty()) throw bad(key + ": nav must be a non-empty array");
             List<NavDef> nav = new ArrayList<>();
@@ -108,9 +121,10 @@ public class WorkspaceDefinitions {
             for (JsonNode n : navNode) {
                 NavDef item = nav(key, slug, n);
                 if (!navKeys.add(item.key())) throw bad(key + ": duplicate nav key " + item.key());
+                if (item.group() != null && !groupKeys.contains(item.group())) throw bad(key + "/" + item.key() + ": unknown group " + item.group());
                 nav.add(item);
             }
-            WorkspaceDef def = new WorkspaceDef(key, slug, text(w, "label"), w.path("order").asInt(Integer.MAX_VALUE), home, strings(w.path("primaryFor")), strings(w.path("bottomTabs")), List.copyOf(nav));
+            WorkspaceDef def = new WorkspaceDef(key, slug, text(w, "label"), w.path("order").asInt(Integer.MAX_VALUE), home, strings(w.path("primaryFor")), strings(w.path("bottomTabs")), List.copyOf(groups), List.copyOf(nav));
             if (!def.homeItem().href().equals(home) || !def.homeItem().key().equals("home")) throw bad(key + ": the first nav item must be 'home' at " + home);
             for (String tab : def.bottomTabs()) if (!navKeys.contains(tab)) throw bad(key + ": bottom tab " + tab + " is not a nav key");
             out.add(def);
@@ -131,7 +145,8 @@ public class WorkspaceDefinitions {
         if (module != null && TenantModule.ofWire(module).isEmpty()) throw bad(wsKey + "/" + key + ": unknown module " + module);
         String badge = n.hasNonNull("badge") ? n.get("badge").asText() : null;
         if (badge != null && !badge.equals("attention")) throw bad(wsKey + "/" + key + ": unknown badge " + badge);
-        return new NavDef(key, text(n, "label"), text(n, "icon"), href, needs, module, badge);
+        String group = n.hasNonNull("group") ? n.get("group").asText() : null;
+        return new NavDef(key, text(n, "label"), text(n, "icon"), href, needs, module, badge, group);
     }
 
     private static String text(JsonNode n, String field) {

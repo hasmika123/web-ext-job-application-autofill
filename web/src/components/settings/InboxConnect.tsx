@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge, Field, Input, Switch, useToast } from "@/components/ui";
@@ -41,6 +41,8 @@ export interface InboxView {
 export interface InboxEndpoints {
   connect: string;
   notify: string;
+  /** Optional: "Check now" (read the mailbox straight away). Only the consultant workspace passes it; without it no button is shown. */
+  checkNow?: string;
 }
 
 /** The in-app links of this component. The personal Settings page uses the defaults; a tenant workspace passes tenant-relative ones. */
@@ -105,6 +107,33 @@ export default function InboxConnect({
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState(view?.notifyEmail ?? true);
+  // "Check now": the read runs in the background, so after a 202 the page is re-read every few seconds until "Last checked" moves (or 90 s pass).
+  const [checking, setChecking] = useState<{ since: string | null; started: number } | null>(null);
+  const [checkNote, setCheckNote] = useState<string | null>(null);
+  const lastCheckedAt = view?.lastCheckedAt ?? null;
+  // Still reading while "Last checked" has not moved since the click (derived, so the effect never sets state on its own).
+  const checkingNow = checking && checking.since === lastCheckedAt ? checking : null;
+  useEffect(() => {
+    if (!checkingNow) return;
+    const t = setTimeout(() => {
+      if (Date.now() - checkingNow.started > 90_000) setChecking(null);
+      else if (onChanged) onChanged();
+      else router.refresh();
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [checkingNow, onChanged, router]);
+
+  async function checkNow() {
+    if (!endpoints.checkNow || checkingNow) return;
+    setCheckNote(null);
+    const res = await fetch(endpoints.checkNow, { method: "POST", headers: { accept: "application/json" } });
+    if (res.ok) {
+      setChecking({ since: lastCheckedAt, started: Date.now() });
+      return;
+    }
+    const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+    setCheckNote(res.status === 429 ? (body.message ?? "Checked a moment ago. Try again in a minute.") : (body.message ?? body.error ?? "Couldn't check right now. Please try again."));
+  }
 
   async function toggleNotify(on: boolean) {
     setNotifyEmail(on);
@@ -127,7 +156,7 @@ export default function InboxConnect({
       <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-6 shadow-[var(--shadow)]">
         <h2 className="font-display text-lg font-semibold text-ink">Let your inbox update your board</h2>
         <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-          Connect the Gmail you apply from and {links.appName} reads replies from employers — confirmations, interview invites,
+          Connect the Gmail you apply from and {links.appName}{" "}reads replies from employers — confirmations, interview invites,
           rejections, offers — and moves each application along for you. It only ever reads.
         </p>
         <Link href={links.pricing} className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
@@ -224,8 +253,27 @@ export default function InboxConnect({
               starts again by itself.
             </p>
           ) : (
-            <p className="mt-3 text-[13px] text-ink-soft">We check it every 15 minutes, the inbox and the sent mail.</p>
+            <p className="mt-3 text-[13px] text-ink-soft">
+              We check it every 15 minutes, the inbox and the sent mail.
+              {endpoints.checkNow ? (
+                <>
+                  {" "}
+                  <button type="button" onClick={() => void checkNow()} disabled={!!checkingNow} data-inbox-check-now className={cn("font-semibold text-accent-deep underline-offset-2 hover:underline", checkingNow && "opacity-60")}>
+                    {checkingNow ? "Checking now…" : "Check now"}
+                  </button>
+                </>
+              ) : null}
+            </p>
           )}
+          {checkingNow ? (
+            <p role="status" data-inbox-checking className="mt-2 text-[13px] text-ink-soft">
+              Reading your mailbox now. New mail shows below in under a minute.
+            </p>
+          ) : checkNote ? (
+            <p role="status" data-inbox-check-note className="mt-2 text-[13px] text-ink-soft">
+              {checkNote}
+            </p>
+          ) : null}
 
           <div className="mt-4 border-t border-line pt-4">
             <Switch
@@ -240,7 +288,7 @@ export default function InboxConnect({
             {confirming ? (
               <div className="flex flex-col gap-3">
                 <p className="text-[13px] text-ink">
-                  Disconnecting deletes the saved app password and any mail {links.appName} has read from this inbox. To be sure we
+                  Disconnecting deletes the saved app password and any mail {links.appName}{" "}has read from this inbox. To be sure we
                   can&apos;t sign in again, also delete the app password in{" "}
                   <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className={external}>
                     your Google account

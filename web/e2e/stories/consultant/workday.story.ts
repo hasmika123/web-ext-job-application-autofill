@@ -1,15 +1,13 @@
 import { test, expect, narrate } from "../_support/story";
-import { isoDay, menuAction, openPage, orgIdOf, pageTitle, pick, removeLeftoverTasks, stamp, tileValue } from "./_helpers";
+import { isoDay, menuAction, openPage, orgIdOf, pageTitle, pick, removeLeftoverTasks, stamp } from "./_helpers";
 
-/** Tasks & Follow-ups, Activity Timeline, My Features, Notifications and Settings: the consultant's day-to-day housekeeping. */
+/** Tasks, Activity (its Needs attention and Timeline tabs) and Settings (with its Plan & features tab): the consultant's day-to-day housekeeping. */
 
-test("CON-50 Anika reads her Tasks & Follow-ups: tiles, tabs with counts, search and filters", async ({ as }) => {
+test("CON-50 Anika reads her Tasks: tabs with counts, search and filters", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens Tasks & Follow-ups");
+  await narrate(page, "Anika opens Tasks");
   await openPage(page, go, "tasks");
-  await expect(pageTitle(page)).toHaveText("Tasks & Follow-ups");
-  for (const key of ["total", "dueToday", "upcoming", "overdue", "completedThisWeek"]) await expect(page.locator(`[data-tasks-tiles] [data-stat-tile=${key}]`)).toBeVisible();
-  expect(Number(await tileValue(page, "total"))).toBeGreaterThanOrEqual(5);
+  await expect(pageTitle(page)).toHaveText("Tasks");
 
   await narrate(page, "Her five seeded tasks are listed; the tabs carry live counts");
   await expect(page.locator("[data-task]", { hasText: "Complete interview preparation" })).toBeVisible();
@@ -94,12 +92,11 @@ test("CON-52 A task name with an ID number is refused: Kiwiply never stores that
   await expect(page.locator("[data-task]", { hasText: "123-45-6789" })).toHaveCount(0);
 });
 
-test("CON-53 Anika follows her Activity Timeline: filter by type and period, load more, export CSV", async ({ as }) => {
+test("CON-53 Anika follows her activity timeline: filter by type and period, load more, export CSV", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens Activity Timeline");
-  await openPage(page, go, "activity-timeline");
-  await expect(pageTitle(page)).toHaveText("Activity Timeline");
-  for (const key of ["total", "thisWeek", "applications", "interviews", "profile"]) await expect(page.locator(`[data-timeline-tiles] [data-stat-tile=${key}]`)).toBeVisible();
+  await narrate(page, "Anika opens Activity > Timeline");
+  await openPage(page, go, "activity?tab=timeline");
+  await expect(pageTitle(page)).toHaveText("Activity");
 
   const rows = page.locator("[data-timeline-row]");
   await expect(rows.first()).toBeVisible();
@@ -117,16 +114,15 @@ test("CON-53 Anika follows her Activity Timeline: filter by type and period, loa
   await expect(page.locator("[data-milestone]").first()).toBeVisible();
 
   await narrate(page, "Export downloads the shown rows as a CSV in her own browser");
-  const [download] = await Promise.all([page.waitForEvent("download"), page.locator("[data-quick=export]").click()]);
+  const [download] = await Promise.all([page.waitForEvent("download"), page.locator("[data-export]").click()]);
   expect(download.suggestedFilename()).toBe("activity-timeline.csv");
 });
 
-test("CON-54 Anika reviews My Features: what her plan includes, usage, and which numbers are samples", async ({ as }) => {
+test("CON-54 Anika reviews Settings > Plan & features: what her plan includes, usage, and which numbers are samples", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens My Features");
-  await openPage(page, go, "features");
-  await expect(pageTitle(page)).toHaveText("My Features");
-  for (const key of ["active", "credits", "used", "premium", "expiring"]) await expect(page.locator(`[data-features-tiles] [data-stat-tile=${key}]`)).toBeVisible();
+  await narrate(page, "Anika opens Settings > Plan & features");
+  await openPage(page, go, "settings?tab=features");
+  await expect(pageTitle(page)).toHaveText("Settings");
   await expect(page.locator("[data-feature-row]").first()).toBeVisible();
 
   await narrate(page, "Entitlements are stand-ins until the admin catalog is connected, and the page says so");
@@ -136,18 +132,13 @@ test("CON-54 Anika reviews My Features: what her plan includes, usage, and which
   await page.getByLabel("Filter features").selectOption({ label: "Premium" });
   await expect(page.locator("[data-features-table], [data-consultant-features]").first()).toBeVisible();
   await page.getByLabel("Filter features").selectOption({ label: "All Features" });
-
-  await narrate(page, "A feature's action button takes her to the tool; Quick Actions lead to Matches and Interview Prep");
-  await page.locator("[data-features-quick='View Job Matches']").click();
-  await expect(page).toHaveURL(/\/w\/consultant\/matches/);
 });
 
-test("CON-55 Anika triages her Notifications: tabs, mark read/unread, and switches a category off and on", async ({ as }) => {
+test("CON-55 Anika triages her notifications (Activity > Needs attention): tabs, mark read/unread, and the way to her preferences", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens Notifications");
-  await openPage(page, go, "notifications");
-  await expect(pageTitle(page)).toHaveText("Notifications");
-  for (const key of ["unread", "highPriority", "today", "upcomingReminders", "resolvedThisWeek"]) await expect(page.locator(`[data-notifications-tiles] [data-stat-tile=${key}]`)).toBeVisible();
+  await narrate(page, "Anika opens Activity: the Needs attention tab lists her notifications");
+  await openPage(page, go, "activity");
+  await expect(pageTitle(page)).toHaveText("Activity");
   await expect(page.locator("[data-tab=ALL]")).toContainText(/All \(\d+\)/);
 
   const rows = page.locator("[data-notification]");
@@ -162,36 +153,28 @@ test("CON-55 Anika triages her Notifications: tabs, mark read/unread, and switch
     await expect(page.getByText("You're all caught up")).toBeVisible();
   }
 
-  await narrate(page, "Notification Preferences: she switches Reminders off and on again (SMS is not offered)");
-  const reminders = page.getByRole("switch", { name: "Reminders notifications" });
-  const was = await reminders.getAttribute("aria-checked");
-  await reminders.click();
-  await expect(reminders).toHaveAttribute("aria-checked", was === "true" ? "false" : "true");
-  await reminders.click();
-  await expect(reminders).toHaveAttribute("aria-checked", was ?? "true");
-  await page.getByRole("button", { name: "Reminders channels", exact: true }).click();
-  await expect(page.getByRole("checkbox", { name: /SMS/ })).toBeDisabled();
+  await narrate(page, "Notification preferences live on her My profile page; the button leads there");
+  await expect(page.locator("[data-notification-prefs]")).toHaveAttribute("href", "/me#notifications");
 });
 
-test("CON-56 Anika reviews Settings: account, privacy choices, honest security and connected-tools state", async ({ as }) => {
+test("CON-56 Anika reviews Settings: links to where profile, notifications and security live, and the page's tabs", async ({ as }) => {
   const { page, go } = await as("anika");
   await narrate(page, "Anika opens Settings");
   await openPage(page, go, "settings");
   await expect(pageTitle(page)).toHaveText("Settings");
-  await expect(page.locator("[data-settings-tiles]")).toBeVisible();
-  await expect(page.locator("[data-fact]").first()).toBeVisible();
 
-  await narrate(page, "Password and two-factor are managed on her Kiwiply account; they are never shown or faked here");
-  await expect(page.locator("[data-security-row]").first()).toContainText(/Password|Two-Factor|Login/);
+  await narrate(page, "Profile details, notifications, password and two-factor live elsewhere: three links at the top lead there, nothing is shown or faked here");
+  await expect(page.locator("[data-settings-link=profile]")).toHaveAttribute("href", "/w/consultant/profile");
+  await expect(page.locator("[data-settings-link=notifications]")).toHaveAttribute("href", "/me#notifications");
+  await expect(page.locator("[data-settings-link=security]")).toHaveAttribute("href", "/me#security"); // one basic My profile page for every member (D6)
   await expect(page.locator("input[type=password]")).toHaveCount(0);
-  await expect(page.locator("[data-security-link]")).toHaveAttribute("href", "/me#security"); // one basic My profile page for every member (D6)
 
-  await narrate(page, "Connected tools are not available yet, and the buttons say so");
-  await expect(page.locator("[data-tool]").first()).toContainText("Not available yet");
-  await expect(page.getByRole("button", { name: /Connect .* \(not available yet\)/ }).first()).toBeDisabled();
-
-  await narrate(page, "Identity and tax documents are never collected");
-  await expect(page.locator("[data-doc-row=supporting]")).toContainText("Not collected");
+  await narrate(page, "Privacy, Appearance and Plan & features are tabs of the page");
+  const tabs = page.getByRole("tablist", { name: "Settings views" });
+  for (const name of ["Privacy", "Appearance", "Plan & features"]) await expect(tabs.getByRole("tab", { name })).toBeVisible();
+  await tabs.getByRole("tab", { name: "Appearance" }).click();
+  await expect(page).toHaveURL(/\/w\/consultant\/settings\?tab=appearance/);
+  await expect(page.locator("#settings-theme")).toBeVisible();
 });
 
 test("CON-57 Anika changes her profile visibility and analytics choice, sees the hint change, and puts both back", async ({ as }) => {
@@ -199,19 +182,16 @@ test("CON-57 Anika changes her profile visibility and analytics choice, sees the
   await openPage(page, go, "settings");
   const vis = page.locator("#settings-visibility");
   const originalVis = ((await vis.innerText()) ?? "").trim();
-  const analytics = page.getByRole("switch", { name: "Allow Analytics Usage" });
+  const analytics = page.getByRole("switch", { name: "Analytics" });
   const analyticsWas = await analytics.getAttribute("aria-checked");
 
-  await narrate(page, "She sets Profile Visibility to Private");
+  await narrate(page, "She sets Profile visibility to Private");
   await pick(page, vis, "Private");
   await expect(page.locator("[data-visibility-hint]")).toContainText("hidden from everyone but you");
 
-  await narrate(page, "She toggles Allow Analytics Usage");
+  await narrate(page, "She toggles Analytics");
   await analytics.click();
   await expect(analytics).toHaveAttribute("aria-checked", analyticsWas === "true" ? "false" : "true");
-
-  await narrate(page, "Recent Account Activity records the privacy change");
-  await expect(page.locator("[data-activity=PRIVACY]").first()).toBeVisible();
 
   await narrate(page, "Everything is put back");
   await analytics.click();

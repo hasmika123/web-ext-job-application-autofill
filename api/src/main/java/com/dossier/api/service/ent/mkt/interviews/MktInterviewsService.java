@@ -104,20 +104,22 @@ public class MktInterviewsService {
     private final MktInterviewFeedbackRepository feedback;
     private final MktInterviewEventRepository events;
     private final OrgAuditService audit;
+    private final MktInterviewPrepProvisioner prepProvisioner;
     private final Clock clock;
 
     @Autowired
     public MktInterviewsService(
         MktScope scope, MktInterviewRepository interviews, MktInterviewMetaRepository metas, MktInterviewPrepItemRepository prep,
-        MktInterviewFeedbackRepository feedback, MktInterviewEventRepository events, OrgAuditService audit
+        MktInterviewFeedbackRepository feedback, MktInterviewEventRepository events, OrgAuditService audit, MktInterviewPrepProvisioner prepProvisioner
     ) {
-        this(scope, interviews, metas, prep, feedback, events, audit, Clock.systemUTC());
+        this(scope, interviews, metas, prep, feedback, events, audit, prepProvisioner, Clock.systemUTC());
     }
 
     MktInterviewsService(
         MktScope scope, MktInterviewRepository interviews, MktInterviewMetaRepository metas, MktInterviewPrepItemRepository prep,
-        MktInterviewFeedbackRepository feedback, MktInterviewEventRepository events, OrgAuditService audit, Clock clock
+        MktInterviewFeedbackRepository feedback, MktInterviewEventRepository events, OrgAuditService audit, MktInterviewPrepProvisioner prepProvisioner, Clock clock
     ) {
+        this.prepProvisioner = prepProvisioner;
         this.scope = scope;
         this.interviews = interviews;
         this.metas = metas;
@@ -388,18 +390,9 @@ public class MktInterviewsService {
     private List<PrepItem> ensurePrep(Long orgId, Long interviewId) {
         List<MktInterviewPrepItem> items = prep.findByOrgIdAndInterviewIdOrderByPositionAsc(orgId, interviewId);
         if (items.isEmpty()) {
-            List<MktInterviewPrepItem> fresh = new ArrayList<>();
-            for (int p = 0; p < DEFAULT_PREP.size(); p++) {
-                MktInterviewPrepItem it = new MktInterviewPrepItem();
-                it.setOrgId(orgId);
-                it.setInterviewId(interviewId);
-                it.setLabel(DEFAULT_PREP.get(p));
-                it.setPosition(p + 1);
-                it.setCreatedAt(clock.instant());
-                fresh.add(it);
-            }
-            items = new ArrayList<>();
-            for (MktInterviewPrepItem it : fresh) items.add(prep.save(it));
+            // First touch: created under a per-interview lock, so a request that races another page (home + interviews) uses the winner's rows
+            // instead of failing the page on the unique key (see MktInterviewPrepProvisioner).
+            items = new ArrayList<>(prepProvisioner.getOrCreate(orgId, interviewId, DEFAULT_PREP, clock.instant()));
         }
         List<PrepItem> out = new ArrayList<>();
         for (MktInterviewPrepItem it : items) out.add(new PrepItem(it.getId(), it.getLabel(), it.isDone()));

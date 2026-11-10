@@ -36,6 +36,14 @@ public final class AdminSettingKeys {
     public static final String JOBS_DISABLE_AFTER_FAILURES = "jobs.disable_after_failures";
     public static final String INBOX_POLL_MINUTES = "inbox.poll_minutes";
     public static final String INBOX_RETENTION_DAYS = "inbox.retention_days";
+    /** Lowest confidence (0-100) at which an interview invitation read from a mail creates an interview; below it only the status moves and a note says the schedule was not read. */
+    public static final String INBOX_INTERVIEW_MIN_CONFIDENCE = "inbox.interview_min_confidence";
+    /** Inbox accuracy: a mail whose reading and match are at least this sure (0-100) is applied; between the two it is held for a person; below the second it is ignored. */
+    public static final String INBOX_APPLY_MIN_CONFIDENCE = "inbox.apply_min_confidence";
+    public static final String INBOX_SUGGEST_MIN_CONFIDENCE = "inbox.suggest_min_confidence";
+    /** Inbox safety: days a held change waits for the person's answer before it expires, and days an applied change can be undone. */
+    public static final String INBOX_REVIEW_EXPIRY_DAYS = "inbox.review_expiry_days";
+    public static final String INBOX_UNDO_WINDOW_DAYS = "inbox.undo_window_days";
     /** Change audit (docs/change-audit/README.md section 4.4): months of {@code application_event} history kept; 0 = for the life of the application. */
     public static final String TRACKER_HISTORY_RETENTION_MONTHS = "tracker.history.retention_months";
     /** Privacy and retention (T1.3, T1.4, T0.2): the windows the retention sweep honours, the undo window for account deletion, the data-export limits and the current legal versions. */
@@ -55,6 +63,13 @@ public final class AdminSettingKeys {
     public static final String PRIVACY_EXPORT_INCLUDE_FILES = "privacy.export.include_files";
     public static final String LEGAL_TERMS_VERSION = "legal.terms_version";
     public static final String LEGAL_PRIVACY_VERSION = "legal.privacy_version";
+    /**
+     * The subprocessor register (T1.5): {@link #SUBPROCESSOR_SLOTS} keys {@code legal.subprocessor.01 .. 12}, each one entry as a JSON object
+     * {@code {name, purpose, data, location, link, dpaStatus}}; an empty object {@code {}} is an unused slot. A slot per key keeps every value inside
+     * the 1000-character settings column and every change in the settings history.
+     */
+    public static final String LEGAL_SUBPROCESSOR_PREFIX = "legal.subprocessor.";
+    public static final int SUBPROCESSOR_SLOTS = 12;
     public static final String OPS_ERROR_DIGEST_TO = "ops.error_digest.to";
     public static final String OPS_ERROR_DIGEST_INTERVAL_MIN = "ops.error_digest.interval_min";
     public static final String OPS_MAINTENANCE = "ops.maintenance";
@@ -79,6 +94,8 @@ public final class AdminSettingKeys {
     private static final Pattern SEMVER = Pattern.compile("\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}");
     private static final Pattern EMAIL = Pattern.compile("[^\\s@]{1,64}@[^\\s@]{1,190}\\.[^\\s@]{2,24}");
     private static final Pattern LEGAL_VERSION = Pattern.compile("[A-Za-z0-9._-]{1,30}");
+    private static final Pattern HTTPS_URL = Pattern.compile("https://[A-Za-z0-9.-]{1,120}(/[^\\s<>\"']{0,200})?");
+    private static final Set<String> SUBPROCESSOR_FIELDS = Set.of("name", "purpose", "data", "location", "link", "dpaStatus");
     private static final Pattern LOGIN = Pattern.compile("[A-Za-z0-9._@-]{1,50}");
     private static final String NOT_ENFORCED = " Not enforced yet: it takes effect once the feature that reads it ships.";
 
@@ -98,6 +115,11 @@ public final class AdminSettingKeys {
         // Inbox (the user's own Gmail over IMAP).
         integer(k, INBOX_POLL_MINUTES, 15, 5, 120, Risk.MEDIUM, "How often connected inboxes are read, in minutes." + NOT_ENFORCED);
         integer(k, INBOX_RETENTION_DAYS, 365, 30, 730, Risk.HIGH, "Stored mail is deleted this many days after it was sent." + NOT_ENFORCED);
+        integer(k, INBOX_INTERVIEW_MIN_CONFIDENCE, 60, 0, 100, Risk.MEDIUM, "Lowest confidence (0-100) at which an interview time read from an email is saved as an interview; below it the application still moves to Interview and a note says the time was not read.");
+        integer(k, INBOX_APPLY_MIN_CONFIDENCE, 80, 50, 100, Risk.HIGH, "Confidence (0-100) at which a read email changes an application on its own.");
+        integer(k, INBOX_SUGGEST_MIN_CONFIDENCE, 50, 20, 90, Risk.HIGH, "Confidence (0-100) below which a read email is ignored; between this and the apply level it is held for review.");
+        integer(k, INBOX_REVIEW_EXPIRY_DAYS, 30, 1, 365, Risk.MEDIUM, "Days a change the inbox held for review waits for the person's answer; after that it expires and nothing changes.");
+        integer(k, INBOX_UNDO_WINDOW_DAYS, 7, 1, 90, Risk.MEDIUM, "Days after the inbox changed an application's status during which the person can undo it.");
 
         // Tracker history (change audit, U6.15): read by TrackerHistoryRetentionJob. 0 = for the life of the application (decision D5).
         integer(k, TRACKER_HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW, "Months of application history kept; 0 keeps it as long as the application exists.");
@@ -119,6 +141,14 @@ public final class AdminSettingKeys {
         k.add(new Key(PRIVACY_EXPORT_INCLUDE_FILES, Type.BOOL, "true", null, null, null, "Whether a data-export ZIP carries the stored resume files as well as the JSON data.", null, Risk.LOW));
         k.add(new Key(LEGAL_TERMS_VERSION, Type.STRING, "2026-10", null, null, null, "The version label of the terms of service currently in force (what an acceptance records).", null, Risk.MEDIUM));
         k.add(new Key(LEGAL_PRIVACY_VERSION, Type.STRING, "2026-10", null, null, null, "The version label of the privacy notice currently in force (what an acceptance records).", null, Risk.MEDIUM));
+
+        // Subprocessor register (T1.5): the real subprocessors this product uses. dpaStatus is the admin's own tracker and starts as "To be confirmed": nothing about a
+        // contract or a signed DPA is assumed here.
+        List<String> processors = subprocessorDefaults();
+        for (int i = 1; i <= SUBPROCESSOR_SLOTS; i++) {
+            String def = i <= processors.size() ? processors.get(i - 1) : "{}";
+            k.add(new Key(subprocessorKey(i), Type.JSON, def, null, null, null, "Subprocessor register entry " + i + " of " + SUBPROCESSOR_SLOTS + " (public page /legal/subprocessors): name, purpose, data categories, location, link and the DPA status you track. {} leaves the slot unused.", AdminSettingKeys::subprocessor, Risk.MEDIUM));
+        }
 
         // Ops.
         k.add(new Key(OPS_ERROR_DIGEST_TO, Type.STRING, "", null, null, null, "Where the server-error digest is emailed. Blank = the deployment's recipient." + NOT_ENFORCED, null, Risk.LOW));
@@ -229,6 +259,64 @@ public final class AdminSettingKeys {
             }
         }
         return true;
+    }
+
+    /** {@code legal.subprocessor.01} .. {@code .12}. */
+    public static String subprocessorKey(int slot) {
+        return LEGAL_SUBPROCESSOR_PREFIX + String.format("%02d", slot);
+    }
+
+    /**
+     * One register entry: an object with only the six known fields, each a short string; empty ({@code {}}) or with a name. The link must be https. Nothing the product
+     * refuses to store (an id number, a bank number...) may appear in any text: this is an admin free-text write, so {@link com.dossier.api.service.privacy.SensitiveContent} applies.
+     */
+    static boolean subprocessor(JsonNode n) {
+        if (n == null || !n.isObject()) return false;
+        if (n.isEmpty()) return true;
+        for (Iterator<String> it = n.fieldNames(); it.hasNext();) {
+            if (!SUBPROCESSOR_FIELDS.contains(it.next())) return false;
+        }
+        for (String f : SUBPROCESSOR_FIELDS) {
+            JsonNode v = n.get(f);
+            if (v == null) continue;
+            if (!v.isTextual()) return false;
+            int max = switch (f) {
+                case "name", "location", "dpaStatus" -> 100;
+                case "link" -> 300;
+                default -> 300;
+            };
+            if (v.textValue().length() > max) return false;
+        }
+        JsonNode name = n.get("name");
+        if (name == null || name.textValue().isBlank()) return false;
+        JsonNode link = n.get("link");
+        if (link != null && !link.textValue().isBlank() && !HTTPS_URL.matcher(link.textValue().trim()).matches()) return false;
+        try {
+            com.dossier.api.service.privacy.SensitiveContent.check("", n);
+        } catch (RuntimeException e) {
+            return false;
+        }
+        return true;
+    }
+
+    private static List<String> subprocessorDefaults() {
+        String tbc = "To be confirmed";
+        return List.of(
+            sub("Amazon Web Services (S3)", "Stores the files you upload (resumes, generated PDFs, photos, application attachments) and our encrypted database backups.", "Your uploaded files; encrypted backups of account data.", "United States (us-east-1, the deployment default)", "https://aws.amazon.com/privacy/", tbc),
+            sub("Brevo", "Sends our transactional e-mail: account verification, account recovery and the notices you switched on.", "Your e-mail address and the text of the e-mail sent to you.", "Provider based in France (European Union)", "https://www.brevo.com/legal/privacypolicy/", tbc),
+            sub("Stripe", "Takes card payments and manages subscriptions. Card details are entered at Stripe and never reach us.", "Your e-mail address, payment details (held by Stripe only), subscription and invoice records.", "Provider based in the United States", "https://stripe.com/privacy", tbc),
+            sub("Cloudflare", "Answers DNS lookups for our domain. It does not proxy or see traffic to the app.", "None of your content; DNS queries for our domain only.", "Provider based in the United States", "https://www.cloudflare.com/privacypolicy/", tbc),
+            sub("Google (Gemini API)", "Server-side AI: reads uploaded resumes into your profile and, on paid plans, scores jobs and drafts text.", "The resume or job text you submit for an AI action. We never collect ID, bank, tax or date-of-birth data.", "Provider based in the United States", "https://ai.google.dev/gemini-api/terms", tbc),
+            sub("GitHub (Container registry)", "Builds and hosts the container images we deploy. It never receives user data.", "None. Only our software.", "Provider based in the United States", "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement", tbc)
+        );
+    }
+
+    private static String sub(String name, String purpose, String data, String location, String link, String dpaStatus) {
+        return "{\"name\":\"" + esc(name) + "\",\"purpose\":\"" + esc(purpose) + "\",\"data\":\"" + esc(data) + "\",\"location\":\"" + esc(location) + "\",\"link\":\"" + esc(link) + "\",\"dpaStatus\":\"" + esc(dpaStatus) + "\"}";
+    }
+
+    private static String esc(String s) {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     // ---- declaration helpers --------------------------------------------------

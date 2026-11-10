@@ -54,9 +54,11 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final ClientsDemoSeeder clientsDemo;
     private final PlacementDemoSeeder placementDemo;
     private final com.dossier.api.service.ent.consultantws.ConsultantInboxDemoSeeder inboxDemo;
+    private final com.dossier.api.service.ent.consultantws.ConsultantPrepareDemoSeeder prepareDemo;
+    private final com.dossier.api.service.ent.consultantws.ConsultantBioDemoSeeder bioDemo;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, OpsDemoSeeder ops, ClientsDemoSeeder clientsDemo, PlacementDemoSeeder placementDemo, com.dossier.api.service.ent.consultantws.ConsultantInboxDemoSeeder inboxDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, OpsDemoSeeder ops, ClientsDemoSeeder clientsDemo, PlacementDemoSeeder placementDemo, com.dossier.api.service.ent.consultantws.ConsultantInboxDemoSeeder inboxDemo, com.dossier.api.service.ent.consultantws.ConsultantPrepareDemoSeeder prepareDemo, com.dossier.api.service.ent.consultantws.ConsultantBioDemoSeeder bioDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
@@ -66,6 +68,8 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
         this.clientsDemo = clientsDemo;
         this.placementDemo = placementDemo;
         this.inboxDemo = inboxDemo;
+        this.prepareDemo = prepareDemo;
+        this.bioDemo = bioDemo;
         // the consultant workspace pages' own demo rows, in dependency order (all after ConsultantWsDemoSeeder: matches build on its matches)
         this.consultantPages = java.util.List.of(profileSeed::seed, resumesSeed::seed, marketerSeed::seed, matchesSeed::seed, discoverySeed::seed, interviewsSeed::seed, prepSeed::seed, submissionsSeed::seed, opportunitiesSeed::seed, tasksSeed::seed, availabilitySeed::seed, offersSeed::seed, placementSeed::seed, settingsSeed::seed, notificationsSeed::seed, jobSourceSeed::seed);
         this.createAccounts = createAccounts;
@@ -130,6 +134,16 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             inboxDemo.seed(); // the consultant Inbox page's demo rows (the add-on on Anika's license, two applications for the sample mailbox): after billing
         } catch (RuntimeException e) {
             LOG.error("Consultant inbox demo seed failed; the Inbox page has no demo add-on or applications.", e);
+        }
+        try {
+            prepareDemo.seed(); // Prepare selected openings: Acme's opt-in and the add-on on Anika's and Ben's licenses: after billing
+        } catch (RuntimeException e) {
+            LOG.error("Prepare selected openings demo seed failed; the Assigned openings page shows no checkboxes.", e);
+        }
+        try {
+            bioDemo.seed(); // the walkthrough consultants' own profile (bio) for the extension's fill: after the consultant contact rows
+        } catch (RuntimeException e) {
+            LOG.error("Consultant bio demo seed failed; the extension has nothing to fill for Anika and Ben.", e);
         }
     }
 }

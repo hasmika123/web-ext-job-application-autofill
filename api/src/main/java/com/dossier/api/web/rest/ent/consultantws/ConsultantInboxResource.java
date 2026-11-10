@@ -54,6 +54,13 @@ public class ConsultantInboxResource {
         return service.connect(me, body);
     }
 
+    @Operation(summary = "Check the mailbox now", description = "Reads the consultant's own Gmail straight away instead of waiting for the next 15-minute round (in the background; reload to see the result). 409 when nothing is connected, 429 within a minute of the last manual check.")
+    @PostMapping("/check-now")
+    @OrgPermissionRequired
+    public ResponseEntity<?> checkNow(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {
+        return service.checkNow(me);
+    }
+
     @Operation(summary = "Disconnect the inbox", description = "Deletes the connection, the encrypted password and every message read from it.")
     @DeleteMapping
     @OrgPermissionRequired

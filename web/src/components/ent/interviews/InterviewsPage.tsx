@@ -59,7 +59,6 @@ import {
 } from "@/lib/ent/interviews";
 import { FeedbackDialog, RescheduleDialog, ScheduleDialog } from "./Dialogs";
 import DetailDrawer from "./DetailDrawer";
-import HelpBeeCard from "./HelpBeeCard";
 import { useReminder, useStatusMove } from "./hooks";
 import { InterviewsGrid, InterviewsTable, Pagination } from "./InterviewsTable";
 import KpiTiles from "./KpiTiles";
@@ -71,13 +70,11 @@ const DOCK_QUERY = "(min-width: 1680px)"; // config-literal-ok: the width at whi
 
 export interface InterviewsPageProps {
   orgId: number;
-  orgName: string;
   workspace: string;
   /** `me.permissions` of the tenant session: decides which controls are drawn (the API is the gate). */
   permissions: Record<string, string>;
   /** The viewer's own seat (`me.member.id`): "you" in the drawer's Updated line is decided by it. */
   selfMemberId?: number | null;
-  supportEmail?: string | null;
 }
 
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: InterviewRow[]; total: number };
@@ -85,7 +82,7 @@ type PipelineState = { status: "loading" } | { status: "error"; message: string 
 type AnalyticsState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; data: Analytics };
 
 const SORT_MENU: { key: SortKey; label: string }[] = [
-  { key: "scheduled", label: "Scheduled Date" },
+  { key: "scheduled", label: "Scheduled date" },
   { key: "role", label: "Role" },
   { key: "consultant", label: "Consultant" },
   { key: "client", label: "Client" },
@@ -95,7 +92,7 @@ const SORT_MENU: { key: SortKey; label: string }[] = [
 /** The board's field-like control for the date range and More Filters. */
 const FIELD_BTN = "inline-flex h-10 items-center gap-2 rounded-[10px] border border-[var(--ent-control-border,var(--color-line))] bg-paper px-3 text-[13px] font-medium text-ink-soft hover:border-accent";
 
-export default function InterviewsPage({ orgId, orgName, permissions, selfMemberId, supportEmail }: InterviewsPageProps) {
+export default function InterviewsPage({ orgId, permissions, selfMemberId }: InterviewsPageProps) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -317,7 +314,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
   const noInterviewsAtAll = list.status === "ok" && total === 0 && !active && view.tab === "all";
   const lines = (
     <span className="inline-flex items-center gap-1.5">
-      <FunnelIcon size={15} aria-hidden /> More Filters
+      <FunnelIcon size={15} aria-hidden /> More filters
       {moreCount > 0 && <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-on-accent" data-more-count>{moreCount}</span>}
     </span>
   );
@@ -356,10 +353,10 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
         )}
       </Popover>
       <div className="w-[7.6rem]">
-        <Select aria-label="Client" value={view.client} onChange={(v) => setView({ client: v })} options={[{ value: "", label: "All Clients" }, ...(options?.clients ?? [])]} />
+        <Select aria-label="Client" value={view.client} onChange={(v) => setView({ client: v })} options={[{ value: "", label: "All clients" }, ...(options?.clients ?? [])]} />
       </div>
       <div className="w-[8.4rem]">
-        <Select aria-label="Status" value={view.status} onChange={(v) => setView({ status: v })} options={[{ value: "", label: "All Statuses" }, ...(options?.statuses ?? [])]} />
+        <Select aria-label="Status" value={view.status} onChange={(v) => setView({ status: v })} options={[{ value: "", label: "All statuses" }, ...(options?.statuses ?? [])]} />
       </div>
       <Popover
         label="More filters"
@@ -398,7 +395,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
     </div>
   );
 
-  const sortLabel = SORT_MENU.find((s) => s.key === view.sort.key)?.label ?? "Scheduled Date";
+  const sortLabel = SORT_MENU.find((s) => s.key === view.sort.key)?.label ?? "Scheduled date";
   const pages = Math.max(1, Math.ceil(total / view.size));
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-2" data-list-toolbar>
@@ -449,7 +446,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
       const r = await interviewsApi.remind(orgId, t.id);
       if (r.ok) ok++;
     }
-    toast({ title: `${ok} reminder${ok === 1 ? "" : "s"} recorded`, description: "Kiwiply doesn't send the messages itself.", variant: ok > 0 ? "success" : "error" });
+    toast({ title: `${ok} reminder${ok === 1 ? "" : "s"} recorded`, description: "The messages themselves are not sent from here.", variant: ok > 0 ? "success" : "error" });
     setPicked(new Set());
     refresh();
   };
@@ -461,15 +458,15 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <Tabs value={view.tab} onValueChange={(t) => setView({ tab: t as MainTab, page: 0 }, false)} variant="underline" className="min-w-0 flex-1">
           <TabList aria-label="Interviews views">
-            <Tab value="all"><span className="inline-flex items-center gap-2"><CalendarCheckIcon size={16} aria-hidden /> All Interviews</span></Tab>
-            <Tab value="calendar"><span className="inline-flex items-center gap-2"><CalendarIcon size={16} aria-hidden /> Calendar View</span></Tab>
+            <Tab value="all"><span className="inline-flex items-center gap-2"><CalendarCheckIcon size={16} aria-hidden /> All interviews</span></Tab>
+            <Tab value="calendar"><span className="inline-flex items-center gap-2"><CalendarIcon size={16} aria-hidden /> Calendar</span></Tab>
             <Tab value="pipeline"><span className="inline-flex items-center gap-2"><RouteIcon size={16} aria-hidden /> Pipeline</span></Tab>
             <Tab value="analytics"><span className="inline-flex items-center gap-2"><BarChartIcon size={16} aria-hidden /> Analytics</span></Tab>
           </TabList>
         </Tabs>
         {canCoordinate && (
           <Button type="button" variant="accent" onClick={() => setScheduling(true)} data-schedule-interview className="flex-none">
-            <PlusIcon size={16} aria-hidden /> Schedule Interview
+            <PlusIcon size={16} aria-hidden /> Schedule interview
           </Button>
         )}
       </div>
@@ -530,7 +527,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
                   </Button>
                 ) : canCoordinate ? (
                   <Button type="button" onClick={() => setScheduling(true)}>
-                    <PlusIcon size={16} aria-hidden /> Schedule Interview
+                    <PlusIcon size={16} aria-hidden /> Schedule interview
                   </Button>
                 ) : undefined
               }
@@ -597,12 +594,11 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
 
   return (
     <div ref={root} data-interviews-page>
-      <PageHeader title="Interviews" subtitle="Coordinate and track all consultant interviews across clients, roles, and teams." />
+      <PageHeader title="Interviews" subtitle="Interviews across all consultants and clients." />
       {columnOn ? (
         <div className="grid grid-cols-[minmax(0,1fr)_17.6rem] items-start gap-4">
           {main}
           <div className="sticky top-3 flex h-[calc(100dvh-7.2rem)] min-h-[34rem] flex-col gap-3" data-right-column>
-            <HelpBeeCard orgName={orgName} supportEmail={supportEmail} />
             {drawer}
           </div>
         </div>

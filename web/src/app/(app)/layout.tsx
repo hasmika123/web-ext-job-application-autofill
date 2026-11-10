@@ -7,6 +7,8 @@ import { getPlan } from "@/lib/billing";
 import { SamplesProvider } from "@/components/app-v3/SamplesProvider";
 import { getPublicConfig } from "@/lib/public-config";
 import RetirementBanner from "@/components/billing/RetirementBanner";
+import TermsBanner from "@/components/legal/TermsBanner";
+import { isDemoLogin } from "@/lib/demo";
 
 // App v2 display + handwriting faces (same as the marketing group). The CSS variables go on the
 // `.theme-v2` wrapper below so they are scoped to the signed-in app.
@@ -68,6 +70,10 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
               <RetirementBanner retirement={plan.retirement} lock={plan.lock} />
             </div>
           ) : null}
+          {/* T0.2: asks (non-blocking) when a NEW terms / privacy version is in force; renders nothing when the account is up to date. */}
+          <div className="mb-4 empty:hidden">
+            <TermsBanner demo={isDemoLogin(account?.login)} />
+          </div>
           {children}
         </AppShell>
       </SamplesProvider>

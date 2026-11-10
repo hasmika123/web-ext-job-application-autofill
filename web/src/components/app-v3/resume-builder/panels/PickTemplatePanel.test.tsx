@@ -200,4 +200,20 @@ describe("PickTemplatePanel: Customize Template under a design template (DESIGN_
     expect(c.changeTheme).toHaveBeenLastCalledWith({ control: "dateStyle", value: "year" });
     expect(screen.getByRole("radio", { name: "Month Year" })).toBeTruthy();
   });
+
+  it("a Photo row shows or hides the photo (off by default); it keeps the file either way (R7.4)", () => {
+    const c = setup({ templateId: FREE });
+    expect(screen.getByRole("radio", { name: "Hide" }).getAttribute("aria-checked")).toBe("true"); // the template default is off
+    fireEvent.click(screen.getByRole("radio", { name: "Show" }));
+    expect(c.changeTheme).toHaveBeenLastCalledWith({ control: "photo", value: true });
+    cleanup();
+    setup({ templateId: FREE, theme: { showPhoto: true } });
+    expect(screen.getByRole("radio", { name: "Show" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("no Photo row under an ATS template (it cannot show one)", () => {
+    setup({ templateId: "modern" });
+    expect(screen.queryByRole("radio", { name: "Show" })).toBeNull();
+    expect(screen.queryByText("Photo")).toBeNull();
+  });
 });

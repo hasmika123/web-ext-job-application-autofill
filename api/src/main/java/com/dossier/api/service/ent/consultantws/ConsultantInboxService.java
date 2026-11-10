@@ -3,9 +3,11 @@ package com.dossier.api.service.ent.consultantws;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.InboxConnection;
 import com.dossier.api.domain.InboxMessage;
+import com.dossier.api.domain.Interview;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.InboxMessageRepository;
+import com.dossier.api.repository.InterviewRepository;
 import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ent.authz.AuthorizationService;
 import com.dossier.api.service.ent.authz.AuthzOperation;
@@ -16,13 +18,18 @@ import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.ConnectReques
 import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.Page;
 import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.Suggestion;
 import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.Update;
+import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.UpdateInterview;
+import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.UpdateUndo;
 import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.View;
 import com.dossier.api.service.inbox.ImapGateway;
 import com.dossier.api.service.inbox.InboxEntitlement;
 import com.dossier.api.service.inbox.InboxMailService;
+import com.dossier.api.service.inbox.InboxReviewService;
+import com.dossier.api.service.inbox.InboxPoller;
 import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.service.inbox.MailClassifier;
 import com.dossier.api.service.org.OrgMembership;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -64,6 +71,12 @@ public class ConsultantInboxService {
     private final ApplicationRepository applications;
     private final ImapGateway imap;
     private final DemoGuard demoGuard;
+    private final InboxReviewService review;
+    private final InterviewRepository interviewRows;
+    private final InboxPoller poller;
+    /** The last manual "check now" per account (this JVM): one a minute is plenty, and it keeps a stuck button from hammering Gmail. */
+    private final java.util.concurrent.ConcurrentHashMap<Long, Instant> manualChecks = new java.util.concurrent.ConcurrentHashMap<>();
+    static final java.time.Duration CHECK_NOW_GAP = java.time.Duration.ofSeconds(60);
 
     public ConsultantInboxService(
         ConsultantHomeService gate,
@@ -74,8 +87,14 @@ public class ConsultantInboxService {
         InboxMessageRepository messages,
         ApplicationRepository applications,
         ImapGateway imap,
-        DemoGuard demoGuard
+        DemoGuard demoGuard,
+        InboxReviewService review,
+        InterviewRepository interviewRows,
+        InboxPoller poller
     ) {
+        this.poller = poller;
+        this.interviewRows = interviewRows;
+        this.review = review;
         this.gate = gate;
         this.authorization = authorization;
         this.inbox = inbox;
@@ -135,6 +154,28 @@ public class ConsultantInboxService {
         return ResponseEntity.ok(viewOf(me));
     }
 
+    /**
+     * "Check now": the consultant's own mailbox is read straight away, in the background (the same read the poller does every 15 minutes), so an
+     * employer's mail that just arrived shows without the wait. 202 with the connection view; 409 when nothing usable is connected; 429 within a
+     * minute of the last manual check. Reads only; nothing is sent, moved or deleted.
+     */
+    public ResponseEntity<?> checkNow(OrgMembership me) {
+        requireSelf(me);
+        View v = viewOf(me);
+        if (!v.connected() || !v.entitled() || InboxConnection.NEEDS_RECONNECT.equals(v.status())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No inbox is connected");
+        }
+        Instant now = Instant.now();
+        Instant last = manualChecks.get(me.userId());
+        if (last != null && last.plus(CHECK_NOW_GAP).isAfter(now)) {
+            long wait = Math.max(1, java.time.Duration.between(now, last.plus(CHECK_NOW_GAP)).toSeconds());
+            return ResponseEntity.status(429).header("Retry-After", Long.toString(wait)).body(Map.of("code", "TOO_SOON", "message", "Checked a moment ago. Try again in " + wait + " seconds."));
+        }
+        manualChecks.put(me.userId(), now);
+        poller.checkNow(me.userId());
+        return ResponseEntity.accepted().body(v);
+    }
+
     public void disconnect(OrgMembership me) {
         requireSelf(me);
         if (!imap.isDemoSandbox()) demoGuard.assertNotDemo();
@@ -155,9 +196,16 @@ public class ConsultantInboxService {
     }
 
     private List<Suggestion> suggestions() {
+        // One row per company, the newest mail (the list is newest first): accepting it folds in the company's older mails, so a second mail from
+        // the same company (an availability request, then the confirmed invitation) is one suggestion, not two.
+        Set<String> seen = new HashSet<>();
         return mail
             .suggestions()
             .stream()
+            .filter(s -> {
+                String key = com.dossier.api.service.ApplicationKeys.company(s.company());
+                return key.isEmpty() || seen.add(key);
+            })
             .map(s -> new Suggestion(s.id(), s.company(), s.role(), s.category(), stageOf(s.category()).name(), s.subject(), s.fromName(), s.fromAddress(), s.sentAt()))
             .toList();
     }
@@ -172,6 +220,40 @@ public class ConsultantInboxService {
     public void dismiss(OrgMembership me, Long id) {
         requireSelf(me);
         mail.dismiss(id);
+    }
+
+    // ---- inbox safety (what the inbox held, undo, the rejection switch): the consultant's own, answered by the same service as the personal app ----
+
+    @Transactional(readOnly = true)
+    public InboxReviewService.ReviewList review(OrgMembership me) {
+        requireSelf(me);
+        return review.list(me.userId());
+    }
+
+    public InboxReviewService.Applied acceptHold(OrgMembership me, Long holdId, Long applicationId) {
+        requireSelf(me);
+        return review.accept(me.userId(), holdId, applicationId);
+    }
+
+    public void dismissHold(OrgMembership me, Long holdId) {
+        requireSelf(me);
+        review.dismiss(me.userId(), holdId);
+    }
+
+    public InboxReviewService.Applied undoChange(OrgMembership me, Long applicationId, Long eventId) {
+        requireSelf(me);
+        return review.undo(me.userId(), applicationId, eventId);
+    }
+
+    @Transactional(readOnly = true)
+    public InboxReviewService.Settings reviewSettings(OrgMembership me) {
+        requireSelf(me);
+        return review.settings(me.userId());
+    }
+
+    public InboxReviewService.Settings setReviewSettings(OrgMembership me, boolean applyRejectionsAutomatically) {
+        requireSelf(me);
+        return review.setSettings(me.userId(), applyRejectionsAutomatically);
     }
 
     @Transactional(readOnly = true)
@@ -193,16 +275,52 @@ public class ConsultantInboxService {
             .toList();
         if (matched.isEmpty()) return List.of();
         Map<Long, Application> byId = applications.findByUserId(userId).stream().collect(Collectors.toMap(Application::getId, a -> a, (a, b) -> a));
+        Map<Long, List<Interview>> inboxInterviews = interviewRows
+            .findByUserIdOrderByStartsAtAscIdAsc(userId)
+            .stream()
+            .filter(i -> Interview.SRC_INBOX.equals(i.getSource()))
+            .collect(Collectors.groupingBy(Interview::getApplicationId));
+        Instant now = Instant.now();
         List<Update> out = new ArrayList<>();
         Set<Long> seen = new HashSet<>();
         for (InboxMessage m : matched) {
             Application a = byId.get(m.getApplicationId());
             if (a == null || Boolean.TRUE.equals(a.getArchived()) || a.getStatus() == null || !seen.add(a.getId())) continue; // the newest mail speaks for the application
             String stage = a.getStatus().name();
-            out.add(new Update(a.getId(), a.getCompany(), a.getRoleTitle(), stage, label(stage), reading(m.getCategory()), m.getSentAt(), "INBOX"));
+            out.add(new Update(a.getId(), a.getCompany(), a.getRoleTitle(), stage, label(stage), reading(m.getCategory()), m.getSentAt(), "INBOX", interviewOf(inboxInterviews.get(a.getId()), now), undoOf(a.getId())));
             if (out.size() >= 40) break;
         }
         return out;
+    }
+
+    private UpdateUndo undoOf(Long applicationId) {
+        InboxReviewService.UndoState u = review.undoStateOf(applicationId);
+        return u == null ? null : new UpdateUndo(String.valueOf(u.eventId()), u.undoable());
+    }
+
+    /** The soonest upcoming interview that is not cancelled, else the most recent one; {@code rows} are the application's inbox interviews, soonest first. */
+    static UpdateInterview interviewOf(List<Interview> rows, Instant now) {
+        if (rows == null || rows.isEmpty()) return null;
+        Interview pick = rows
+            .stream()
+            .filter(i -> !Interview.CANCELLED.equals(i.getOutcome()) && !i.getStartsAt().isBefore(now))
+            .findFirst()
+            .orElse(rows.get(rows.size() - 1));
+        String loc = pick.getLocation() == null || pick.getLocation().isBlank() ? null : pick.getLocation().trim();
+        return new UpdateInterview(pick.getId(), pick.getStartsAt(), pick.getTz(), pick.getKind(), linkOf(pick.getNotes()), loc, Interview.CANCELLED.equals(pick.getOutcome()));
+    }
+
+    /** The "Meeting link: ..." line of the notes, only when it is an https URL; anything else is null. */
+    static String linkOf(String notes) {
+        if (notes == null) return null;
+        for (String line : notes.split("\\R")) {
+            String t = line.trim();
+            if (t.regionMatches(true, 0, "Meeting link:", 0, 13)) {
+                String url = t.substring(13).trim();
+                return url.regionMatches(true, 0, "https://", 0, 8) && url.length() > 8 && url.indexOf(' ') < 0 ? url : null;
+            }
+        }
+        return null;
     }
 
     static ApplicationStatus stageOf(String category) {

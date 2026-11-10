@@ -56,14 +56,22 @@
     education: ["education", "academic background", "academics", "qualifications", "academic qualifications"],
     projects: ["projects", "personal projects", "side projects", "academic projects", "selected projects", "notable projects"],
     languages: ["languages", "language proficiency", "spoken languages"],
+    certifications: ["certifications", "certification", "certificates", "licenses", "licenses & certifications", "licenses and certifications", "professional certifications"],
     // recognized but parked so they DON'T bleed into the section above them:
-    other: ["certifications", "certification", "licenses", "awards", "honors", "publications", "patents", "volunteer", "volunteering", "activities", "leadership", "interests", "hobbies", "references", "courses", "coursework", "involvement", "extracurricular"],
+    other: ["awards", "honors", "publications", "patents", "volunteer", "volunteering", "activities", "leadership", "interests", "hobbies", "references", "courses", "coursework", "involvement", "extracurricular"],
   };
   function detectSection(line) {
+    // A heading stands alone on its line: a row with a column gap ("Languages<TAB>Python,
+    // SQL") is a table row, not the Languages heading.
+    if (line.includes("\t")) return null;
     const t = line.trim().toLowerCase().replace(/[:_*]/g, "").trim();
     if (t.length > 45) return null;
     for (const [sec, words] of Object.entries(SECTION_WORDS)) {
-      if (words.some((w) => t === w || t === w + "s" || t.startsWith(w + " ") || t.startsWith(w + " &") || t.startsWith(w + " and"))) return sec;
+      if (words.some((w) => t === w || t === w + "s")) return sec;
+    }
+    for (const [sec, words] of Object.entries(SECTION_WORDS)) {
+      // "Languages Python, SQL, Go" is a list that starts with a section word, not a heading.
+      if (words.some((w) => (t.startsWith(w + " ") || t.startsWith(w + " &") || t.startsWith(w + " and")) && !t.slice(w.length).includes(","))) return sec;
     }
     // Relaxed match for headings that carry leading qualifiers, e.g. "Relevant
     // Technical Skills", "Core Technical Skills", "Areas of Expertise" — any heading
@@ -75,6 +83,15 @@
       }
     }
     return null;
+  }
+  // Letter-spaced all-caps headings come out of pdf.js split at a kerning gap:
+  // "PROFESSIONAL E XPERIENCE", "PROJECTS & COMMUNIT Y". Rejoin a lone capital with the
+  // capital word it touches. Only used when the result names a section, so a middle
+  // initial in a name ("JOHN A SMITH") is never glued on.
+  function collapseSpacedCaps(line) {
+    const s = String(line || "").trim();
+    if (!s || s.length > 45 || s !== s.toUpperCase() || !/[A-Z]/.test(s)) return s;
+    return s.replace(/\b([A-Z]) (?=[A-Z]{2,}\b)/g, "$1").replace(/\b([A-Z]{2,}) ([A-Z])\b/g, "$1$2");
   }
   // A short, capitalized line with no sentence punctuation — a section heading
   // rather than a bullet or a sentence. Used to safely relax keyword matching above.
@@ -156,8 +173,10 @@
     return line.split(/\t+|\s{2,}|\s*\|\s*|\s+[–—]\s+|\s+-\s+|\s*•\s*|\s*·\s*/).map((s) => s.trim()).filter(Boolean);
   }
   // "Meta, Atlanta, GA" -> ["Meta","Atlanta, GA"]; "Atlanta, GA" -> ["","Atlanta, GA"].
+  // "Hyderabad, India" — a city plus a common country name also ends a header as its location.
+  const COUNTRY = "(?:India|Canada|Mexico|Brazil|United Kingdom|UK|England|Ireland|Germany|France|Spain|Italy|Netherlands|Poland|Portugal|Sweden|Switzerland|Israel|UAE|United Arab Emirates|Singapore|Japan|China|Australia|New Zealand|Philippines|Pakistan|Bangladesh|Sri Lanka|Nigeria|Kenya|South Africa|USA|United States)";
   function splitCityState(tok) {
-    const m = tok.match(/^(.*?)(?:,\s*)?([A-Z][A-Za-z.'\- ]+,\s*[A-Z]{2}|remote|hybrid|onsite)\s*$/i);
+    const m = tok.match(new RegExp(`^(.*?)(?:,\\s*)?([A-Z][A-Za-z.'\\- ]+,\\s*(?:[A-Z]{2}|${COUNTRY})|remote|hybrid|onsite)\\s*$`, "i"));
     if (m) return [cleanSeg(m[1]), m[2].trim()];
     return [tok, null];
   }
@@ -283,17 +302,31 @@
     const isSchool = (l) => /university|college|institute|\bschool\b|academy|polytechnic|seminary/i.test(l);
     const startNew = (line) => {
       const { startDate, endDate, cleaned } = extractEduDates(line);
-      let location = "", school = "", degree = "";
+      let location = "", school = "", degree = "", field = "";
+      const segs = [];
       for (const seg of splitSegs(cleaned)) {
+        // "M.S. Computer Science, The University of Texas at Dallas": degree and school in one
+        // segment, split at the first comma part that names a school.
+        const parts = seg.split(/,\s+/);
+        const k = parts.findIndex(isSchool);
+        if (k > 0 && DEGREE_RE.test(parts.slice(0, k).join(", "))) segs.push(parts.slice(0, k).join(", "), parts.slice(k).join(", "));
+        else segs.push(seg);
+      }
+      for (const seg of segs) {
         const [rest, loc] = splitCityState(seg);
         if (loc && !location) location = loc;
         const core = rest || seg;
         if (!school && isSchool(core)) school = core;
-        else if (!degree && DEGREE_RE.test(core)) degree = (core.match(DEGREE_RE) || [""])[0];
+        else if (!degree && DEGREE_RE.test(core)) {
+          degree = (core.match(DEGREE_RE) || [""])[0];
+          const rest = core.replace(DEGREE_RE, "").replace(/\bgpa\b.*$/i, "").replace(/^[\s,.\-–—]+/, "");
+          const inField = rest.match(/\bin\s+([A-Z][A-Za-z &]+)/);
+          field = cleanSeg(inField ? inField[1] : /^[A-Z]/.test(rest) ? rest : "");
+        }
       }
-      if (!school) { const segs = splitSegs(cleaned); school = cleanSeg(segs.find(isSchool) || segs[0] || cleaned); }
+      if (!school) school = cleanSeg(segs.find(isSchool) || segs[0] || cleaned);
       return {
-        school: cleanSeg(school), degree, field: "", startDate, endDate,
+        school: cleanSeg(school), degree, field, startDate, endDate,
         gpa: (line.match(/gpa[:\s]*([0-4]\.\d{1,2})/i) || [, ""])[1] || "",
         location: cleanSeg(location),
       };
@@ -323,6 +356,25 @@
     }
     if (ed) out.push(ed);
     return out.filter((e) => e.school);
+  }
+
+  // One certification per line; a wrapped line (no bullet, starts lower-case) joins the one above.
+  function parseCertifications(lines) {
+    const out = [];
+    for (const raw of lines) {
+      const isBullet = BULLET_RE.test(raw);
+      const t = raw.replace(STRIP_BULLET, "").trim();
+      if (!t) continue;
+      if (!isBullet && out.length && /^[a-z(]/.test(t)) out[out.length - 1] += " " + t;
+      else out.push(t);
+    }
+    return out.filter((c) => c.length <= 160);
+  }
+
+  // "AWS (EKS, EC2, S3)" -> "AWS, EKS, EC2, S3": a parenthesised list inside a skills row is
+  // more skills, not one skill split at its commas ("AWS (EKS", "S3)").
+  function expandParenList(s) {
+    return String(s || "").replace(/([^,()]+?)\s*\(([^()]*,[^()]*)\)/g, "$1, $2");
   }
 
   function parseLanguages(lines) {
@@ -389,7 +441,15 @@
       return toks.every((t) => t.length <= 25 && (t.match(/\s/g) || []).length <= 1 && !/[.!?]$/.test(t) && !/\b(the|and|with|using|built|develop|created?|designed?|implement|led|managed|improv|increas|reduc|responsible)\b/i.test(t));
     };
     for (const line of lines) {
-      if (BULLET_RE.test(line)) { if (pj) pj.bullets.push(line.replace(STRIP_BULLET, "").trim()); continue; }
+      if (BULLET_RE.test(line)) {
+        const b = line.replace(STRIP_BULLET, "").trim();
+        if (pj) { pj.bullets.push(b); continue; }
+        // A bulleted list with no project headings: each bullet is its own project,
+        // "name: description" when it reads that way.
+        const nm = b.match(/^([^:]{2,70}):\s+(.+)$/);
+        if (b) out.push(nm ? { name: cleanSeg(nm[1]), bullets: [nm[2].trim()] } : { name: b, bullets: [] });
+        continue;
+      }
       if (isCityState(line)) continue; // stray "City, ST" line — not a project nor a skill
       const tm = line.match(techLine);
       if (tm) { addSkills(line.slice(tm[0].length)); continue; }   // labeled tech list -> skills
@@ -419,19 +479,30 @@
   function heuristicStructure(text) {
     const splitFn = resolveSplitSkills();
     const lines = text.split("\n").map((l) => l.replace(/ /g, " ").replace(/\s+$/g, "")).map((l) => l.trim()).filter(Boolean);
-    const sections = { summary: [], skills: [], experience: [], education: [], projects: [], languages: [], other: [] };
+    const sections = { summary: [], skills: [], experience: [], education: [], projects: [], languages: [], certifications: [], other: [] };
+    const skillGroups = [];
     let cur = "other";
     const profRe = /native|fluent|conversational|intermediate|advanced|beginner|proficient|basic|bilingual|elementary|working|mother\s*tongue/i;
     for (let li = 0; li < lines.length; li++) {
-      const line = lines[li];
-      // Inline "Label: a, b, c".
-      const colon = line.indexOf(":");
-      if (colon > 0 && colon < 30) {
-        const head = line.slice(0, colon);
+      let line = lines[li];
+      const collapsed = collapseSpacedCaps(line);
+      if (collapsed !== line && detectSection(collapsed)) line = collapsed;
+      // Inline "Label: a, b, c", or a two-column table row "Label<TAB>a, b, c".
+      // A tab row is "label | list" only when the right cell is a list and the left one isn't
+      // ("Python<TAB>Java<TAB>SQL" is just a tabbed skills list).
+      const tab = line.indexOf("\t");
+      const tabLabel = tab > 0 && tab < 40 && !line.slice(0, tab).includes(",") && line.slice(tab + 1).includes(",");
+      const colon = tabLabel ? tab : line.indexOf(":");
+      if (colon > 0 && colon < (tabLabel ? 40 : 30)) {
+        const head = line.slice(0, colon).trim();
         const content = line.slice(colon + 1).trim();
         if (cur === "skills") {
           if (isCityState(content)) continue;                            // "Location: Atlanta, GA" — not a skill
-          if (content) { sections.skills.push(content); continue; }      // skill sub-category
+          if (content) {                                                 // skill sub-category
+            sections.skills.push(content);
+            skillGroups.push({ name: head, skills: content });
+            continue;
+          }
           // "Data:" with nothing after it — a dangling category label; drop it (its
           // skills follow on later lines and stay, since cur is still "skills").
           if (isPureCategoryLabel(head) || CATEGORY_RE.test(head.trim())) continue;
@@ -443,14 +514,15 @@
       const sec = detectSection(line);
       // Drop a bare skills sub-heading (and keep its skills, which follow) instead of
       // letting it leak in as a literal skill.
-      if (cur === "skills" && !line.includes(":") && line.length <= 40 && isPureCategoryLabel(line)) continue;
+      if (cur === "skills" && sec !== "certifications" && !line.includes(":") && line.length <= 40 && isPureCategoryLabel(line)) continue;
       // Drop a stray "City, ST" line sitting in the skills section (contact/location residue).
       if (cur === "skills" && isCityState(line)) continue;
       if (sec) {
         // A category word that is also a section name ("Languages", "Technologies")
         // followed by a tech list (not proficiency text) is a skills sub-heading, not
         // a real spoken-languages/other section — don't switch on it.
-        if (isPureCategoryLabel(line) && line.length <= 22 && !profRe.test(lines[li + 1] || "")) {
+        // A real certifications heading is its own section, never a skills sub-heading.
+        if (sec !== "certifications" && isPureCategoryLabel(line) && line.length <= 22 && !profRe.test(lines[li + 1] || "")) {
           if (cur === "skills" || cur === "projects") continue;
           cur = "skills"; continue;
         }
@@ -460,7 +532,7 @@
     }
     // Route skills through the shared splitter so multi-skill blobs become separate
     // skills (handles ; | tabs / & "and" beyond the legacy comma/bullet split).
-    const skills = (splitFn(sections.skills))
+    const skills = (splitFn(sections.skills.map(expandParenList)))
       .join(", ")
       .split(/[,•|·•\n]|\s•\s|\s\/\s/)
       .map((s) => s.replace(/^[-–•\s]+/, "").trim())
@@ -482,6 +554,8 @@
     return {
       summary: sections.summary.join(" ").trim(),
       skills,
+      skillGroups: skillGroups.map((g) => ({ name: g.name, skills: splitFn(expandParenList(g.skills)) })).filter((g) => g.skills.length),
+      certifications: parseCertifications(sections.certifications),
       experience: parseExperience(sections.experience),
       education: parseEducation(sections.education),
       languages: parseLanguages(sections.languages),
@@ -546,20 +620,82 @@
   // items: [{ x, y, w, str }] — x = left edge, y = baseline (PDF y grows upward),
   // w = advance width, str = text. Pure: no pdf.js/DOM dependency, so the web app and
   // the extension reconstruct identically.
-  function itemsToText(items) {
-    const rows = new Map();
-    for (const it of items) {
-      const y = Math.round(it.y);
-      if (!rows.has(y)) rows.set(y, []);
-      rows.get(y).push(it);
+  const ROW_TOL = 2;        // items within 2pt of a row's baseline share it (right-aligned dates sit ~0.8pt off)
+  const GLYPH_RE = /^[-–—•*▪◦‣·●○▸►▹◆◇∙⁃・]$/;
+  // Group items into rows, then join each row's items: a large x gap is a column break
+  // (emitted as a TAB, which the structurer reads as a cell separator), a touching item
+  // continues the word ("Computer Science" + ", The University"), anything else is a space.
+  function buildRows(items) {
+    const sorted = items.slice().sort((a, b) => b.y - a.y || a.x - b.x);
+    const rows = [];
+    for (const it of sorted) {
+      const row = rows[rows.length - 1];
+      if (row && Math.abs(row.y - it.y) <= ROW_TOL) row.items.push(it);
+      else rows.push({ y: it.y, items: [it] });
     }
-    const lines = [];
-    [...rows.keys()].sort((a, b) => b - a).forEach((y) => {
-      const row = rows.get(y).sort((a, b) => a.x - b.x);
-      const text = row.map((r) => r.str).join(" ").replace(/\s+/g, " ").trim();
-      if (text) lines.push(text);
-    });
-    return lines.join("\n");
+    const out = [];
+    for (const row of rows) {
+      const its = row.items.sort((a, b) => a.x - b.x);
+      let text = "", prev = null, right = -Infinity;
+      const cells = [];
+      for (const it of its) {
+        const str = it.str.replace(/\s+/g, " ");
+        if (prev) {
+          const hasW = typeof prev.w === "number" && prev.w > 0;
+          const gap = hasW ? it.x - (prev.x + prev.w) : null;
+          const charW = hasW ? prev.w / Math.max(1, prev.str.length) : 0;
+          if (gap != null && gap > Math.max(12, 3 * charW) && !GLYPH_RE.test(prev.str.trim())) { text = text.trimEnd() + "\t"; cells.push(it.x); }
+          else if (gap != null && gap < 0.8) { /* touching: same word/run */ }
+          else text += " ";
+        } else cells.push(it.x);
+        text += str;
+        prev = it;
+        if (typeof it.w === "number") right = Math.max(right, it.x + it.w);
+      }
+      text = text.replace(/ {2,}/g, " ").replace(/ *\t */g, "\t").trim();
+      if (!text) continue;
+      const glyph = its.length > 1 && GLYPH_RE.test(its[0].str.trim());
+      out.push({ y: row.y, x: its[0].x, contentX: glyph ? its[1].x : its[0].x, right: right === -Infinity ? its[0].x : right, cells, text, bullet: glyph || BULLET_RE.test(text) });
+    }
+    return out;
+  }
+  function itemsToText(items) {
+    const rows = buildRows(items);
+    if (!rows.length) return "";
+    // Body margin: the left-most x that at least two lines start at.
+    const xs = rows.map((r) => r.x);
+    const sameX = (a, b) => Math.abs(a - b) <= 1;
+    const shared = xs.filter((x) => xs.filter((o) => sameX(o, x)).length >= 2);
+    const margin = Math.min(...(shared.length ? shared : xs));
+    const maxRight = Math.max(...rows.map((r) => r.right));
+    const full = (r) => r.right >= margin + 0.8 * (maxRight - margin);
+    // A line wrapped out of the bullet above: that bullet filled the line, and it either
+    // didn't end a sentence or this line starts lower-case.
+    const wraps = (prev, r) => full(prev) && (!/[.!?]["')\]]?$/.test(prev.text) || /^[a-z]/.test(r.text));
+    const out = [];
+    let seenMargin = false;
+    for (const r of rows) {
+      const prev = out[out.length - 1];
+      const indent = r.x - margin;
+      if (prev && !r.bullet && r.cells.length === 1) {
+        // Wrapped cell of a two-column table row ("…, incident" / "response, SLOs").
+        if (prev.cells.length >= 2 && indent > 40 && sameX(r.x, prev.cells[prev.cells.length - 1]) && prev.y - r.y < 20) {
+          prev.text += " " + r.text; prev.right = r.right; continue;
+        }
+        // Wrapped bullet text, aligned under the bullet's text.
+        if (prev.bullet && indent >= 6 && Math.abs(r.x - prev.contentX) <= 2 && wraps(prev, r)) {
+          prev.text += " " + r.text; prev.right = r.right; continue;
+        }
+        // Bullet dots drawn as shapes aren't text: an indented line (shared by other lines,
+        // under a body-margin line) is a bullet.
+        if (seenMargin && indent >= 6 && indent <= 40 && rows.filter((o) => sameX(o.x, r.x)).length >= 2) {
+          r.text = "• " + r.text; r.bullet = true; r.contentX = r.x;
+        }
+      }
+      if (sameX(r.x, margin)) seenMargin = true;
+      out.push(r);
+    }
+    return out.map((r) => r.text).join("\n");
   }
   // Find an x where text splits into a left and a right column that BOTH run most of the
   // page height with very few rows crossing — the signature of a real two-column layout

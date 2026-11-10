@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ErrorState, LockIcon, MailIcon, ShieldIcon, Skeleton, cn } from "@kiwiply/ui";
 import InboxConnect, { type InboxLinks } from "@/components/settings/InboxConnect";
 import PageHeader from "@/components/ent/shell/ShellContext";
 import LocalDate from "@/components/LocalDate";
-import { BASE, Card, Empty, Pill, useWorkspaceData } from "./parts";
-import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, stageTone, type ConsultantInboxView, type InboxSuggestion, type InboxUpdate } from "@/lib/ent/consultant-ws/inbox";
+import { Card, Empty, Pill, useWorkspaceData } from "./parts";
+import NeedsReviewCard from "@/components/inbox/NeedsReviewCard";
+import RejectionToggle from "@/components/inbox/RejectionToggle";
+import InboxUndo from "@/components/inbox/InboxUndo";
+import type { ReviewEndpoints } from "@/lib/inbox-review";
+import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, interviewLine, reviewEndpoints, stageTone, type ConsultantInboxView, type InboxSuggestion, type InboxUpdate } from "@/lib/ent/consultant-ws/inbox";
 
 /**
  * Inbox (docs/enterprise-v2/18-consultant-inbox.md): the consultant's OWN Gmail, connected the same guided way as on kiwiply.com (a Gmail just for
@@ -18,12 +22,12 @@ import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, sta
  */
 
 /** Every link inside the connect guide stays on THIS organization's host: its own privacy policy (docs/enterprise-v2/62), the consultant's profile, and no pricing page (the license decides). */
-const TENANT_INBOX_LINKS: InboxLinks = { privacy: "/privacy", profile: "/w/consultant/profile", pricing: "/w/consultant/features", appName: "this workspace", accountName: "account", passwordLabel: "Inbox" };
+const TENANT_INBOX_LINKS: InboxLinks = { privacy: "/privacy", profile: "/w/consultant/profile", pricing: "/w/consultant/settings?tab=features", appName: "this workspace", accountName: "account", passwordLabel: "Inbox" };
 
 const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } as const;
 const BTN = "inline-flex min-h-8 items-center rounded-lg px-3.5 text-[13px] font-semibold disabled:opacity-60";
 
-function PrivacyCard() {
+function PrivacyCard({ orgName }: { orgName: string }) {
   return (
     <section data-inbox-privacy aria-label="Who can see your inbox" className="flex gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-4 text-[13px] text-ink-soft">
       <span aria-hidden className="grid h-9 w-9 flex-none place-items-center rounded-full bg-accent-soft text-accent-deep">
@@ -32,9 +36,9 @@ function PrivacyCard() {
       <div className="min-w-0">
         <h3 className="text-[14px] font-bold text-ink">Only you see your mail</h3>
         <p className="mt-1 leading-relaxed">
-          This is your own Gmail, connected with an app password that is kept encrypted and never shown again. Your organization, your marketer and
-          your administrators never see the password, the address, a subject, a sender or a word of a message. They only see the stage an application
-          reaches (for example, Interview), the same as if you had updated it yourself. This workspace only reads; it never sends, moves or deletes mail.
+          This is your own Gmail, connected with an app password that is kept encrypted and never shown again. {orgName}, your marketer and your
+          administrators never see the password, the address or any message; they only see the stage an application reaches. This workspace only
+          reads; it never sends, moves or deletes mail.
         </p>
       </div>
     </section>
@@ -87,9 +91,10 @@ function SuggestionRow({ s, busy, onAct }: { s: InboxSuggestion; busy: boolean; 
   );
 }
 
-function UpdateRow({ u }: { u: InboxUpdate }) {
+function UpdateRow({ u, endpoints, onUndone }: { u: InboxUpdate; endpoints: ReviewEndpoints; onUndone: () => void }) {
+  const iv = u.interview;
   return (
-    <li data-update={u.applicationId} data-stage={u.stage} className="flex flex-wrap items-center justify-between gap-2 border-t border-line py-3 first:border-t-0">
+    <li data-update={u.applicationId} data-stage={u.stage} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-line py-3 first:border-t-0">
       <div className="min-w-0">
         <span className="text-[14px] font-bold text-ink">{u.company}</span>
         {u.role ? <span className="ml-2 text-[13px] text-ink-soft">{u.role}</span> : null}
@@ -104,12 +109,32 @@ function UpdateRow({ u }: { u: InboxUpdate }) {
           from your inbox
         </span>
       </div>
+      {iv ? (
+        <p data-update-interview={iv.id ?? ""} className="m-0 flex min-w-0 basis-full flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-soft">
+          <span className={cn("min-w-0 break-words", iv.cancelled && "text-muted line-through")}>
+            {interviewLine(iv)}
+            {iv.location ? ` · ${iv.location}` : ""}
+          </span>
+          {iv.cancelled ? <Pill tone="red">Cancelled</Pill> : null}
+          {iv.link && !iv.cancelled ? (
+            <a href={iv.link} target="_blank" rel="noopener noreferrer" data-interview-join className="font-semibold text-accent-deep underline underline-offset-2">
+              Join
+            </a>
+          ) : null}
+        </p>
+      ) : null}
+      {u.undo?.undoable && u.at ? (
+        <div data-update-undo={u.undo.eventId} className="basis-full">
+          <InboxUndo endpoints={endpoints} applicationId={u.applicationId} eventId={u.undo.eventId} at={u.at} onUndone={onUndone} />
+        </div>
+      ) : null}
     </li>
   );
 }
 
-export default function InboxPage({ orgId }: { orgId: number; firstName?: string }) {
+export default function InboxPage({ orgId, orgName = "Your organization" }: { orgId: number; firstName?: string; orgName?: string }) {
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchConsultantInbox(orgId), [orgId]));
+  const review = useMemo(() => reviewEndpoints(orgId), [orgId]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -128,7 +153,7 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
   const v: ConsultantInboxView | null = view;
   return (
     <div data-consultant-inbox data-status={status} data-entitled={v ? String(v.entitled) : undefined} data-connection={v?.inbox.connected ? (v.inbox.status ?? "CONNECTED") : v ? "NONE" : undefined} className="flex max-w-3xl flex-col gap-4 sm:gap-5">
-      <PageHeader title="Inbox" subtitle="Connect the Gmail you apply from, and your applications update themselves when employers write back." />
+      <PageHeader title="Email Tracking" subtitle="Connect the Gmail you apply from, and your applications update themselves when employers write back." />
 
       {status === "failed" ? (
         <ErrorState what="your inbox" description="Your inbox page didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
@@ -139,7 +164,7 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
         </div>
       ) : (
         <>
-          <PrivacyCard />
+          <PrivacyCard orgName={orgName} />
           <InboxConnect
             isPro={v.entitled || v.inbox.connected}
             view={v.inbox}
@@ -155,6 +180,8 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
                   {note}
                 </p>
               ) : null}
+              <NeedsReviewCard endpoints={review} workspace onChanged={() => void reload()} />
+              <RejectionToggle endpoints={review} workspace />
               <Card id="inbox-suggestions" title="Found in your mail" icon={MailIcon} tone="accent">
                 {v.suggestions.length === 0 ? (
                   <Empty>Nothing new. Jobs your mail shows that your board doesn&apos;t track yet will appear here.</Empty>
@@ -175,7 +202,7 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
               ) : (
                 <ul data-updates>
                   {v.updates.map((u) => (
-                    <UpdateRow key={u.applicationId} u={u} />
+                    <UpdateRow key={u.applicationId} u={u} endpoints={review} onUndone={() => void reload()} />
                   ))}
                 </ul>
               )}

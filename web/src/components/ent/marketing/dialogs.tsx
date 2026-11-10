@@ -30,7 +30,7 @@ function useDebounced<T>(value: T, ms: number = DEBOUNCE_MS): T {
   return v;
 }
 
-function OverCapacityNotice({ name, over, onForce, busy }: { name: string; over: OverCapacity; onForce: () => void; busy: boolean }) {
+export function OverCapacityNotice({ name, over, onForce, busy }: { name: string; over: OverCapacity; onForce: () => void; busy: boolean }) {
   return (
     <div role="alert" data-over-capacity className="rounded-xl border border-[var(--color-v2-amber)] bg-v2-amber-soft p-3 text-[13px] text-ink">
       <p className="font-semibold">That is over capacity.</p>
@@ -382,7 +382,7 @@ function AddInner({ onClose, orgId, inviteHref, onAdded }: { onClose: () => void
             </label>
             <label className="text-[12.5px] font-semibold text-ink-soft">
               Title (optional)
-              <Input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="Marketing Consultant" className="mt-1" />
+              <Input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="Marketing Specialist" className="mt-1" />
             </label>
           </div>
           {!capOk && <p className="mt-1 text-[12px] text-danger-text">Capacity is a whole number from 1 to 200.</p>}

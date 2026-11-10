@@ -10,7 +10,10 @@ import { badBody, forward, readObject } from "@/lib/admin-proxy";
  */
 const ID = "\\d{1,18}";
 const ROUTES: { method: string; pattern: RegExp; body: boolean }[] = [
-  { method: "GET", pattern: /^(marketers|marketers\/candidates|consultants|filters|kpis|workload)$/, body: false },
+  { method: "GET", pattern: /^(marketers|marketers\/candidates|consultants|filters|kpis|workload|handover-preview|schedules)$/, body: false },
+  { method: "GET", pattern: new RegExp(`^consultants/${ID}/history$`), body: false },
+  { method: "POST", pattern: /^(reassign|delegate)$/, body: true },
+  { method: "POST", pattern: new RegExp(`^schedules/${ID}/cancel$`), body: true },
   { method: "POST", pattern: /^marketers$/, body: true },
   { method: "PATCH", pattern: new RegExp(`^marketers/${ID}$`), body: true },
   { method: "POST", pattern: /^(assign|update|unassign|restore)$/, body: true },

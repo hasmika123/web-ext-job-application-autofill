@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@kiwiply/ui";
-import type { ConsultantPage, Kpis, KpiTile, Marketer, Row } from "@/lib/ent/marketing-assignments";
+import { dayInput, type ConsultantPage, type Kpis, type KpiTile, type Marketer, type Row, type Schedule } from "@/lib/ent/marketing-assignments";
 import MarketingAssignmentsPage from "./MarketingAssignmentsPage";
 
 vi.setConfig({ testTimeout: 30_000 }); // a cold first render of the whole board is slow on a busy machine
@@ -18,6 +18,10 @@ interface World {
   marketers: { id: number; name: string; title: string; capacity: number; status: string }[];
   assignments: Map<number, { marketer: number; backup: number | null; priority: string; status: string; lastActivity: string }>;
   consultants: { id: number; name: string; title: string }[];
+  /** Planned handovers and cover (H-assign). */
+  plans: Schedule[];
+  /** When set, a reassign answers 409 CONSULTANTS_LIMIT (the licence cap). */
+  licenceMax?: number;
 }
 let world: World;
 
@@ -139,6 +143,56 @@ function answer(c: Call): { status: number; body?: unknown } {
     if (c.body?.status) m.status = c.body.status as string;
     return { status: 200, body: marketerOf(m) };
   }
+  if (p === "/schedules" && c.method === "GET") return { status: 200, body: { items: world.plans.filter((x) => x.status === "SCHEDULED" || x.status === "ACTIVE") } };
+  if (p === "/handover-preview") {
+    const id = Number(c.params.get("consultantId"));
+    const to = c.params.get("toMemberId") ? Number(c.params.get("toMemberId")) : null;
+    const target = world.marketers.find((m) => m.id === to);
+    const open = !!world.assignments.get(id);
+    return {
+      status: 200,
+      body: {
+        consultantId: id, consultantName: world.consultants.find((x) => x.id === id)?.name ?? "", from: person(world.assignments.get(id)?.marketer ?? null), to: person(to),
+        opportunities: open ? 2 : 0, tasks: open ? 1 : 0, followups: 0, total: open ? 3 : 0, handoverEnabled: true,
+        toAssigned: target ? count(target.id) : null, toCapacity: target ? target.capacity : null, licenceMax: world.licenceMax ?? null,
+        overCapacity: target ? count(target.id) + 1 > target.capacity : false, overLicence: !!world.licenceMax && !!target && count(target.id) + 1 > world.licenceMax,
+        pending: world.plans.filter((x) => x.consultantId === id && (x.status === "SCHEDULED" || x.status === "ACTIVE")),
+      },
+    };
+  }
+  if (p === "/reassign") {
+    const b = c.body as { consultantId: number; newMarketerMemberId: number; effectiveAt?: string; reason?: string; allowOverCapacity?: boolean };
+    const target = world.marketers.find((m) => m.id === b.newMarketerMemberId)!;
+    if (world.licenceMax && count(target.id) + 1 > world.licenceMax) return { status: 409, body: { error: "The licence allows " + world.licenceMax + " consultants per marketer", code: "CONSULTANTS_LIMIT", marketerMemberId: target.id, max: world.licenceMax, current: count(target.id), adding: 1, projected: count(target.id) + 1 } };
+    if (b.effectiveAt) {
+      const plan: Schedule = {
+        id: 900 + world.plans.length, consultantId: b.consultantId, consultantName: world.consultants.find((x) => x.id === b.consultantId)?.name ?? null, kind: "REASSIGN", status: "SCHEDULED",
+        newMarketer: person(target.id)!, returnMarketer: null, currentMarketer: person(world.assignments.get(b.consultantId)?.marketer ?? null), startsAt: b.effectiveAt, endsAt: null,
+        reason: b.reason ?? null, outcome: null, createdBy: null, createdAt: "2026-10-13T09:00:00Z", appliedAt: null, finishedAt: null,
+      };
+      world.plans.push(plan);
+      return { status: 200, body: { status: "SCHEDULED", applied: null, schedule: plan } };
+    }
+    const r = answer({ ...c, path: "/marketing-assignments/assign", body: { consultantIds: [b.consultantId], marketerMemberId: b.newMarketerMemberId, ...(b.allowOverCapacity ? { allowOverCapacity: true } : {}) } });
+    return r.status === 200 ? { status: 200, body: { status: "DONE", applied: r.body, schedule: null } } : r;
+  }
+  if (p === "/delegate") {
+    const b = c.body as { consultantId: number; coverMarketerMemberId: number; startsAt?: string; endsAt: string; reason: string };
+    const plan: Schedule = {
+      id: 900 + world.plans.length, consultantId: b.consultantId, consultantName: world.consultants.find((x) => x.id === b.consultantId)?.name ?? null, kind: "DELEGATE", status: b.startsAt ? "SCHEDULED" : "ACTIVE",
+      newMarketer: person(b.coverMarketerMemberId)!, returnMarketer: person(world.assignments.get(b.consultantId)?.marketer ?? null), currentMarketer: person(b.startsAt ? (world.assignments.get(b.consultantId)?.marketer ?? null) : b.coverMarketerMemberId),
+      startsAt: b.startsAt ?? "2026-10-13T09:00:00Z", endsAt: b.endsAt, reason: b.reason, outcome: null, createdBy: null, createdAt: "2026-10-13T09:00:00Z", appliedAt: null, finishedAt: null,
+    };
+    world.plans.push(plan);
+    return { status: 200, body: plan };
+  }
+  const cancel = /^\/schedules\/(\d+)\/cancel$/.exec(p);
+  if (cancel && c.method === "POST") {
+    const plan = world.plans.find((x) => x.id === Number(cancel[1]));
+    if (!plan) return { status: 404, body: { error: "no" } };
+    plan.status = plan.status === "ACTIVE" ? "ENDED" : "CANCELLED";
+    return { status: 200, body: plan };
+  }
   return { status: 404, body: { error: "no" } };
 }
 
@@ -168,7 +222,7 @@ const PERMS_ALL = { "assignments.manage": "ORG", "workload.view": "ORG", "consul
 async function mount(over: { permissions?: Record<string, string>; initialSearch?: Record<string, string> } = {}) {
   const out = render(
     <ToastProvider>
-      <MarketingAssignmentsPage orgId={2} orgName="Acme" workspace="admin" permissions={over.permissions ?? PERMS_ALL} initialSearch={over.initialSearch} />
+      <MarketingAssignmentsPage orgId={2} workspace="admin" permissions={over.permissions ?? PERMS_ALL} initialSearch={over.initialSearch} />
     </ToastProvider>,
   );
   await settle(0);
@@ -198,6 +252,7 @@ beforeEach(() => {
       { id: 4, name: "Olivia Carter", title: "UX Designer" },
       { id: 5, name: "Zoe Unassigned", title: "QA Engineer" },
     ],
+    plans: [],
     assignments: new Map([
       [1, { marketer: 11, backup: 12, priority: "HIGH", status: "ACTIVE", lastActivity: "2026-10-12T09:00:00Z" }],
       [2, { marketer: 11, backup: null, priority: "MEDIUM", status: "ACTIVE", lastActivity: "2026-10-11T09:00:00Z" }],
@@ -215,16 +270,12 @@ afterEach(() => {
 });
 
 describe("Marketing Assignments: the board", () => {
-  it("shows the four tiles, the marketers by load, and the first marketer's consultants", async () => {
+  it("shows the two attention tiles without trend, the marketers by load, and the first marketer's consultants", async () => {
     await mount();
-    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["assigned", "marketers", "unassigned", "overloaded"]);
-    expect(document.querySelector("[data-kpi=assigned] [data-kpi-value]")?.textContent).toBe("4");
-    expect(document.querySelector("[data-kpi=assigned] [data-kpi-delta]")?.textContent).toContain("33.3%");
-    expect(document.querySelector("[data-kpi=assigned] [data-delta]")?.getAttribute("data-delta")).toBe("up");
-    expect(document.querySelector("[data-kpi=assigned] [data-kpi-delta]")?.textContent).toContain("vs last month");
-    // a tile the API gave no previous figure for draws no delta
-    expect(document.querySelector("[data-kpi=marketers] [data-kpi-delta]")).toBeNull();
-    expect(document.querySelectorAll("[data-kpi] [data-sparkline]").length).toBe(4);
+    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["unassigned", "overloaded"]);
+    expect(document.querySelector("[data-kpi=overloaded] [data-kpi-value]")?.textContent).toBe("1");
+    expect(document.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(document.querySelectorAll("[data-kpi] [data-sparkline]").length).toBe(0);
     const cards = Array.from(document.querySelectorAll("[data-marketer]"));
     expect(cards.map((c) => c.getAttribute("data-marketer"))).toEqual(["12", "11", "13"]); // Michael is full (100%), Jessica 67%, Ava 0
     expect(cards[0].querySelector("[data-load]")?.textContent).toBe("2 / 2");
@@ -232,10 +283,12 @@ describe("Marketing Assignments: the board", () => {
     // the most loaded marketer is selected first
     expect(document.querySelector("[data-consultants-subtitle]")?.textContent).toBe("Consultants assigned to Michael Park (2 total)");
     expect(tableRows().map((r) => r.textContent)).toHaveLength(2);
-    expect(screen.getByText("2 Marketing Specialists".replace("2", "3"))).toBeTruthy();
-    expect(document.querySelector("[data-summary=total]")?.textContent).toBe("4");
-    expect(document.querySelector("[data-summary=overloaded]")?.textContent).toBe("1");
-    expect(document.querySelector("[data-help-bee]")?.textContent).toContain("Need help with marketing assignments?");
+    expect(document.querySelector("[data-marketers-count]")?.textContent).toBe("3 marketers · 4 assigned");
+    expect(document.querySelector("[data-summary]")).toBeNull(); // the footer trio is gone
+    expect(screen.getByRole("button", { name: /View workload report/ })).toBeTruthy();
+    expect(document.querySelector("[data-help-bee]")).toBeNull();
+    expect(screen.queryByText(/Need help with marketing assignments/)).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: /Last activity/i })).toBeNull();
   });
 
   it("puts the selected marketer in the URL and selects another on a click", async () => {
@@ -284,7 +337,7 @@ describe("Marketing Assignments: the board", () => {
   it("shows an empty table with a way forward for a marketer with no consultants", async () => {
     await mount({ initialSearch: { m: "13" } });
     expect(screen.getByText("Ava Reed has no consultants yet")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Assign Consultants" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Assign consultants" }).length).toBeGreaterThan(0);
   });
 
   it("shows an error with a retry when the marketers cannot load", async () => {
@@ -294,21 +347,21 @@ describe("Marketing Assignments: the board", () => {
     expect(screen.getAllByRole("button", { name: /Try again|Retry/ }).length).toBeGreaterThan(0);
   });
 
-  it("says there are no marketers yet and offers Add Marketer", async () => {
+  it("says there are no marketers yet and offers Add marketer", async () => {
     world.marketers = [];
     world.assignments = new Map();
     await mount();
     expect(screen.getByText("No marketers yet")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /Add Marketer/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Add marketer/ }).length).toBeGreaterThan(0);
   });
 });
 
 describe("Marketing Assignments: read only", () => {
   it("draws no change controls without assignments.manage", async () => {
     await mount({ permissions: { "workload.view": "ORG" } });
-    expect(screen.queryByRole("button", { name: /Add Marketer/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Assign Consultants" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Bulk Actions/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add marketer/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Assign consultants" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Bulk actions/ })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: /Select Daniel/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Row actions" })).toBeNull();
     expect(tableRows().length).toBeGreaterThan(0);
@@ -338,7 +391,7 @@ describe("Marketing Assignments: changes with Undo", () => {
     await mount({ initialSearch: { m: "11" } });
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Daniel Clark" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Sophia Patel" }));
-    fireEvent.click(screen.getByRole("button", { name: /Bulk Actions/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Bulk actions/ }));
     expect(screen.getByRole("menuitem", { name: "Pause" })).toBeTruthy();
     fireEvent.click(screen.getByRole("menuitem", { name: "Pause" }));
     await settle();
@@ -353,7 +406,7 @@ describe("Marketing Assignments: changes with Undo", () => {
 
   it("offers nothing to do in Bulk Actions until rows are ticked", async () => {
     await mount({ initialSearch: { m: "11" } });
-    fireEvent.click(screen.getByRole("button", { name: /Bulk Actions/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Bulk actions/ }));
     expect(screen.getByRole("menuitem", { name: "Select consultants in the table first" }).getAttribute("aria-disabled")).toBe("true");
     expect(screen.queryByRole("menuitem", { name: "Pause" })).toBeNull();
   });
@@ -372,32 +425,124 @@ describe("Marketing Assignments: changes with Undo", () => {
   it("reassigns, warns when the new marketer is full, and goes ahead only on Assign anyway", async () => {
     await mount({ initialSearch: { m: "11" } });
     openRowMenu("Daniel Clark");
-    fireEvent.click(screen.getByRole("menuitem", { name: /Reassign to another marketer/ }));
-    const dialog = screen.getByRole("dialog", { name: /Reassign 1 consultant/ });
+    fireEvent.click(screen.getByRole("menuitem", { name: /Reassign or schedule/ }));
+    const dialog = screen.getByRole("dialog", { name: /Reassign Daniel Clark/ });
     expect(within(dialog).queryByLabelText(/^Jessica Davis/)).toBeNull(); // the current marketer is not offered
     fireEvent.click(within(dialog).getByLabelText(/^Michael Park, 2 of 2/));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Reassign" }));
+    await settle();
+    // before anything happens the sheet says how much open work moves (counts only) and how full the new marketer would be
+    expect(dialog.querySelector("[data-preview-line]")?.textContent).toBe("2 open opportunities and 1 task move to Michael Park.");
+    expect(Array.from(dialog.querySelectorAll("[data-preview-counts] dd")).map((e) => e.textContent)).toEqual(["2", "1", "0"]);
+    expect(dialog.textContent).toContain("Michael Park would carry 3 of 2 consultants");
+    fireEvent.click(dialog.querySelector("[data-reassign-submit]")!);
     await settle();
     expect(world.assignments.get(1)!.marketer).toBe(11); // refused
     expect(within(dialog).getByRole("alert").textContent).toContain("Michael Park would have 3 of 2 consultants, 1 over.");
     fireEvent.click(within(dialog).getByRole("button", { name: "Assign anyway" }));
     await settle();
-    const assigns = calledWith("POST", "/assign");
+    const assigns = calledWith("POST", "/reassign");
     expect(assigns).toHaveLength(2);
-    expect(assigns[0].body).toEqual({ consultantIds: [1], marketerMemberId: 12 });
-    expect(assigns[1].body).toEqual({ consultantIds: [1], marketerMemberId: 12, allowOverCapacity: true });
+    expect(assigns[0].body).toEqual({ consultantId: 1, newMarketerMemberId: 12 });
+    expect(assigns[1].body).toEqual({ consultantId: 1, newMarketerMemberId: 12, allowOverCapacity: true });
     expect(assigns[1].headers["idempotency-key"]).not.toBe(assigns[0].headers["idempotency-key"]);
     expect(world.assignments.get(1)!.marketer).toBe(12);
-    expect(screen.getByText(/Assigned 1 consultant/)).toBeTruthy();
-    expect(screen.getByText(/Over capacity, recorded in the audit log/)).toBeTruthy();
+    expect(screen.getByText(/Reassigned 1 consultant/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     await settle();
     expect(world.assignments.get(1)).toMatchObject({ marketer: 11, backup: 12 });
   });
 
+  it("schedules a handover for a future day, shows it under the consultant, and Undo cancels the plan", async () => {
+    await mount({ initialSearch: { m: "11" } });
+    openRowMenu("Daniel Clark");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Reassign or schedule/ }));
+    const sheet = screen.getByRole("dialog", { name: /Reassign Daniel Clark/ });
+    fireEvent.click(within(sheet).getByLabelText(/^Ava Reed, 0 of 5/));
+    fireEvent.click(sheet.querySelector("[data-when-date]")!);
+    const day = dayInput(6);
+    fireEvent.change(within(sheet).getByLabelText("Hand over on"), { target: { value: day } });
+    fireEvent.change(within(sheet).getByLabelText("Reason"), { target: { value: "Workload balance" } });
+    await settle();
+    expect(within(sheet).getByRole("button", { name: "Schedule handover" })).toBeTruthy();
+    fireEvent.click(sheet.querySelector("[data-reassign-submit]")!);
+    await settle();
+    const sent = calledWith("POST", "/reassign")[0];
+    expect(sent.body).toMatchObject({ consultantId: 1, newMarketerMemberId: 13, reason: "Workload balance" });
+    expect(typeof sent.body?.effectiveAt).toBe("string");
+    expect(sent.headers["idempotency-key"]).toBeTruthy();
+    expect(world.assignments.get(1)!.marketer).toBe(11); // nothing moves today
+    expect(screen.getByText("Handover scheduled")).toBeTruthy();
+    expect(rowFor("Daniel Clark").querySelector("[data-plan-note=REASSIGN]")?.textContent).toMatch(/^Moves to Ava Reed on /);
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await settle();
+    expect(world.plans[0].status).toBe("CANCELLED");
+    expect(calledWith("POST", "/schedules/900/cancel")).toHaveLength(1);
+  });
+
+  it("sets temporary cover: needs an end day and a reason, then shows who covers until when", async () => {
+    await mount({ initialSearch: { m: "11" } });
+    openRowMenu("Daniel Clark");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Temporary cover/ }));
+    const sheet = screen.getByRole("dialog", { name: /Reassign Daniel Clark/ });
+    expect(sheet.querySelector("[data-mode-cover]")?.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(within(sheet).getByLabelText(/^Ava Reed, 0 of 5/));
+    await settle();
+    const submit = sheet.querySelector("[data-reassign-submit]") as HTMLButtonElement;
+    expect(submit.textContent).toBe("Start cover");
+    expect(submit.disabled).toBe(true); // no end day, no reason
+    fireEvent.change(within(sheet).getByLabelText("Back on"), { target: { value: dayInput(9) } });
+    expect(submit.disabled).toBe(true); // still no reason
+    fireEvent.change(within(sheet).getByLabelText("Reason"), { target: { value: "On leave" } });
+    expect(submit.disabled).toBe(false);
+    fireEvent.click(submit);
+    await settle();
+    const sent = calledWith("POST", "/delegate")[0];
+    expect(sent.body).toMatchObject({ consultantId: 1, coverMarketerMemberId: 13, reason: "On leave" });
+    expect(typeof sent.body?.endsAt).toBe("string");
+    expect(sent.body).not.toHaveProperty("startsAt"); // starts now
+    expect(screen.getByText("Ava Reed is covering Daniel Clark")).toBeTruthy();
+    expect(rowFor("Daniel Clark").querySelector("[data-plan-note=DELEGATE]")?.textContent).toMatch(/^Covered by Ava Reed until /);
+  });
+
+  it("a licence cap stops the change and offers no way around it", async () => {
+    world.licenceMax = 2;
+    await mount({ initialSearch: { m: "11" } });
+    openRowMenu("Daniel Clark");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Reassign or schedule/ }));
+    const sheet = screen.getByRole("dialog", { name: /Reassign Daniel Clark/ });
+    fireEvent.click(within(sheet).getByLabelText(/^Michael Park, 2 of 2/));
+    await settle();
+    fireEvent.click(sheet.querySelector("[data-reassign-submit]")!);
+    await settle();
+    expect(sheet.querySelector("[data-licence-limit]")?.textContent).toContain("It allows 2 consultants per marketer and Michael Park already has 2.");
+    expect(within(sheet).queryByRole("button", { name: "Assign anyway" })).toBeNull();
+    expect((sheet.querySelector("[data-reassign-submit]") as HTMLButtonElement).disabled).toBe(true);
+    expect(world.assignments.get(1)!.marketer).toBe(11);
+  });
+
+  it("lists the plans already waiting for the consultant and cancels one", async () => {
+    world.plans.push({
+      id: 700, consultantId: 1, consultantName: "Daniel Clark", kind: "DELEGATE", status: "SCHEDULED", newMarketer: { memberId: 13, name: "Ava Reed" }, returnMarketer: null, currentMarketer: { memberId: 11, name: "Jessica Davis" },
+      startsAt: "2030-01-10T00:00:00Z", endsAt: "2030-01-20T00:00:00Z", reason: "Holiday", outcome: null, createdBy: null, createdAt: "2026-10-13T09:00:00Z", appliedAt: null, finishedAt: null,
+    });
+    await mount({ initialSearch: { m: "11" } });
+    expect(rowFor("Daniel Clark").querySelector("[data-plan-note=DELEGATE]")?.textContent).toContain("Ava Reed covers from");
+    openRowMenu("Daniel Clark");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Reassign or schedule/ }));
+    const sheet = screen.getByRole("dialog", { name: /Reassign Daniel Clark/ });
+    await settle();
+    const pending = sheet.querySelector("[data-pending-plans]")!;
+    expect(pending.textContent).toContain("Holiday");
+    fireEvent.click(within(pending as HTMLElement).getByRole("button", { name: "Cancel" }));
+    await settle();
+    expect(calledWith("POST", "/schedules/700/cancel")).toHaveLength(1);
+    expect(world.plans[0].status).toBe("CANCELLED");
+    expect(screen.getByText("Plan cancelled")).toBeTruthy();
+  });
+
   it("assigns unassigned consultants to the selected marketer from the dialog", async () => {
     await mount({ initialSearch: { m: "13" } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Assign Consultants" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Assign consultants" })[0]);
     await settle(300);
     const dialog = screen.getByRole("dialog", { name: /Assign consultants to Ava Reed/ });
     expect(within(dialog).getByText("Zoe Unassigned")).toBeTruthy();
@@ -416,7 +561,7 @@ describe("Marketing Assignments: changes with Undo", () => {
 
   it("warns before the call when the pick would go past capacity", async () => {
     await mount({ initialSearch: { m: "11" } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Assign Consultants" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Assign consultants" })[0]);
     await settle(300);
     const dialog = screen.getByRole("dialog", { name: /Assign consultants to Jessica Davis/ });
     fireEvent.change(within(dialog).getByLabelText("Pick from"), { target: { value: "others" } });
@@ -469,7 +614,7 @@ describe("Marketing Assignments: changes with Undo", () => {
 
   it("adds a marketer from the members who hold a marketing role", async () => {
     await mount();
-    fireEvent.click(screen.getAllByRole("button", { name: /Add Marketer/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Add marketer/ })[0]);
     await settle();
     const dialog = screen.getByRole("dialog", { name: "Add a marketer" });
     fireEvent.click(within(dialog).getByLabelText("Nia Brooks"));
@@ -483,7 +628,7 @@ describe("Marketing Assignments: changes with Undo", () => {
 
   it("opens the workload report", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: /View Workload Report/ }));
+    fireEvent.click(screen.getByRole("button", { name: /View workload report/ }));
     await settle();
     const dialog = screen.getByRole("dialog", { name: "Workload report" });
     expect(within(dialog).getByRole("table", { name: "Workload by marketer" })).toBeTruthy();

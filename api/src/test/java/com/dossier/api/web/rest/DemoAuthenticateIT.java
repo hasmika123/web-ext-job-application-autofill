@@ -139,21 +139,60 @@ class DemoAuthenticateIT {
     // ---- switch on ----------------------------------------------------------------------------
 
     @Test
-    void publicListShowsTheTwoAccountsAndNeverAPassword() throws Exception {
+    void publicListOffersOnlyTheJobSeekerAndNeverAPasswordOrAnOrganizationAccount() throws Exception {
         setEnabled(true);
 
         mockMvc
             .perform(get("/api/public/demo"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.enabled").value(true))
-            .andExpect(jsonPath("$.accounts.length()").value(2))
+            .andExpect(jsonPath("$.accounts.length()").value(1))
             .andExpect(jsonPath("$.accounts[0].login").value("demo"))
             .andExpect(jsonPath("$.accounts[0].label").value("Job seeker"))
             .andExpect(jsonPath("$.accounts[0].landing").value("/dashboard"))
-            .andExpect(jsonPath("$.accounts[1].login").value("demo-org"))
-            .andExpect(jsonPath("$.accounts[1].landing").value("/org"))
+            .andExpect(content().string(not(containsString("demo-org"))))
+            .andExpect(content().string(not(containsString("demo-admin")))) // DEMO_ADMIN_ENABLED is off by default
             .andExpect(content().string(not(containsString("test-demo-password"))))
             .andExpect(content().string(not(containsString("assword"))));
+    }
+
+    @Test
+    void publicListOffersTheAppAdminLastWhileTheAdminDemoIsOn() throws Exception {
+        setEnabled(true);
+        ReflectionTestUtils.setField(demoAccountService, "adminEnabled", true);
+        try {
+            mockMvc
+                .perform(get("/api/public/demo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accounts.length()").value(2))
+                .andExpect(jsonPath("$.accounts[0].login").value("demo"))
+                .andExpect(jsonPath("$.accounts[1].login").value("demo-admin"))
+                .andExpect(jsonPath("$.accounts[1].label").value("App admin"))
+                .andExpect(jsonPath("$.accounts[1].landing").value("/admin"))
+                .andExpect(content().string(not(containsString("demo-org"))));
+        } finally {
+            ReflectionTestUtils.setField(demoAccountService, "adminEnabled", false);
+        }
+    }
+
+    @Test
+    void theAppAdminDemoOpensOnlyWhileItsSwitchIsOnAndTheOrganizationDemoNeverOpens() throws Exception {
+        setEnabled(true);
+        mockMvc
+            .perform(post("/api/authenticate/demo").contentType(MediaType.APPLICATION_JSON).content(demoLoginBody("demo-admin")))
+            .andExpect(status().isNotFound()); // DEMO_ADMIN_ENABLED off
+        ReflectionTestUtils.setField(demoAccountService, "adminEnabled", true);
+        try {
+            demoAccountService.ensureAccounts();
+            org.junit.jupiter.api.Assertions.assertNotNull(accessTokenFor("demo-admin"));
+        } finally {
+            ReflectionTestUtils.setField(demoAccountService, "adminEnabled", false);
+        }
+        // O4: the personal site never signs anyone into an organization account
+        mockMvc
+            .perform(post("/api/authenticate/demo").contentType(MediaType.APPLICATION_JSON).content(demoLoginBody("demo-org")))
+            .andExpect(status().isNotFound())
+            .andExpect(content().string(not(containsString("accessToken"))));
     }
 
     @Test

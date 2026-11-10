@@ -30,33 +30,24 @@ test.describe("resumes (real stack)", () => {
     await page.goto(`${base}/w/admin/resumes`);
     await expect(page.locator("[data-resumes-page]")).toBeVisible();
 
-    // the real tiles and the first page of the real table
-    const kpi = (k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
-    await expect(kpi("total")).not.toHaveText("");
-    const total = Number((await kpi("total").innerText()).replace(/,/g, ""));
-    expect(total).toBeGreaterThan(50);
-    expect(Number(await kpi("primary").innerText())).toBeGreaterThan(0);
-    await expect(page.locator("[data-kpi=total] [data-kpi-delta]")).toContainText("vs last month");
-    await expect(page.locator("[data-kpi=primary] [data-kpi-delta]")).toHaveCount(0); // the primary flag is not versioned: no invented delta
+    // the first page of the real table, and the count under it (the page has no tiles since the UI refresh)
     await expect(rows(page)).toHaveCount(10);
-    await expect(page.locator("[data-range]")).toContainText(`of ${total}`);
-    await expect(page.getByRole("tab", { name: /All Resumes/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("[data-range]")).toHaveText(/^1-10 of \d+ resumes$/);
+    const total = Number(/of (\d+)/.exec(await page.locator("[data-range]").innerText())![1]);
+    expect(total).toBeGreaterThan(50);
+    await expect(page.getByRole("tab", { name: "All", exact: true })).toHaveAttribute("aria-selected", "true");
     await page.waitForTimeout(600);
     await page.screenshot({ path: resolve(shots, "resumes-1440.png") });
 
-    // tab: Pending Approval keeps only pending rows and writes the tab to the URL
+    // tab: Pending approval (with its count) keeps only pending rows and writes the tab to the URL
+    await expect(page.getByRole("tab", { name: /^Pending approval \(\d+\)$/ })).toBeVisible();
     const pendingList = page.waitForResponse((r) => r.url().includes("/resumes?") && r.url().includes("tab=pending"));
-    await page.getByRole("tab", { name: /Pending Approval/ }).click();
+    await page.getByRole("tab", { name: /Pending approval/ }).click();
     await expect(page).toHaveURL(/tab=pending/);
     await pendingList;
     await expect(rows(page).first()).toBeVisible();
     for (const r of await rows(page).all()) await expect(r).toContainText("Pending");
-    const recentList = page.waitForResponse((r) => r.url().includes("/resumes?") && r.url().includes("tab=recent"));
-    await page.getByRole("tab", { name: /Recent Updates/ }).click();
-    await expect(page).toHaveURL(/tab=recent/);
-    await recentList;
-    await expect(rows(page).first()).toBeVisible();
-    await page.getByRole("tab", { name: /All Resumes/ }).click();
+    await page.getByRole("tab", { name: "All", exact: true }).click();
     await expect(page).not.toHaveURL(/tab=/);
 
     // filter by visibility, then search, then clear
@@ -85,7 +76,7 @@ test.describe("resumes (real stack)", () => {
     await expect(drawer(page).locator("[data-detail-body]")).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`open=${targetId}`));
     await expect(drawer(page).locator("[data-resume-paper]")).toBeVisible();
-    await expect(drawer(page)).toContainText("File Name");
+    await expect(drawer(page)).toContainText("File name");
     await expect(drawer(page).getByRole("button", { name: "Preview" })).toBeVisible();
     await page.waitForTimeout(500);
     await page.screenshot({ path: resolve(shots, "resumes-drawer-1440.png") });
@@ -133,7 +124,7 @@ test.describe("resumes (real stack)", () => {
     // add a resume record: it starts pending and the person who prepared it cannot approve it
     await page.goto(`${base}/w/admin/resumes`);
     await page.locator("[data-upload-open]").click();
-    const up = page.getByRole("dialog", { name: "Upload Resume" });
+    const up = page.getByRole("dialog", { name: "Upload resume" });
     await up.locator('button[aria-label="Consultant"]').click();
     await page.getByRole("option").first().click();
     const newName = `E2E Resume ${Date.now() % 100000}`;

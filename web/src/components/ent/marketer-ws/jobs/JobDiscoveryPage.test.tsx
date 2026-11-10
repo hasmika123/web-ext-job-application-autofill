@@ -99,38 +99,35 @@ const board = async () => {
 };
 
 describe("JobDiscoveryPage", () => {
-  it("draws the five tiles exactly as the board: the fourth has no title, the fifth is titled Saved Searches", async () => {
+  it("has no tiles; the chip row says how many openings are new today and lists the saved searches", async () => {
     await board();
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(5);
-    const t = (id: string) => document.querySelector(`[data-stat-tile="${id}"]`) as HTMLElement;
-    expect(within(t("newToday")).getByText("New Openings Today")).toBeTruthy();
-    expect(within(t("newToday")).getByText("24")).toBeTruthy();
-    expect(t("newToday").textContent).toContain("26%");
-    expect(t("newToday").textContent).toContain("vs yesterday");
-    expect(within(t("highMatch")).getByText("High-Match Openings")).toBeTruthy();
-    expect(within(t("highMatch")).getByText("56")).toBeTruthy();
-    expect(t("highMatch").textContent).toContain("vs last week");
-    expect(within(t("assigned")).getByText("Jobs Assigned")).toBeTruthy();
-    expect(within(t("assigned")).getByText("32")).toBeTruthy();
-    expect(t("savedSearchCount").querySelector("h3")).toBeNull();
-    expect(within(t("savedSearchCount")).getByText("12")).toBeTruthy();
-    expect(t("savedSearchCount").textContent).toContain("50%");
-    expect(t("savedSearchCount").textContent).toContain("vs last month");
-    expect(within(t("savedSearches")).getByText("Saved Searches")).toBeTruthy();
-    expect(t("savedSearches").querySelector("[data-tile-value]")).toBeNull();
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
+    const chips = document.querySelector("[data-jobs-chips]") as HTMLElement;
+    expect(within(chips).getByText("24 new today")).toBeTruthy();
+    expect(within(chips).getByText("Java Developers - East Coast")).toBeTruthy();
+    expect(within(chips).getByText("24 new", { selector: "[data-new-badge]" })).toBeTruthy();
+    expect(chips.querySelectorAll("[data-saved-row]")).toHaveLength(5);
+    expect(chips.querySelectorAll("[data-new-badge]")).toHaveLength(5);
+    expect(within(chips).getByRole("button", { name: "Apply search AWS Cloud Roles" }).getAttribute("title")).toBe("Skills: AWS, DevOps | Location: Nationwide");
   });
 
-  it("draws the search bar, the filter row and the Job Openings header", async () => {
+  it("draws the search bar and the filter row: four filters in view, Visa and Rate under More filters", async () => {
     await board();
-    expect(screen.getByPlaceholderText(/Search job title, skills, client, or keywords/)).toBeTruthy();
+    expect(screen.getByPlaceholderText(/Search title, skills, client, or keywords/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Search" })).toBeTruthy();
-    for (const label of ["Skills", "Location", "Work Type", "Visa", "Rate", "Source"]) expect(within(document.querySelector("[data-jobs-filters]") as HTMLElement).getByText(label)).toBeTruthy();
-    const filters = (document.querySelector("[data-jobs-filters]") as HTMLElement).textContent ?? "";
-    for (const value of ["Select skills", "Select location", "All Types", "All Visa Types", "Min - Max", "All Sources"]) expect(filters).toContain(value);
+    const bar = document.querySelector("[data-jobs-filters]") as HTMLElement;
+    for (const label of ["Skills", "Location", "Work type", "Source"]) expect(within(bar).getByText(label)).toBeTruthy();
+    for (const label of ["Visa", "Rate"]) expect(within(bar).queryByText(label)).toBeNull();
+    const filters = bar.textContent ?? "";
+    for (const value of ["Select skills", "Select location", "All types", "All sources"]) expect(filters).toContain(value);
     expect(screen.getByRole("button", { name: "Clear all" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "More filters" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "More filters" }));
+    const more = document.querySelector("[data-more-filters]") as HTMLElement;
+    for (const label of ["Visa", "Rate"]) expect(within(more).getByText(label)).toBeTruthy();
+    expect(more.textContent).toContain("All visa types");
+    expect(more.textContent).toContain("Min - Max");
     const card = document.querySelector('[data-jobs-card="openings"]') as HTMLElement;
-    expect(within(card).getByText("Job Openings")).toBeTruthy();
+    expect(within(card).getByText("Openings")).toBeTruthy();
     expect(within(card).getByText("(342)")).toBeTruthy();
     expect(within(card).getByText("Sort by")).toBeTruthy();
     expect(within(card).getByRole("button", { name: /Table/ })).toBeTruthy();
@@ -140,7 +137,7 @@ describe("JobDiscoveryPage", () => {
   it("lists the board's eight rows with every column, chip and button", async () => {
     await board();
     const card = document.querySelector('[data-jobs-card="openings"]') as HTMLElement;
-    for (const col of ["Job Title", "Client", "Location", "Rate", "Source", "Posted", "Priority", "Actions"]) expect(within(card).getAllByText(col).length).toBeGreaterThan(0);
+    for (const col of ["Opening", "Client", "Location", "Rate", "Source", "Posted", "Priority", "Actions"]) expect(within(card).getAllByText(col).length).toBeGreaterThan(0);
     expect(document.querySelectorAll("[data-job-row]")).toHaveLength(8);
     const first = document.querySelector('[data-job-row="1"]') as HTMLElement;
     expect(within(first).getByText("Senior Java Developer")).toBeTruthy();
@@ -160,57 +157,19 @@ describe("JobDiscoveryPage", () => {
     expect(within(document.querySelector('[data-job-row="2"]') as HTMLElement).getByText("Medium")).toBeTruthy();
   });
 
-  it("draws Trending Skills, Top Clients Hiring and Recent Job Alerts", async () => {
+  it("has no Trending skills, Top clients, alerts, bee help card or Watched streams (those moved or went)", async () => {
     await board();
-    const trending = document.querySelector('[data-jobs-card="trending"]') as HTMLElement;
-    expect(within(trending).getByText("Trending Skills in Openings")).toBeTruthy();
-    expect(document.querySelectorAll("[data-trending-row]")).toHaveLength(5);
-    expect(within(trending).getByText("128")).toBeTruthy();
-    expect(trending.textContent).toContain("+32%");
-    const clients = document.querySelector('[data-jobs-card="clients"]') as HTMLElement;
-    expect(within(clients).getByText("Top Clients Hiring")).toBeTruthy();
-    for (const h of ["Client", "Openings", "Top Skills", "Trend"]) expect(within(clients).getByText(h)).toBeTruthy();
-    expect(within(clients).getByText("Java, AWS, DevOps")).toBeTruthy();
-    expect(clients.textContent).toContain("+40%");
-    const alerts = document.querySelector('[data-jobs-card="alerts"]') as HTMLElement;
-    expect(within(alerts).getByText("Recent Job Alerts")).toBeTruthy();
-    expect(within(alerts).getByText("24 new Java openings at TechCorp")).toBeTruthy();
-    expect(within(alerts).getByText("2 hours ago")).toBeTruthy();
+    for (const c of ["trending", "clients", "alerts", "help", "saved", "streams"]) expect(document.querySelector(`[data-jobs-card="${c}"]`), c).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ask a question" })).toBeNull();
+    expect(screen.queryByText(/Trending skills/i)).toBeNull();
+    expect(screen.queryByText(/Watched job streams/i)).toBeNull();
   });
 
-  it("draws the right column: bee help card, Saved Searches with N new badges, Watched Job Streams", async () => {
-    await board();
-    const help = document.querySelector('[data-jobs-card="help"]') as HTMLElement;
-    expect(within(help).getByText("Discover the best opportunities for your consultants")).toBeTruthy();
-    expect(within(help).getByText("Use filters, saved searches, and AI matching to find and assign the right jobs faster.")).toBeTruthy();
-    expect(within(help).getByRole("button", { name: "Ask a question" })).toBeTruthy();
-    expect(help.querySelector("img")?.getAttribute("src")).toBe("/ent/marketer/jobs/banner.png");
-    const saved = document.querySelector('[data-jobs-card="saved"]') as HTMLElement;
-    expect(within(saved).getByText("Saved Searches")).toBeTruthy();
-    expect(within(saved).getByText("(5)")).toBeTruthy();
-    expect(within(saved).getByText("Java Developers - East Coast")).toBeTruthy();
-    expect(within(saved).getByText("Skills: Java, Spring, AWS | Location: NY, NJ, PA")).toBeTruthy();
-    expect(within(saved).getByText("24 new")).toBeTruthy();
-    expect(saved.querySelectorAll("[data-new-badge]")).toHaveLength(5);
-    const streams = document.querySelector('[data-jobs-card="streams"]') as HTMLElement;
-    expect(within(streams).getByText("Watched Job Streams")).toBeTruthy();
-    expect(within(streams).getByText("(5)")).toBeTruthy();
-    expect(within(streams).getByText("TechCorp - All Openings")).toBeTruthy();
-    expect(within(streams).getByText("124 new jobs this week")).toBeTruthy();
-    expect(within(streams).getAllByText("Active")).toHaveLength(5);
-    expect(within(streams).getByRole("link", { name: "View all" }).getAttribute("href")).toBe("/w/marketing/streams");
-  });
-
-  it("says so, with no rows and no numbers, when the organization has nothing", async () => {
+  it("says so, with no rows and no chips, when the organization has nothing", async () => {
     serve(() => json(200, fixture({ kpis: {}, items: [], total: 0, trendingSkills: [], topClients: [], alerts: [], savedSearches: [], streams: [] })));
     mount();
-    await screen.findByText("No open jobs yet.");
-    expect(screen.getByText("No skills to rank yet.")).toBeTruthy();
-    expect(screen.getByText("No client is hiring right now.")).toBeTruthy();
-    expect(screen.getByText("No new alerts.")).toBeTruthy();
-    expect(screen.getByText(/No saved searches yet/)).toBeTruthy();
-    expect(screen.getByText(/nothing to watch/)).toBeTruthy();
-    expect(screen.getAllByText("Nothing yet").length).toBeGreaterThanOrEqual(3);
+    await screen.findByText("No openings yet.");
+    expect(document.querySelector("[data-jobs-chips]")).toBeNull();
     expect(document.querySelectorAll("[data-job-row]")).toHaveLength(0);
   });
 
@@ -242,9 +201,9 @@ describe("JobDiscoveryPage", () => {
     await board();
     fireEvent.change(screen.getByLabelText("Source"), { target: { value: "Indeed" } });
     await waitFor(() => expect(calls.some((c) => c.url.includes("source=Indeed"))).toBe(true));
-    fireEvent.change(screen.getByLabelText("Work Type"), { target: { value: "REMOTE" } });
+    fireEvent.change(screen.getByLabelText("Work type"), { target: { value: "REMOTE" } });
     await waitFor(() => expect(calls.some((c) => c.url.includes("workType=REMOTE") && c.url.includes("source=Indeed"))).toBe(true));
-    fireEvent.change(screen.getByPlaceholderText(/Search job title/), { target: { value: "java" } });
+    fireEvent.change(screen.getByPlaceholderText(/Search title, skills/), { target: { value: "java" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await waitFor(() => expect(calls.some((c) => c.url.includes("q=java"))).toBe(true));
     fireEvent.click(screen.getByRole("button", { name: "Clear all" }));

@@ -166,6 +166,22 @@ export default function PickTemplatePanel({ doc, templateId, theme, config, cont
           />
         </Row>
 
+        {ctl.photoSlot && (
+          <Row label="Photo" labelId="rb-tpl-photo" hint="Add or change the picture in the header of your resume. Hiding it keeps the file.">
+            <ChoiceGroup
+              aria-labelledby="rb-tpl-photo"
+              className="grid grid-cols-2 gap-2 [&>button]:rounded-lg [&>button]:px-2 [&>button]:text-[13px]"
+              disabled={disabled}
+              value={(stored.showPhoto ?? activeCaps.photoDefault) ? "show" : "hide"}
+              options={[
+                { value: "show", label: "Show" },
+                { value: "hide", label: "Hide" },
+              ]}
+              onChange={(v) => controls.changeTheme({ control: "photo", value: v === "show" })}
+            />
+          </Row>
+        )}
+
         {ctl.dateStyleControl && (
           <Row label="Date style" labelId="rb-tpl-dates">
             <ChoiceGroup

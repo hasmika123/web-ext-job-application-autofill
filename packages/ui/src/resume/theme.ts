@@ -32,8 +32,10 @@ export const FONT_STACKS: Record<FontPair, { body: string; display: string }> = 
     display: '"Source Serif 4", Georgia, "Times New Roman", serif',
   },
   "georgia-arial": {
-    body: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
-    display: 'Georgia, "Times New Roman", serif',
+    // The real Arial / Georgia where the system has them (Windows, macOS); the bundled metric-compatible twins (Arimo, Gelasio)
+    // where it does not (the Linux Chromium that prints production PDFs), so a page breaks the same everywhere.
+    body: 'Arial, Arimo, "Helvetica Neue", Helvetica, sans-serif',
+    display: 'Georgia, Gelasio, "Times New Roman", serif',
   },
   plex: {
     body: '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif',

@@ -83,10 +83,17 @@ public class DemoAccountService {
         new DemoAccount(LOGIN_ORG, "Organization admin", "The organization admin: people, boards and reports.", "/org")
     );
 
+    /**
+     * What kiwiply.com's demo panel OFFERS. {@code demo-org} is deliberately not on it (decision O4): organization accounts live on
+     * their own tenant host and are tried through that host's demo tab, never from the personal site. The account still exists
+     * (the retired org console's seed and tests use it) but nobody can open it from a public sign-in.
+     */
+    private static final List<DemoAccount> OFFERED = List.of(ACCOUNTS.get(0));
+
     private static final DemoAccount ADMIN_ACCOUNT = new DemoAccount(
         LOGIN_ADMIN,
         "App admin",
-        "The Kiwiply app admin console (testing only).",
+        "Kiwiply's own admin console: users, plans and pricing, AI settings, organizations and system settings.",
         "/admin"
     );
 
@@ -197,12 +204,12 @@ public class DemoAccountService {
 
     // ---- who is a demo account, and is the feature on ----------------------------------------
 
-    /** The two accounts the login page offers, in display order. */
+    /** The accounts the personal site's demo panel offers, in display order: the job seeker, plus the app admin while {@code DEMO_ADMIN_ENABLED}. */
     public List<DemoAccount> accounts() {
         if (!adminEnabled) {
-            return ACCOUNTS;
+            return OFFERED;
         }
-        List<DemoAccount> all = new java.util.ArrayList<>(ACCOUNTS);
+        List<DemoAccount> all = new java.util.ArrayList<>(OFFERED);
         all.add(ADMIN_ACCOUNT);
         return all;
     }
@@ -247,8 +254,11 @@ public class DemoAccountService {
     /** Sign the demo accounts out everywhere by revoking their refresh tokens. */
     @Transactional
     public void revokeSessions() {
-        for (DemoAccount account : accounts()) {
-            userRepository.findOneByLogin(account.login()).ifPresent(u -> refreshTokenService.deleteAllForUser(u.getId()));
+        // Every fixed account, offered or not (demo-org is no longer offered but may still hold a session), and the app admin if it exists.
+        List<String> logins = new java.util.ArrayList<>(ACCOUNTS.stream().map(DemoAccount::login).toList());
+        logins.add(LOGIN_ADMIN);
+        for (String login : logins) {
+            userRepository.findOneByLogin(login).ifPresent(u -> refreshTokenService.deleteAllForUser(u.getId()));
         }
     }
 

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { GROUP_COLORS, GROUP_ICONS, TONE_BAR, TONE_TILE, directoryQueryString, failMessage, plural, shortDate, toneOf } from "./groups";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { GROUP_COLORS, GROUP_ICONS, TONE_BAR, TONE_TILE, directoryQueryString, failMessage, groupsApi, plural, shortDate, toneOf } from "./groups";
 
 describe("groups helpers (X4.5)", () => {
   it("builds the directory query with only what is set, and always a page and size", () => {
@@ -36,5 +36,28 @@ describe("groups helpers (X4.5)", () => {
 
   it("uses no hard-coded colour values (brand tokens and status tones only)", () => {
     for (const cls of [...Object.values(TONE_TILE), ...Object.values(TONE_BAR)]) expect(cls).not.toMatch(/#[0-9a-f]{3,6}|rgb\(/i);
+  });
+});
+
+describe("groups BFF client body guard", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const answer = (body: unknown) => vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })));
+
+  it("fails a 200 whose body is not a structure (a bare group list) instead of handing the page something it would crash on", async () => {
+    answer([{ id: 1, name: "Marketing", kind: "DEPARTMENT" }]);
+    const r = await groupsApi.structure(2);
+    expect(r.ok).toBe(false);
+  });
+
+  it("fails a 200 directory without items", async () => {
+    answer({ page: 0 });
+    expect((await groupsApi.directory(2, {})).ok).toBe(false);
+  });
+
+  it("passes a well-formed structure and directory through", async () => {
+    answer({ organizationName: "Acme", employees: 3, departments: [], unassignedTeams: [], cohorts: [] });
+    expect((await groupsApi.structure(2)).ok).toBe(true);
+    answer({ items: [], page: 0, size: 8, total: 0, summary: {} });
+    expect((await groupsApi.directory(2, {})).ok).toBe(true);
   });
 });

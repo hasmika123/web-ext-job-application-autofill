@@ -50,6 +50,7 @@ class MktMatchesIT {
     @Autowired private ClientRequirementRepository requirements;
     @Autowired private ConsultantProfileRepository consultants;
     @Autowired private OrgResumeRepository orgResumes;
+    @Autowired private com.dossier.api.repository.ent.mkt.MktOpportunityRepository opportunities;
     @Autowired private ResumeBuilderSettings settings;
     @Autowired private TenantResolver resolver;
 
@@ -96,6 +97,14 @@ class MktMatchesIT {
             .filter(m -> consultants.findByOrgIdAndId(acme.getId(), m.getConsultantId()).map(c -> "ACTIVE".equals(c.getStatus()) && "ACTIVE".equals(c.getMarketingStatus())).orElse(false))
             .filter(m -> orgResumes.existsByOrgIdAndConsultantIdAndApprovalStatus(acme.getId(), m.getConsultantId(), "APPROVED"))
             .findFirst().orElseThrow();
+        // The overlay row is created by a single-statement insert in its OWN transaction (a second connection). Its foreign keys then point at rows this test's
+        // transaction wrote and has not committed (the seeded match), so on a database where no other class has committed the demo world the insert waits for
+        // a lock that is never released. The overlay is therefore written here, inside the test's transaction, and the assign finds it: this test is about what
+        // an assignment records on the match, not about that insert (the job-identity and pipeline ITs cover it against committed data).
+        com.dossier.api.domain.ent.mkt.MktOpportunity overlay = new com.dossier.api.domain.ent.mkt.MktOpportunity();
+        overlay.setOrgId(acme.getId());
+        overlay.setMatchId(target.getId());
+        opportunities.save(overlay);
         MvcResult r = mockMvc.perform(post(url(acme, "/" + target.getId() + "/assign")).with(user("demo-ent-acme-sarah"))).andReturn();
         assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200);
         assertThat(om.readTree(r.getResponse().getContentAsString()).path("status").asText()).isEqualTo("ASSIGNED");

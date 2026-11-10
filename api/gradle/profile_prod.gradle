@@ -33,7 +33,7 @@ processResources {
 }
 
 task integrationTest(type: Test) {
-    maxHeapSize = "1G"
+    maxHeapSize = "3G"
     useJUnitPlatform()
     description = "Execute integration tests."
     group = "verification"

@@ -22,6 +22,7 @@ function fakeApi(handlers: {
   doc?: (c: Call) => Response;
   pdf?: (c: Call) => Response;
   fail?: (c: Call) => Response;
+  photo?: (c: Call) => Response;
 }) {
   const calls: Call[] = [];
   const impl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -33,6 +34,7 @@ function fakeApi(handlers: {
     if (url.endsWith("/resume-pdf-jobs/claim")) return (handlers.claim ?? (() => Response.json([])))(call);
     if (url.endsWith("/fail")) return (handlers.fail ?? (() => new Response(null, { status: 204 })))(call);
     if (url.endsWith("/doc")) return (handlers.doc ?? (() => Response.json({ doc: DOC, theme: {}, templateId: "modern", renderHash: JOB.renderHash })))(call);
+    if (url.endsWith("/photo")) return (handlers.photo ?? (() => new Response(null, { status: 404 })))(call);
     if (url.endsWith("/pdf")) return (handlers.pdf ?? (() => new Response(null, { status: 204 })))(call);
     throw new Error(`unexpected ${url}`);
   });
@@ -95,6 +97,48 @@ describe("runPdfJobsOnce", () => {
     expect(thumb.type).toBe("image/png");
     expect(Buffer.from(await thumb.arrayBuffer()).toString("latin1")).toBe("\x89PNG-bytes");
     expect(form.get("file")).toBeTruthy(); // the PDF travels with it
+  });
+
+  describe("the photo (R7.4)", () => {
+    const PHOTO_DOC = { ...DOC, basics: { name: "A", photo: { key: "resume-photos/3/7-abc-photo.jpg" } } } as unknown as ResumeDocument;
+    const BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 9, 9]);
+    const photoDoc = (templateId: string, theme: unknown) => () => Response.json({ doc: PHOTO_DOC, theme, templateId, renderHash: JOB.renderHash });
+
+    it("fetches the photo with the token and hands the render a data URI, when the template draws it", async () => {
+      const api = fakeApi({
+        claim: claimOne,
+        doc: photoDoc("sidebar", { showPhoto: true }),
+        photo: () => new Response(BYTES, { status: 200, headers: { "content-type": "image/jpeg" } }),
+      });
+      const exportPdf = vi.fn(async () => okPdf);
+      await runPdfJobsOnce({ fetch: api.fetch, exportPdf, env: ENV, log });
+
+      const photo = api.calls.find((c) => c.url.endsWith("/photo"))!;
+      expect(photo.url).toBe("http://api.test/api/internal/resumes/7/photo");
+      expect(photo.headers["x-internal-token"]).toBe(TOKEN);
+      const input = (exportPdf.mock.calls[0] as unknown as [{ photoSrc?: string }])[0];
+      expect(input.photoSrc).toBe(`data:image/jpeg;base64,${Buffer.from(BYTES).toString("base64")}`);
+      expect(logs.some(([, l]) => /ready/.test(l))).toBe(true);
+    });
+
+    it("does not even ask for the photo on an ATS template, or when the theme hides it", async () => {
+      for (const [templateId, theme] of [["modern", { showPhoto: true }], ["sidebar", { showPhoto: false }], ["sidebar", {}]] as const) {
+        const api = fakeApi({ claim: claimOne, doc: photoDoc(templateId, theme) });
+        const exportPdf = vi.fn(async () => okPdf);
+        await runPdfJobsOnce({ fetch: api.fetch, exportPdf, env: ENV, log });
+        expect(api.calls.some((c) => c.url.endsWith("/photo")), `${templateId} ${JSON.stringify(theme)}`).toBe(false);
+        expect((exportPdf.mock.calls[0] as unknown as [Record<string, unknown>])[0]).not.toHaveProperty("photoSrc");
+      }
+    });
+
+    it("a missing photo file still gives a PDF (without the picture)", async () => {
+      const api = fakeApi({ claim: claimOne, doc: photoDoc("sidebar", { showPhoto: true }) }); // /photo answers 404
+      const exportPdf = vi.fn(async () => okPdf);
+      await runPdfJobsOnce({ fetch: api.fetch, exportPdf, env: ENV, log });
+      expect((exportPdf.mock.calls[0] as unknown as [Record<string, unknown>])[0]).not.toHaveProperty("photoSrc");
+      expect(api.calls.some((c) => c.url.endsWith("/fail"))).toBe(false);
+      expect(api.calls.some((c) => c.url.endsWith("/pdf"))).toBe(true);
+    });
   });
 
   it("posts no thumb part when the screenshot did not work, and the PDF still goes", async () => {

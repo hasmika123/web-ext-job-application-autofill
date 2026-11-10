@@ -20,7 +20,7 @@ export function ResumeBadge({ state }: { state: "UPDATED" | "NEEDS_UPDATE" }) {
       <span aria-hidden className={cn("grid h-5 w-5 place-items-center rounded", state === "UPDATED" ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-pink-soft text-v2-pink-ink")}>
         <FileTextIcon size={12} />
       </span>
-      {state === "UPDATED" ? "Updated" : "Needs Update"}
+      {state === "UPDATED" ? "Updated" : "Needs update"}
     </span>
   );
 }

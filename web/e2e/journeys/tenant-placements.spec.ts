@@ -51,8 +51,6 @@ test.describe("placements (real stack)", () => {
     await expect(page.getByRole("tab", { name: `Active (${active})` })).toBeVisible();
     await expect(page.locator("tr[data-row-id]")).toHaveCount(10);
     await expect(page.locator("[data-showing-top]")).toContainText(`of ${active.toLocaleString("en-US")} active placements`);
-    await expect(page.locator("[data-kpi=active] [data-kpi-delta]")).toContainText("vs last month");
-    await expect(page.locator("[data-help-card]")).toBeVisible();
     // the board opens with its first row selected, docked in the right column
     await expect(drawer(page)).toBeVisible();
     await expect(page).toHaveURL(/pl=\d+/);
@@ -82,7 +80,7 @@ test.describe("placements (real stack)", () => {
     const ending = await num(kpi(page, "endingSoon"));
     await expect(page.locator("[data-showing-top]")).toContainText(`of ${ending} active placements`);
     await page.locator('button[aria-label="Status"]').click();
-    await page.getByRole("option", { name: "All Statuses" }).click();
+    await page.getByRole("option", { name: "All statuses" }).click();
     const search = page.getByRole("searchbox", { name: "Search placements" });
     await search.fill("zzzz-nobody");
     await expect(page.getByText("No placements match")).toBeVisible();
@@ -99,7 +97,7 @@ test.describe("placements (real stack)", () => {
     await page.locator('button[aria-label="Sort by"]').click();
     await page.getByRole("option", { name: "End Date (Soonest)" }).click();
 
-    // grid view and More Filters
+    // grid view and More filters
     await page.getByRole("button", { name: "Grid view" }).click();
     await expect(page.locator("[data-placement-cards=grid] li").first()).toBeVisible();
     await page.screenshot({ path: resolve(shots, "placements-grid-1440.png") });
@@ -166,7 +164,7 @@ test.describe("placements (real stack)", () => {
     await expect(drawer(page).locator("[data-note-id]")).toHaveCount(before + 1);
     await expect(drawer(page).getByRole("button", { name: /^Save/ })).toHaveCount(0);
 
-    // Add Placement: a consultant who is free, a client, a role and a start date; then complete it so the next run finds the consultant free again
+    // Add placement: a consultant who is free, a client, a role and a start date; then complete it so the next run finds the consultant free again
     await page.locator("[data-add-placement]").click();
     const add = page.locator("[data-add-dialog]");
     await expect(add).toBeVisible();

@@ -3,6 +3,7 @@
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { AlertIcon, ArrowRightIcon, LockIcon, MailIcon } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import { AUTH_CARD_COLUMN, LoginBackdrop } from "@/components/ent/login/AuthBackdrop";
 import PolicyLinks from "@/components/ent/policy/PolicyLinks";
 import { newPasswordProblem } from "@/lib/ent/join";
 
@@ -18,8 +19,9 @@ const SUBMIT = "tenant-signin inline-flex h-[54px] w-full items-center justify-c
 function Shell({ name, logoUrl, title, children }: { name: string; logoUrl?: string | null; title: string; children: ReactNode }) {
   return (
     <main className="tenant-sky relative isolate min-h-dvh overflow-x-hidden text-[var(--brand-900)]" data-tenant-password-reset>
-      <div className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col justify-center px-4 py-10">
-        <section aria-label={title} className="tenant-glass rounded-[28px] px-5 py-7 sm:px-9 sm:py-9">
+      <LoginBackdrop />
+      <div className={`mx-auto flex min-h-dvh w-full max-w-[1600px] flex-col items-center justify-center px-4 py-10 ${AUTH_CARD_COLUMN}`}>
+        <section aria-label={title} className="tenant-glass w-full max-w-[520px] rounded-[28px] px-5 py-7 sm:px-9 sm:py-9">
           <div className="mb-6 flex items-center gap-4">
             <h1 className="min-w-0 flex-1 font-body text-[30px] font-extrabold leading-tight tracking-tight sm:text-[34px]">{title}</h1>
             <span aria-hidden className="h-16 w-px shrink-0 bg-[var(--brand-border)]" />
@@ -29,7 +31,7 @@ function Shell({ name, logoUrl, title, children }: { name: string; logoUrl?: str
           </div>
           {children}
         </section>
-        <PolicyLinks tone="plain" className="mt-5 text-[var(--brand-800)]" />
+        <PolicyLinks tone="plain" className="mt-5 w-full max-w-[520px] text-[var(--brand-800)]" />
       </div>
     </main>
   );
@@ -113,7 +115,7 @@ export function TenantForgotPassword({ name, logoUrl, supportEmail }: { name: st
   return (
     <Shell name={name} logoUrl={logoUrl} title="Reset your password">
       <p className="mb-4 text-[15px] leading-snug text-[var(--brand-800)]">
-        Enter the email address of your {name} account and we&apos;ll send you a link to set a new password. This only changes your {name} account: it belongs to {name} and is separate from any personal Kiwiply account.
+        Enter the email address of your {name} account and we&apos;ll send you a link to set a new password. This only changes your {name} account: it belongs to {name} and is separate from any personal job-search account.
       </p>
       <form onSubmit={onSubmit} noValidate>
         <Field id={`${uid}-email`} label="Email address" icon={<MailIcon size={20} />}>
@@ -201,7 +203,7 @@ export function TenantResetPassword({ name, logoUrl, resetKey }: { name: string;
 
   return (
     <Shell name={name} logoUrl={logoUrl} title="Set a new password">
-      <p className="mb-4 text-[15px] leading-snug text-[var(--brand-800)]">Choose a new password for your {name} account. It does not change any personal Kiwiply account.</p>
+      <p className="mb-4 text-[15px] leading-snug text-[var(--brand-800)]">Choose a new password for your {name} account. It does not change any personal job-search account.</p>
       <form onSubmit={onSubmit} noValidate>
         <Field id={`${uid}-pw`} label="New password" icon={<LockIcon size={20} />}>
           <input id={`${uid}-pw`} name="new-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className={INPUT} />

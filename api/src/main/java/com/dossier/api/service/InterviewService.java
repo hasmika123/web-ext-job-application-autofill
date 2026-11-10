@@ -306,6 +306,7 @@ public class InterviewService {
             case Interview.PASSED -> "Passed";
             case Interview.REJECTED -> "Rejected";
             case Interview.NO_SHOW -> "No show";
+            case Interview.CANCELLED -> "Cancelled";
             default -> "Pending";
         };
     }
@@ -335,7 +336,7 @@ public class InterviewService {
             return null;
         }
         String o = n.isTextual() ? n.textValue().trim().toUpperCase(Locale.ROOT) : "";
-        if (!Interview.OUTCOMES.contains(o)) throw TrackerException.invalid("outcome", "use PENDING, PASSED, REJECTED or NO_SHOW");
+        if (!Interview.OUTCOMES.contains(o)) throw TrackerException.invalid("outcome", "use PENDING, PASSED, REJECTED, NO_SHOW or CANCELLED");
         return o;
     }
 

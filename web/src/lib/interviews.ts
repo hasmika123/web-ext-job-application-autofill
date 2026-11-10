@@ -23,6 +23,7 @@ export const INTERVIEW_OUTCOMES = [
   { value: "PASSED", label: "Went well" },
   { value: "REJECTED", label: "Didn't go through" },
   { value: "NO_SHOW", label: "Didn't happen" },
+  { value: "CANCELLED", label: "Cancelled" },
 ] as const;
 
 export type InterviewOutcome = (typeof INTERVIEW_OUTCOMES)[number]["value"];

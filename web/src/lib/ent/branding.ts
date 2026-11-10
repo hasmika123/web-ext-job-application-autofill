@@ -119,8 +119,8 @@ export const sameEditable = (a: EditableDraft, b: EditableDraft): boolean => Obj
 /* ── publish diff ─────────────────────────────────────────────────────────────── */
 
 export const FIELD_LABEL: Record<string, string> = {
-  primary: "Primary colour",
-  secondary: "Secondary colour",
+  primary: "Primary color",
+  secondary: "Secondary color",
   theme: "Theme",
   welcomeTitle: "Welcome title",
   welcomeMessage: "Welcome message",

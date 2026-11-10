@@ -41,6 +41,8 @@ public class ResumeDocVersionService {
     public static final String RESTORE = "RESTORE";
     /** R4.1: the document right after the user applied AI changes (the state before is kept as its own row). */
     public static final String AI_APPLY = "AI_APPLY";
+    /** R7.4: the document right after a photo was added, replaced or removed (the state before is kept as its own row). */
+    public static final String PHOTO = "PHOTO";
 
     /** A version name is at most this long (DESIGN 9.2). */
     public static final int MAX_NAME_CHARS = 80;

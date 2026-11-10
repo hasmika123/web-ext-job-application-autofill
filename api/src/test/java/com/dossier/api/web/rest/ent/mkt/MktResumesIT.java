@@ -159,7 +159,15 @@ class MktResumesIT {
 
     @Test
     void aMarketerCannotApproveTheirOwnRequestButTheAdminCan() throws Exception {
-        Long id = ids(MARKETER, acme).stream().findFirst().orElseThrow();
+        // a row flagged NEEDS_UPDATE cannot ask for approval at all, and "the first id of a HashSet" is any row: take one that can
+        Long id = null;
+        for (JsonNode i : json(getAs(MARKETER, base(acme) + "?size=100")).path("items")) {
+            if (!"NEEDS_UPDATE".equals(i.path("approval").asText())) {
+                id = i.path("id").asLong();
+                break;
+            }
+        }
+        assertThat(id).as("a seeded resume that is not flagged for update").isNotNull();
         mockMvc.perform(post(base(acme) + "/" + id + "/approval-request").with(user(MARKETER))).andReturn();
         assertThat(mockMvc.perform(post(base(acme) + "/" + id + "/approve").with(user(MARKETER))).andReturn().getResponse().getStatus()).isEqualTo(404);
         MvcResult ok = mockMvc.perform(post(base(acme) + "/" + id + "/approve").with(user(ADMIN))).andReturn();
