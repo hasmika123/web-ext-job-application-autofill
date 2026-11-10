@@ -396,7 +396,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
               {progressOpen && <ProgressSteps steps={d.steps} />}
               {options.length > 0 && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line/60 pt-2.5">
-                  <p className="min-w-0 flex-1 text-[11.5px] leading-snug text-muted">Kiwiply never submits an application. Record what happened here once the consultant or the client has acted.</p>
+                  <p className="min-w-0 flex-1 text-[11.5px] leading-snug text-muted">Applications are never submitted from here. Record what happened here once the consultant or the client has acted.</p>
                   <Menu
                     trigger={
                       <Button type="button" variant="accent-soft" size="sm" data-move-trigger>

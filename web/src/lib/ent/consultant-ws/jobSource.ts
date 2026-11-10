@@ -1,6 +1,6 @@
 /**
  * The marketer's source link and quick info for a job (table `cws_job_source`). Kiwiply does not hold full job details: the marketer enters a
- * few details, the posting link and a short note; the consultant opens the link and applies on the source site with the Kiwiply extension, and
+ * few details, the posting link and a short note; the consultant opens the link and applies on the source site with the browser extension, and
  * the application then shows up in My Applications (extension tracking). Shared by Job Discovery, Job Matches and Assigned Opportunities.
  */
 
@@ -15,17 +15,23 @@ export interface JobSource {
 }
 
 export const NO_LINK_TOOLTIP = "Your marketer hasn't added the link yet";
-export const APPLY_HELPER = "Apply on the source site with the Kiwiply extension — your application shows up in My Applications automatically.";
+export const APPLY_HELPER = "Apply on the source site with the browser extension — your application shows up in My Applications automatically.";
 export const QUICK_INFO_LABEL = "Marketer's quick info";
 
-/** The URL when it is a plain https link with a real host and no credentials; else null. The API checks too: this is the second line of defence. */
+/**
+ * The URL when it is a plain https link with a real host and no credentials; else null. The API checks too: this is the second line of defence.
+ * One exception: a plain-http link on a named `*.localhost` host (the local stand-in employer pages of a development or demo stack). Such a link
+ * can only ever point at the viewer's own machine, and the API hands one out only when its own demo switch is on.
+ */
 export function safeHttpsUrl(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const t = v.trim();
   if (t === "" || t.length > 500 || /\s/.test(t)) return null;
   try {
     const u = new URL(t);
-    if (u.protocol !== "https:" || u.username !== "" || u.password !== "") return null;
+    if (u.username !== "" || u.password !== "") return null;
+    const localStandIn = u.protocol === "http:" && /\.localhost$/i.test(u.hostname);
+    if (u.protocol !== "https:" && !localStandIn) return null;
     if (!u.hostname.includes(".") || u.hostname.startsWith(".") || u.hostname.endsWith(".")) return null;
     return t;
   } catch {

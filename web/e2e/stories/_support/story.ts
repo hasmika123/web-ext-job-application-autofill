@@ -100,7 +100,7 @@ export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session>; flo
       const context = await browser.newContext({
         storageState: existsSync(file) ? file : undefined,
         viewport: { width: 1440, height: 900 },
-        recordVideo: { dir: test.info().outputDir, size: { width: 1440, height: 900 } },
+        ...(process.env.STORY_VIDEO === "off" ? {} : { recordVideo: { dir: test.info().outputDir, size: { width: 1440, height: 900 } } }), // STORY_VIDEO=off: no recording (a machine without Playwright's ffmpeg)
         permissions: ["clipboard-read", "clipboard-write"], // the "Copy" buttons (shown-once passwords) confirm only when the clipboard is writable
       });
       opened.push(context);
@@ -122,7 +122,7 @@ export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session>; flo
       const t0 = Date.now();
       const context = await browser.newContext({
         viewport: { width: 1440, height: 900 },
-        recordVideo: { dir: test.info().outputDir, size: { width: 1440, height: 900 } },
+        ...(process.env.STORY_VIDEO === "off" ? {} : { recordVideo: { dir: test.info().outputDir, size: { width: 1440, height: 900 } } }), // STORY_VIDEO=off: no recording (a machine without Playwright's ffmpeg)
         permissions: ["clipboard-read", "clipboard-write"], // the "Copy" buttons (shown-once passwords) confirm only when the clipboard is writable
       });
       opened.push(context);

@@ -117,7 +117,7 @@ describe("Job Matches from real data", () => {
     expect(within(d).getByText("Quick note from the marketer.")).toBeTruthy();
     expect(d.querySelector("[data-sample]")).not.toBeNull();
     expect(within(d).getByRole("link", { name: /Open job link/ }).getAttribute("href")).toBe("https://jobs.example.com/acme/1");
-    expect(d.textContent).toMatch(/Apply on the source site with the Kiwiply extension/);
+    expect(d.textContent).toMatch(/Apply on the source site with the browser extension/);
     expect(d.textContent).toMatch(/My Applications/);
   });
 

@@ -229,3 +229,34 @@ describe("ConsultantInboxPage", () => {
     expect(screen.getByText("This page isn't part of your role")).toBeTruthy();
   });
 });
+
+describe("Check now (the consultant workspace only)", () => {
+  it("offers Check now on a connected inbox, posts to the check-now route and says it is reading", async () => {
+    current = page({ connected: true, address: "anika@gmail.com", status: "CONNECTED", lastCheckedAt: "2026-10-18T12:00:00Z", messages: 12 });
+    await mount();
+    const button = document.querySelector("[data-inbox-check-now]") as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    expect(button.textContent).toBe("Check now");
+    fireEvent.click(button);
+    await flush();
+    expect(calls.some((c) => c.method === "POST" && c.url === "/api/orgs/2/me-workspace/inbox/check-now")).toBe(true);
+    expect(document.querySelector("[data-inbox-checking]")?.textContent).toContain("Reading your mailbox now");
+    expect((document.querySelector("[data-inbox-check-now]") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("explains a too-soon answer instead of a red error", async () => {
+    current = page({ connected: true, address: "anika@gmail.com", status: "CONNECTED", lastCheckedAt: "2026-10-18T12:00:00Z" });
+    await mount();
+    const fetchMock = globalThis.fetch as unknown as { mockImplementation: (f: (url: string, init?: RequestInit) => Promise<Response>) => void };
+    fetchMock.mockImplementation(async (url: string, init: RequestInit = {}) => {
+      const method = init.method ?? "GET";
+      calls.push({ method, url, body: undefined });
+      if (method === "POST" && url.endsWith("/check-now")) return new Response(JSON.stringify({ code: "TOO_SOON", message: "Checked a moment ago. Try again in 40 seconds." }), { status: 429, headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify(current), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    fireEvent.click(document.querySelector("[data-inbox-check-now]")!);
+    await flush();
+    expect(document.querySelector("[data-inbox-check-note]")?.textContent).toContain("Checked a moment ago");
+    expect(document.querySelector("[data-inbox-checking]")).toBeNull();
+  });
+});

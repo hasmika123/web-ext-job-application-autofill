@@ -101,7 +101,9 @@ describe("DataExports (prepare my data export)", () => {
       return jsonRes(state ? [state] : []);
     });
     setup();
-    const button = await screen.findByRole("button", { name: "Prepare my data export" });
+    // the button is disabled until the list has loaded: a click before that is ignored
+    await screen.findByText("No exports yet.");
+    const button = screen.getByRole("button", { name: "Prepare my data export" });
     await act(async () => {
       fireEvent.click(button);
       await vi.advanceTimersByTimeAsync(0);
@@ -124,7 +126,8 @@ describe("DataExports (prepare my data export)", () => {
   it("explains the daily limit instead of failing silently", async () => {
     stubFetch((_url, method) => (method === "POST" ? jsonRes({ detail: "Too many exports requested today" }, 429) : jsonRes([])));
     setup();
-    fireEvent.click(await screen.findByRole("button", { name: "Prepare my data export" }));
+    await screen.findByText("No exports yet."); // the button is disabled until the list has loaded
+    fireEvent.click(screen.getByRole("button", { name: "Prepare my data export" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/today's limit/);
   });
 

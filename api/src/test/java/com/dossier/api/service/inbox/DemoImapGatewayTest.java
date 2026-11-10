@@ -72,6 +72,43 @@ class DemoImapGatewayTest {
     }
 
     @Test
+    void liveArrivalModeHoldsStagedMailBackUntilItIsSentThenItArrivesAsNewMail() throws Exception {
+        MockEnvironment env = new MockEnvironment().withProperty("dossier.demo.inbox-staged", "true");
+        DemoImapGateway g = new DemoImapGateway(env);
+        assertThat(g.isStaging()).isTrue();
+        assertThat(g.stagedGroups()).extracting(DemoImapGateway.StagedGroup::key).contains("orbit-interview", "cedar-rejection");
+
+        Folder before = g.open(g.demoAddress(), CODE).getFolder("INBOX");
+        before.open(Folder.READ_ONLY);
+        int held = before.getMessageCount();
+        long lastSeen = ((UIDFolder) before).getUIDNext() - 1;
+        assertThat(java.util.Arrays.stream(((UIDFolder) before).getMessagesByUID(1, UIDFolder.LASTUID)).map(m -> {
+            try { return m.getSubject(); } catch (Exception e) { return ""; }
+        })).noneMatch(s -> s.startsWith("Interview invitation: Platform Engineer at Orbit Freight"));
+
+        assertThat(g.deliver("orbit-interview")).isTrue();
+        assertThat(g.deliver("no-such-group")).isFalse();
+        Folder after = g.open(g.demoAddress(), CODE).getFolder("INBOX");
+        after.open(Folder.READ_ONLY);
+        assertThat(after.getMessageCount()).isEqualTo(held + 2);
+        Message[] fresh = ((UIDFolder) after).getMessagesByUID(lastSeen + 1, UIDFolder.LASTUID);
+        assertThat(fresh).hasSize(2);
+        assertThat(fresh[0].getSubject()).startsWith("Interview invitation: Platform Engineer at Orbit Freight");
+        assertThat(g.inboxView().get(0).get("live")).isEqualTo(true);
+
+        g.resetDeliveries();
+        assertThat(g.stagedGroups()).noneMatch(DemoImapGateway.StagedGroup::delivered);
+    }
+
+    @Test
+    void withoutLiveArrivalModeTheWholeSampleIsThereAtOnce() throws Exception {
+        DemoImapGateway g = gateway();
+        assertThat(g.isStaging()).isFalse();
+        assertThat(g.stagedGroups()).isEmpty();
+        assertThat(g.deliver("orbit-interview")).isFalse();
+    }
+
+    @Test
     void theMailboxLooksLikeARealOneToTheSync() throws Exception {
         DemoImapGateway g = gateway();
         Store store = g.open(g.demoAddress(), CODE);

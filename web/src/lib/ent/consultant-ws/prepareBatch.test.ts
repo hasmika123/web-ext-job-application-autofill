@@ -81,14 +81,14 @@ describe("wire parsers", () => {
     expect(skippedText("NO_URL")).toMatch(/no job link/);
     expect(skippedText("JOB_NOT_OPEN")).toMatch(/no longer open/);
     expect(skippedText("NOT_ELIGIBLE")).toMatch(/not available/);
-    expect(CONFIRM_TEXT).toBe("Kiwiply opens each job in a new tab and fills it from your profile. Nothing is submitted for you: you review, fix anything missing and press Submit yourself.");
+    expect(CONFIRM_TEXT).toBe("The browser extension opens each job in a new tab and fills it from your profile. Nothing is submitted for you: you review, fix anything missing and press Submit yourself.");
   });
 });
 
 describe("the message to the extension", () => {
   it("has exactly the contract's shape", () => {
     const m = buildPrepareMessage(7, 2, [{ matchId: 1, url: "https://x.example/1", title: "A", company: null }], "https://api.example");
-    expect(m).toEqual({ type: "KIWIPLY_PREPARE_BATCH", version: 1, sessionId: 7, apiBase: "https://api.example", orgId: 2, jobs: [{ matchId: 1, url: "https://x.example/1", title: "A", company: null }] });
+    expect(m).toEqual({ type: "KIWIPLY_PREPARE_BATCH", version: 1, sessionId: "7", apiBase: "https://api.example", orgId: 2, jobs: [{ matchId: 1, url: "https://x.example/1", title: "A", company: null }] });
     expect(PREPARE_BATCH_MESSAGE).toBe("KIWIPLY_PREPARE_BATCH");
     expect(PREPARE_ACK_MESSAGE).toBe("KIWIPLY_PREPARE_ACK");
   });
@@ -99,21 +99,22 @@ describe("the message to the extension", () => {
   it("posts to its own origin and resolves true on an acknowledgement for this session", async () => {
     const post = vi.spyOn(window, "postMessage").mockImplementation(() => {});
     const p = sendPrepareBatch(msg(), 50);
-    expect(post).toHaveBeenCalledWith(expect.objectContaining({ type: "KIWIPLY_PREPARE_BATCH", sessionId: 7 }), window.location.origin);
-    ack({ type: "KIWIPLY_PREPARE_ACK", sessionId: 7 });
+    expect(post).toHaveBeenCalledWith(expect.objectContaining({ type: "KIWIPLY_PREPARE_BATCH", sessionId: "7" }), window.location.origin);
+    ack({ type: "KIWIPLY_PREPARE_ACK", sessionId: "7", accepted: true });
     await expect(p).resolves.toBe(true);
     post.mockRestore();
   });
 
-  it("ignores another session, another origin and other message types; ok:false is a no", async () => {
+  it("ignores another session, another origin and other message types; accepted:false (or ok:false) is a no", async () => {
     const post = vi.spyOn(window, "postMessage").mockImplementation(() => {});
     vi.useFakeTimers();
     const p = sendPrepareBatch(msg(), ACK_TIMEOUT_MS);
+    ack({ type: "KIWIPLY_PREPARE_ACK", sessionId: "8", accepted: true });
     ack({ type: "KIWIPLY_PREPARE_ACK", sessionId: 8 });
     ack({ type: "KIWIPLY_PREPARE_ACK", sessionId: 7 }, "https://evil.example");
     ack({ type: "SOMETHING_ELSE", sessionId: 7 });
     window.dispatchEvent(new MessageEvent("message", { data: { type: "KIWIPLY_PREPARE_ACK", sessionId: 7 }, origin: window.location.origin, source: null }));
-    ack({ type: "KIWIPLY_PREPARE_ACK", sessionId: 7, ok: false, reason: "not signed in" });
+    ack({ type: "KIWIPLY_PREPARE_ACK", sessionId: "7", accepted: false, reason: "not-connected" });
     await expect(p).resolves.toBe(false);
     post.mockRestore();
   });

@@ -133,7 +133,7 @@ export default function GeneralSecuritySettings({ orgId }: { orgId: number }) {
           </h2>
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Legal name" hint="The name on your agreement. Ask Kiwiply support to change it.">
+          <Field label="Legal name" hint="The name on your agreement. Ask support to change it.">
             <Input value={data.general.legalName} readOnly disabled />
           </Field>
           <Field label="Display name" hint="Shown to your people on the sign-in page and in e-mails.">

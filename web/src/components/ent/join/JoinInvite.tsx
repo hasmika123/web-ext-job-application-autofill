@@ -13,7 +13,7 @@ import { SCOPE_COPY, newPasswordProblem, type JoinPreview, type ShareScope } fro
  * invitation creates an account) choosing a password, then the consent choice, then the workspace.
  *
  * Wording is deliberate: an invitation to a SEPARATE organization creates a NEW account that belongs to the organization and is
- * separate from any personal Kiwiply account. There is no "sign in with your existing account" step and nothing here reads, links or
+ * separate from any personal job-search account. There is no "sign in with your existing account" step and nothing here reads, links or
  * reveals another account. A legacy (shared account) invitation (`createsAccount` false) needs the person to be signed in on this host.
  */
 export interface JoinInviteProps {
@@ -119,7 +119,7 @@ export default function JoinInvite({ token, name, logoUrl, preview, signedIn }: 
               {preview.message ? <p className="mb-5 rounded-xl bg-[var(--brand-subtle)] px-3 py-2.5 text-[15px] leading-snug">{preview.message}</p> : null}
               {preview.createsAccount ? (
                 <p data-join-account-note className="mb-5 text-[14px] leading-snug text-[var(--brand-800)]">
-                  Accepting creates a new {name} account for you. It belongs to {name} and is separate from any personal Kiwiply account: nothing is shared or linked between them.
+                  Accepting creates a new {name} account for you. It belongs to {name} and is separate from any personal job-search account: nothing is shared or linked between them.
                 </p>
               ) : null}
               {needsLogin ? (

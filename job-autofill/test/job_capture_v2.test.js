@@ -25,6 +25,16 @@ function win(html, url) {
   const plain = win("<body></body>");
   const C = plain.JAF.jobCapture;
 
+  /* ---- captureJob() with NO opts reads the page's own location (as the content script calls it) ---- */
+  // A local `location` used to shadow the global inside captureJob, so this threw on every page in an unminified build.
+  {
+    const page = win("<title>Platform Engineer at Orbit Freight</title><body><h1>Platform Engineer</h1></body>", "http://jobs.localhost:3399/greenhouse/orbit-freight/1");
+    let cap = null, err = null;
+    try { cap = page.JAF.jobCapture.captureJob(); } catch (e) { err = e; }
+    ok("captureJob() without opts does not throw", err === null, err && String(err));
+    ok("captureJob() without opts returns a capture", !!cap && typeof cap === "object");
+  }
+
   /* ---- parseSalaryText: display string → structured numbers ---- */
   eq("parse: annual range with /yr", C.parseSalaryText("$120,000 – $150,000/yr"),
      { min: 120000, max: 150000, currency: "USD", period: "YEAR" });

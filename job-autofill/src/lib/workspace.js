@@ -261,6 +261,23 @@
     return body;
   }
 
+  // Whether a plain-http URL is one of the development build's local stand-in job pages: a manifest host permission of the
+  // exact shape "http://<name>.localhost[:port]/*" (wxt.config.ts WXT_DEV_ATS_ORIGINS). A store build lists none.
+  function devAtsOrigin(u) {
+    let perms = [];
+    try {
+      const m = typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.getManifest ? chrome.runtime.getManifest() : null;
+      perms = (m && m.host_permissions) || [];
+    } catch (e) { return false; }
+    const host = String(u.hostname || "").toLowerCase();
+    if (!/\.localhost$/.test(host)) return false;
+    const port = u.port || "80";
+    return perms.some((p) => {
+      const m = /^http:\/\/([a-z0-9.-]+\.localhost)(?::(\d+))?\/\*$/i.exec(String(p || ""));
+      return !!m && m[1].toLowerCase() === host && (m[2] || "80") === port;
+    });
+  }
+
   // The server's rules, checked before sending so the marketer gets a precise message offline-fast.
   function validateSave(body) {
     const b = body || {};
@@ -278,6 +295,9 @@
     try {
       const u = new URL(String(b.jobUrl || ""));
       urlOk = u.protocol === "https:" && String(b.jobUrl).length <= 1000 && !/^(localhost|\[.*\]|\d{1,3}(\.\d{1,3}){3})$/i.test(u.hostname);
+      // Development builds only: a local stand-in job page the manifest lists (WXT_DEV_ATS_ORIGINS, plain http on a named
+      // *.localhost host). A store build has no such entry, so this never widens what it accepts.
+      if (!urlOk && u.protocol === "http:" && !u.username && !u.password && String(b.jobUrl).length <= 1000) urlOk = devAtsOrigin(u);
     } catch (e) { /* invalid */ }
     if (!urlOk) problems.push("This page's address can't be saved (it must be a public https link).");
     if (b.priority && PRIORITIES.indexOf(b.priority) === -1) problems.push("Priority must be Low, Medium or High.");

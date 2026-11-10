@@ -442,7 +442,7 @@ public class AuthenticateController {
         com.dossier.api.domain.User account = userId == null ? null : userRepository.findById(userId).orElse(null);
         TenantSessionService sessions = tenantSessions.getIfAvailable();
         if (
-            account == null || account.getOrgId() == null || tid == null || !tid.equals(account.getOrgId()) || !account.isActivated() ||
+            account == null || !belongsTo(account, tid) || !account.isActivated() ||
             com.dossier.api.security.SecurityUtils.isExtension(jwtAuth.getToken().getClaim(EXTENSION_CLAIM)) || // an extension token can not mint another
             sessions == null || !sessions.refreshAllowed(tid, userId)
         ) {
@@ -476,7 +476,7 @@ public class AuthenticateController {
         TenantSessionService sessions = tenantSessions.getIfAvailable();
         Long orgId = spent.get().orgId();
         if (
-            account == null || !account.isActivated() || account.isPasswordChangeRequired() || account.getOrgId() == null || !account.getOrgId().equals(orgId) ||
+            account == null || !account.isActivated() || account.isPasswordChangeRequired() || !belongsTo(account, orgId) ||
             sessions == null || !sessions.refreshAllowed(orgId, account.getId())
         ) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -501,6 +501,17 @@ public class AuthenticateController {
     }
 
     /** X2.9: a session on an organization's host lives no longer than that organization's idle timeout (a refresh renews it). Extension tokens and personal sessions keep the platform lifetime. */
+    /**
+     * Whether {@code account} may hold an extension session of organization {@code orgId}: an enterprise account's own organization, or, for a
+     * seeded enterprise DEMO member (a shared-mode login with no organization on its user row), the tenant it signed in on. The caller still checks
+     * {@code refreshAllowed}, which proves the active membership; a personal account never passes.
+     */
+    static boolean belongsTo(com.dossier.api.domain.User account, Long orgId) {
+        if (account == null || orgId == null) return false;
+        if (account.getOrgId() != null) return account.getOrgId().equals(orgId);
+        return com.dossier.api.service.ent.EnterpriseDemoSeeder.isEnterpriseDemoLogin(account.getLogin());
+    }
+
     private long refreshSecondsFor(TenantBinding binding, boolean ext) {
         if (ext || binding == null || binding.orgId() == null || orgSecurity == null) return refreshTokenValidityInSeconds;
         return orgSecurity.refreshSeconds(binding.orgId(), refreshTokenValidityInSeconds);

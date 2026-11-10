@@ -13,7 +13,7 @@ import java.util.Map;
  * <ul>
  *   <li><b>Direct fields</b>: the extension's canonical schema keys ({@link #FIELD_KEYS}, the keys of
  *       {@code job-autofill/src/lib/schema.js FIELDS}) that are non-blank in {@code bio.payload}. {@code fullName}
- *       counts when first and last name are both set. EEO keys count only when the user answered.</li>
+ *       counts when first and last name are both set, {@code cityState} when the city is. EEO keys count only when the user answered.</li>
  *   <li><b>Repeated fields</b>: 5 per profile experience (at most 3 experiences), 4 per education (at most 2),
  *       and 1 when there is at least one skill.</li>
  * </ul>
@@ -29,7 +29,7 @@ public final class AutofillCoverage {
     public static final int EDUCATION_FIELDS_EACH = 4;
     public static final int EDUCATION_MAX_ITEMS = 2;
 
-    /** The 31 canonical keys of the extension's schema, in schema order. */
+    /** The 32 canonical keys of the extension's schema, in schema order. */
     public static final List<String> FIELD_KEYS = List.of(
         "firstName",
         "lastName",
@@ -41,6 +41,7 @@ public final class AutofillCoverage {
         "addressLine2",
         "city",
         "state",
+        "cityState",
         "postalCode",
         "country",
         "linkedin",
@@ -67,7 +68,7 @@ public final class AutofillCoverage {
     public static final List<String> GROUPS = List.of("contact", "links", "work", "education", "skills", "preferences", "eeo");
 
     private static final List<String> CONTACT = List.of(
-        "firstName", "lastName", "fullName", "preferredName", "email", "phone", "addressLine1", "addressLine2", "city", "state", "postalCode", "country"
+        "firstName", "lastName", "fullName", "preferredName", "email", "phone", "addressLine1", "addressLine2", "city", "state", "cityState", "postalCode", "country"
     );
     private static final List<String> LINKS = List.of("linkedin", "github", "website");
     private static final List<String> PREFERENCES = List.of(
@@ -106,7 +107,7 @@ public final class AutofillCoverage {
     private static int present(JsonNode bio, List<String> keys) {
         int n = 0;
         for (String k : keys) {
-            if (k.equals("fullName") ? filled(bio, "firstName") && filled(bio, "lastName") : filled(bio, k)) n++;
+            if (k.equals("fullName") ? filled(bio, "firstName") && filled(bio, "lastName") : k.equals("cityState") ? filled(bio, "city") : filled(bio, k)) n++;
         }
         return n;
     }

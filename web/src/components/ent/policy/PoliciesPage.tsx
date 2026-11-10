@@ -145,7 +145,7 @@ export default function PoliciesPage({ orgId }: { orgId: number }) {
               <h2 className="text-[20px] font-bold text-ink">{detail.title}</h2>
               <p className="text-[13px] text-muted">
                 Public page: <span className="font-mono">{detail.path}</span> on your own address.{" "}
-                {detail.requireReview ? "A Kiwiply reviewer approves it before it goes live." : "It goes live as soon as you submit it."}
+                {detail.requireReview ? "A platform reviewer approves it before it goes live." : "It goes live as soon as you submit it."}
               </p>
             </div>
             <Badge variant={tone(detail.state)} data-policy-state={detail.state}>{STATE_LABEL[detail.state]}</Badge>

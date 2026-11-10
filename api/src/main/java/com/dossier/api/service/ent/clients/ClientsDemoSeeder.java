@@ -1,5 +1,7 @@
 package com.dossier.api.service.ent.clients;
 
+import com.dossier.api.service.ent.DemoRoster;
+
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientContact;
 import com.dossier.api.domain.ent.talent.ClientNote;
@@ -51,7 +53,7 @@ public class ClientsDemoSeeder {
         Map.entry("HealthPlus", new Profile("Boston, MA", "1000-5000", "HealthPlus runs a network of clinics and the software that connects patients, doctors and insurers.")),
         Map.entry("InnovateLab", new Profile("Austin, TX", "51-200", "InnovateLab is a product studio working on applied machine learning for logistics and retail.")),
         Map.entry("RetailCo", new Profile("Chicago, IL", "5000+", "RetailCo operates stores and an online marketplace, and hires seasonally across operations and data teams.")),
-        Map.entry("ACME Internal", new Profile("Denver, CO", "51-200", "Our own staffing practice: roles we fill for internal teams and partner agencies.")),
+        Map.entry(DemoRoster.INTERNAL_CLIENT, new Profile("Denver, CO", "51-200", "Our own staffing practice: roles we fill for internal teams and partner agencies.")),
         Map.entry("Northwind Logistics", new Profile("Seattle, WA", "1000-5000", "Northwind Logistics moves freight by road, rail and sea, and is modernising its planning and tracking systems.")),
         Map.entry("Lumina Retail", new Profile("Portland, OR", "201-1000", "Lumina Retail is a home and lifestyle retailer with forty stores and a fast-growing online shop.")),
         Map.entry("Orchid Health", new Profile("Raleigh, NC", "51-200", "Orchid Health provides virtual care and clinical analytics to employers.")),

@@ -73,7 +73,7 @@ describe("Organization Settings: Prepare selected openings", () => {
     const text = document.querySelector("[data-prepare-explainer]")!.textContent!;
     expect(text).toContain("opens each job in its own tab");
     expect(text).toContain("always reviews");
-    expect(text).toContain("Kiwiply never submits");
+    expect(text).toContain("Nothing is ever submitted for them");
     expect(toggle().getAttribute("aria-checked")).toBe("false");
     expect(screen.queryByRole("button", { name: /^Save/ })).toBeNull();
   });
@@ -149,7 +149,7 @@ describe("Organization Settings: Prepare selected openings", () => {
   it("is shown disabled with the plain message while Kiwiply has the feature off", async () => {
     current = { ...fresh(), platformEnabled: false };
     await mount();
-    expect(document.querySelector("[data-prepare-unavailable]")!.textContent).toBe("Not available on your plan yet. Contact Kiwiply.");
+    expect(document.querySelector("[data-prepare-unavailable]")!.textContent).toBe("Not available on your plan yet. Contact support.");
     expect(toggle().hasAttribute("disabled")).toBe(true);
     expect(field("dailyCap").disabled).toBe(true);
     fireEvent.click(toggle());

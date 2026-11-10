@@ -64,17 +64,92 @@ public class DemoImapGateway implements ImapGateway {
 
     private final JsonNode fixture;
     private final Session session = Session.getInstance(new Properties());
+    /**
+     * Live-arrival mode ({@code dossier.demo.inbox-staged=true}): the mails the fixture marks {@code "staged": "<group>"} are held back until
+     * {@link #deliver} is called for their group (the presenter "sends" them during a demo), and then arrive as the newest mail with the time of
+     * delivery. Off by default, so every recorded story and test sees the whole sample at once, as before. In memory: a restart holds them back again.
+     */
+    private final boolean staging;
+    private final java.util.Map<String, Instant> delivered = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.List<String> deliveryOrder = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @Autowired
     public DemoImapGateway(Environment environment) {
         if (environment.acceptsProfiles(Profiles.of("prod"))) throw new IllegalStateException("The demo mailbox must never run under the prod profile");
         this.fixture = load(RESOURCE);
-        LOG.warn("DEMO inbox sandbox is active: connecting uses a built-in sample mailbox, no real Gmail is contacted");
+        this.staging = "true".equalsIgnoreCase(environment.getProperty("dossier.demo.inbox-staged", "false"));
+        LOG.warn("DEMO inbox sandbox is active: connecting uses a built-in sample mailbox, no real Gmail is contacted{}", staging ? " (staged mails arrive on request)" : "");
     }
 
     /** For tests that build one without a Spring context. */
     DemoImapGateway(JsonNode fixture) {
+        this(fixture, false);
+    }
+
+    DemoImapGateway(JsonNode fixture, boolean staging) {
         this.fixture = fixture;
+        this.staging = staging;
+    }
+
+    /** One group of held-back mails, as the demo controls list it. */
+    public record StagedGroup(String key, String label, int mails, boolean delivered, Instant deliveredAt) {}
+
+    public boolean isStaging() {
+        return staging;
+    }
+
+    /** The groups the fixture holds back, in fixture order (empty when live-arrival mode is off). */
+    public List<StagedGroup> stagedGroups() {
+        if (!staging) return List.of();
+        java.util.LinkedHashMap<String, Integer> counts = new java.util.LinkedHashMap<>();
+        for (JsonNode m : fixture.path("mails")) if (m.hasNonNull("staged")) counts.merge(m.path("staged").asText(), 1, Integer::sum);
+        List<StagedGroup> out = new ArrayList<>();
+        counts.forEach((k, n) -> out.add(new StagedGroup(k, fixture.path("stagedGroups").path(k).asText(k), n, delivered.containsKey(k), delivered.get(k))));
+        return out;
+    }
+
+    /** "Sends" one held-back group now. False when the mode is off or the group is unknown; delivering twice keeps the first time. */
+    public boolean deliver(String group) {
+        if (!staging || group == null || stagedGroups().stream().noneMatch(g -> g.key().equals(group))) return false;
+        if (delivered.putIfAbsent(group, Instant.now()) == null) deliveryOrder.add(group);
+        return true;
+    }
+
+    /** Holds every group back again (for a second rehearsal without restarting the API). */
+    public void resetDeliveries() {
+        delivered.clear();
+        deliveryOrder.clear();
+    }
+
+    /** What the mailbox holds right now, newest first: sender, subject and time. For the demo's Gmail-style page; never anything else. */
+    public List<java.util.Map<String, Object>> inboxView() {
+        Instant now = Instant.now();
+        List<java.util.Map<String, Object>> out = new ArrayList<>();
+        for (JsonNode m : fixture.path("mails")) {
+            if ("Sent".equalsIgnoreCase(m.path("folder").asText())) continue;
+            Instant at = arrivedAt(m, now);
+            if (at == null) continue;
+            java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("fromName", m.path("fromName").asText());
+            row.put("subject", dates(m.path("subject").asText(), now));
+            row.put("snippet", dates(m.path("body").asText(), now).replaceAll("\\s+", " "));
+            row.put("at", at);
+            row.put("live", m.hasNonNull("staged"));
+            out.add(row);
+        }
+        out.sort((a, b) -> ((Instant) b.get("at")).compareTo((Instant) a.get("at")));
+        return out;
+    }
+
+    /** When a sample mail "arrived": its daysAgo, or the delivery time of a staged one; null while it is held back. */
+    private Instant arrivedAt(JsonNode m, Instant now) {
+        if (staging && m.hasNonNull("staged")) {
+            Instant at = delivered.get(m.path("staged").asText());
+            return at == null ? null : at;
+        }
+        Instant at = now.minus(Duration.ofDays(m.path("daysAgo").asLong(1)));
+        // In live-arrival mode the sample's "today" mail is an hour old, so a mail sent during the demo is always the newest one.
+        return staging ? at.minus(Duration.ofHours(1)) : at;
     }
 
     static JsonNode load(String resource) {
@@ -145,8 +220,11 @@ public class DemoImapGateway implements ImapGateway {
         int n = 0;
         for (JsonNode m : fixture.path("mails")) {
             boolean sent = "Sent".equalsIgnoreCase(m.path("folder").asText());
-            Instant at = now.minus(Duration.ofDays(m.path("daysAgo").asLong(1)));
-            String id = "<demo-" + (++n) + "@demo.kiwiply.invalid>";
+            ++n;
+            Instant at = arrivedAt(m, now);
+            if (at == null) continue; // held back until it is "sent" (live-arrival mode)
+            boolean late = staging && m.hasNonNull("staged");
+            String id = "<demo-" + n + "@demo.kiwiply.invalid>";
             DemoMessage msg = new DemoMessage(session, Date.from(at));
             msg.setFrom(new InternetAddress(m.path("fromAddress").asText(), m.path("fromName").asText()));
             msg.setRecipient(Message.RecipientType.TO, new InternetAddress(sent ? m.path("to").asText() : demoAddress()));
@@ -168,8 +246,12 @@ public class DemoImapGateway implements ImapGateway {
             }
             msg.setHeader("Message-ID", id);
             msg.saveChanges();
-            out.add(new Sample(sent ? sentFolderName() : INBOX, sent ? sentUid++ : inboxUid++, msg));
+            // A delivered staged mail gets a UID after everything the sample ever held, in delivery order, so a reader that already saw the
+            // folder finds it as new mail (as Gmail numbers a new arrival).
+            long uid = late ? 1000 + 10L * deliveryOrder.indexOf(m.path("staged").asText()) + n : (sent ? sentUid++ : inboxUid++);
+            out.add(new Sample(sent ? sentFolderName() : INBOX, uid, msg));
         }
+        out.sort(java.util.Comparator.comparingLong(Sample::uid));
         return out;
     }
 

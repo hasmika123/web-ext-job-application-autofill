@@ -88,7 +88,7 @@ export function useStatusMove(orgId: number | string, onChanged: (d: InterviewDe
       const undo = d.undo;
       toast({
         title: `${d.code} recorded as ${statusLabel(status)}`,
-        description: "This records what happened. Kiwiply doesn't run or attend interviews.",
+        description: "This records what happened. Interviews are not run or attended from here.",
         variant: "success",
         duration: UNDO_MS,
         action: undo
@@ -119,7 +119,7 @@ export function useReminder(orgId: number | string, onChanged: (d: InterviewDeta
         toast({ title: "Couldn't record the reminder", description: errorSentence(r), variant: "error" });
         return false;
       }
-      toast({ title: "Reminder recorded", description: `${r.data.code}: your team can see it. Kiwiply doesn't send the message itself.`, variant: "success" });
+      toast({ title: "Reminder recorded", description: `${r.data.code}: your team can see it. The message itself is not sent from here.`, variant: "success" });
       onChanged(r.data);
       return true;
     },

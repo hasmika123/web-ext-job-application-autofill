@@ -238,7 +238,7 @@ export default function AddApplicationDialog({
           <input type="checkbox" checked={submitted} onChange={(e) => setSubmitted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--brand-primary,var(--color-accent))]" />
           <span>
             The consultant has already submitted it
-            <span className="block text-[12px] text-muted">Records it as Submitted. Kiwiply never submits for anyone.</span>
+            <span className="block text-[12px] text-muted">Records it as Submitted. Nothing is submitted from here.</span>
           </span>
         </label>
         {dup.dup && <DuplicateNotice message={dup.dup.message} findings={dup.dup.findings} reason={dup.reason} onReason={dup.setReason} idBase="app-duplicate" />}

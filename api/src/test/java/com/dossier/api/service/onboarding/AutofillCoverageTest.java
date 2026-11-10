@@ -80,11 +80,11 @@ class AutofillCoverageTest {
 
     @Test
     void everySchemaKeyBelongsToExactlyOneGroup() {
-        // The group lists partition the 31 keys: a bio with every key set (and no items) counts each key exactly once.
-        assertThat(AutofillCoverage.FIELD_KEYS).hasSize(31).doesNotHaveDuplicates();
+        // The group lists partition the 32 keys: a bio with every key set (and no items) counts each key exactly once.
+        assertThat(AutofillCoverage.FIELD_KEYS).hasSize(32).doesNotHaveDuplicates();
         var everything = om.createObjectNode();
         for (String k : AutofillCoverage.FIELD_KEYS) everything.put(k, "x");
-        assertThat(AutofillCoverage.compute(everything, new Counts(0, 0, 0)).fields()).isEqualTo(31);
+        assertThat(AutofillCoverage.compute(everything, new Counts(0, 0, 0)).fields()).isEqualTo(32);
     }
 
     /** The key list is exactly {@code FIELDS} of the extension's schema, so a schema change fails here, not in the user's number. */
@@ -97,7 +97,9 @@ class AutofillCoverageTest {
         int end = js.indexOf("};", start);
         assertThat(start).as("FIELDS in schema.js").isGreaterThan(0);
         List<String> keys = new ArrayList<>();
-        Matcher m = Pattern.compile("^\\s*([A-Za-z0-9]+):\\s*\"([A-Za-z0-9]+)\",?\\s*$", Pattern.MULTILINE).matcher(js.substring(start, end));
+        // `key: "key",` lines, trailing `// comments` stripped first (as the web twin's coverage.parity.test.ts does)
+        String body = js.substring(start, end).replaceAll("(?m)//.*$", "");
+        Matcher m = Pattern.compile("^\\s*([A-Za-z0-9]+):\\s*\"([A-Za-z0-9]+)\",?\\s*$", Pattern.MULTILINE).matcher(body);
         while (m.find()) {
             assertThat(m.group(2)).isEqualTo(m.group(1));
             keys.add(m.group(1));

@@ -554,7 +554,10 @@
     if (!salaryParsed && salary) salaryParsed = parseSalaryText(salary);
     if (salaryParsed && !sources.salaryParsed) sources.salaryParsed = sources.salary;
 
-    const location = take("location", [J, A, G]);
+    // NOT named `location`: a block-scoped `location` here shadows the browser's global for the whole function, so the
+    // `typeof location` at the top of captureJob threw (temporal dead zone) on every page whenever no `opts.loc` was
+    // passed. A minified build renamed it and hid the bug; an unminified development build broke every capture.
+    const jobLocation = take("location", [J, A, G]);
     const jobDescription = take("jobDescription", [J, A, G]);
 
     // Job metadata → strict enum names (JobType/JobMode); still omitted when there is
@@ -572,7 +575,7 @@
       if (jobMode) sources.jobMode = "jsonld";
     }
     if (!jobMode) {
-      jobMode = jobModeFrom(undefined, location) || jobModeFromText(jobDescription);
+      jobMode = jobModeFrom(undefined, jobLocation) || jobModeFromText(jobDescription);
       if (jobMode) sources.jobMode = "text";
     }
 
@@ -580,7 +583,7 @@
       // Descriptive fields: JSON-LD first, then adapter, then generic.
       company: take("company", [J, A, G]),
       role: take("role", [J, A, G]),
-      location: location,
+      location: jobLocation,
       jobType: jobType,
       jobMode: jobMode,
       jobDescription: jobDescription,

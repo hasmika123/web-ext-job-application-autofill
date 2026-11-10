@@ -77,6 +77,12 @@ public class ConsultantWsJobSourceReader {
      * The URL when it is a plain https link with a real host (no credentials, no whitespace or control characters, at most {@value #MAX_URL} characters),
      * else null. Used on write and on read.
      */
+    /**
+     * Development and demo stacks only: {@code DOSSIER_ALLOW_LOCALHOST_JOB_LINKS=true} also lets a plain-http link on a {@code *.localhost} host through
+     * (the local stand-in employer pages of the enterprise demo, {@code web/scripts/demo-ats-server.mjs}). Never set in production; the https rule stands there.
+     */
+    static final boolean LOCALHOST_LINKS = "true".equalsIgnoreCase(System.getenv("DOSSIER_ALLOW_LOCALHOST_JOB_LINKS"));
+
     public static String safeUrl(String raw) {
         if (raw == null) return null;
         String t = raw.strip();
@@ -84,9 +90,11 @@ public class ConsultantWsJobSourceReader {
         if (t.chars().anyMatch(ch -> Character.isISOControl(ch) || Character.isWhitespace(ch))) return null;
         try {
             URI u = new URI(t);
-            if (!"https".equals(u.getScheme() == null ? null : u.getScheme().toLowerCase(Locale.ROOT))) return null;
-            if (u.getRawUserInfo() != null) return null;
+            String scheme = u.getScheme() == null ? null : u.getScheme().toLowerCase(Locale.ROOT);
             String host = u.getHost();
+            boolean localDev = LOCALHOST_LINKS && "http".equals(scheme) && host != null && host.toLowerCase(Locale.ROOT).endsWith(".localhost");
+            if (!"https".equals(scheme) && !localDev) return null;
+            if (u.getRawUserInfo() != null) return null;
             if (host == null || host.length() < 3 || !host.contains(".") || host.startsWith(".") || host.endsWith(".")) return null;
             return t;
         } catch (Exception e) {

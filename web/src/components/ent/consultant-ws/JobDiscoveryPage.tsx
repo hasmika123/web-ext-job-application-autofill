@@ -561,7 +561,7 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
 
   return (
     <div data-job-discovery data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Job Discovery" subtitle="These are the jobs your marketer loaded for you. Open the job link, apply on the source site with the Kiwiply extension, and track it in My Applications. A full job search arrives in a later phase." />
+      <PageHeader title="Job Discovery" subtitle="These are the jobs your marketer loaded for you. Open the job link, apply on the source site with the browser extension, and track it in My Applications. A full job search arrives in a later phase." />
       <ClaimsMascot />
       <ClaimsHelpCard />
 

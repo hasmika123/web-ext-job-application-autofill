@@ -513,7 +513,7 @@ function DetailSheet({ orgId, row, state, onClose, onRetry, go, me }: { orgId: n
               </ol>
             )}
           </section>
-          <p className="text-[11.5px] leading-snug text-muted">Applications are submitted by you, outside Kiwiply. This page only follows their progress. Your marketer&apos;s internal notes are not shown here.</p>
+          <p className="text-[11.5px] leading-snug text-muted">You submit applications yourself, on the employer&apos;s site. This page only follows their progress. Your marketer&apos;s internal notes are not shown here.</p>
         </div>
       ) : null}
     </SideSheet>

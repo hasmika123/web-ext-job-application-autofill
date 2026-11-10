@@ -692,7 +692,7 @@ export default function ConsultantMatchesPage({ orgId, firstName: first }: Match
 
   return (
     <div data-consultant-matches data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Job Matches" subtitle="Roles your marketer matched to your skills, experience and career goals. Open the job link to read the posting and apply on the source site with the Kiwiply extension." />
+      <PageHeader title="Job Matches" subtitle="Roles your marketer matched to your skills, experience and career goals. Open the job link to read the posting and apply on the source site with the browser extension." />
       <ClaimsMascot />
       <ClaimsHelpCard />
 

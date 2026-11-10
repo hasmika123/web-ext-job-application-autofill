@@ -28,7 +28,9 @@ const KPI_ICONS: Record<KpiKey, { icon: ComponentType<IconProps>; tint: TintName
 };
 const ALL = "all";
 const SEARCH_DEBOUNCE_MS = 300;
-const FILTER = "h-9 w-[150px] flex-none";
+// `w-[150px]!`: the Select's own trigger is `w-full` and its class names are joined, not merged, so without the important suffix `w-full` wins and
+// each filter ballooned to the width of the whole toolbar (the page scrolled 3000 px sideways).
+const FILTER = "h-9 w-[150px]! flex-none";
 
 export default function ApplicationsPage({ orgId, hrefs, selfMemberId }: MktPageProps) {
   const [query, setQuery] = useState<BoardQuery>(DEFAULT_QUERY);

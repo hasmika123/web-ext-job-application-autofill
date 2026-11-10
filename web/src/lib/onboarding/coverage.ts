@@ -7,11 +7,11 @@
  * the user's number.
  *
  * - **Direct fields**: the extension's canonical schema keys (`job-autofill/src/lib/schema.js` `FIELDS`) that are
- *   non-blank in the bio. `fullName` counts when first and last name are both set. EEO counts only when answered.
+ *   non-blank in the bio. `fullName` counts when first and last name are both set, `cityState` when the city is. EEO counts only when answered.
  * - **Repeated fields**: 5 per experience (at most 3), 4 per education (at most 2), 1 when there is a skill.
  */
 
-/** The 31 canonical keys of the extension's schema, in schema order. */
+/** The 32 canonical keys of the extension's schema, in schema order. */
 export const AUTOFILL_FIELD_KEYS = [
   "firstName",
   "lastName",
@@ -23,6 +23,7 @@ export const AUTOFILL_FIELD_KEYS = [
   "addressLine2",
   "city",
   "state",
+  "cityState",
   "postalCode",
   "country",
   "linkedin",
@@ -54,7 +55,7 @@ export const EXPERIENCE_MAX_ITEMS = 3;
 export const EDUCATION_FIELDS_EACH = 4;
 export const EDUCATION_MAX_ITEMS = 2;
 
-const CONTACT = ["firstName", "lastName", "fullName", "preferredName", "email", "phone", "addressLine1", "addressLine2", "city", "state", "postalCode", "country"];
+const CONTACT = ["firstName", "lastName", "fullName", "preferredName", "email", "phone", "addressLine1", "addressLine2", "city", "state", "cityState", "postalCode", "country"];
 const LINKS = ["linkedin", "github", "website"];
 const PREFERENCES = ["authorizedToWork", "requireSponsorship", "desiredSalary", "noticePeriod", "earliestStartDate", "workPreference", "willingToRelocate", "referralSource"];
 const EEO = ["gender", "race", "ethnicity", "veteranStatus", "disabilityStatus"];
@@ -84,7 +85,7 @@ function filled(bio: Record<string, unknown> | null | undefined, key: string): b
 }
 
 function present(bio: Record<string, unknown> | null | undefined, keys: string[]): number {
-  return keys.filter((k) => (k === "fullName" ? filled(bio, "firstName") && filled(bio, "lastName") : filled(bio, k))).length;
+  return keys.filter((k) => (k === "fullName" ? filled(bio, "firstName") && filled(bio, "lastName") : k === "cityState" ? filled(bio, "city") : filled(bio, k))).length;
 }
 
 export function autofillCoverage(bio: Record<string, unknown> | null | undefined, counts?: Partial<CoverageCounts> | null): CoverageResult {

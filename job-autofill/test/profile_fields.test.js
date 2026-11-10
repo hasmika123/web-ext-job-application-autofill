@@ -35,6 +35,52 @@ const card = (q, name, opts) =>
   opts.map((o) => `<li><label><input type="radio" name="${name}" value="${o}">${o}</label></li>`).join("") +
   "</ul></div>";
 
+/* ------------------------------------- a work-permit question is about sponsorship */
+(function workPermit() {
+  // Robinhood (Greenhouse, captured 2026-10-19): it says "work authorization" but asks whether the person will NEED one, so answering it
+  // from "authorized to work" (Yes) would say the opposite of the truth.
+  const w = win(`<label for="p">Will you now (or in the future) require a work permit or work authorization in order to work in the country where this role is located?*</label><input id="p" />
+    <label for="a">Are you authorized to work in the country for which you applied? *</label><input id="a" />`);
+  ok("work permit: 'require a work permit or work authorization' is the sponsorship question", fieldOf(w, w.document.getElementById("p")) === "requireSponsorship", String(fieldOf(w, w.document.getElementById("p"))));
+  ok("work permit: 'are you authorized to work' stays authorization", fieldOf(w, w.document.getElementById("a")) === "authorizedToWork", String(fieldOf(w, w.document.getElementById("a"))));
+})();
+
+/* ------------------------------ Lever custom questions, as Rover's live form renders them */
+(function leverCards() {
+  // Captured from jobs.lever.co/rover (2026-10-19): the question is in .application-label > .text, the answer in a SIBLING
+  // .application-field; radio options carry their own words in a span; the list has data-qa="multiple-choice".
+  const q = (text, field) => `<li class="application-question custom-question"><div><div class="application-label full-width text"><div class="text">${text}<span class="required">✱</span></div></div><div class="application-field full-width required-field">${field}</div></div></li>`;
+  const radios = (n, a, b) => `<ul data-qa="multiple-choice">` + [a, b].map((o) => `<li><label><input type="radio" name="${n}" value="${o}" required="required"><span class="application-answer-alternative">${o}</span></label></li>`).join("") + "</ul>";
+  const text = (n) => `<input type="text" name="${n}" placeholder="Type your response" required>`;
+  const w = win(`<form><ul>${q("Do you or will you require sponsorship in the future to work in the U.S.?", radios("cards[r][field2]", "Yes", "No"))}` +
+    `${q("What is your desired salary?", text("cards[r][field4]"))}${q("What is your desired total compensation?", text("cards[r][field5]"))}` +
+    `${q("Do you currently live in or near Seattle? If not, are you willing to relocate to Seattle for the right opportunity?", radios("cards[r][field6]", "YES", "NO"))}</ul></form>`);
+  const found = scan(w);
+  const names = (field) => found.filter((c) => c.field === field).map((c) => c.el.name).sort();
+  ok("lever card: a text question is named by its card's label", names("desiredSalary").includes("cards[r][field4]"), JSON.stringify(found.map((c) => [c.el.name, c.field])));
+  ok("lever card: desired salary AND desired total compensation both take the salary answer", names("desiredSalary").length === 2, JSON.stringify(names("desiredSalary")));
+  const B = w.JAF.adapterBase;
+  const pick = (field, v, name) => {
+    B.applyItem(found.find((c) => c.field === field), v);
+    return [...w.document.querySelectorAll(`input[name="${name}"]`)].filter((r) => r.checked).map((r) => r.value).join(",");
+  };
+  ok("lever card: sponsorship 'No' clicks the No option (its own words, not the question's)", pick("requireSponsorship", "No", "cards[r][field2]") === "No");
+  ok("lever card: relocate 'Yes' clicks YES in capitals", pick("willingToRelocate", "Yes", "cards[r][field6]") === "YES");
+})();
+
+/* ------------------------------------------------ one box for "City, ST" */
+(function cityState() {
+  // Figma (Greenhouse, 2026-10-19): "From where do you intend to work?" with the hint "Please list city and state".
+  const w = win(`<label for="w">From where do you intend to work?*</label><input id="w" />
+    <label for="c">Location (City)*</label><input id="c" />`);
+  const $ = (id) => w.document.getElementById(id);
+  ok("city, state: 'where do you intend to work' asks for city and state", fieldOf(w, $("w")) === "cityState", String(fieldOf(w, $("w"))));
+  ok("city, state: a plain city box stays city", fieldOf(w, $("c")) === "city", String(fieldOf(w, $("c"))));
+  const v = w.JAF.schema.buildFillValues({ city: "Chicago", state: "IL" }, {});
+  ok("city, state: the value is 'Chicago, IL'", v.cityState === "Chicago, IL", JSON.stringify(v.cityState));
+  ok("city, state: no city, no value", w.JAF.schema.buildFillValues({ state: "IL" }, {}).cityState === undefined);
+})();
+
 /* ----------------------------------------------------------- the vocabulary */
 (function vocabulary() {
   const w = win("");

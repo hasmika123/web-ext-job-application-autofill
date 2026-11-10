@@ -1,0 +1,86 @@
+/* Workday look for the parts of the flow the captured page did not show (wd.css is the captured stylesheet). Values follow Workday's
+   Canvas tokens: blue #1473E6, licorice #494949 / #7b858f, soap #f0f1f2, cinnamon #de2e21. */
+html, body { margin: 0; background: #f0f1f2; font-family: Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.wd-page { display: flex; flex-direction: column; }
+.wd-textarea { height: auto !important; min-height: 96px; resize: vertical; font-family: inherit; }
+.wd-section { margin-bottom: 8px; }
+.wd-intro { font-size: .875rem; color: #494949; margin: 8px 0 16px; }
+.wd-add-row { max-width: 344px; margin: 16px 0 8px; }
+.wd-add { width: auto !important; }
+.wd-panel { border-left: 3px solid #e8ebed; padding: 4px 0 4px 20px; margin: 16px 0 24px; }
+.wd-panel-head { display: flex; align-items: center; justify-content: space-between; max-width: 640px; margin-bottom: 16px; }
+.wd-panel-title { font-size: 1rem !important; }
+.wd-delete { background: none; border: 0; color: #1473e6; font: 500 .875rem Roboto, sans-serif; cursor: pointer; padding: 6px 8px; border-radius: 4px; }
+.wd-delete:hover { background: #f0f1f2; }
+.wd-check { margin-bottom: 20px; }
+.wd-check .css-1r7y3ml:checked ~ div .css-wwg2k6, .wd-check input:checked ~ .css-1ikf28c .css-wwg2k6 { opacity: 1; transform: scale(1); }
+.wd-check input:checked ~ .css-1ikf28c { background: #1473e6; border-color: #1473e6; }
+.wd-check svg { width: 18px; height: 18px; }
+.css-1pa6t21:checked ~ .css-1mlv8uo { background: #1473e6; border-color: #1473e6; }
+.css-1pa6t21:checked ~ .css-1mlv8uo .css-1yykikq { opacity: 1; transform: scale(1); }
+.wd-hidden { display: none; }
+.wd-date { display: inline-flex; align-items: center; height: 40px; box-sizing: border-box; border: 1px solid #7b858f; border-radius: 4px; background: #fff; padding: 0 4px 0 8px; min-width: 160px; }
+.wd-date:hover { border-color: #333d47; }
+.wd-date:focus-within { border-color: #1473e6; box-shadow: inset 0 0 0 1px #1473e6; }
+.wd-date-input { border: 0; outline: 0; font: 400 .875rem Roboto, sans-serif; color: #494949; width: 28px; text-align: center; padding: 0; background: transparent; }
+.wd-date-input[aria-label="Year"] { width: 44px; }
+.wd-date-sep { color: #7b858f; padding: 0 2px; }
+.wd-date-cal { margin-left: 8px; display: inline-flex; }
+.wd-date-cal .wd-icon-fill { fill: #7b858f; }
+.wd-drop { max-width: 584px; border: 1px dashed #a1aab3; border-radius: 8px; background: #fff; padding: 28px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; color: #494949; font-size: .875rem; }
+.wd-drop svg { width: 32px; height: 32px; }
+.wd-drop .wd-icon-fill { fill: #7b858f; }
+.wd-drop-text { font-weight: 500; }
+.wd-drop-or { color: #7b858f; }
+.wd-select-files { width: auto !important; }
+.wd-files { max-width: 584px; }
+.wd-file { display: flex; align-items: center; gap: 12px; border: 1px solid #e8ebed; border-radius: 8px; padding: 12px; margin-top: 12px; background: #fff; }
+.wd-file-icon { width: 36px; height: 44px; border-radius: 4px; background: #de2e21; color: #fff; font: 700 11px Roboto, sans-serif; display: grid; place-items: center; }
+.wd-file-meta { flex: 1; min-width: 0; }
+.wd-file-name { font-weight: 500; font-size: .875rem; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-file-ok { display: flex; align-items: center; gap: 4px; font-size: .75rem; color: #319b4b; margin-top: 2px; }
+.wd-file-ok svg { width: 16px; height: 16px; background: #319b4b; border-radius: 50%; }
+.wd-file-size { color: #7b858f; margin-left: 8px; }
+.wd-file-delete { border: 0; background: none; cursor: pointer; border-radius: 50%; width: 32px; height: 32px; display: grid; place-items: center; }
+.wd-file-delete:hover { background: #f0f1f2; }
+.wd-file-delete .wd-icon-fill { fill: #494949; }
+.wd-pills { padding: 0 4px; }
+.wd-pills ul { list-style: none; margin: 0; padding: 4px 0 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.wd-pills [data-automation-id="selectedItem"] { display: inline-flex; align-items: center; gap: 4px; background: #f0f1f2; border-radius: 4px; padding: 2px 8px 2px 4px; font-size: .8125rem; color: #333; max-width: 100%; }
+.wd-pills [data-automation-id="selectedItem"] p { margin: 0; }
+.wd-pill-x { display: inline-flex; cursor: pointer; }
+.wd-pill-x .wd-icon-fill { fill: #494949; }
+.wd-popup { position: absolute; z-index: 1000; background: #fff; border-radius: 4px; box-shadow: 0 2px 8px rgba(31,38,46,.12), 0 4px 16px rgba(31,38,46,.08); max-height: 300px; overflow: auto; padding: 8px 0; box-sizing: border-box; }
+.wd-popup ul { list-style: none; margin: 0; padding: 0; }
+.wd-popup [role="option"] { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 16px; box-sizing: border-box; font-size: .875rem; color: #333; cursor: pointer; }
+.wd-popup [role="option"]:hover { background: #f0f1f2; }
+.wd-popup [role="option"][aria-selected="true"] { background: #e7f1fc; box-shadow: inset 3px 0 0 #1473e6; }
+.wd-ms-check { width: 18px; height: 18px; border: 1px solid #7b858f; border-radius: 2px; flex: none; display: grid; place-items: center; }
+.wd-ms-check svg { width: 16px; height: 16px; opacity: 0; }
+.wd-ms-check.on { background: #1473e6; border-color: #1473e6; }
+.wd-ms-check.on svg { opacity: 1; }
+.wd-noresults { padding: 10px 16px; color: #7b858f; font-size: .875rem; }
+.wd-footer-row { display: flex; gap: 16px; align-items: center; }
+.wd-back { width: auto !important; }
+.css-b3pn3b { display: flex; gap: 16px; }
+.wd-line-done { height: 2px; flex: 1 1 0%; background-color: #1473e6; }
+.wd-dot-done { width: 20px; height: 20px; border-radius: 50%; background: #1473e6; display: grid; place-items: center; }
+.wd-dot-done svg { width: 16px; height: 16px; }
+.wd-error-banner { border: 1px solid #de2e21; border-left-width: 4px; border-radius: 4px; background: #fff; padding: 12px 16px; margin: 0 0 24px; font-size: .875rem; color: #333; max-width: 640px; }
+.wd-error-title { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.wd-error-icon { width: 20px; height: 20px; border-radius: 50%; background: #de2e21; color: #fff; display: grid; place-items: center; font-size: 13px; }
+.wd-error-count { background: #de2e21; color: #fff; border-radius: 999px; padding: 0 8px; font-size: .75rem; }
+.wd-error-banner ul { margin: 8px 0 0 28px; padding: 0; }
+.wd-invalid input:not([type="radio"]):not([type="checkbox"]), .wd-invalid textarea, .wd-invalid button[aria-haspopup], .wd-invalid .css-1j0rjec, .wd-invalid .wd-date, .wd-invalid .wd-drop { border-color: #de2e21 !important; box-shadow: inset 0 0 0 1px #de2e21; }
+.wd-field-error { color: #de2e21; font-size: .75rem; margin: 4px 0 0; max-width: 344px; }
+.wd-richtext { font-size: .875rem; color: #494949; line-height: 1.4rem; max-width: 640px; margin-bottom: 16px; }
+.wd-review-block { max-width: 720px; }
+.wd-review-sub { font: 700 .9375rem Roboto, sans-serif; color: #333; margin: 20px 0 8px; }
+.wd-review-row { display: grid; grid-template-columns: 260px 1fr; gap: 16px; padding: 8px 0; border-bottom: 1px solid #f0f1f2; font-size: .875rem; }
+.wd-review-label { color: #494949; font-weight: 500; }
+.wd-review-value { color: #333; word-break: break-word; }
+.wd-certify { font-size: .875rem; color: #494949; margin: 32px 0 8px; max-width: 720px; }
+.wd-done { padding: 64px 24px 80px; text-align: center; width: 100%; box-sizing: border-box; color: #494949; font-size: .9375rem; }
+.wd-done-icon { width: 56px; height: 56px; border-radius: 50%; background: #319b4b; margin: 0 auto 16px; display: grid; place-items: center; }
+.wd-done-icon svg { width: 40px; height: 40px; }
+.wd-done-title { font: 700 1.5rem Roboto, sans-serif; color: #333; margin: 0 0 12px; }

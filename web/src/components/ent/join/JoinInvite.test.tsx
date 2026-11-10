@@ -43,7 +43,7 @@ describe("JoinInvite: an invitation that creates an account", () => {
   it("says it is a new organization account, separate from any personal account, and has no sign-in step", () => {
     render(<JoinInvite token="tok" name="Acme Staffing" preview={preview()} signedIn={false} />);
     expect(screen.getByText(/Olivia invited you to join Acme Staffing/)).toBeTruthy();
-    expect(screen.getByText(/creates a new Acme Staffing account for you/).textContent).toMatch(/separate from any personal Kiwiply account/);
+    expect(screen.getByText(/creates a new Acme Staffing account for you/).textContent).toMatch(/separate from any personal job-search account/);
     expect(screen.queryByText(/Sign in to continue/)).toBeNull();
     expect(screen.getByText("Consultant")).toBeTruthy();
   });

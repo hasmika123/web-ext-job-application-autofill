@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@kiwiply/ui";
 import { DEFAULT_BUILDER_CONFIG, PERSONAL_CAPABILITIES, type BuilderCapabilities, type ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
-import { testLineage, testMeta, testVersions } from "./test-meta";
+import { NOW, testLineage, testMeta, testVersions } from "./test-meta";
 
 const m = vi.hoisted(() => ({ getMeta: vi.fn(), getLineage: vi.fn(), listVersions: vi.fn(), getAccess: vi.fn(), duplicateResume: vi.fn(), push: vi.fn() }));
 vi.mock("@/lib/resume-meta", async (orig) => ({
@@ -64,11 +64,16 @@ const openKebab = () => fireEvent.click(within(header()).getByText("More actions
 const kebabLabels = () => within(screen.getByRole("menu")).getAllByRole("menuitem").map((i) => i.textContent ?? "");
 
 beforeEach(() => {
+  // the fixtures are dated relative to NOW ("2 hours ago"): pin the clock, or "Last modified" turns into a date a week later
+  vi.setSystemTime(NOW);
   for (const fn of Object.values(m)) fn.mockReset();
   m.listVersions.mockResolvedValue(ok(testVersions()));
   m.getAccess.mockResolvedValue(ok({ org: null, grants: [], links: [], viewers: 0 }));
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("the one header bar follows the session's capabilities", () => {
   it("personal (and an API that predates capabilities): every action, as it always was", () => {

@@ -69,13 +69,33 @@
     if (type === "radio") return !radioGroup(el).some((r) => r.checked);
     if (type === "checkbox") return !el.checked;
     if (type === "file") return !el.files || !el.files.length;
+    // A react-select combobox keeps its input empty and shows the chosen option in the control next to it (new Greenhouse boards).
+    if (el.getAttribute && el.getAttribute("role") === "combobox" && el.closest) {
+      const ctl = el.closest('[class*="__control"]');
+      const shown = ctl && ctl.querySelector('[class*="single-value"],[class*="singleValue"],[class*="multi-value"],[class*="multiValue"]');
+      if (shown && String(shown.textContent || "").trim()) return false;
+    }
+    // A Workday multiselect prompt clears its search box once an item is picked and shows the pick as a pill beside it.
+    if (el.closest) {
+      const ms = el.closest('[data-automation-id="multiSelectContainer"],[data-uxi-widget-type="multiselect"]');
+      if (ms && ms.querySelector('[data-automation-id="selectedItem"]')) return false;
+    }
     return String(el.value || "").trim() === ""; // text-like, textarea, select on its placeholder
+  }
+
+  // A Workday dropdown is a button that names itself required ("Country Select One Required") and shows "Select One" until picked.
+  function emptyRequiredPrompts(doc) {
+    return Array.from(doc.querySelectorAll('button[aria-haspopup="listbox"][aria-label$="Required"]')).filter((b) => {
+      if (!visible(b)) return false;
+      const shown = String(b.textContent || "").replace(/\s+/g, " ").trim();
+      return !shown || /^select one$/i.test(shown);
+    });
   }
 
   /** Required controls that are visible and still empty. A radio group counts once. */
   function findRequiredEmpty(doc) {
     doc = doc || document;
-    const out = [];
+    const out = emptyRequiredPrompts(doc);
     const groupsSeen = new Set();
     for (const el of doc.querySelectorAll("input, select, textarea")) {
       const type = typeOf(el);

@@ -5,7 +5,7 @@ import { NO_LINK_TOOLTIP, QUICK_INFO_LABEL, openLinkLabel, type JobSource } from
 import { Pill, SampleMark } from "./parts";
 
 /**
- * "Open job link": opens the marketer's source link in a new tab (the consultant applies there with the Kiwiply extension). With no usable
+ * "Open job link": opens the marketer's source link in a new tab (the consultant applies there with the browser extension). With no usable
  * https link it is a disabled control with an honest tooltip. Never navigates this tab; `noopener noreferrer` always.
  */
 export default function JobLinkButton({

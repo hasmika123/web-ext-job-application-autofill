@@ -8,6 +8,14 @@
 > - **First task:** Phase 1 below - EXPLORATION ONLY. No code changes in Phase 1. Deliver the inventory + workflows + gap list, then stop and show the user.
 > - **Read section 0 first:** `version2` moved after this file was written.
 
+## 0a. Phase 1 and Phase 2 are done on `ent-demo-p1` (2026-10-18, night)
+
+Read `docs/enterprise-v2/demo/DEMO-PLAN.md`: sections 1-6 are the Phase 1 plan, **section 7 is the Phase 2 status, the findings, and how to bring the
+stack up on this laptop** (worktree outside OneDrive, API 18183, web 3200, stand-in employer pages 3399, dev extension build, rehearsal script).
+Every gap the user approved is fixed and committed; the extension flows were rehearsed end to end in a real Chrome (9/9 steps). Still owed by the user:
+the Anthropic key for the extension's Pro AI (G5a), the dedicated Gmail for the live email (G6), and the PR of `ent-demo-p1` into `version2` (never merge
+without the word "merge"). Phase 3 (script, backup video) has not started.
+
 ## 0. Updates since this was written (2026-10-18, evening; `version2` at `2d29f311`)
 
 The other session (`hasmika-naari`) is active on `version2` and pushed 24 commits. Coordinate with its work; don't redo it.

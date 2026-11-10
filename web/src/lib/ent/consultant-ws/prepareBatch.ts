@@ -1,6 +1,6 @@
 /**
  * Prepare selected openings, the web half (docs/enterprise-v2/63-prepare-batch.md). The consultant ticks assigned openings; the API plans a batch and
- * charges the admin-set caps; this page hands the plan to the Kiwiply browser extension, which opens each job in a tab of the consultant's own browser and
+ * charges the admin-set caps; this page hands the plan to the browser extension, which opens each job in a tab of the consultant's own browser and
  * fills it from their profile. Nothing is submitted for anyone: the consultant reviews, completes what is missing and presses the final button on the real
  * site. Pure helpers, wire parsers, the BFF calls and the page-to-extension message live here; nothing touches React.
  */
@@ -18,9 +18,9 @@ export const POLL_MS = 3000;
 
 /** Shown in the confirm dialog. The wording is part of the contract: it says plainly that nothing is submitted for the consultant. */
 export const CONFIRM_TEXT =
-  "Kiwiply opens each job in a new tab and fills it from your profile. Nothing is submitted for you: you review, fix anything missing and press Submit yourself.";
+  "The browser extension opens each job in a new tab and fills it from your profile. Nothing is submitted for you: you review, fix anything missing and press Submit yourself.";
 
-export const PHONE_NOTE = "Preparing several openings at once works on a desktop browser with the Kiwiply extension. On this device, open the links one by one.";
+export const PHONE_NOTE = "Preparing several openings at once works on a desktop browser with the browser extension. On this device, open the links one by one.";
 
 export interface PrepareStatus {
   enabled: boolean;
@@ -47,6 +47,8 @@ export interface PrepareJob {
   url: string;
   title: string;
   company: string | null;
+  /** The resume to attach on this job (the consultant's own resume id); absent = the extension's usual pick. Demo: the tailored resume (DEMO-PLAN 16). */
+  resumeId?: number;
 }
 
 export interface PrepareSkipped {
@@ -183,7 +185,8 @@ export function prepareApiBase(): string {
 export interface PrepareMessage {
   type: typeof PREPARE_BATCH_MESSAGE;
   version: typeof PREPARE_VERSION;
-  sessionId: number;
+  /** The API's session id as a decimal string: the extension's contract (ARCHITECTURE.md "Prepare batch") takes a string. */
+  sessionId: string;
   apiBase: string;
   orgId: number;
   jobs: PrepareJob[];
@@ -193,18 +196,18 @@ export function buildPrepareMessage(sessionId: number, orgId: number, jobs: Prep
   return {
     type: PREPARE_BATCH_MESSAGE,
     version: PREPARE_VERSION,
-    sessionId,
+    sessionId: String(sessionId),
     apiBase,
     orgId,
-    jobs: jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company })),
+    jobs: jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company, ...(j.resumeId ? { resumeId: j.resumeId } : {}) })),
   };
 }
 
 /**
  * Hands the batch to the extension and waits for its acknowledgement. An enterprise account lives on its tenant host, which the extension cannot list in
  * `externally_connectable` (that path serves the platform hosts only), so the page posts to ITSELF and the extension's tenant-host content bridge, which only
- * accepts a message from this exact document, replies in kind (doc 63 section 3). Resolves true on an acknowledgement for this session (a missing `ok` counts
- * as yes, `ok:false` as no) and false after `timeoutMs`. Never throws.
+ * accepts a message from this exact document, replies in kind (doc 63 section 3). Resolves true on an acknowledgement for this session: the extension answers
+ * `{type, sessionId, accepted, reason?}`, so `accepted:false` (or the older `ok:false`) is a no and anything else a yes. False after `timeoutMs`. Never throws.
  */
 export function sendPrepareBatch(msg: PrepareMessage, timeoutMs: number = ACK_TIMEOUT_MS): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
@@ -219,10 +222,10 @@ export function sendPrepareBatch(msg: PrepareMessage, timeoutMs: number = ACK_TI
     };
     const onMessage = (e: MessageEvent) => {
       if (e.source !== window || e.origin !== window.location.origin) return;
-      const d = e.data as { type?: unknown; sessionId?: unknown; ok?: unknown } | null;
+      const d = e.data as { type?: unknown; sessionId?: unknown; ok?: unknown; accepted?: unknown } | null;
       if (!d || d.type !== PREPARE_ACK_MESSAGE) return;
-      if (d.sessionId !== undefined && d.sessionId !== msg.sessionId) return;
-      finish(d.ok !== false);
+      if (d.sessionId !== undefined && d.sessionId !== null && String(d.sessionId) !== msg.sessionId) return;
+      finish(d.accepted !== false && d.ok !== false);
     };
     const timer = setTimeout(() => finish(false), timeoutMs);
     try {

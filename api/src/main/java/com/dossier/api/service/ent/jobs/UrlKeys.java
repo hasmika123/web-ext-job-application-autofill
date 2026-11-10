@@ -131,6 +131,12 @@ public final class UrlKeys {
         if (why != null) throw OrgException.coded(400, "VALIDATION", "jobUrl: " + why, Map.of("field", "jobUrl"));
     }
 
+    /**
+     * Development and demo stacks only: {@code DOSSIER_ALLOW_LOCALHOST_JOB_LINKS=true} lets a plain-http link on a named {@code *.localhost} host
+     * through (the local stand-in employer pages of the enterprise demo). Never set in production; the same switch as ConsultantWsJobSourceReader.
+     */
+    static final boolean LOCALHOST_LINKS = "true".equalsIgnoreCase(System.getenv("DOSSIER_ALLOW_LOCALHOST_JOB_LINKS"));
+
     /** Null when allowed, otherwise a short human reason. */
     static String reason(String url) {
         if (url == null || url.isBlank()) return "enter the link of the job posting";
@@ -138,6 +144,9 @@ public final class UrlKeys {
         if (url.chars().anyMatch(c -> c <= 0x20 || c == 0x7f)) return "the link has spaces or control characters";
         Parts u = parse(url);
         if (u == null) return "that is not a valid link";
+        if (LOCALHOST_LINKS && "http".equals(u.scheme()) && u.userInfo() == null && u.host() != null && u.host().toLowerCase(Locale.ROOT).endsWith(".localhost")) {
+            return null; // a local stand-in page of the demo stack
+        }
         if (u.scheme() == null || !u.scheme().equals("https")) return "the link must start with https://";
         if (u.userInfo() != null) return "the link must not contain a user name or password";
         if (u.port() != -1 && u.port() != 443) return "the link must use the standard https port";
