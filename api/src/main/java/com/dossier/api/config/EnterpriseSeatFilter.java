@@ -22,7 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>Organization routes ({@code /api/orgs/**}, {@code /api/ent/**}, {@code /api/me/tenant}) and the join endpoints already check the seat themselves and keep their own
  * answers; this filter covers the user-scoped routes an enterprise token can reach (the extension's profile, resume, application and AI routes, the
- * account routes). It looks only at tokens whose subject is an enterprise login, so personal accounts and legacy SHARED organizations are untouched
+ * account routes). It looks only at tokens whose subject is an enterprise login or that carry {@code ext=1}, so ordinary personal sessions are untouched
  * and cost nothing.
  */
 public class EnterpriseSeatFilter extends OncePerRequestFilter {
@@ -39,7 +39,7 @@ public class EnterpriseSeatFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (!(auth instanceof JwtAuthenticationToken jwtAuth) || !Constants.isEnterpriseLogin(jwtAuth.getToken().getSubject())) {
+        if (!(auth instanceof JwtAuthenticationToken jwtAuth) || !(Constants.isEnterpriseLogin(jwtAuth.getToken().getSubject()) || AccountKindRouteFilter.isExtensionToken(jwtAuth))) {
             chain.doFilter(request, response);
             return;
         }
