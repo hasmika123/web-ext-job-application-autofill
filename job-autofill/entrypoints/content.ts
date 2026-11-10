@@ -20,6 +20,7 @@ import "../src/content/adapters/ashby.js";
 import "../src/content/adapters/workable.js";
 import "../src/content/adapters/workday.js";
 import "../src/content/adapters/indeed.js";
+import "../src/content/adapters/smartrecruiters.js";
 import "../src/lib/job-capture.js";
 import "../src/lib/app-tracking.js";
 import "../src/content/submit-detect.js";
