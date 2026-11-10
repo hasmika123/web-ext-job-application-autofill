@@ -435,6 +435,16 @@ class OrgIsolationIT {
         Map.entry("PUT /api/orgs/{orgId}/me-workspace/settings/appearance", Case.consultantWrite("{\"theme\":\"DARK\"}", 200)),
         // Enterprise V2 Consultants board (talent-foundation.md section 5). Reads write no audit row; bulk calls write the changed rows plus one CONSULTANT_BULK summary.
         Map.entry("GET /api/orgs/{orgId}/consultants", Case.read()),
+        // Consultant licences (LICENCES-BUILD.md L3). The world's consultant has no licence: giving one is the 200 with one LICENSE_CHANGE row;
+        // every change to a licence that does not exist is the 409 NO_LICENSE and writes nothing.
+        Map.entry("GET /api/orgs/{orgId}/licenses", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/licenses/catalog", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/licenses/{consultantId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/licenses/{consultantId}", Case.write("{\"features\":[\"inbox.monitoring\"]}", 200, "LICENSE_CHANGE")),
+        Map.entry("PUT /api/orgs/{orgId}/licenses/{consultantId}/features", Case.write("{\"features\":[]}", 409, null)),
+        Map.entry("POST /api/orgs/{orgId}/licenses/{consultantId}/suspend", Case.write("{\"reason\":\"Isolation test\"}", 409, null)),
+        Map.entry("POST /api/orgs/{orgId}/licenses/{consultantId}/reactivate", Case.write(null, 409, null)),
+        Map.entry("POST /api/orgs/{orgId}/licenses/{consultantId}/end", Case.write("{\"reason\":\"Isolation test\"}", 409, null)),
         Map.entry("GET /api/orgs/{orgId}/consultants/counts", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/consultants/filters", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}", Case.read()),

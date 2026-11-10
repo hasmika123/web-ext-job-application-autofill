@@ -38,14 +38,17 @@ public class ResumeTailorResource {
 
     private final ResumeTailorService service;
 
-    public ResumeTailorResource(ResumeTailorService service) {
+    private final com.dossier.api.service.ent.resumes.OrgResumePolicy orgPolicy;
+
+    public ResumeTailorResource(ResumeTailorService service, com.dossier.api.service.ent.resumes.OrgResumePolicy orgPolicy) {
         this.service = service;
+        this.orgPolicy = orgPolicy;
     }
 
     @Operation(summary = "Propose a tailored version", description = "Rewrites of existing bullets and summary, checked for truthfulness.")
     @PostMapping("/applications/{id}/tailor")
     public ResponseEntity<Map<String, Object>> propose(@PathVariable Long id, @RequestBody ProposeVM vm) {
-        com.dossier.api.service.ent.resumes.OrgResumePolicy.requireAiLicensed();
+        orgPolicy.requireAiLicensed(com.dossier.api.service.ent.resumes.OrgResumePolicy.TAILORING_FEATURES);
         ResumeTailorService.Result r = service.proposeForApplication(id, vm.resumeId(), vm.consent());
         Map<String, Object> body = new LinkedHashMap<>();
         switch (r.status()) {
