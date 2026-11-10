@@ -43,9 +43,9 @@ test("PLT-06 Beta's Demo accounts tab shows only Beta's person", async ({ page }
 test("PLT-07 A wrong password shows one calm message and stays on the sign-in", async ({ page }) => {
   await page.goto(`${ACME}/login`);
   await narrate(page, "Someone types Sarah's address with a wrong password");
-  await page.getByLabel("User Name").fill("sarah.chen@acme.example.com");
+  await page.getByLabel("Email", { exact: true }).fill("sarah.chen@acme.example.com");
   await page.getByLabel("Password", { exact: true }).fill("not-the-password-1");
-  await page.getByRole("button", { name: /^Sign In/ }).click();
+  await page.getByRole("button", { name: /^Sign in/ }).click();
   await expect(page.getByText("Incorrect email or password.")).toBeVisible();
   await narrate(page, "No hint about which half was wrong, and no session was created");
   await expect(page).toHaveURL(/\/login/);
@@ -61,7 +61,7 @@ test("PLT-08 A signed-out visitor to a deep link is sent to the sign-in with a r
   await expect(page.locator("[data-enterprise-shell]")).toHaveCount(0);
   await narrate(page, "Only a same-host path is accepted as the return path");
   await page.goto(`${ACME}/login?next=${encodeURIComponent("https://evil.example/steal")}`);
-  await expect(page.getByRole("button", { name: /^Sign In/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Sign in/ })).toBeVisible();
   await page.getByRole("button", { name: /Demo accounts/ }).first().click();
   await page.getByRole("button", { name: "Sign in as Hana Petrov" }).click();
   await page.waitForURL((u) => u.pathname.startsWith("/w/"));

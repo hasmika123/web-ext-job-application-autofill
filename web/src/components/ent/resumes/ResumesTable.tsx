@@ -129,13 +129,13 @@ export function ResumesTable(p: TableProps) {
               <Check checked={allOn} indeterminate={someOn} onChange={p.onTogglePage} label="Select all resumes on this page" />
             </th>
             <SortHead label="Consultant" k="consultant" sort={p.sort} onSort={p.onSort} />
-            <SortHead label="Resume Name" k="name" sort={p.sort} onSort={p.onSort} />
-            <SortHead label="Target Role" k="role" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden xl:table-cell" : "hidden lg:table-cell"} />
+            <SortHead label="Resume name" k="name" sort={p.sort} onSort={p.onSort} />
+            <SortHead label="Target role" k="role" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden xl:table-cell" : "hidden lg:table-cell"} />
             <SortHead label="Version" k="version" sort={p.sort} onSort={p.onSort} />
             <th scope="col" className={HEAD}>Primary</th>
             <th scope="col" className={`${HEAD} ${p.compact ? "hidden xl:table-cell" : "hidden md:table-cell"}`}>Visibility</th>
             <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} />
-            <SortHead label="Last Modified" k="modified" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden xl:table-cell" : "hidden md:table-cell"} />
+            <SortHead label="Last modified" k="modified" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden xl:table-cell" : "hidden md:table-cell"} />
             <th scope="col" className={`${HEAD} ${p.compact ? "hidden xl:table-cell" : "hidden xl:table-cell"}`}>Owner</th>
             <th scope="col" className="w-[44px]">
               <span className="sr-only">Actions</span>

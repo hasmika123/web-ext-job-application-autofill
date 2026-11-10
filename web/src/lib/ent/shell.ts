@@ -8,67 +8,38 @@
  */
 import type { MeTenant, NavItem, Workspace } from "@/lib/ent/workspaces";
 
-/** Where each Administration item sits in the board's three groups (people and operations | plan and money | organization). */
-const ADMIN_GROUP: Record<string, number> = {
-  home: 0, employees: 0, invitations: 0, teams: 0, departments: 0, roles: 0, consultants: 0, resumes: 0, assignments: 0, jobs: 0,
-  applications: 0, interviews: 0, clients: 0, placements: 0,
-  subscription: 1, licenses: 1, billing: 1, usage: 1, hr: 1, finance: 1, reports: 1,
-  branding: 2, domains: 2, integrations: 2, audit: 2, settings: 2, policies: 2,
-};
-
-/** The two expandable Administration rows (HR, Finance): their pages under `/w/admin/<key>/...` (gated by the parent's permission). */
-const ADMIN_CHILDREN: Record<string, { key: string; label: string; slug: string }[]> = {
-  hr: [
-    { key: "hr-onboarding", label: "Onboarding", slug: "onboarding" },
-    { key: "hr-documents", label: "Documents", slug: "documents" },
-    { key: "hr-compliance", label: "Compliance", slug: "compliance" },
-  ],
-  finance: [
-    { key: "finance-invoices", label: "Invoices", slug: "invoices" },
-    { key: "finance-payments", label: "Payments", slug: "payments" },
-    { key: "finance-timesheets", label: "Timesheets", slug: "timesheets" },
-  ],
-};
+/** The Administration menu's group labels, for an API that does not send them yet (the data in workspaces.json wins). */
+const ADMIN_GROUP_LABELS: Record<string, string> = { people: "People", talent: "Talent", pipeline: "Pipeline", organization: "Organization" };
 
 /**
  * Administration pages whose route is still the "on the way" placeholder, whether or not the API lists them for this member. Take a key out of this
  * set in the same change that builds its page (the sidebar test fails if one is both built and listed here).
  */
-export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set(["subscription", "licenses", "billing", "usage", "hr", "finance", "domains", "integrations"]);
+export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set(["billing"]);
 
 /**
- * The whole Administration menu in the board's order (design/enterprise-talent/dashboard.png). The API sends only the items a member
- * may open with their modules on; the others are shown too, greyed with a "Soon" chip and leading to the honest "on the way" page,
- * so the menu always reads as the full product. Everything the API does send wins over this list (its href, label, icon).
+ * The whole Administration menu in order, with its groups. The API sends only the items a member may open with their modules on; the others
+ * are shown too, greyed with a "Soon" chip and leading to the honest "on the way" page, so the menu always reads as the full product.
+ * Everything the API does send wins over this list (its href, label, icon, group).
  */
-const ADMIN_FULL: { key: string; label: string; icon: string; href: string }[] = [
+const ADMIN_FULL: { key: string; label: string; icon: string; href: string; group?: string }[] = [
   { key: "home", label: "Dashboard", icon: "Home", href: "/w/admin" },
-  { key: "employees", label: "Employees", icon: "Users", href: "/w/admin/employees" },
-  { key: "invitations", label: "Invitations", icon: "Mail", href: "/w/admin/invitations" },
-  { key: "teams", label: "Teams", icon: "Network", href: "/w/admin/teams" },
-  { key: "departments", label: "Departments", icon: "Building", href: "/w/admin/departments" },
-  { key: "roles", label: "Roles & Permissions", icon: "Key", href: "/w/admin/roles" },
-  { key: "consultants", label: "Consultants", icon: "Briefcase", href: "/w/admin/consultants" },
-  { key: "resumes", label: "Resumes", icon: "FileText", href: "/w/admin/resumes" },
-  { key: "assignments", label: "Marketing Assignments", icon: "Handshake", href: "/w/admin/marketing-assignments" },
-  { key: "jobs", label: "Jobs", icon: "Target", href: "/w/admin/jobs" },
-  { key: "applications", label: "Applications", icon: "Board", href: "/w/admin/applications" },
-  { key: "interviews", label: "Interviews", icon: "CalendarCheck", href: "/w/admin/interviews" },
-  { key: "clients", label: "Clients", icon: "Building", href: "/w/admin/clients" },
-  { key: "placements", label: "Placements", icon: "Trophy", href: "/w/admin/placements" },
-  { key: "subscription", label: "Subscription Overview", icon: "Layers", href: "/w/admin/subscription" },
-  { key: "licenses", label: "Consultant Licenses", icon: "ShieldCheck", href: "/w/admin/licenses" },
-  { key: "billing", label: "Billing", icon: "CreditCard", href: "/w/admin/billing" },
-  { key: "usage", label: "Feature Usage", icon: "BarChart", href: "/w/admin/usage" },
-  { key: "hr", label: "HR", icon: "Heart", href: "/w/admin/hr" },
-  { key: "finance", label: "Finance", icon: "Dollar", href: "/w/admin/finance" },
-  { key: "reports", label: "Reports", icon: "Chart", href: "/w/admin/reports" },
-  { key: "branding", label: "Organization Branding", icon: "Sparkles", href: "/w/admin/branding" },
-  { key: "domains", label: "Domains", icon: "Globe", href: "/w/admin/domains" },
-  { key: "integrations", label: "Integrations", icon: "Webhook", href: "/w/admin/integrations" },
-  { key: "audit", label: "Audit Logs", icon: "Shield", href: "/w/admin/audit" },
-  { key: "settings", label: "Settings", icon: "Gear", href: "/w/admin/settings" },
-  { key: "policies", label: "Policies", icon: "FileText", href: "/w/admin/policies" },
+  { key: "employees", label: "Employees", icon: "Users", href: "/w/admin/employees", group: "people" },
+  { key: "teams", label: "Teams & Departments", icon: "Network", href: "/w/admin/teams", group: "people" },
+  { key: "roles", label: "Roles", icon: "Key", href: "/w/admin/roles", group: "people" },
+  { key: "consultants", label: "Consultants", icon: "Briefcase", href: "/w/admin/consultants", group: "talent" },
+  { key: "assignments", label: "Assignments", icon: "Handshake", href: "/w/admin/marketing-assignments", group: "talent" },
+  { key: "resumes", label: "Resumes", icon: "FileText", href: "/w/admin/resumes", group: "talent" },
+  { key: "jobs", label: "Jobs", icon: "Target", href: "/w/admin/jobs", group: "pipeline" },
+  { key: "applications", label: "Applications", icon: "Board", href: "/w/admin/applications", group: "pipeline" },
+  { key: "interviews", label: "Interviews", icon: "CalendarCheck", href: "/w/admin/interviews", group: "pipeline" },
+  { key: "clients", label: "Clients", icon: "Building", href: "/w/admin/clients", group: "pipeline" },
+  { key: "placements", label: "Placements", icon: "Trophy", href: "/w/admin/placements", group: "pipeline" },
+  { key: "reports", label: "Reports", icon: "Chart", href: "/w/admin/reports", group: "organization" },
+  { key: "audit", label: "Audit Log", icon: "Shield", href: "/w/admin/audit", group: "organization" },
+  { key: "branding", label: "Branding", icon: "Sparkles", href: "/w/admin/branding", group: "organization" },
+  { key: "settings", label: "Settings", icon: "Gear", href: "/w/admin/settings", group: "organization" },
+  { key: "billing", label: "Plan & Billing", icon: "CreditCard", href: "/w/admin/billing", group: "organization" },
 ];
 
 export interface ShellNavItem extends NavItem {
@@ -76,11 +47,13 @@ export interface ShellNavItem extends NavItem {
   soon?: boolean;
   /** The label in the organization's own words (terminology map applied). */
   text: string;
-  children?: ShellNavItem[];
 }
 
 export interface NavSection {
+  /** The group's key, or "main" for rows outside any group (Home, a trailing Settings). */
   id: string;
+  /** The small label drawn above the group; null for rows outside any group. */
+  label: string | null;
   items: ShellNavItem[];
 }
 
@@ -99,42 +72,37 @@ export function labelFor(item: Pick<NavItem, "key" | "label">, terminology: Reco
 const pathOf = (href: string) => href.split("#")[0].split("?")[0];
 const queryOf = (href: string) => (href.includes("?") ? href.split("#")[0].split("?")[1] : "");
 
-/** The workspace's nav as display groups. Administration uses the board's three groups; every other workspace is one group. */
+/**
+ * The workspace's nav as display groups: consecutive items that share a `group` form one labelled section (Home and any item without a
+ * group stand alone, unlabelled). The Administration home's own workspace also lists the pages its modules do not open yet, as "Soon".
+ */
 export function navSections(ws: Workspace, terminology?: Record<string, string> | null): NavSection[] {
-  const decorate = (n: NavItem): ShellNavItem => {
-    const base: ShellNavItem = { ...n, text: n.key === "home" ? homeLabel(ws) : labelFor(n, terminology) };
-    const kids = ws.workspaceKey === "ADMIN" ? ADMIN_CHILDREN[n.key] : undefined;
-    if (kids) {
-      base.children = [
-        { key: `${n.key}-overview`, label: "Overview", text: "Overview", icon: n.icon, href: n.href },
-        ...kids.map((k) => ({ key: k.key, label: k.label, text: k.label, icon: n.icon, href: `${n.href}/${k.slug}` })),
-      ];
-    }
-    return base;
-  };
-  if (ws.workspaceKey !== "ADMIN") return [{ id: "main", items: ws.nav.map(decorate) }];
-  const groups: NavSection[] = [{ id: "people", items: [] }, { id: "plan", items: [] }, { id: "organization", items: [] }];
-  const have = new Map(ws.nav.map((n) => [n.key, n]));
-  const full = ws.nav.some((n) => n.key === "home"); // the whole menu only on the Administration home's own workspace
-  const ordered: { item: NavItem; soon: boolean }[] = [];
+  const decorate = (n: NavItem): ShellNavItem => ({ ...n, text: n.key === "home" ? homeLabel(ws) : labelFor(n, terminology) });
+  const ordered: ShellNavItem[] = [];
+  const full = ws.workspaceKey === "ADMIN" && ws.nav.some((n) => n.key === "home"); // the whole menu only on the Administration home's own workspace
   if (full) {
+    const have = new Map(ws.nav.map((n) => [n.key, n]));
     for (const f of ADMIN_FULL) {
       const real = have.get(f.key);
-      ordered.push(real ? { item: real, soon: false } : { item: { key: f.key, label: f.label, icon: f.icon, href: f.href } as NavItem, soon: true });
+      const d = decorate(real ? { ...real, group: real.group ?? f.group ?? null } : ({ key: f.key, label: f.label, icon: f.icon, href: f.href, group: f.group ?? null } as NavItem));
+      // D9 (2026-10-16 audit): a page the API lists but nobody has built yet reads "Soon" exactly like one it does not list, so the menu never promises more than it opens
+      if (!real || ADMIN_NOT_BUILT.has(f.key)) d.soon = true;
+      ordered.push(d);
     }
-    for (const n of ws.nav) if (!ADMIN_FULL.some((f) => f.key === n.key)) ordered.push({ item: n, soon: false });
-  } else for (const n of ws.nav) ordered.push({ item: n, soon: false });
-  for (const { item, soon: missing } of ordered) {
-    const d = decorate(item);
-    // D9 (2026-10-16 audit): a page the API lists but nobody has built yet reads "Soon" exactly like one it does not list, so the menu never promises more than it opens
-    const soon = missing || ADMIN_NOT_BUILT.has(item.key);
-    if (soon) {
-      d.soon = true;
-      delete d.children;
-    }
-    groups[ADMIN_GROUP[item.key] ?? 0].items.push(d);
+    for (const n of ws.nav) if (!ADMIN_FULL.some((f) => f.key === n.key)) ordered.push(decorate(n));
+  } else for (const n of ws.nav) ordered.push(decorate(n));
+
+  const labels = new Map((ws.groups ?? []).map((g) => [g.key, g.label]));
+  const labelOf = (key: string) => labels.get(key) ?? (ws.workspaceKey === "ADMIN" ? ADMIN_GROUP_LABELS[key] : undefined) ?? null;
+  const sections: NavSection[] = [];
+  for (const item of ordered) {
+    const group = item.group && labelOf(item.group) ? item.group : null;
+    const last = sections[sections.length - 1];
+    if (last && group !== null && last.id === group) last.items.push(item);
+    else if (last && group === null && last.label === null) last.items.push(item);
+    else sections.push({ id: group ?? "main", label: group ? labelOf(group) : null, items: [item] });
   }
-  return groups.filter((g) => g.items.length > 0);
+  return sections;
 }
 
 /**
@@ -158,17 +126,14 @@ export function activeKey(ws: Workspace, pathname: string, search = ""): string 
     }
     if (!best || p.length > best.len || (p.length === best.len && qScore > best.q)) best = { key, len: p.length, q: qScore };
   };
-  for (const n of navSections(ws).flatMap((s) => s.items)) {
-    consider(n.key, n.href);
-    for (const c of n.children ?? []) if (c.key !== `${n.key}-overview`) consider(c.key, c.href);
-  }
+  for (const n of navSections(ws).flatMap((s) => s.items)) consider(n.key, n.href);
   return (best as { key: string } | null)?.key ?? null;
 }
 
 /** The title shown when a page has not supplied its own header: the active item's label, else the workspace's. */
 export function defaultTitle(ws: Workspace, pathname: string, search: string, terminology?: Record<string, string> | null): string {
   const key = activeKey(ws, pathname, search);
-  const all = navSections(ws, terminology).flatMap((s) => s.items.flatMap((i) => [i, ...(i.children ?? [])]));
+  const all = navSections(ws, terminology).flatMap((s) => s.items);
   const hit = key ? all.find((i) => i.key === key) : undefined;
   if (hit) return hit.text;
   return ws.label;
@@ -293,8 +258,7 @@ export function catchAllPage(me: MeTenant, workspace: string, slug: string[]): {
   const ws = me.workspaces.find((w) => w.key === workspace);
   if (!ws) return { kind: "denied" };
   const path = `/w/${workspace}${slug.length ? `/${slug.join("/")}` : ""}`.replace(/\/+$/, "");
-  const items = navSections(ws, me.org.terminology).flatMap((s) => s.items);
-  const flat = items.flatMap((i) => [...(i.children ?? []).filter((c) => c.key !== `${i.key}-overview`), i]);
+  const flat = navSections(ws, me.org.terminology).flatMap((s) => s.items);
   let best: ShellNavItem | null = null;
   for (const item of flat) {
     const p = pathOf(item.href).replace(/\/+$/, "");

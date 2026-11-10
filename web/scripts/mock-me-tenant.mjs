@@ -150,7 +150,7 @@ export function meTenantFor(host, login) {
     if (!via.length) continue;
     const nav = def.nav.filter((n) => (!n.module || mods[n.module]) && held(n.needs));
     if (!nav.length || nav[0].key !== "home") continue;
-    const items = nav.map(({ key, label, icon, href, badge }) => ({ key, label, icon, href, badge: badge ?? null }));
+    const items = nav.map(({ key, label, icon, href, badge, group }) => ({ key, label, icon, href, badge: badge ?? null, group: group ?? null }));
     workspaces.push({
       key: def.slug,
       workspaceKey: def.key,
@@ -160,6 +160,7 @@ export function meTenantFor(host, login) {
       roleKeys: via,
       nav: items,
       bottomTabs: def.bottomTabs.filter((t) => items.some((n) => n.key === t)),
+      groups: def.groups ?? [],
     });
   }
   const primaryWs = roleViews[0].workspaceKey;

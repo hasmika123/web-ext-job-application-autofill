@@ -69,17 +69,15 @@ afterEach(() => {
 });
 
 describe("ResumesPage (board)", () => {
-  it("draws the four KPI tiles with value and delta", async () => {
+  it("has no tiles: one chip row carries the counts (All, Pending review)", async () => {
     mount();
-    await waitFor(() => expect(within(document.querySelector('[data-stat-tile="total"]') as HTMLElement).getByText("48")).toBeTruthy());
-    for (const [id, title, value, delta] of [["total", "Total Resumes", "48", "12%"], ["profilesReady", "Profiles Ready", "36", "9%"], ["needUpdates", "Resumes Need Updates", "8", "27%"], ["approvalsPending", "Approvals Pending", "4", "33%"]]) {
-      const t = document.querySelector(`[data-stat-tile="${id}"]`) as HTMLElement;
-      expect(within(t).getByText(title)).toBeTruthy();
-      expect(within(t).getByText(value)).toBeTruthy();
-      expect(t.textContent).toContain(delta);
-      expect(t.textContent).toContain("vs last month");
-    }
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(4);
+    await screen.findByText("Alex Morgan - Consulting Resume");
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "All (48)" })).toBeTruthy();
+    const pending = screen.getByRole("button", { name: "Pending review (4)" });
+    fireEvent.click(pending);
+    await waitFor(() => expect(listCalls().some((c) => c.url.includes("status=PENDING"))).toBe(true));
+    expect(screen.getByRole("button", { name: "Pending review (4)" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("offers 'New resume for...' (the act-for entry point /w/marketing/resumes lost when h-assign mounted this page)", async () => {
@@ -93,18 +91,17 @@ describe("ResumesPage (board)", () => {
     mount();
     await screen.findByText("Alex Morgan - Consulting Resume");
     expect(screen.getByPlaceholderText("Search consultants or resume titles...")).toBeTruthy();
-    for (const l of ["Filters:", "Skill", "Status", "Date Updated", "Availability", "Reset"]) expect(screen.getAllByText(l).length).toBeGreaterThan(0);
+    for (const l of ["Filters:", "Skill", "Status", "Date updated", "Availability", "Reset"]) expect(screen.getAllByText(l).length).toBeGreaterThan(0);
     const head = screen.getAllByRole("columnheader").map((h) => h.textContent?.replace(/[↑↓]/g, "").trim());
-    expect(head).toEqual(["", "Consultant", "Resume Title", "Version", "Last Modified", "Primary", "Profile Completeness", "Approval Status", "Actions"]);
+    expect(head).toEqual(["", "Consultant", "Resume title", "Version", "Last modified", "Primary", "Approval status", "Actions"]);
     expect(document.querySelectorAll("[data-resume-row]")).toHaveLength(10);
     const first = document.querySelector('[data-resume-row="1"]') as HTMLElement;
-    for (const t of ["Alex Morgan", "Java Developer", "Alex Morgan - Consulting Resume", "v3", "Yes", "92%", "Approved", "2 days ago", "View", "Edit", "Download"]) expect(within(first).getAllByText(t).length).toBeGreaterThan(0);
+    for (const t of ["Alex Morgan", "Java Developer", "Alex Morgan - Consulting Resume", "v3", "Yes", "Approved", "2 days ago", "View", "Edit", "Download"]) expect(within(first).getAllByText(t).length).toBeGreaterThan(0);
     const third = document.querySelector('[data-resume-row="3"]') as HTMLElement;
     expect(within(third).getByText("No")).toBeTruthy();
-    expect(within(third).getByText("Pending Review")).toBeTruthy();
-    expect(within(document.querySelector('[data-resume-row="5"]') as HTMLElement).getByText("Needs Update")).toBeTruthy();
+    expect(within(third).getByText("Pending review", { selector: "span" })).toBeTruthy();
+    expect(within(document.querySelector('[data-resume-row="5"]') as HTMLElement).getByText("Needs update")).toBeTruthy();
     expect(within(document.querySelector('[data-resume-row="5"]') as HTMLElement).getByText("2 weeks ago")).toBeTruthy();
-    expect(screen.getByRole("meter", { name: "Profile completeness for Alex Morgan" }).getAttribute("aria-valuenow")).toBe("92");
   });
 
   it("shows the range, the page buttons and the page size", async () => {
@@ -117,18 +114,13 @@ describe("ResumesPage (board)", () => {
     expect((screen.getByRole("button", { name: "Previous page" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("draws the help card and Recent Resume Activity with the view-all links", async () => {
+  it("has no bee help card and no Recent resume activity card (that lives on Activity)", async () => {
     mount();
     await screen.findByText("Alex Morgan - Consulting Resume");
-    expect(screen.getByText("Keep resumes up to date for more opportunities!")).toBeTruthy();
-    expect(screen.getByText("Well-maintained resumes get 3x more client views and lead to faster submissions.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ask a question/ })).toBeTruthy();
-    expect(screen.getByText("Recent Resume Activity")).toBeTruthy();
-    const act = document.querySelector('[data-activity-row="1"]') as HTMLElement;
-    expect(act.textContent).toContain("Alex Morgan updated resume to v3");
-    expect(act.textContent).toContain("2 hours ago");
-    expect(screen.getByRole("link", { name: "View all" }).getAttribute("href")).toBe("/w/marketing/activity");
-    expect(screen.getByRole("link", { name: /View all activity/ }).getAttribute("href")).toBe("/w/marketing/activity");
+    expect(screen.queryByRole("button", { name: /Ask a question/ })).toBeNull();
+    expect(screen.queryByText("Recent Resume Activity")).toBeNull();
+    expect(screen.queryByText("Recent resume activity")).toBeNull();
+    expect(document.querySelector("[data-activity-row]")).toBeNull();
   });
 
   it("Download is disabled with 'No file stored' because resumes carry no file", async () => {
@@ -164,10 +156,10 @@ describe("ResumesPage (board)", () => {
     expect((screen.getByPlaceholderText("Search consultants or resume titles...") as HTMLInputElement).value).toBe("");
   });
 
-  it("sorts by Last Modified when its header is pressed", async () => {
+  it("sorts by Last modified when its header is pressed", async () => {
     mount();
     await screen.findByText("Alex Morgan - Consulting Resume");
-    fireEvent.click(screen.getByRole("button", { name: /Last Modified/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Last modified/ }));
     await waitFor(() => expect(listCalls().some((c) => c.url.includes("sort=modified%2Casc"))).toBe(true));
   });
 
@@ -175,19 +167,11 @@ describe("ResumesPage (board)", () => {
     stub(() => json(200, fixture({ items: [], total: 0, activity: [], kpis: [kpi("total", 0, null), kpi("profilesReady", 0, null), kpi("needUpdates", 0, null), kpi("approvalsPending", 0, null)] })));
     mount();
     await screen.findByText("Ask your consultants to share a resume.");
-    expect(screen.getByText("No resume activity yet.")).toBeTruthy();
     expect(screen.getByText("Showing 0 of 0 resumes")).toBeTruthy();
     cleanup();
     stub(() => json(200, fixture({ items: [], total: 0 })));
     mount();
     await screen.findByText("No resumes match these filters.");
-  });
-
-  it("draws no delta chip when the API has nothing to compare", async () => {
-    stub(() => json(200, fixture({ kpis: [kpi("total", 3, null), kpi("profilesReady", 1, null), kpi("needUpdates", 1, null), kpi("approvalsPending", 1, null)] })));
-    mount();
-    await waitFor(() => expect(within(document.querySelector('[data-stat-tile="total"]') as HTMLElement).getByText("3")).toBeTruthy());
-    expect((document.querySelector('[data-stat-tile="total"]') as HTMLElement).textContent).not.toContain("vs last month");
   });
 
   it("offers a retry when the list fails, then recovers", async () => {

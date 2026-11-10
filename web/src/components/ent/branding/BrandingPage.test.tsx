@@ -218,13 +218,24 @@ describe("Branding page: autosave of the draft (no Save button)", () => {
 });
 
 describe("Branding page: the colour readability gate", () => {
+  it("a saved colour on the edge raises no warning until that field is changed", async () => {
+    const view = baseView();
+    liveApi({ ...view, draft: { ...view.draft, secondary: "#f59e0b" }, published: { ...view.published, secondary: "#f59e0b" } });
+    await mount();
+    expect(document.querySelector("[data-colour-problem]")).toBeNull();
+    expect((screen.getByLabelText("Secondary color") as HTMLInputElement).value).toBe("#f59e0b");
+    fireEvent.change(screen.getByLabelText("Secondary color"), { target: { value: "#fbbf24" } });
+    await settle();
+    expect(document.querySelector("[data-colour-problem]")?.textContent).toContain("too light for white text");
+  });
+
   it("a too-light colour shows the problem and a suggestion, is NOT sent, and the preview keeps the last good colour", async () => {
     liveApi();
     await mount();
     const posted: PreviewPayload[] = [];
     const frame = screen.getByTitle("Sign-in page preview") as HTMLIFrameElement;
     vi.spyOn(frame.contentWindow!, "postMessage").mockImplementation((m: unknown) => void posted.push(m as PreviewPayload));
-    fireEvent.change(screen.getByLabelText("Primary colour"), { target: { value: "#ffff00" } });
+    fireEvent.change(screen.getByLabelText("Primary color"), { target: { value: "#ffff00" } });
     await settle();
     expect(document.querySelector("[data-colour-problem]")?.textContent).toContain("too light for white text");
     expect(patches()).toHaveLength(0);
@@ -244,7 +255,7 @@ describe("Branding page: the colour readability gate", () => {
     await mount();
     const frame = screen.getByTitle("Sign-in page preview") as HTMLIFrameElement;
     const spy = vi.spyOn(frame.contentWindow!, "postMessage").mockImplementation(() => {});
-    fireEvent.change(screen.getByLabelText("Primary colour"), { target: { value: "#7c3aed" } });
+    fireEvent.change(screen.getByLabelText("Primary color"), { target: { value: "#7c3aed" } });
     await settle();
     expect(patches()[0].body).toEqual({ primary: "#7c3aed" });
     expect(document.querySelectorAll('[data-shade-scale="primary"] li')).toHaveLength(10);
@@ -296,7 +307,7 @@ describe("Branding page: publish, discard, history", () => {
     liveApi();
     await mount();
     type(/Welcome title/, "Hello");
-    fireEvent.change(screen.getByLabelText("Primary colour"), { target: { value: "#7c3aed" } });
+    fireEvent.change(screen.getByLabelText("Primary color"), { target: { value: "#7c3aed" } });
     await settle();
     const publish = screen.getByRole("button", { name: "Publish" }) as HTMLButtonElement;
     expect(publish.disabled).toBe(false);
@@ -361,7 +372,7 @@ describe("Branding page: publish, discard, history", () => {
     expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/versions/2/restore"))).toBe(true);
     expect(screen.getByText("Version 2 restored into your draft")).toBeTruthy();
     expect(document.querySelector("[data-draft-badge]")?.getAttribute("data-draft-badge")).toBe("differs");
-    expect((screen.getByLabelText("Primary colour") as HTMLInputElement).value).toBe("#b4531a");
+    expect((screen.getByLabelText("Primary color") as HTMLInputElement).value).toBe("#b4531a");
   });
 });
 

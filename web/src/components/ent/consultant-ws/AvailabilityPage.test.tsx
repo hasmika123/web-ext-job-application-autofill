@@ -66,24 +66,20 @@ async function mount() {
   );
   await flush();
 }
-const tileOf = (k: string) => document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement;
 const cell = (iso: string) => document.querySelector(`button[data-iso="${iso}"]`) as HTMLButtonElement;
 const writes = () => calls.filter((c) => c.method !== "GET");
 
 describe("Availability from real data", () => {
-  it("draws the five tiles from the API's numbers", async () => {
+  it("draws one summary line from the API's numbers, with no tiles, Quick Actions or help card", async () => {
     await mount();
     expect(calls[0]).toMatchObject({ method: "GET", url: "/api/orgs/2/me-workspace/availability" });
     expect(document.querySelector("[data-consultant-availability]")!.getAttribute("data-status")).toBe("ready");
-    expect(within(tileOf("Available From")).getByText("Oct 28, 2026")).toBeTruthy();
-    expect(within(tileOf("Available From")).getByText("2 weeks from now")).toBeTruthy();
-    expect(within(tileOf("Open Opportunities")).getByText("8")).toBeTruthy();
-    expect(within(tileOf("Open Opportunities")).getByText(/vs last month/)).toBeTruthy();
-    expect(within(tileOf("Preferred Work Mode")).getByText("Hybrid")).toBeTruthy();
-    expect(within(tileOf("Notice Period")).getByText("2 weeks")).toBeTruthy();
-    const vac = tileOf("Vacation Days (2026)");
-    expect(within(vac).getByText("12")).toBeTruthy();
-    expect(vac.textContent).toContain("5 days scheduled, 3 pending");
+    expect(document.querySelector("[data-avail-summary]")!.textContent).toContain("Available from Oct 28, 2026 · 2 weeks notice · Hybrid");
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(document.querySelector("[data-quick]")).toBeNull();
+    expect(document.querySelector('[data-home-card="avail-prefs"]')).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question/)).toBeNull();
+    expect(screen.queryByText(/has no screen on their side/)).toBeNull();
   });
 
   it("shows the calendar for the server's month, navigates, and returns with Today", async () => {
@@ -196,24 +192,15 @@ describe("Availability from real data", () => {
     expect(writes()[0]).toMatchObject({ method: "DELETE", url: "/api/orgs/2/me-workspace/availability/blocks/1" });
   });
 
-  it("reads work preferences from the API and links the profile ones to My Career Profile", async () => {
+  it("links work preferences to My Profile", async () => {
     await mount();
-    const row = (k: string) => document.querySelector(`[data-pref="${k}"]`) as HTMLElement;
-    expect(within(row("locations")).getByText("(Primary)")).toBeTruthy();
-    expect(within(row("locations")).getByText("Open to Austin, TX")).toBeTruthy();
-    expect(within(row("authorization")).getByText("Authorized to work")).toBeTruthy();
-    expect(row("authorization").textContent).not.toMatch(/\d{6,}/);
-    expect(within(row("employment")).getByText("Open to Contract-to-Hire")).toBeTruthy();
-    expect(within(row("rate")).getByText("$110 - $140 per hour")).toBeTruthy();
-    expect(within(row("travel")).getByText("Up to 25% travel")).toBeTruthy();
-    expect(row("locations").querySelector("a")!.getAttribute("href")).toBe("/w/consultant/profile");
-    expect(row("employment").querySelector("a")!.getAttribute("href")).toBe("/w/consultant/profile");
-    expect(row("rate").querySelector("a")).toBeNull();
+    const link = screen.getByRole("link", { name: "Edit work preferences on My Profile" });
+    expect(link.getAttribute("href")).toBe("/w/consultant/profile");
   });
 
-  it("Update Availability saves the status and date, and redraws from the answer", async () => {
+  it("Update availability saves the status and date, and redraws from the answer", async () => {
     await mount();
-    fireEvent.click(document.querySelector('[data-quick="update"]') as HTMLElement);
+    fireEvent.click(document.querySelector("[data-update-availability]") as HTMLElement);
     await flush();
     const form = document.querySelector("[data-status-form]") as HTMLElement;
     expect(within(form).getByDisplayValue("2026-10-28")).toBeTruthy();
@@ -222,13 +209,13 @@ describe("Availability from real data", () => {
     fireEvent.click(within(form).getByRole("button", { name: "Save availability" }));
     await flush();
     expect(writes()[0]).toMatchObject({ method: "PUT", url: "/api/orgs/2/me-workspace/availability/status", body: { status: "AVAILABLE", availableFrom: "2026-11-10" } });
-    expect(within(tileOf("Available From")).getByText("Nov 10, 2026")).toBeTruthy();
+    expect(document.querySelector("[data-avail-summary]")!.textContent).toContain("Available from Nov 10, 2026");
     expect(document.querySelector("[data-status-form]")).toBeNull();
   });
 
   it("rejects a past available-from date in the form", async () => {
     await mount();
-    fireEvent.click(document.querySelector('[data-quick="update"]') as HTMLElement);
+    fireEvent.click(document.querySelector("[data-update-availability]") as HTMLElement);
     await flush();
     const form = document.querySelector("[data-status-form]") as HTMLElement;
     fireEvent.change(within(form).getByDisplayValue("2026-10-28"), { target: { value: "2026-10-01" } });
@@ -238,9 +225,9 @@ describe("Availability from real data", () => {
     expect(within(form).getByRole("alert").textContent).toMatch(/today or a later/);
   });
 
-  it("Edit on Work Preferences saves the rate in minor units", async () => {
+  it("Edit notice, work mode, rate and travel saves the rate in minor units", async () => {
     await mount();
-    fireEvent.click(within(document.querySelector('[data-home-card="avail-prefs"]') as HTMLElement).getByRole("button", { name: "Edit" }));
+    fireEvent.click(document.querySelector("[data-edit-prefs]") as HTMLElement);
     await flush();
     const form = document.querySelector("[data-prefs-form]") as HTMLElement;
     fireEvent.change(within(form).getByDisplayValue("110"), { target: { value: "120.5" } });
@@ -250,12 +237,12 @@ describe("Availability from real data", () => {
     expect(writes()[0].body).toMatchObject({ workMode: "HYBRID", noticeWeeks: 2, rateMinMinor: 12050, rateMaxMinor: 14000, travelLabel: "OCCASIONAL", travelPercent: 25 });
   });
 
-  it("Share with Marketer is honest: it sends nothing", async () => {
+  it("Add blocked dates opens the entry sheet for today", async () => {
     await mount();
-    fireEvent.click(document.querySelector('[data-quick="share"]') as HTMLElement);
-    expect(document.querySelector("[data-share-note]")!.textContent).toContain("is not notified from here");
+    fireEvent.click(document.querySelector("[data-add-blocked]") as HTMLElement);
+    await flush();
     expect(writes()).toHaveLength(0);
-    expect(document.querySelector('[data-quick="locations"]')!.getAttribute("href")).toBe("/w/consultant/profile");
+    expect(document.querySelector("form")).toBeTruthy();
   });
 
   it("shows the history, and View All reveals the rest", async () => {
@@ -277,9 +264,7 @@ describe("Availability from real data", () => {
     await mount();
     expect(screen.getByText(/No time off scheduled/)).toBeTruthy();
     expect(screen.getByText(/No changes yet/)).toBeTruthy();
-    expect(within(tileOf("Available From")).getByText("Not set")).toBeTruthy();
-    expect(within(tileOf("Notice Period")).getByText("Not set")).toBeTruthy();
-    expect(document.querySelector('[data-pref="rate"]')!.textContent).toContain("Not set");
+    expect(document.querySelector("[data-avail-summary]")!.textContent).toContain("Not available");
     expect(document.querySelectorAll('button[data-paint="AVAILABLE"]')).toHaveLength(0);
   });
 

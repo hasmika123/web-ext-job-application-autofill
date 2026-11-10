@@ -178,11 +178,11 @@ function setNarrow(on: boolean) {
 async function mount(canManage = true) {
   const out = render(
     <ToastProvider>
-      <RolesPage orgId={2} orgName="Acme" workspace="admin" canManage={canManage} supportEmail="it@acme.com" />
+      <RolesPage orgId={2} workspace="admin" canManage={canManage} />
     </ToastProvider>,
   );
   await act(async () => {});
-  await waitFor(() => expect(document.querySelector("[data-kpi-value]")?.textContent).not.toBe("–"));
+  await waitFor(() => expect(document.querySelector("[data-roles-count]")?.textContent).not.toBe(""));
   return out;
 }
 
@@ -196,7 +196,7 @@ async function openMenu(name: string) {
   await act(async () => {});
 }
 
-const kpi = (label: string) => document.querySelector(`[data-kpi="${label}"] [data-kpi-value]`)?.textContent;
+const countLine = () => document.querySelector("[data-roles-count]")?.textContent;
 const editor = () => document.querySelector("[data-role-editor]") as HTMLElement;
 const permRow = (key: string) => document.querySelector(`[data-perm-row="${key}"]`) as HTMLElement;
 
@@ -214,20 +214,22 @@ afterEach(() => {
 /* ── the page ───────────────────────────────────────────────────────────────────────────────────── */
 
 describe("Roles & Permissions page: the list", () => {
-  it("shows the real numbers, the roles with their users, the donut and no trend lines", async () => {
+  it("shows one line of real counts and the roles with their users: no tiles, no donut, no Status column, no help card", async () => {
     await mount();
-    expect(kpi("Total Roles")).toBe("5");
-    expect(kpi("Active Users")).toBe("186");
-    expect(kpi("Permission Sets")).toBe("4");
-    expect(kpi("Custom Roles")).toBe("2");
+    expect(countLine()).toBe("5 roles · 2 custom");
+    expect(document.querySelector("[data-kpi]")).toBeNull();
     expect(document.body.textContent).not.toMatch(/vs last month/i);
     expect(within(rowOf("Organization Admin")).getByText("Organization")).toBeTruthy();
     expect(rowOf("Organization Admin").querySelector("[data-assigned-users]")?.getAttribute("data-assigned-users")).toBe("12");
     expect(within(rowOf("Regional lead")).getByText("Custom")).toBeTruthy();
-    expect(document.querySelectorAll("[data-slice]")).toHaveLength(5);
-    expect(document.querySelector("[data-donut]")?.getAttribute("aria-label")).toMatch(/Core Platform: 1/);
-    expect(screen.getByText("Need help setting up roles?")).toBeTruthy();
-    expect(screen.getByText("Ask a question...")).toBeTruthy();
+    expect(screen.queryByRole("columnheader", { name: "Status" })).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "Role name" })).toBeTruthy();
+    expect(document.querySelector("[data-slice]")).toBeNull();
+    expect(document.querySelector("[data-donut]")).toBeNull();
+    expect(document.querySelector("[data-quick-actions]")).toBeNull();
+    expect(screen.queryByText("Quick Actions")).toBeNull();
+    expect(screen.queryByText(/Ask a question/)).toBeNull();
+    expect(screen.getByRole("tab", { name: "Permission sets" })).toBeTruthy();
   });
 
   it("filters the table by the search box", async () => {
@@ -239,11 +241,9 @@ describe("Roles & Permissions page: the list", () => {
     expect(screen.getByText("No roles match your search.")).toBeTruthy();
   });
 
-  it("is a read-only list without roles.manage: no Create Role, no duplicate, no delete, view and assign only", async () => {
+  it("is a read-only list without roles.manage: no Create role, no duplicate, no delete, view and assign only", async () => {
     await mount(false);
-    expect(screen.queryByText("Create Role")).toBeNull();
-    expect(document.querySelector("[data-quick=create]")).toBeNull();
-    expect(document.querySelector("[data-quick=audit]")).toBeNull();
+    expect(screen.queryByText("Create role")).toBeNull();
     await openMenu("Regional lead");
     expect(screen.getByRole("menuitem", { name: /View permissions/ })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: /Assign users/ })).toBeTruthy();
@@ -275,9 +275,9 @@ describe("Roles & Permissions page: the list", () => {
     expect(within(list).getAllByRole("listitem").length).toBeGreaterThanOrEqual(5);
   });
 
-  it("the Permission Sets tab groups the catalog read-only and the quick action opens it", async () => {
+  it("the Permission sets tab groups the catalog read-only", async () => {
     await mount();
-    fireEvent.click(document.querySelector("[data-quick=sets]")!);
+    fireEvent.click(screen.getByRole("tab", { name: "Permission sets" }));
     await act(async () => {});
     expect(document.querySelector("[data-permission-sets]")).not.toBeNull();
     expect(document.querySelectorAll("[data-sets-category]")).toHaveLength(5);
@@ -288,20 +288,20 @@ describe("Roles & Permissions page: the list", () => {
     failNext = { match: /overview/, status: 500, body: { error: "The server had a problem." } };
     render(
       <ToastProvider>
-        <RolesPage orgId={2} orgName="Acme" workspace="admin" canManage />
+        <RolesPage orgId={2} workspace="admin" canManage />
       </ToastProvider>,
     );
     await act(async () => {});
     expect(await screen.findByText(/The server had a problem/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /try again|retry/i }));
-    await waitFor(() => expect(kpi("Total Roles")).toBe("5"));
+    await waitFor(() => expect(countLine()).toBe("5 roles · 2 custom"));
   });
 });
 
 describe("create, duplicate, delete with undo", () => {
   it("creates a blank role, opens its editor and offers Undo", async () => {
     await mount();
-    fireEvent.click(screen.getByText("Create Role"));
+    fireEvent.click(screen.getByText("Create role"));
     await act(async () => {});
     fireEvent.change(screen.getByLabelText(/Role name/), { target: { value: "Night shift lead" } });
     fireEvent.click(document.querySelector("[data-create-submit]")!);
@@ -318,7 +318,7 @@ describe("create, duplicate, delete with undo", () => {
 
   it("from a template: sends the template key", async () => {
     await mount();
-    fireEvent.click(screen.getByText("Create Role"));
+    fireEvent.click(screen.getByText("Create role"));
     await act(async () => {});
     fireEvent.change(screen.getByLabelText(/Role name/), { target: { value: "Recruiter" } });
     fireEvent.click(screen.getByRole("radio", { name: "A template" }));
@@ -343,7 +343,7 @@ describe("create, duplicate, delete with undo", () => {
   it("a taken name stays in the dialog with the reason", async () => {
     await mount();
     failNext = { match: /POST \/api\/orgs\/2\/roles$/, status: 409, body: { error: "x", code: "ROLE_NAME_TAKEN" } };
-    fireEvent.click(screen.getByText("Create Role"));
+    fireEvent.click(screen.getByText("Create role"));
     await act(async () => {});
     fireEvent.change(screen.getByLabelText(/Role name/), { target: { value: "Owner" } });
     fireEvent.click(document.querySelector("[data-create-submit]")!);
@@ -379,14 +379,6 @@ describe("create, duplicate, delete with undo", () => {
     expect(await screen.findByText(/Used by 3 people/)).toBeTruthy();
     expect(roles.some((r) => r.id === 10)).toBe(true);
   });
-
-  it("the audit quick action opens the history drawer with what the API says", async () => {
-    await mount();
-    fireEvent.click(document.querySelector("[data-quick=audit]")!);
-    expect(await screen.findByText(/Role changed · Regional lead/)).toBeTruthy();
-    expect(screen.getByText(/\+pipeline.view@ORG/)).toBeTruthy();
-    expect(screen.getByText(/by olivia/)).toBeTruthy();
-  });
 });
 
 /* ── the editor ─────────────────────────────────────────────────────────────────────────────────── */
@@ -400,7 +392,7 @@ async function openEditor(name: string) {
 const scopeButton = (key: string, label: string) => within(permRow(key)).getByRole("radio", { name: label }) as HTMLButtonElement;
 
 describe("the role editor", () => {
-  it("a system role is read only, says so, and offers Duplicate to customise (never for Owner)", async () => {
+  it("a system role is read only, says so, and offers Duplicate to customize (never for Owner)", async () => {
     await mount();
     await openEditor("Marketing Manager");
     expect(document.querySelector("[data-role-system]")).not.toBeNull();

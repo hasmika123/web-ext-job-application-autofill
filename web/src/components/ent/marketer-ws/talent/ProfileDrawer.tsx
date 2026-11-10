@@ -8,6 +8,7 @@ import { RelationTag, RelTime } from "@/components/app-v3/applications/UpdatedBy
 import { rowActorLine } from "@/lib/actors";
 import { preferredLabel, timeZoneLabel } from "@/lib/ent/contact-fields";
 import { fetchTalentDetail, fetchTalentOverview, yearsText, type TalentDetail, type TalentOverview } from "@/lib/ent/marketer-ws/talent";
+import { scoreText } from "@/lib/ent/marketer-ws/score";
 import { AvailabilityChip, ResumeChip } from "./chips";
 
 /**
@@ -214,12 +215,12 @@ export default function ProfileDrawer({
               {d.assignedJobs.map((j) => (
                 <li key={j.jobId} className="flex items-center gap-2 text-[13px]">
                   <span className="min-w-0 flex-1 truncate"><span className="font-semibold text-ink">{j.title}</span>{j.client ? <span className="text-muted"> - {j.client}</span> : null}</span>
-                  <span className="rounded-full bg-v2-green-soft px-2 py-0.5 text-[12px] font-bold text-v2-green-ink">{j.matchPct}%</span>
+                  <span className="rounded-full bg-v2-green-soft px-2 py-0.5 text-[12px] font-bold text-v2-green-ink">{scoreText(j.matchPct)}</span>
                 </li>
               ))}
             </Section>
             <div className="flex flex-wrap gap-2 border-t border-line pt-3">
-              {link("matches", "Find Job Matches")}
+              {link("matches", "Find job matches")}
               {link("resumes", "Resumes")}
               {link("interviews", "Interviews")}
             </div>

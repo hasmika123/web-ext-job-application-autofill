@@ -66,28 +66,25 @@ afterEach(() => {
 
 const flush = () => act(async () => void (await new Promise((r) => setTimeout(r, 20))));
 async function mount() {
-  render(<ApplicationsPage orgId={2} firstName="Anika Rao" />);
+  render(<ApplicationsPage orgId={2} />);
   await flush();
 }
-const tileOf = (k: string) => document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement;
 
 describe("My Applications from real data", () => {
-  it("draws tiles with vs last month, the table, funnel and recent updates", async () => {
+  it("draws the table only: no tiles, pipeline summary, recent updates, Quick Actions or help card", async () => {
     await mount();
     expect(urls[0]).toBe("/api/orgs/2/me-workspace/applications");
-    expect(within(tileOf("total")).getByText("3")).toBeTruthy();
-    expect(within(tileOf("total")).getByText(/28%/)).toBeTruthy();
-    expect(within(tileOf("offers")).getByText("No change to compare yet")).toBeTruthy();
-    expect((tileOf("rejected").querySelector("[data-delta]") as HTMLElement).className).toContain("coral");
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(document.querySelector("[data-delta]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question|Pipeline Summary|Recent Status Updates/)).toBeNull();
     const rows = [...document.querySelectorAll("tr[data-application]")] as HTMLElement[];
     expect(rows).toHaveLength(3);
     expect(within(rows[0]).getByText("Interview Scheduled")).toBeTruthy();
     expect(within(rows[0]).getByText("Technical Interview")).toBeTruthy();
     expect(within(rows[1]).getByText("Vendor Portal")).toBeTruthy();
     expect(within(rows[2]).getByText("Rejected")).toBeTruthy();
-    expect(document.querySelector("[data-funnel='OFFER']")!.textContent).toContain("0");
-    expect(document.querySelector("[data-funnel='UNDER_REVIEW']")!.textContent).toContain("33%");
-    expect(document.querySelector("[data-update='CLOSED']")!.textContent).toContain("Application Rejected");
+    expect(document.querySelector("[data-funnel]")).toBeNull();
+    expect(document.querySelector("[data-update]")).toBeNull();
     expect(screen.queryByText("Phone Screen")).toBeNull();
   });
 
@@ -147,7 +144,5 @@ describe("My Applications from real data", () => {
     current = page({ rows: [], recent: [], paging: { page: 0, size: 10, total: 0, pages: 0 }, funnel: [{ key: "TOTAL", count: 0, percent: null }], statuses: [{ key: "ALL", count: 0 }] });
     await mount();
     expect(screen.getByText(/No applications yet/)).toBeTruthy();
-    expect(screen.getByText(/No status updates yet/)).toBeTruthy();
-    expect(screen.getByText(/Nothing in your pipeline yet/)).toBeTruthy();
   });
 });

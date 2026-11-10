@@ -8,7 +8,7 @@ import { getTenantSession } from "@/lib/ent/tenant-session";
  * Consultant Tasks & Follow-ups at `/w/consultant/tasks` (design/enterprise-consultant/tasks.webp), inside the EnterpriseShell (the sibling
  * layout draws the frame). The API is the gate (404 for anyone who is not a consultant of this organization).
  */
-export const metadata: Metadata = { title: "Tasks & Follow-ups", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Tasks", robots: { index: false, follow: false } };
 
 export default async function ConsultantTasksRoute() {
   const session = await getTenantSession();

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { IconButton, Menu, MemberAvatar, MoreHorizontalIcon, Tooltip } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
-import { skillChips, statusLabel, type MatchSummary } from "@/lib/ent/jobs";
+import { matchScoreText, skillChips, statusLabel, type MatchSummary } from "@/lib/ent/jobs";
 
 /** One tone per job status (the boards' pills: Open green, In Review blue, Filled purple, On Hold amber, Closed grey). */
 const STATUS_TONE: Record<string, string> = {
@@ -64,7 +64,7 @@ export function MatchStack({ matches }: { matches: MatchSummary }) {
       <div className="flex items-center">
         <ul aria-label="Best matching consultants" className="flex -space-x-1.5">
           {matches.top.map((m) => (
-            <li key={m.consultantId} title={`${m.name} (${m.score}%)`} className="rounded-full ring-2 ring-white">
+            <li key={m.consultantId} title={`${m.name} (${m.score > 0 ? `${m.score}%` : "Not scored"})`} className="rounded-full ring-2 ring-white">
               <MemberAvatar name={m.name} size={24} />
             </li>
           ))}
@@ -72,7 +72,7 @@ export function MatchStack({ matches }: { matches: MatchSummary }) {
         {rest > 0 && <span className="ml-1 text-[9.5px] font-medium text-[var(--ent-soft)]">+{rest}</span>}
       </div>
       <span className="text-[10.5px] font-semibold text-[var(--ent-x-17995c)] tabular-nums" data-best-score>
-        {matches.best}% match
+        {matchScoreText(matches.best)}
       </span>
     </div>
   );

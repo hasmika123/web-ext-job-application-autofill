@@ -219,7 +219,7 @@ export default function GroupDetailSheet({
                 icon={g.icon}
                 color={g.color}
                 onIcon={(v) => void change({ icon: v }, "Icon changed", g.icon ? { icon: g.icon } : undefined)}
-                onColor={(v) => void change({ color: v }, "Colour changed", g.color ? { color: g.color } : undefined)}
+                onColor={(v) => void change({ color: v }, "Color changed", g.color ? { color: g.color } : undefined)}
               />
             </section>
           )}

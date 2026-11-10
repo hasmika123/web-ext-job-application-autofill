@@ -114,12 +114,12 @@ export function PlacementsTable(p: TableProps) {
             <th scope="col" className={HEAD}>Consultant</th>
             <th scope="col" className={HEAD}>Client</th>
             <th scope="col" className={HEAD}>Role</th>
-            <th scope="col" className={HEAD}>Start Date</th>
-            <th scope="col" className={HEAD}>End Date</th>
+            <th scope="col" className={HEAD}>Start date</th>
+            <th scope="col" className={HEAD}>End date</th>
             <th scope="col" className={HEAD}>Account Manager</th>
             <th scope="col" className={HEAD}>Status</th>
-            {p.showRates && <th scope="col" className={HEAD}>Bill Rate</th>}
-            <th scope="col" className={HEAD}>Next Action</th>
+            {p.showRates && <th scope="col" className={HEAD}>Bill rate</th>}
+            <th scope="col" className={HEAD}>Next action</th>
             <th scope="col" className={`${HEAD} rounded-r-[10px] text-center`}>Actions</th>
           </tr>
         </thead>

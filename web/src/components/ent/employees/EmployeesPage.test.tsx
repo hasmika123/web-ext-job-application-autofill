@@ -2,7 +2,12 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+const nav = vi.hoisted(() => ({ search: "", replace: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: nav.replace }),
+  usePathname: () => "/w/admin/employees",
+  useSearchParams: () => new URLSearchParams(nav.search),
+}));
 
 import { ToastProvider } from "@kiwiply/ui";
 import type { MemberCounts, MemberDetail, MemberRow, RoleRef, Tile } from "@/lib/ent/members";
@@ -91,6 +96,10 @@ function answer(c: Call): { status: number; body?: unknown } {
     return { status: 200, body: { items: items.slice(page * size, page * size + size).map(rowOf), page, size, total: items.length, hasNext: false } };
   }
   if (c.path === "/members/counts") return { status: 200, body: counts };
+  if (c.path === "/invitations/counts") return { status: 200, body: { counts: [{ status: "PENDING", count: 2, deltaLastMonth: 0 }], total: 2 } };
+  if (c.path === "/invitations/form-options") return { status: 200, body: { roles: ROLES, departments: [{ id: 21, name: "Marketing" }], rolesAvailable: true, departmentsAvailable: true } };
+  if (c.path === "/members/temp-password") return { status: 200, body: { password: "Zq7!hTn4-Wm2+Rp9" } };
+  if (c.path === "/invitations" && c.method === "GET") return { status: 200, body: { items: [{ id: 70, email: "newhire@acme.test", name: "New Hire", status: "PENDING", roles: [{ id: 10, key: "CONSULTANT", name: "Consultant", primary: true }], department: null, team: null, manager: null, invitedBy: { memberId: 1, name: "Olivia Owner" }, invitedAt: "2026-10-10T09:00:00Z", expiresAt: "2026-10-30T09:00:00Z", acceptedAt: null, endedAt: null, resendCount: 0, message: null }], page: 0, size: 10, total: 1 } };
   if (c.path === "/members/offboarding") return { status: 200, body: { items: [] } };
   if (c.path === "/roles") return { status: 200, body: ROLES };
   if (c.path === "/groups") return { status: 200, body: GROUPS };
@@ -155,7 +164,7 @@ const PERMS = { "member.view_summary": "ORG", "members.invite": "ORG", "members.
 async function mount(over: { permissions?: Record<string, string> } = {}) {
   const out = render(
     <ToastProvider>
-      <EmployeesPage orgId={2} orgName="Acme" workspace="admin" selfMemberId={1} permissions={over.permissions ?? PERMS} supportEmail={null} />
+      <EmployeesPage orgId={2} orgName="Acme" selfMemberId={1} permissions={over.permissions ?? PERMS} />
     </ToastProvider>,
   );
   await settle(0);
@@ -180,6 +189,9 @@ function phone(on: boolean) {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  nav.search = "";
+  nav.replace.mockClear();
+  window.history.replaceState({}, "", "/w/admin/employees");
   people = seedPeople();
   counts = { asOf: null, scope: "ORG", total: tile(4, 3), active: tile(3, 3), invited: tile(0, null), suspended: tile(1, null), departments: tile(1, null), teams: tile(1, null) };
   stubApi();
@@ -191,26 +203,34 @@ afterEach(() => {
 });
 
 describe("Employees: the list", () => {
-  it("shows the roster, the footer and the six tiles", async () => {
+  it("shows the roster, the footer and the three tiles", async () => {
     await mount();
     expect(rows().map((r) => r.getAttribute("data-row-id"))).toEqual(["1", "2", "3", "4"]);
     expect(screen.getByText("Showing 1-4 of 4 employees")).toBeTruthy();
-    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["total", "active", "invited", "suspended", "departments", "teams"]);
-    expect(document.querySelector("[data-kpi=total] [data-kpi-value]")?.textContent).toBe("4");
+    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["active", "invited", "suspended"]);
+    expect(document.querySelector("[data-kpi=active] [data-kpi-value]")?.textContent).toBe("3");
+    expect(document.querySelector("[data-kpi=suspended] [data-kpi-value]")?.textContent).toBe("1");
     // the first list call carries the default sort and page
     const first = calls.find((c) => c.path === "/members" && c.method === "GET")!;
     expect(first.params.get("sort")).toBe("joined,desc");
     expect(first.params.get("page")).toBe("0");
   });
 
-  it("draws a delta only where the API gave one; the rest show no delta and never a sparkline", async () => {
+  it("the tiles are plain numbers: no delta, no trend line; no Manager column, no help card", async () => {
     await mount();
-    const total = document.querySelector("[data-kpi=total]")!;
-    expect(total.querySelector("[data-kpi-delta]")?.textContent).toContain("vs last month");
-    expect(total.querySelector("[data-kpi-delta]")?.textContent).toContain("+33.3%");
-    for (const k of ["invited", "suspended", "departments", "teams"]) expect(document.querySelector(`[data-kpi=${k}] [data-kpi-delta]`), k).toBeNull();
-    expect(total.querySelector("svg[data-sparkline]")).not.toBeNull(); // last month's and this month's figure: the two points the API holds
-    for (const k of ["invited", "suspended", "departments", "teams"]) expect(document.querySelector(`[data-kpi=${k}] svg[data-sparkline]`), k).toBeNull();
+    expect(document.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(document.querySelector("[data-kpi] svg[data-sparkline]")).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: /Manager/ })).toBeNull();
+    expect(screen.queryByText(/Ask a question/)).toBeNull();
+    expect(screen.getByRole("button", { name: /Add employee/ })).toBeTruthy();
+  });
+
+  it("opens filtered to suspended people from ?status=suspended (the Dashboard's status line)", async () => {
+    window.history.replaceState({}, "", "/w/admin/employees?status=suspended");
+    await mount();
+    expect(calls.filter((c) => c.path === "/members" && c.params.get("status") === "SUSPENDED").length).toBeGreaterThan(0);
+    expect(rows()).toHaveLength(1);
+    expect(rows()[0].textContent).toContain("Sam Whitfield");
   });
 
   it("searches after the typing rests, and filters by status", async () => {
@@ -265,7 +285,9 @@ describe("Employees: empty states", () => {
     people = [people[0]];
     await mount();
     expect(screen.getAllByText("Invite your first teammate").length).toBeGreaterThan(0);
-    expect(document.querySelector('a[href="/w/admin/invitations?invite=1"]')).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Invite your first teammate" }));
+    await settle();
+    expect(screen.getByRole("dialog", { name: "Add employee" })).toBeTruthy();
   });
 
   it("shows an error with a retry when the list cannot load", async () => {
@@ -274,9 +296,43 @@ describe("Employees: empty states", () => {
     expect(screen.getByRole("button", { name: /Try again|Retry/ })).toBeTruthy();
   });
 
-  it("hides Add Employee without the invite permission", async () => {
+  it("hides Add employee and the Invitations tab without the invite permission", async () => {
     await mount({ permissions: { "member.view_summary": "ORG" } });
     expect(document.querySelector("[data-add-employee]")).toBeNull();
+    expect(screen.queryByRole("tab", { name: /Invitations/ })).toBeNull();
+  });
+});
+
+describe("Employees: the Invitations tab and Add employee", () => {
+  it("shows both tabs, with the pending count on Invitations", async () => {
+    await mount();
+    expect(screen.getByRole("tab", { name: "Employees" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Invitations (2)" })).toBeTruthy();
+  });
+
+  it("?tab=invitations opens the invitations table", async () => {
+    nav.search = "tab=invitations";
+    await mount();
+    expect(screen.getByRole("tab", { name: /Invitations/ }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("New Hire")).toBeTruthy();
+    expect(document.querySelector("[data-employee-table]")).toBeNull();
+  });
+
+  it("choosing the Invitations tab writes it to the address", async () => {
+    await mount();
+    fireEvent.click(screen.getByRole("tab", { name: /Invitations/ }));
+    expect(nav.replace).toHaveBeenCalledWith("/w/admin/employees?tab=invitations", { scroll: false });
+  });
+
+  it("Add employee opens the dialog with its two ways in and a Bulk invite link", async () => {
+    await mount();
+    fireEvent.click(screen.getByRole("button", { name: /Add employee/ }));
+    await settle();
+    const dialog = screen.getByRole("dialog", { name: "Add employee" });
+    expect(within(dialog).getByRole("radio", { name: /Create account now/ })).toBeTruthy();
+    expect(within(dialog).getByRole("radio", { name: /Send invitation/ })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Bulk invite" })).toBeTruthy();
+    expect(within(dialog).getByText(/Creates a separate account at Acme\. It never links to any personal account they have\./)).toBeTruthy();
   });
 });
 

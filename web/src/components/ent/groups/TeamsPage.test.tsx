@@ -1,13 +1,22 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+const nav = vi.hoisted(() => ({ search: "", replace: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: nav.replace }),
+  usePathname: () => "/w/admin/teams",
+  useSearchParams: () => new URLSearchParams(nav.search),
+}));
 
 import { ToastProvider } from "@kiwiply/ui";
-import TeamsPage from "./TeamsPage";
-import { BENCH, STRUCTURE, stubGroupsFetch } from "./groups.fixtures";
+import TeamsDepartmentsPage from "./TeamsDepartmentsPage";
+import { BENCH, stubGroupsFetch } from "./groups.fixtures";
 
+beforeEach(() => {
+  nav.search = "";
+  nav.replace.mockClear();
+});
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -16,51 +25,57 @@ afterEach(() => {
 const mount = (canManage = true) =>
   render(
     <ToastProvider>
-      <TeamsPage orgId={2} canManage={canManage} />
+      <TeamsDepartmentsPage orgId={2} orgName="Acme" canManage={canManage} />
     </ToastProvider>,
   );
 
-describe("TeamsPage (X4.5)", () => {
-  it("shows real KPI tiles, the team cards with the people stack and the department, and no invented numbers", async () => {
+describe("Teams tab (X4.5)", () => {
+  it("shows one line of counts and the directory table, with no tiles, no card grid and no invented numbers", async () => {
     stubGroupsFetch();
     mount();
-    const tiles = await screen.findByRole("region", { name: "Team numbers" });
-    for (const label of ["Total Teams", "Total Team Members", "Team Leads", "Avg. Team Size"]) expect(within(tiles).getByText(label)).toBeTruthy();
-    const cards = await screen.findByRole("list", { name: "Teams" });
-    const card = within(cards).getByText("Bench East").closest("li")!;
-    expect(within(card).getByText("Consulting")).toBeTruthy();
-    expect(within(card).getByText("2 members")).toBeTruthy();
-    expect(within(card).getByRole("img", { name: "2 people" })).toBeTruthy();
+    expect((await screen.findByText(/1 team · 2 members · 7 people not in a team/)).closest("[data-group-counts]")).toBeTruthy();
+    const table = await screen.findByRole("table", { name: "Team directory" });
+    const row = within(table).getByText("Bench East").closest("tr")!;
+    expect(within(row).getByText("Consulting")).toBeTruthy();
+    expect(within(row).getByText("Anika Rao")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Team numbers" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Teams" })).toBeNull();
     expect(screen.queryByText(/workload/i)).toBeNull();
     expect(screen.queryByText(/open roles/i)).toBeNull();
   });
 
-  it("says plainly that team performance is not measured yet instead of drawing a chart", async () => {
+  it("has no Team Performance card, no structure tree and no help card on this tab", async () => {
     stubGroupsFetch();
     mount();
-    const note = await screen.findByText(/Nothing measures team performance yet/);
-    expect(note.closest("[data-team-performance-empty]")).toBeTruthy();
-    expect(document.querySelector("svg[role='img'][aria-label*='performance' i]")).toBeNull();
+    await screen.findByRole("table", { name: "Team directory" });
+    expect(screen.queryByText(/Nothing measures team performance yet/)).toBeNull();
+    expect(screen.queryByText("Team Performance")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Structure" })).toBeNull();
+    expect(screen.queryByText(/Ask a question/)).toBeNull();
   });
 
-  it("filters the cards by department and search without asking the API again", async () => {
-    const calls = stubGroupsFetch({
-      structure: { ...STRUCTURE, unassignedTeams: [{ ...BENCH, id: 22, name: "Floating", parentGroupId: null, parentName: null }] },
-    });
+  it("shows the two tabs, Teams first, and a tab click writes ?tab=departments to the address", async () => {
+    stubGroupsFetch();
     mount();
-    const cards = await screen.findByRole("list", { name: "Teams" });
-    expect(within(cards).getByText("Floating")).toBeTruthy();
-    const before = calls.length;
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search teams" }), { target: { value: "float" } });
-    await waitFor(() => expect(within(screen.getByRole("list", { name: "Teams" })).queryByText("Bench East")).toBeNull());
-    expect(calls.length).toBe(before);
+    expect(screen.getByRole("tab", { name: "Teams" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("tab", { name: "Departments" }));
+    expect(nav.replace).toHaveBeenCalledWith("/w/admin/teams?tab=departments", { scroll: false });
+  });
+
+  it("filters the directory by department through the API", async () => {
+    const calls = stubGroupsFetch();
+    mount();
+    await screen.findByRole("table", { name: "Team directory" });
+    fireEvent.click(document.querySelector('[role=search] button[aria-label="Department"]')!);
+    fireEvent.click(await screen.findByRole("option", { name: "Consulting" }));
+    await waitFor(() => expect(calls.some((c) => c.url.includes("/groups/directory") && c.url.includes("departmentId=11"))).toBe(true));
   });
 
   it("creates a team under a department with a lead and people: one create, then one idempotent move", async () => {
     const calls = stubGroupsFetch();
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: /Create Team/ }));
-    const sheet = await screen.findByRole("dialog", { name: "Create Team" });
+    fireEvent.click(await screen.findByRole("button", { name: "Create team" }));
+    const sheet = await screen.findByRole("dialog", { name: "Create team" });
     fireEvent.change(within(sheet).getByLabelText(/Team name/), { target: { value: "Delivery Pod" } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Department" }));
     fireEvent.click(await screen.findByRole("option", { name: "Consulting" }));
@@ -69,7 +84,7 @@ describe("TeamsPage (X4.5)", () => {
     fireEvent.focus(within(sheet).getByRole("combobox", { name: "Add people to the team" }));
     fireEvent.click(within(await within(sheet).findByRole("option", { name: /Amara Silva/ })).getByRole("button"));
     expect(within(sheet).getByRole("list", { name: "People in the new team" })).toBeTruthy();
-    fireEvent.click(within(sheet).getByRole("button", { name: "Create Team" }));
+    fireEvent.click(within(sheet).getByRole("button", { name: "Create team" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/members"))).toBe(true));
     const create = calls.find((c) => c.method === "POST" && !c.url.endsWith("/members"))!;
     expect(create.body).toMatchObject({ name: "Delivery Pod", kind: "TEAM", parentGroupId: 11, leadMemberId: 4 });
@@ -82,7 +97,7 @@ describe("TeamsPage (X4.5)", () => {
   it("moves a team under another department from its sheet, with Undo", async () => {
     const calls = stubGroupsFetch();
     mount();
-    const cards = await screen.findByRole("list", { name: "Teams" });
+    const cards = await screen.findByRole("table", { name: "Team directory" });
     fireEvent.click(within(cards).getByText("Bench East"));
     const sheet = await screen.findByRole("dialog", { name: "Bench East" });
     fireEvent.click(await within(sheet).findByRole("button", { name: "Department of this team" }));
@@ -97,7 +112,7 @@ describe("TeamsPage (X4.5)", () => {
   it("explains a refused delete from the API in plain words", async () => {
     stubGroupsFetch({ answer: (c) => (c.method === "PATCH" ? { status: 412, body: { error: "stale", code: "PRECONDITION_FAILED", currentVersion: 'W/"5"' } } : null) });
     mount();
-    const cards = await screen.findByRole("list", { name: "Teams" });
+    const cards = await screen.findByRole("table", { name: "Team directory" });
     fireEvent.click(within(cards).getByText("Bench East"));
     const sheet = await screen.findByRole("dialog", { name: "Bench East" });
     fireEvent.click(await within(sheet).findByRole("button", { name: "Archive" }));
@@ -107,8 +122,8 @@ describe("TeamsPage (X4.5)", () => {
   it("read-only viewers see the teams but no create button or edit controls", async () => {
     stubGroupsFetch();
     mount(false);
-    const cards = await screen.findByRole("list", { name: "Teams" });
-    expect(screen.queryByRole("button", { name: /Create Team/ })).toBeNull();
+    const cards = await screen.findByRole("table", { name: "Team directory" });
+    expect(screen.queryByRole("button", { name: /Create team/ })).toBeNull();
     fireEvent.click(within(cards).getByText("Bench East"));
     const sheet = await screen.findByRole("dialog", { name: "Bench East" });
     await within(sheet).findByRole("list", { name: "People in this group" });

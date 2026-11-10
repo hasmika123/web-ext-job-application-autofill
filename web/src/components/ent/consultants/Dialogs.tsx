@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Button, ChipInput, Field, Input, Select, SheetFrame } from "@kiwiply/ui";
+import { matchScoreText } from "@/lib/ent/jobs";
 import {
   AVAILABILITY_OPTIONS,
   LICENSE_OPTIONS,
@@ -122,7 +123,7 @@ export function AddConsultantDialog({ open, onClose, departments, linkable = [],
       id="ent-consultant-add"
       open={open}
       onClose={onClose}
-      title="Add Consultant"
+      title="Add consultant"
       hint="They start as Available with a pending license. You can change everything from their drawer."
       applyLabel="Add consultant"
       canApply={canApply}
@@ -202,7 +203,7 @@ export function MarketerDialog({ open, onClose, subject, marketers, currentId, o
       id="ent-consultant-marketer"
       open={open}
       onClose={onClose}
-      title="Assign Marketer"
+      title="Assign marketer"
       hint={`Choose who markets ${subject}. The workload shows how full each marketer is today.`}
       applyLabel="Assign"
       canApply={pick !== "" && Number(pick) !== currentId}
@@ -240,7 +241,7 @@ export function LicenseDialog({ open, onClose, detail, onApply }: { open: boolea
       id="ent-consultant-license"
       open={open}
       onClose={onClose}
-      title="Manage License"
+      title="Manage license"
       hint="This records the license status. Billing for licenses lives on the Consultant Licenses page."
       applyLabel="Save"
       canApply={changed}
@@ -321,7 +322,7 @@ export function ApplicationDialog({ open, onClose, subject, jobs, loading, onApp
       id="ent-consultant-application"
       open={open}
       onClose={onClose}
-      title="Create Job Application"
+      title="Create job application"
       hint={`Start an application for ${subject}. It begins as Assigned; nothing is submitted for them.`}
       applyLabel="Create application"
       canApply={pick !== ""}
@@ -341,7 +342,7 @@ export function ApplicationDialog({ open, onClose, subject, jobs, loading, onApp
           value={pick}
           onChange={setPick}
           placeholder="Choose an open job"
-          options={jobs.map((j) => ({ value: String(j.id), label: `${j.title} · ${j.clientName}${j.score !== null ? ` · ${j.score}% match` : ""}` }))}
+          options={jobs.map((j) => ({ value: String(j.id), label: `${j.title} · ${j.clientName}${j.score !== null ? ` · ${matchScoreText(j.score)}` : ""}` }))}
         />
       )}
     </Frame>

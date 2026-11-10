@@ -113,7 +113,6 @@ describe("My Placement page", () => {
       expect(l.getAttribute("href")).toBe("/w/consultant/marketer");
       expect(l.getAttribute("title")).toMatch(/Email addresses are not shown/);
     }
-    expect(document.querySelector("[data-quick='contact']")?.getAttribute("href")).toBe("/w/consultant/marketer");
   });
 
   it("Join opens only a real https link; a meeting without one is disabled with a reason", async () => {
@@ -158,7 +157,7 @@ describe("My Placement page", () => {
 
   it("Update Status posts a validated note and reloads", async () => {
     await mount();
-    fireEvent.click(document.querySelector("[data-quick='status']") as HTMLElement);
+    fireEvent.click(document.querySelector("[data-post-update]") as HTMLElement);
     fireEvent.change(screen.getByLabelText("Status update"), { target: { value: "ok" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Post update" }));
@@ -180,7 +179,7 @@ describe("My Placement page", () => {
     writeStatus = 422;
     writeBody = { error: "note: contains a social security number" };
     await mount();
-    fireEvent.click(document.querySelector("[data-quick='status']") as HTMLElement);
+    fireEvent.click(document.querySelector("[data-post-update]") as HTMLElement);
     fireEvent.change(screen.getByLabelText("Status update"), { target: { value: "my SSN is private" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Post update" }));
@@ -189,18 +188,12 @@ describe("My Placement page", () => {
     expect(screen.getByLabelText("Status update")).toBeTruthy();
   });
 
-  it("Download Documents is honest, Client Details opens, Resources are plain text with Coming soon", async () => {
+  it("Client details opens from the overview; there is no Quick Actions card, Helpful resources, Coming soon row or help card", async () => {
     await mount();
-    await act(async () => {
-      fireEvent.click(document.querySelector("[data-quick='docs']") as HTMLElement);
-    });
-    expect(document.querySelector("[data-docs-hint]")?.textContent).toMatch(/HR workspace/);
-    fireEvent.click(document.querySelector("[data-quick='client']") as HTMLElement);
+    fireEvent.click(document.querySelector("[data-client-details-btn]") as HTMLElement);
     expect(document.querySelector("[data-client-details]")?.textContent).toContain("Global Financial Group");
-    const res = within(screen.getByRole("list", { name: "Helpful resources" }));
-    expect(res.getByText("Client Onboarding Guide")).toBeTruthy();
-    expect(res.queryAllByRole("link")).toHaveLength(0);
-    expect(res.getAllByText("Coming soon")).toHaveLength(4);
+    expect(document.querySelector("[data-quick]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Helpful Resources|Coming soon|Download Documents|Ask a question/)).toBeNull();
   });
 
   it("the activity View button shows the full text", async () => {
@@ -219,8 +212,9 @@ describe("My Placement page", () => {
     expect(screen.getByText("No active placement yet", { selector: "h2" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "View my offers" }).getAttribute("href")).toBe("/w/consultant/offers");
     expect(document.querySelector("[data-past='3']")?.textContent).toContain("Old Contract");
-    expect((document.querySelector("[data-quick='status']") as HTMLButtonElement).disabled).toBe(true);
-    expect(document.querySelector("[data-placement-tiles]")?.textContent).toContain("No active placement yet");
+    expect(document.querySelector("[data-placement-tiles]")).toBeNull();
+    expect(document.querySelector("[data-post-update]")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Coming soon/);
   });
 
   it("a failed load shows a retry, not a made-up page", async () => {

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { meTenantFor as untyped } from "../../../scripts/mock-me-tenant.mjs";
 import { parseMeTenant } from "@/lib/ent/tenant-session-core";
 import { ComingSoon } from "@/components/ent/shell/ShellStates";
-import JobDiscoveryPage from "@/components/ent/marketer-ws/jobs/JobDiscoveryPage";
+import JobsPage from "@/components/ent/marketer-ws/jobs/JobsPage";
 import MktApplicationsPage from "@/components/ent/marketer-ws/applications/ApplicationsPage";
 import MktInterviewsPage from "@/components/ent/marketer-ws/interviews/InterviewsPage";
 import MktResumesPage from "@/components/ent/marketer-ws/resumes/ResumesPage";
@@ -74,13 +74,13 @@ describe("an explicit [workspace]/<page> folder does not hide a Marketing page b
   it("/w/marketing/jobs mounts Job Discovery", async () => {
     const tree = await resolvePage("marketing", "jobs");
     expect(contains(tree, ComingSoon)).toBe(false);
-    expect(contains(tree, JobDiscoveryPage)).toBe(true);
+    expect(contains(tree, JobsPage)).toBe(true);
   });
 
   // The first fix (D5) only asserted "not on the way": /w/marketing/{applications,interviews,resumes} rendered the ADMINISTRATION pages instead of the marketer ones.
   // Each explicit folder must hand the Marketing workspace ITS component and keep serving its own to the workspace it was written for.
   const shadowed: [string, unknown, unknown][] = [
-    ["jobs", JobDiscoveryPage, AdminJobsPage],
+    ["jobs", JobsPage, AdminJobsPage],
     ["applications", MktApplicationsPage, AdminApplicationsPage],
     ["interviews", MktInterviewsPage, AdminInterviewsPage],
     ["resumes", MktResumesPage, AdminResumesPage],

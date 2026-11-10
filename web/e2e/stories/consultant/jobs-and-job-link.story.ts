@@ -2,23 +2,23 @@ import { test, expect, narrate } from "../_support/story";
 import { menuAction, openPage, pageTitle, pick, stamp, stubJobSite } from "./_helpers";
 
 /**
- * Job Discovery, Job Matches, Assigned Opportunities and the Phase 1 job-link flow.
+ * Opportunities (its Browse, Matches and Assigned tabs; once Job Discovery, Job Matches and Assigned Opportunities) and the Phase 1 job-link flow.
  * The marketer's source link and quick info are seeded in cws_job_source by ConsultantWsJobSourceDemoSeeder:
  * https://jobs.example.com/<org-slug>/<requirementId>, a source name (LinkedIn / Dice / Company site / Indeed), a one-line note, all flagged Sample.
  * "Open job link" is stubbed locally (stubJobSite) so no story reaches the public internet.
  */
 
-test("CON-20 Anika searches Job Discovery, filters, sorts and opens a job's details", async ({ as }) => {
+test("CON-20 Anika searches Opportunities > Browse, filters, sorts and opens a job's details", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens Job Discovery: the jobs her marketer loaded");
-  await openPage(page, go, "job-discovery");
-  await expect(pageTitle(page)).toHaveText("Job Discovery");
+  await narrate(page, "Anika opens Opportunities > Browse: the jobs her marketer loaded");
+  await openPage(page, go, "opportunities?tab=browse");
+  await expect(pageTitle(page)).toHaveText("Opportunities");
   await expect(page.locator("[data-results-count]")).toContainText(/Showing \d+ opportunit/);
   const cards = page.locator("[data-job]");
   await expect(cards.first()).toBeVisible();
 
   await narrate(page, "The page says what to do: open the link, apply on the source site with the extension");
-  await expect(page.locator("[data-apply-helper]")).toContainText("Apply on the source site with the Kiwiply extension");
+  await expect(page.locator("[data-apply-helper]")).toContainText("Apply on the source site with the browser extension");
 
   await narrate(page, "She types a keyword and searches");
   const first = (await cards.first().locator("h3 button").first().innerText()).trim();
@@ -30,15 +30,15 @@ test("CON-20 Anika searches Job Discovery, filters, sorts and opens a job's deta
 
   await narrate(page, "She narrows by job type, then sorts by newest");
   const filters = page.getByRole("group", { name: "Filters" });
-  await filters.getByRole("button", { name: "Job Type" }).click();
+  await filters.getByRole("button", { name: "Job type" }).click();
   const optionCount = await page.getByRole("option").count();
   if (optionCount > 1) await page.getByRole("option").nth(1).click();
   else await page.keyboard.press("Escape");
   await pick(page, page.getByRole("button", { name: "Sort by" }), /Newest/i);
   await expect(page.locator("[data-results-count]")).toContainText(/Showing \d+ opportunit/);
 
-  await narrate(page, "Clear All brings every job back");
-  await filters.getByRole("button", { name: "Clear All" }).click();
+  await narrate(page, "Clear all brings every job back");
+  await filters.getByRole("button", { name: "Clear all" }).click();
   await expect(cards.first()).toBeVisible();
 
   // The marketer's quick info is shown only on a job the marketer wrote a note or a source for (a job an administrator created has none), so open one of those.
@@ -56,10 +56,10 @@ test("CON-20 Anika searches Job Discovery, filters, sorts and opens a job's deta
   await expect(sheet.getByText(/not the full posting|Apply on the source site/).first()).toBeVisible();
 });
 
-test("CON-21 Anika opens the marketer's job link from Job Discovery (new tab, safe link) and the quick info is shown", async ({ as }) => {
+test("CON-21 Anika opens the marketer's job link from Opportunities > Browse (new tab, safe link) and the quick info is shown", async ({ as }) => {
   const { page, go, context } = await as("anika");
   await stubJobSite(context);
-  await openPage(page, go, "job-discovery");
+  await openPage(page, go, "opportunities?tab=browse");
   const card = page.locator("[data-job]").filter({ has: page.locator("a[data-job-link]") }).first();
   await expect(card).toBeVisible();
 
@@ -81,13 +81,13 @@ test("CON-21 Anika opens the marketer's job link from Job Discovery (new tab, sa
   await expect(popup.getByRole("heading", { name: "Source job posting" })).toBeVisible();
   await popup.close();
 
-  await expect(page).toHaveURL(/\/w\/consultant\/job-discovery/); // Kiwiply tab untouched
+  await expect(page).toHaveURL(/\/w\/consultant\/opportunities\?tab=browse/); // Kiwiply tab untouched
   await expect(page.locator("[data-job-discovery][data-status=ready]")).toBeVisible();
 });
 
-test("CON-22 Anika bookmarks a job, saves a search, re-runs it from Saved Searches and deletes it", async ({ as }) => {
+test("CON-22 Anika bookmarks a job, saves a search, re-runs it from its saved-search chip and deletes it", async ({ as }) => {
   const { page, go } = await as("anika");
-  await openPage(page, go, "job-discovery");
+  await openPage(page, go, "opportunities?tab=browse");
   const cards = page.locator("[data-job]");
   await expect(cards.first()).toBeVisible();
 
@@ -109,34 +109,30 @@ test("CON-22 Anika bookmarks a job, saves a search, re-runs it from Saved Search
   }
 
   const name = `QA search ${stamp()}`;
-  await narrate(page, "She searches for 'engineer', opens More Filters and saves the search");
+  await narrate(page, "She searches for 'engineer', opens More filters and saves the search");
   await page.getByRole("search").getByRole("textbox").first().fill("engineer");
   await page.getByRole("search").getByRole("button", { name: "Search" }).click();
-  await page.getByRole("button", { name: /More Filters/ }).click();
+  await page.getByRole("button", { name: /More filters/ }).click();
   await page.getByRole("textbox", { name: "Name for this search" }).fill(name);
   await page.getByRole("button", { name: "Save search" }).click();
   await expect(page.getByRole("status").filter({ hasText: /saved/i }).first()).toBeVisible();
 
-  await narrate(page, "It now appears under Saved Searches with a new-results count");
-  await page.getByRole("tab", { name: /Saved Searches/ }).click();
-  const saved = page.locator("[data-saved-search]", { hasText: name });
+  await narrate(page, "It now appears as a chip in the saved-search row above the search");
+  const saved = page.locator("[data-saved-chips] [data-saved-search]", { hasText: name });
   await expect(saved).toBeVisible();
-  await expect(saved).toContainText(/\d+ new result/);
 
   await narrate(page, "Run brings back the results; Delete removes the saved search");
   await page.getByRole("button", { name: `Run saved search ${name}` }).first().click();
   await expect(page.locator("[data-results-count]")).toContainText(/Showing \d+ opportunit/);
-  await page.getByRole("tab", { name: /Saved Searches/ }).click();
   await page.getByRole("button", { name: `Delete saved search ${name}` }).click();
   await expect(page.locator("[data-saved-search]", { hasText: name })).toHaveCount(0);
 });
 
-test("CON-23 Anika reviews her Job Matches: ranked list, score insight, skill alignment, save and express interest", async ({ as }) => {
+test("CON-23 Anika reviews her matches: ranked list, score insight, skill alignment, save and express interest", async ({ as }) => {
   const { page, go } = await as("anika");
-  await narrate(page, "Anika opens Job Matches");
-  await openPage(page, go, "matches");
-  await expect(pageTitle(page)).toHaveText("Job Matches");
-  for (const key of ["total", "high", "fresh", "saved", "viewed"]) await expect(page.locator(`[data-matches-tiles] [data-stat-tile=${key}]`)).toBeVisible();
+  await narrate(page, "Anika opens Opportunities > Matches");
+  await openPage(page, go, "opportunities?tab=matches");
+  await expect(pageTitle(page)).toHaveText("Opportunities");
 
   const rows = page.locator("[data-match]");
   await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(3);
@@ -176,7 +172,7 @@ test("CON-23 Anika reviews her Job Matches: ranked list, score insight, skill al
 
 test("CON-24 Anika expresses interest in a match: it records her wish, nothing is applied or submitted", async ({ as }) => {
   const { page, go } = await as("anika");
-  await openPage(page, go, "matches");
+  await openPage(page, go, "opportunities?tab=matches");
   const pending = page.locator("[data-match]").filter({ has: page.locator("[data-action=interest]") }).first();
   const already = (await pending.count()) === 0;
   if (already) {
@@ -192,13 +188,13 @@ test("CON-24 Anika expresses interest in a match: it records her wish, nothing i
   await expect(page.getByRole("button", { name: /^(Apply|Submit)/i })).toHaveCount(0);
 });
 
-test("CON-25 Anika works her Assigned Opportunities: tiles, detail drawer, quick info and Open job link", async ({ as }) => {
+test("CON-25 Anika works her assigned opportunities: status chips, detail drawer, quick info and Open job link", async ({ as }) => {
   const { page, go, context } = await as("anika");
   await stubJobSite(context);
-  await narrate(page, "Anika opens Assigned Opportunities: the jobs her marketer assigned");
+  await narrate(page, "Anika opens Opportunities > Assigned: the jobs her marketer assigned");
   await openPage(page, go, "opportunities");
-  await expect(pageTitle(page)).toHaveText("Assigned Opportunities");
-  for (const key of ["total", "high", "awaiting", "inReview", "declined"]) await expect(page.locator(`[data-opps-tiles] [data-stat-tile=${key}]`)).toBeVisible();
+  await expect(pageTitle(page)).toHaveText("Opportunities");
+  for (const key of ["all", "needs", "interested", "review", "declined"]) await expect(page.locator(`[data-opps-chips] [data-chip=${key}]`)).toBeVisible();
   const rows = page.locator("[data-opp]");
   await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(3);
 
@@ -253,7 +249,7 @@ test("CON-27 Phase 1 job-link flow: assigned job -> quick info -> Open job link 
   const { page, go, context } = await as("anika");
   await stubJobSite(context);
 
-  await narrate(page, "1. The marketer assigned a job; Anika finds it under Assigned Opportunities with the marketer's quick info");
+  await narrate(page, "1. The marketer assigned a job; Anika finds it under Opportunities > Assigned with the marketer's quick info");
   await openPage(page, go, "opportunities");
   const row = page.locator("[data-opp]").filter({ has: page.locator("a[data-job-link]") }).first();
   await expect(row).toBeVisible();
@@ -280,7 +276,7 @@ test("CON-27 Phase 1 job-link flow: assigned job -> quick info -> Open job link 
 test("CON-28 A job without a source link shows a disabled 'Open job link' with an honest tooltip", async ({ as }) => {
   // Every OPEN demo job is seeded with a link, so this state only appears when the marketer has not added one.
   const { page, go } = await as("anika");
-  await openPage(page, go, "job-discovery");
+  await openPage(page, go, "opportunities?tab=browse");
   const missing = page.locator("[data-job-link-missing]").first();
   if ((await missing.count()) === 0) {
     test.info().annotations.push({ type: "note", description: "All seeded jobs have a link; the disabled state is covered by JobLinkButton unit tests and cannot be reached without a job that has no cws_job_source row." });

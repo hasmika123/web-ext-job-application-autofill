@@ -117,7 +117,8 @@ public class WorkspaceService {
             List<String> tabs = def.bottomTabs().stream().filter(t -> shown.stream().anyMatch(n -> n.key().equals(t))).toList();
             out.add(new MeTenantDTO.Workspace(
                 def.slug(), def.key(), def.label(), def.home(), def.order(), List.copyOf(via),
-                shown.stream().map(n -> new MeTenantDTO.NavItem(n.key(), n.label(), n.icon(), n.href(), n.badge())).toList(), tabs
+                shown.stream().map(n -> new MeTenantDTO.NavItem(n.key(), n.label(), n.icon(), n.href(), n.badge(), n.group())).toList(), tabs,
+                def.groups().stream().map(g -> new MeTenantDTO.NavGroup(g.key(), g.label())).toList()
             ));
         }
         return new Result(List.copyOf(out), landing(out, roles, landingPref));

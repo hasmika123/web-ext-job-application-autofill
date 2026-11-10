@@ -2,15 +2,12 @@ import type { ReactNode } from "react";
 import MarketingHomePage from "./MarketingHomePage";
 import TalentPage from "./talent/TalentPage";
 import ResumesPage from "./resumes/ResumesPage";
-import JobDiscoveryPage from "./jobs/JobDiscoveryPage";
-import JobMatchesPage from "./matches/JobMatchesPage";
+import JobsPage from "./jobs/JobsPage";
 import OpportunitiesPage from "./opportunities/OpportunitiesPage";
-import JobStreamsPage from "./streams/JobStreamsPage";
 import SubmissionsPage from "./submissions/SubmissionsPage";
 import ApplicationsPage from "./applications/ApplicationsPage";
 import InterviewsPage from "./interviews/InterviewsPage";
-import FollowupsPage from "./followups/FollowupsPage";
-import TasksPage from "./tasks/TasksPage";
+import TaskTabsPage from "./tasks/TaskTabsPage";
 import ActivitiesPage from "./activity/ActivitiesPage";
 import PerformancePage from "./performance/PerformancePage";
 import type { MktPageProps } from "./parts";
@@ -31,23 +28,17 @@ export function marketingPage(slug: string[], props: MktPageProps): ReactNode | 
     case "resumes":
       return <ResumesPage {...props} />;
     case "jobs":
-      return <JobDiscoveryPage {...props} />;
-    case "matches":
-      return <JobMatchesPage {...props} />;
+      return <JobsPage {...props} />;
     case "opportunities":
       return <OpportunitiesPage {...props} />;
-    case "streams":
-      return <JobStreamsPage {...props} />;
     case "submissions":
       return <SubmissionsPage {...props} />;
     case "applications":
       return <ApplicationsPage {...props} />;
     case "interviews":
       return <InterviewsPage {...props} />;
-    case "followups":
-      return <FollowupsPage {...props} />;
     case "tasks":
-      return <TasksPage {...props} />;
+      return <TaskTabsPage {...props} />;
     case "activity":
       return <ActivitiesPage {...props} />;
     case "performance":
@@ -55,6 +46,18 @@ export function marketingPage(slug: string[], props: MktPageProps): ReactNode | 
     default:
       return null;
   }
+}
+
+/** Marketing pages merged into another page's tab in the UI refresh (Phase 1, plan s5): old slug -> the tab's address. */
+const MERGED: Record<string, string> = {
+  matches: "/w/marketing/jobs?tab=matches",
+  streams: "/w/marketing/jobs?tab=sources",
+  followups: "/w/marketing/tasks?tab=followups",
+};
+
+/** Where an old Marketing address now lives (`/w/marketing/matches` -> Jobs › Matches), or null. */
+export function marketingRedirect(slug: string[]): string | null {
+  return slug.length === 1 ? (MERGED[slug[0]] ?? null) : null;
 }
 
 /**
@@ -65,6 +68,12 @@ export function marketingPage(slug: string[], props: MktPageProps): ReactNode | 
 export function marketingPageFor(me: MeTenant, slug: string[]): ReactNode | null {
   if (!me.org.id) return null;
   const nav = me.workspaces.find((w) => w.key === "marketing")?.nav ?? [];
-  const hrefs = Object.fromEntries(nav.map((n) => [n.key, n.href]));
+  const hrefs: Record<string, string> = Object.fromEntries(nav.map((n) => [n.key, n.href]));
+  // the tabs that replaced menu rows (Jobs › Matches / Sources, Tasks › Follow-ups) keep their old keys, so "View all" links still land there
+  if (hrefs.jobs) {
+    hrefs.matches ??= `${hrefs.jobs}?tab=matches`;
+    hrefs.streams ??= `${hrefs.jobs}?tab=sources`;
+  }
+  if (hrefs.tasks) hrefs.followups ??= `${hrefs.tasks}?tab=followups`;
   return marketingPage(slug, { orgId: me.org.id, orgName: me.org.displayName, firstName: firstNameOf(me.person.name), hrefs, selfMemberId: me.member.id });
 }

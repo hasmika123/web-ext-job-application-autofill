@@ -325,7 +325,7 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
         <p className="sr-only">Preview drawn from this record&apos;s summary, skills and experience. No file is stored.</p>
 
         <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5" data-facts>
-          <Field icon={<FileTextIcon size={14} />} label="File Name">
+          <Field icon={<FileTextIcon size={14} />} label="File name">
             {r.fileName ?? <span className="font-normal text-muted">No file name</span>}
           </Field>
           <Field icon={<CalendarIcon size={14} />} label="Created">
@@ -334,11 +334,11 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
           <Field icon={<ShieldIcon size={14} />} label="Version">
             {versionText(r.version)} (Latest)
           </Field>
-          <Field icon={<ClockIcon size={14} />} label="Last Modified">
+          <Field icon={<ClockIcon size={14} />} label="Last modified">
             {formatDate(r.updatedAt) || "—"}
             {r.updatedBy ? <span className="font-normal text-muted" data-modified-by> by {r.updatedBy}</span> : null}
           </Field>
-          <Field icon={<FileTextIcon size={14} />} label="File Size">
+          <Field icon={<FileTextIcon size={14} />} label="File size">
             {/* the directory stores no file (the preview is drawn from the record): a size next to "No file is stored" contradicted itself */}
             <span className="font-normal text-muted">Not stored</span>
           </Field>

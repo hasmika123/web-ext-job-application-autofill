@@ -3,6 +3,15 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/marketing/interviews" }));
+// the shell draws the header from what the page declares; here it is drawn in place so the subtitle can be asserted
+vi.mock("@/components/ent/shell/ShellContext", () => ({
+  default: ({ title, subtitle }: { title: string; subtitle?: string }) => (
+    <header>
+      <h1>{title}</h1>
+      <p>{subtitle}</p>
+    </header>
+  ),
+}));
 
 import InterviewsPage from "./InterviewsPage";
 
@@ -69,40 +78,33 @@ afterEach(() => {
 });
 
 describe("InterviewsPage", () => {
-  it("draws the four KPI tiles with the board's titles, numbers and week-over-week deltas", async () => {
+  it("has no tiles; the schedule header says how many interviews are this week", async () => {
     mount();
-    await waitFor(() => expect(within(document.querySelector('[data-stat-tile="interviewsThisWeek"]') as HTMLElement).getByText("12")).toBeTruthy());
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(4);
-    for (const [key, title, value, delta] of [["interviewsThisWeek", "Interviews This Week", "12", "20%"], ["confirmedInterviews", "Confirmed Interviews", "8", "33%"], ["pendingFeedback", "Pending Feedback", "5", "17%"], ["reschedules", "Reschedules", "2", "50%"]]) {
-      const t = document.querySelector(`[data-stat-tile="${key}"]`) as HTMLElement;
-      expect(t.textContent).toContain(title);
-      expect(within(t).getByText(value)).toBeTruthy();
-      expect(t.textContent).toContain(delta);
-      expect(t.textContent).toContain("vs last week");
-    }
+    await rowsReady();
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
+    expect(document.querySelector("[data-this-week]")?.textContent).toBe("12 this week");
+    expect(document.body.textContent).not.toContain("vs last week");
   });
 
-  it("omits the chip when the API has no previous value", async () => {
-    vi.stubGlobal("fetch", reply(200, fixture({ kpis: [kpi("interviewsThisWeek", 3, null), kpi("confirmedInterviews", 1, null), kpi("pendingFeedback", 0, null), kpi("reschedules", 0, null)] })));
+  it("sets the plan's subtitle", async () => {
     mount();
-    await screen.findByText("Interview Schedule");
-    await waitFor(() => expect((document.querySelector('[data-stat-tile="interviewsThisWeek"]') as HTMLElement).textContent).toContain("3"));
-    expect(document.body.textContent).not.toContain("vs last week");
+    await rowsReady();
+    expect(screen.getByText("Your consultants' interviews, and the feedback still owed.")).toBeTruthy();
   });
 
   it("shows the schedule card: the week picker, filters, the View / List / Calendar switch and every column", async () => {
     mount();
     await rowsReady();
     const card = document.querySelector('[data-card="schedule"]') as HTMLElement;
-    expect(within(card).getByText("Interview Schedule")).toBeTruthy();
+    expect(within(card).getByText("Schedule")).toBeTruthy();
     expect(within(card).getByRole("button", { name: /Date range: Apr 21 – Apr 27, 2024/ })).toBeTruthy();
-    expect(within(card).getByText("All Statuses")).toBeTruthy();
-    expect(within(card).getByText("All Clients")).toBeTruthy();
+    expect(within(card).getByText("All statuses")).toBeTruthy();
+    expect(within(card).getByText("All clients")).toBeTruthy();
     expect(within(card).getByText("View")).toBeTruthy();
     expect(within(card).getByRole("button", { name: "List" }).getAttribute("aria-pressed")).toBe("true");
     expect(within(card).getByRole("button", { name: "Calendar" }).getAttribute("aria-pressed")).toBe("false");
-    for (const h of ["Consultant", "Role", "Client", "Interview Type", "Round", "Recruiter / Contact", "Status", "Action"]) expect(within(card).getByRole("columnheader", { name: h })).toBeTruthy();
-    expect(within(card).getByRole("button", { name: "Sort by Date & Time" })).toBeTruthy();
+    for (const h of ["Consultant", "Role", "Client", "Interview type", "Round", "Recruiter / contact", "Status", "Action"]) expect(within(card).getByRole("columnheader", { name: h })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Sort by date and time" })).toBeTruthy();
     expect(card.querySelectorAll("[data-interview-row]")).toHaveLength(8);
   });
 
@@ -117,50 +119,21 @@ describe("InterviewsPage", () => {
     expect(within(document.querySelector('[data-interview-row="4"]') as HTMLElement).getByText("Panel Interview")).toBeTruthy();
     expect(within(document.querySelector('[data-interview-row="8"]') as HTMLElement).getByText("Client Interview")).toBeTruthy();
     const chips = Array.from(document.querySelectorAll('[data-card="schedule"] [data-status-chip]')).map((c) => c.textContent);
-    expect(chips).toEqual(["Confirmed", "Confirmed", "Scheduled", "Pending Feedback", "Scheduled", "Rescheduled", "Awaiting Confirmation", "Scheduled"]);
+    expect(chips).toEqual(["Confirmed", "Confirmed", "Scheduled", "Pending feedback", "Scheduled", "Rescheduled", "Awaiting confirmation", "Scheduled"]);
   });
 
-  it("shows the bottom cards, the bee help card with the org name, and the reminder tiles", async () => {
+  it("keeps Pending feedback; the Upcoming, Reminders and Preparation cards and the bee card are gone", async () => {
     mount();
     await rowsReady();
-    const up = document.querySelector('[data-card="upcoming"]') as HTMLElement;
-    for (const h of ["Date & Time", "Consultant", "Role", "Client", "Type"]) expect(within(up).getByRole("columnheader", { name: h })).toBeTruthy();
-    expect(up.querySelectorAll("[data-upcoming-row]")).toHaveLength(5);
-    expect(up.textContent).toMatch(/Apr 22, 10:00\s?AM/);
-
     const pf = document.querySelector('[data-card="pending-feedback"]') as HTMLElement;
-    for (const h of ["Interview Date", "Consultant", "Client", "Round", "Days"]) expect(within(pf).getByRole("columnheader", { name: h })).toBeTruthy();
+    for (const h of ["Interview date", "Consultant", "Client", "Round", "Days"]) expect(within(pf).getByRole("columnheader", { name: h })).toBeTruthy();
     expect(Array.from(pf.querySelectorAll("[data-days-chip]")).map((c) => [c.textContent, c.getAttribute("data-days-chip")])).toEqual([["2 days", "red"], ["1 day", "amber"], ["< 1 day", "green"]]);
     expect(within(pf).getByText("Apr 20, 2024")).toBeTruthy();
-
-    expect(screen.getByText("Get ready for your interviews with Acme AI")).toBeTruthy();
-    expect(screen.getByText(/I can help you find interview details, past feedback, and preparation tips/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ask a question/ })).toBeTruthy();
-
-    const rem = document.querySelector('[data-card="reminders"]') as HTMLElement;
-    expect(within(rem).getByText("Interview Reminders")).toBeTruthy();
-    const first = rem.querySelector('[data-reminder="1"]') as HTMLElement;
-    expect(first.textContent).toContain("APR");
-    expect(first.textContent).toContain("22");
-    expect(first.textContent).toContain("Alex Morgan");
-    expect(first.textContent).toContain("TechCorp");
-    expect(first.textContent).toMatch(/Video Interview .* 10:00\s?AM/);
-    expect(rem.querySelectorAll("[data-reminder]")).toHaveLength(5);
-  });
-
-  it("ticks a Preparation Checklist item through the BFF (and only through it)", async () => {
-    const f = reply(200, fixture());
-    vi.stubGlobal("fetch", f);
-    mount();
-    const box = (await screen.findByRole("checkbox", { name: "Send calendar invite and meeting link" })) as HTMLInputElement;
-    expect(box.checked).toBe(false);
-    expect((screen.getByRole("checkbox", { name: "Review consultant resume and past feedback" }) as HTMLInputElement).checked).toBe(true);
-    expect(document.querySelectorAll('[data-card="checklist"] input[type="checkbox"]')).toHaveLength(7);
-    f.mockImplementation(async (u: string, i?: RequestInit) => (i?.method === "PATCH" ? new Response(JSON.stringify({ interviewId: 1, consultant: "Alex Morgan", client: "TechCorp", items: [{ id: 3, label: "Send calendar invite and meeting link", done: true }] }), { status: 200 }) : new Response(JSON.stringify(fixture()), { status: 200 })));
-    fireEvent.click(box);
-    await waitFor(() => expect(calls(f)).toContain("PATCH /api/orgs/2/mkt/interviews/1/prep/3"));
-    expect(JSON.parse(String(f.mock.calls.find(([, i]) => i?.method === "PATCH")![1]?.body))).toEqual({ done: true });
-    expect(box.checked).toBe(true);
+    for (const c of ["upcoming", "reminders", "checklist"]) expect(document.querySelector(`[data-card="${c}"]`), c).toBeNull();
+    expect(screen.queryByText(/Get ready for your interviews/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ask a question/ })).toBeNull();
+    expect(screen.queryByText("Interview Reminders")).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("switches to a real week grid in Calendar view and keeps the same rows", async () => {
@@ -188,7 +161,7 @@ describe("InterviewsPage", () => {
     vi.stubGlobal("fetch", f);
     mount();
     await rowsReady();
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Date & Time" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by date and time" }));
     await waitFor(() => expect(new URL(String(f.mock.calls[f.mock.calls.length - 1][0]), "http://x").searchParams.get("dir")).toBe("desc"));
     fireEvent.click(screen.getByRole("button", { name: /Date range/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Next week" }));
@@ -204,7 +177,7 @@ describe("InterviewsPage", () => {
     const f = reply(200, fixture());
     vi.stubGlobal("fetch", f);
     mount();
-    await screen.findByText("Pending Feedback", { selector: "h2" });
+    await screen.findByText("Pending feedback", { selector: "h2" });
     fireEvent.click(screen.getByRole("button", { name: "View all pending feedback" }));
     await waitFor(() => expect(new URL(String(f.mock.calls[f.mock.calls.length - 1][0]), "http://x").searchParams.get("status")).toBe("PENDING_FEEDBACK"));
   });
@@ -266,11 +239,7 @@ describe("InterviewsPage", () => {
     vi.stubGlobal("fetch", reply(200, fixture({ kpis: [], schedule: { items: [], total: 0, page: 0, size: 25, from: "2024-04-21", to: "2024-04-27" }, upcoming: [], pendingFeedback: [], checklist: null, reminders: [], clients: [] })));
     mount();
     await screen.findByText("No interviews scheduled in this period.");
-    expect(screen.getByText("No interviews scheduled.")).toBeTruthy();
     expect(screen.getByText("No feedback is waiting.")).toBeTruthy();
-    expect(screen.getByText("Nothing to prepare for yet.")).toBeTruthy();
-    expect(screen.getByText("No reminders. Nothing is coming up.")).toBeTruthy();
-    expect(screen.getAllByText("Nothing yet")).toHaveLength(4);
     expect(document.querySelector("[data-interview-row]")).toBeNull();
   });
 

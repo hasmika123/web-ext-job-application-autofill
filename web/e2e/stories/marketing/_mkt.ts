@@ -175,7 +175,7 @@ export async function boardRow(page: Page, title: string): Promise<Locator> {
   return row;
 }
 
-/** The consultant's list row of one job on the live Assigned Opportunities page (matched by its unique title). */
+/** The consultant's list row of one job on the live Opportunities › Assigned tab (matched by its unique title). */
 export function conRow(page: Page, title: string): Locator {
   return page.locator("[data-consultant-opportunities] [data-opp]").filter({ hasText: title });
 }

@@ -59,6 +59,24 @@ describe("Organization Settings: General", () => {
     expect((screen.getByRole("button", { name: "Save changes" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("shows the default language by name (English), not by code", async () => {
+    await mount();
+    const select = screen.getByRole("button", { name: "Default language" });
+    expect(select.textContent).toContain("English");
+    expect(select.textContent).not.toMatch(/^\s*en\s*$/);
+  });
+
+  it("draws one section when asked to (a tab of Settings)", async () => {
+    render(
+      <ToastProvider>
+        <GeneralSecuritySettings orgId={7} section="security" />
+      </ToastProvider>,
+    );
+    await flush();
+    expect(document.querySelector("[data-org-security]")).not.toBeNull();
+    expect(document.querySelector("[data-org-general]")).toBeNull();
+  });
+
   it("saves the changed fields to the general route and tells the person", async () => {
     putBody = settings({ general: { legalName: "Acme Staffing LLC", displayName: "Acme Talent", timeZone: "UTC", locale: "en", contactEmail: "help@acme.example" } });
     await mount();

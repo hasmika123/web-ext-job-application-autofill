@@ -51,7 +51,7 @@ const tomorrow = () => {
 };
 
 /**
- * "Delete Employee" is OFFBOARDING: the seat ends and access stops, but the records are kept (said plainly in the sheet). The person
+ * "Delete employee" is OFFBOARDING: the seat ends and access stops, but the records are kept (said plainly in the sheet). The person
  * types the employee's name, gives a reason and may pick a future last day (then it is scheduled, not applied). The preview comes
  * from the API: what runs, which roles end, what stays, and any blocker (the last administrator, yourself, an owner).
  */

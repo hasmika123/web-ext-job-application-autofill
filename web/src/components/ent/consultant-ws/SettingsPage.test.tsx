@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/settings" }));
+const nav = vi.hoisted(() => ({ search: "", replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: nav.replace }), usePathname: () => "/w/consultant/settings", useSearchParams: () => new URLSearchParams(nav.search) }));
 
 import { ToastProvider } from "@kiwiply/ui";
 import SettingsPage from "./SettingsPage";
@@ -52,81 +53,90 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  nav.search = "";
+  nav.replace.mockClear();
 });
 
 const flush = () => act(async () => void (await new Promise((res) => setTimeout(res, 20))));
-const mount = async () => {
+const mount = async (canViewFeatures = true) => {
   render(
     <ToastProvider>
-      <SettingsPage orgId={2} firstName="Anika Rao" />
+      <SettingsPage orgId={2} canViewFeatures={canViewFeatures} />
     </ToastProvider>,
   );
   await flush();
 };
 
 describe("ConsultantSettingsPage", () => {
-  it("shows the real tiles, account facts and a phone that is not collected", async () => {
+  it("has three link rows, the Privacy | Appearance | Plan & features tabs, and none of the removed cards", async () => {
     await mount();
     const root = document.querySelector("[data-consultant-settings]")!;
     expect(root.getAttribute("data-status")).toBe("ready");
-    expect(within(screen.getByLabelText("Profile Status")).getByText("Complete")).toBeTruthy();
-    expect(within(screen.getByLabelText("Privacy Level")).getByText("Visible to ACME only")).toBeTruthy();
-    expect(within(document.querySelector<HTMLElement>('[data-stat-tile="Connected Tools"]')!).getByText("of 4 available tools")).toBeTruthy();
-    expect(document.querySelector('[data-fact="Full Name"]')!.textContent).toBe("Anika Rao");
-    expect(document.querySelector('[data-fact="Email Address"]')!.textContent).toBe("anika@example.org");
-    expect(document.querySelector('[data-fact="Phone Number"]')!.textContent).toBe("Not collected");
-    expect(document.querySelector('[data-fact="Target Roles"]')!.textContent).toBe("Business Analyst");
-    expect(document.querySelector("[data-resume-count]")!.textContent).toBe("2 resumes");
-    expect(screen.getByText("Not collected", { selector: "span" })).toBeTruthy();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Privacy", "Appearance", "Plan & features"]);
+    expect(screen.getByRole("tab", { name: "Privacy" }).getAttribute("aria-selected")).toBe("true");
+    const href = (k: string) => document.querySelector(`[data-settings-link="${k}"]`)!.getAttribute("href");
+    expect(href("profile")).toBe("/w/consultant/profile");
+    expect(href("notifications")).toBe("/me#notifications");
+    expect(href("security")).toBe("/me#security");
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(document.querySelector("[data-fact]")).toBeNull();
+    expect(document.querySelector("[data-security-row]")).toBeNull();
+    expect(document.querySelector("[data-tool]")).toBeNull();
+    expect(document.querySelector("[data-quick]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question|Not available yet|Connected Tools|Recent Account Activity|Your marketing buddy/)).toBeNull();
   });
 
-  it("is honest about security and tools: no fake state, disabled connect buttons, a link to the account page", async () => {
+  it("?tab=appearance shows Theme, Language and Time zone with the English-only line", async () => {
+    nav.search = "tab=appearance";
     await mount();
-    const text = document.body.textContent ?? "";
-    expect(text).not.toMatch(/Last changed|Enabled|Connected\b.*Last synced/);
-    expect(document.querySelectorAll("[data-security-row]")).toHaveLength(3);
-    expect(screen.getAllByText("Managed in your account settings")).toHaveLength(3);
-    expect(document.querySelector("[data-security-link]")!.getAttribute("href")).toBe("/me#security");
-    const buttons = screen.getAllByRole("button", { name: /^Connect .* \(not available yet\)$/ });
-    expect(buttons).toHaveLength(4);
-    for (const b of buttons) expect((b as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getAllByText("Not available yet")).toHaveLength(4);
-    expect(document.querySelector('[data-quick="marketer"]')!.getAttribute("href")).toBe("/w/consultant/marketer");
-    expect(document.querySelector('[data-quick="notifications"]')!.getAttribute("href")).toBe("/w/consultant/notifications");
-    expect(document.querySelector('[data-quick="preferences"]')!.getAttribute("href")).toBe("/w/consultant/profile");
+    expect(screen.getByRole("tab", { name: "Appearance" }).getAttribute("aria-selected")).toBe("true");
+    for (const l of ["Theme", "Language", "Time zone"]) expect(screen.getByLabelText(l)).toBeTruthy();
+    expect(screen.getByText(/English only for now/)).toBeTruthy();
+    expect(screen.queryByText(/not translated yet/)).toBeNull();
+  });
+
+  it("?tab=features mounts the feature table; without features.view the tab is not drawn", async () => {
+    nav.search = "tab=features";
+    await mount();
+    expect(screen.getByRole("tab", { name: "Plan & features" }).getAttribute("aria-selected")).toBe("true");
+    expect(document.querySelector("[data-consultant-features]")).toBeTruthy();
+    expect(calls.some((c) => c.url.endsWith("/me-workspace/features"))).toBe(true);
+    cleanup();
+    calls = [];
+    await mount(false);
+    expect(screen.queryByRole("tab", { name: "Plan & features" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Privacy" }).getAttribute("aria-selected")).toBe("true");
+    expect(document.querySelector("[data-consultant-features]")).toBeNull();
   });
 
   it("saves a privacy switch optimistically and offers Undo", async () => {
     await mount();
-    const sw = screen.getByRole("switch", { name: /Allow Analytics Usage/ });
+    const sw = screen.getByRole("switch", { name: /Analytics/ });
     expect(sw.getAttribute("aria-checked")).toBe("false");
     current = view({ settings: { profileVisibility: "ORG_ONLY", shareProfileWithEmployers: false, showContactInformation: false, allowAnalytics: true, theme: "SYSTEM", language: "en-US", timezone: "UTC", isDefault: false } });
     await act(async () => void fireEvent.click(sw));
     await flush();
     expect(calls.at(-1)).toMatchObject({ method: "PUT", url: "/api/orgs/2/me-workspace/settings/privacy", body: { allowAnalytics: true } });
-    expect(screen.getByRole("switch", { name: /Allow Analytics Usage/ }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("switch", { name: /Analytics/ }).getAttribute("aria-checked")).toBe("true");
     const undo = screen.getByRole("button", { name: "Undo" });
     current = view();
     await act(async () => void fireEvent.click(undo));
     await flush();
     expect(calls.at(-1)).toMatchObject({ method: "PUT", body: { allowAnalytics: false } });
-    expect(screen.getByRole("switch", { name: /Allow Analytics Usage/ }).getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByRole("switch", { name: /Analytics/ }).getAttribute("aria-checked")).toBe("false");
   });
 
   it("puts the old value back and says so when the API refuses", async () => {
     await mount();
     writeStatus = 422;
     writeBody = { error: "profileVisibility must be one of ORG_ONLY", code: "ORG_INVALID" };
-    await act(async () => void fireEvent.click(screen.getByRole("switch", { name: /Show Contact Information/ })));
+    await act(async () => void fireEvent.click(screen.getByRole("switch", { name: /Show contact information/ })));
     await flush();
-    expect(screen.getByRole("switch", { name: /Show Contact Information/ }).getAttribute("aria-checked")).toBe("false");
+    expect(screen.getByRole("switch", { name: /Show contact information/ }).getAttribute("aria-checked")).toBe("false");
     expect(document.querySelector("[data-settings-problem]")!.textContent).toContain("must be one of");
   });
 
-  it("shows an honest empty state and a failure state", async () => {
-    current = view({ activity: [] });
-    await mount();
-    expect(screen.getByText(/No activity yet/)).toBeTruthy();
+  it("shows a failure state", async () => {
     cleanup();
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 500 })));
     await mount();

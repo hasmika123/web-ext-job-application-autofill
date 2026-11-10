@@ -155,7 +155,7 @@ export function BrandingEditorView({ orgId, orgName, initial, previewSrc }: { or
 
   const liveState = view.publishedAt ? (ed.differs ? "Draft differs from live" : "Live, no draft changes") : "Not published yet";
   const versions = [...view.versions].sort((a, b) => b.versionNo - a.versionNo);
-  const colourServerMessage = (field: string) => (ed.fieldError?.field === field ? ed.fieldError.message : null);
+  const colorServerMessage = (field: string) => (ed.fieldError?.field === field ? ed.fieldError.message : null);
 
   return (
     <div className="flex flex-col gap-5" data-branding-page>
@@ -206,12 +206,12 @@ export function BrandingEditorView({ orgId, orgName, initial, previewSrc }: { or
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start">
         <div className="flex min-w-0 flex-col gap-5">
           <Section id="identity" title="Identity" description="How your organization is named across the portal.">
-            <Field label="Organization name" hint="Change it in Organization settings. It appears in the page title and on the sign-in page.">
+            <Field label="Organization name" hint="Change it in Settings. It appears in the page title and on the sign-in page.">
               <Input value={orgName} readOnly aria-readonly />
             </Field>
           </Section>
 
-          <Section id="images" title="Logo, favicon and banner" description="Raster images only (PNG, JPEG or WebP). They go into your draft; Publish makes them live.">
+          <Section id="images" title="Logo, favicon and banner" description="PNG, JPEG or WebP. Changes stay in your draft until you publish.">
             {ASSET_KINDS.map((kind) => (
               <AssetDrop
                 key={kind}
@@ -226,9 +226,9 @@ export function BrandingEditorView({ orgId, orgName, initial, previewSrc }: { or
             ))}
           </Section>
 
-          <Section id="colours" title="Colours" description="Primary and secondary. We build the whole shade range from them, and white text must stay readable on them.">
-            <ColourField label="Primary colour" hint="Readable with white text." value={draft.primary} onChange={set("primary")} flash={flash} flashId="primary" serverMessage={colourServerMessage("primary")} />
-            <ColourField label="Secondary colour" hint="Readable with white text." value={draft.secondary} onChange={set("secondary")} flash={flash} flashId="secondary" serverMessage={colourServerMessage("secondary")} />
+          <Section id="colours" title="Colors" description="Primary and secondary. We build the whole shade range from them, and white text must stay readable on them.">
+            <ColourField label="Primary color" hint="Readable with white text." value={draft.primary} onChange={set("primary")} flash={flash} flashId="primary" serverMessage={colorServerMessage("primary")} />
+            <ColourField label="Secondary color" hint="Readable with white text." value={draft.secondary} onChange={set("secondary")} flash={flash} flashId="secondary" serverMessage={colorServerMessage("secondary")} />
           </Section>
 
           <Section id="welcome" title="Welcome copy" description="Shown on the sign-in page. Leave a field empty to use the default.">

@@ -7,7 +7,7 @@ import type { MeTenant } from "@/lib/ent/workspaces";
 import { searchPages } from "@/lib/ent/shell";
 
 /** D14 (2026-10-16 audit): no people / application / job / client search API exists yet, so the box says what it does ("Omar" found "No page matches"). */
-export const SEARCH_PLACEHOLDER = "Search pages";
+export const SEARCH_PLACEHOLDER = "Jump to a page (Ctrl+K)";
 /** Said out loud in the results: the people / application / job / client search API is a later story. */
 export const SEARCH_HONESTY = "Showing pages you can open. Searching people, applications, jobs and clients is not available yet.";
 

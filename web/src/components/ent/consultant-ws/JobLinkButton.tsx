@@ -54,10 +54,10 @@ export default function JobLinkButton({
 
 /**
  * The marketer's quick info for a job, led by the label, with the source site name and the Sample mark for demo stand-in rows. Renders nothing
- * when the marketer has entered neither a note nor a source name.
+ * unless the marketer wrote a note.
  */
 export function QuickInfo({ source, clamp = false, className }: { source: JobSource; clamp?: boolean; className?: string }) {
-  if (!source.quickInfo && !source.sourceName) return null;
+  if (!source.quickInfo) return null;
   return (
     <div data-quick-info className={cn("min-w-0 text-[13px] text-ink-soft", className)}>
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1">

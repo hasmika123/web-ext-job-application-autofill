@@ -6,6 +6,7 @@ import {
   hasFilters,
   initialsOf,
   listParams,
+  matchScoreText,
   nextSort,
   pageCount,
   parseUrl,
@@ -144,5 +145,14 @@ describe("bulk results", () => {
   it("summarises", () => {
     expect(bulkSummary(res, "closed")).toEqual({ title: "3 jobs closed", description: "1 job skipped (already in that state or not in your view).", variant: "success" });
     expect(bulkSummary({ ...res, ok: 0 }, "closed").variant).toBe("error");
+  });
+});
+
+describe("matchScoreText", () => {
+  it("writes the percent for a real score and 'Not scored' for 0, null or undefined", () => {
+    expect(matchScoreText(92)).toBe("92% match");
+    expect(matchScoreText(0)).toBe("Not scored");
+    expect(matchScoreText(null)).toBe("Not scored");
+    expect(matchScoreText(undefined)).toBe("Not scored");
   });
 });

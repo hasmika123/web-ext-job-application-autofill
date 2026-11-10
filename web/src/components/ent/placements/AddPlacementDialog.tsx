@@ -104,7 +104,7 @@ function SearchPicker({
 }
 
 /**
- * Add Placement: records that a consultant is working (or will work) at a client. It adds a row; it signs nothing and moves no money. The bill
+ * Add placement: records that a consultant is working (or will work) at a client. It adds a row; it signs nothing and moves no money. The bill
  * rate is a recorded number. The account manager defaults to the consultant's marketer.
  */
 export default function AddPlacementDialog({
@@ -185,7 +185,7 @@ export default function AddPlacementDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Add Placement"
+      title="Add placement"
       description="Record that a consultant is placed at a client. This adds it to your records; it signs nothing and moves no money."
       footer={
         <>

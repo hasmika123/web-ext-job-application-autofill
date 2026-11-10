@@ -13,7 +13,7 @@ export const INFO = {
   trend: "Running totals over the period of submissions, interviews (reached Interviewing) and offers (reached Offer). The end value of each line is its total for the period.",
   funnel: "Submissions, then the part of them that reached Interviewing, then Offer, then placements that started in the period. Each percentage is that stage divided by submissions.",
   readiness:
-    "Your active consultants. Inactive: on a project or unavailable. Needs Attention: resume needs an update or profile under 50% complete. Ready to Submit: up-to-date resume, available now, profile at least 70% complete. In Progress: everyone else.",
+    "Your active consultants. Inactive: on a project or unavailable. Needs attention: resume needs an update or profile under 50% complete. Ready to Submit: up-to-date resume, available now, profile at least 70% complete. In Progress: everyone else.",
   streams: "Per client, over the period. Offer Rate = offers divided by submissions; green when it is at or above your overall offer rate for the period, red below it.",
   top: "Your consultants ranked by placements, then offers, interviews and submissions over the last 3 months. Match Rate is the average match score of the consultant's matches (not dismissed). Trend is submissions per week over the last 8 weeks.",
 } as const;

@@ -36,7 +36,7 @@ export default function LogDialog({
     <Dialog
       open={open}
       onClose={() => !busy && onClose()}
-      title="Log Activity"
+      title="Log activity"
       description="Record work you did for one of your consultants. This only records it: nothing is sent to the client or the consultant, and nothing is submitted."
       className="max-w-lg"
       footer={

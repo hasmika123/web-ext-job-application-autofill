@@ -126,7 +126,7 @@ function SearchPicker({
 }
 
 /**
- * Schedule Interview: records that an interview is arranged for a consultant. It adds a row; it does not invite anyone or book anything.
+ * Schedule interview: records that an interview is arranged for a consultant. It adds a row; it does not invite anyone or book anything.
  * The application is optional: without one the client is picked instead.
  */
 export function ScheduleDialog({
@@ -213,7 +213,7 @@ export function ScheduleDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Schedule Interview"
+      title="Schedule interview"
       description="Record an interview that is arranged for a consultant. This adds it to your board; it doesn't invite or book anyone."
       footer={
         <>

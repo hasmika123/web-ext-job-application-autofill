@@ -7,7 +7,7 @@ import { pickFirstDepartment } from "./_helpers";
  * ADM-19 / ADM-19b: employee onboarding with a temporary password. The Org Admin creates the account now (roles and department as the
  * invitation form), copies the shown-once password, resets it once; then the new employee signs in on the tenant host, is held on the
  * change-password screen, chooses their own password and lands on their role's workspace. The invitation flow (ADM-15..18) is
- * unchanged and is the other mode of the same panel.
+ * unchanged and is the other mode of the same "Add employee" dialog.
  *
  * The two stories share one person and run in order. The temporary password is read from the dialog at run time and held in memory
  * only: it is never hard-coded, written to a file or printed; the password the employee chooses is generated per run.
@@ -21,30 +21,33 @@ const person = { email: `hana.${unique()}@example.test`, name: "Story Employee",
 
 test("ADM-19 Org admin adds an employee with a temporary password: role and department, copy once, reset once", async ({ as }) => {
   const { page, go } = await as("sarah");
-  await go("/w/admin/invitations");
-  const panel = page.getByRole("complementary", { name: "Invite Employee" });
-  await narrate(page, "The panel opens in Create account now, with a generated password already in the field");
+  await go("/w/admin/employees");
+  await narrate(page, "Sarah clicks Add employee on the Employees page");
+  await page.locator("[data-add-employee]").click();
+  const panel = page.getByRole("dialog", { name: "Add employee" });
+  await expect(panel).toBeVisible();
+  await narrate(page, "The dialog opens in Create account now, with a generated password already in the field");
   await expect(panel.getByRole("radio", { name: /Create account now/ })).toBeChecked();
   const pwField = panel.getByLabel(/Temporary password/);
   await expect(pwField).not.toHaveValue("");
-  await expect(panel.getByLabel(/Personal Message/)).toHaveCount(0);
+  await expect(panel.getByLabel(/Personal message/)).toHaveCount(0);
 
   await narrate(page, "Sarah fills in the address, the name, a role and a department");
-  await panel.getByLabel(/Email Address/).fill(person.email);
-  await panel.getByLabel(/Full Name/).fill(person.name);
+  await panel.getByLabel(/Email address/).fill(person.email);
+  await panel.getByLabel(/Full name/).fill(person.name);
   await panel.getByRole("button", { name: /^Role/ }).click();
   await panel.getByRole("checkbox", { name: /^HR Specialist/ }).check();
   await panel.getByRole("button", { name: /^Role/ }).click(); // close the role list: left open it pushes the Department list below the fold
   await pickFirstDepartment(page, panel);
   await narrate(page, "A password that breaks the rule is refused before anything is created");
   await pwField.fill("ab");
-  await panel.getByRole("button", { name: "Create Account" }).click();
+  await panel.getByRole("button", { name: "Create account", exact: true }).click();
   await expect(panel.getByText("At least 4 characters.")).toBeVisible();
   await panel.getByRole("button", { name: "Generate" }).click();
   await expect(pwField).not.toHaveValue("ab");
 
-  await narrate(page, "Create Account: the password is shown once, with a Copy button");
-  await panel.getByRole("button", { name: "Create Account" }).click();
+  await narrate(page, "Create account: the password is shown once, with a Copy button");
+  await panel.getByRole("button", { name: "Create account", exact: true }).click();
   const shown = page.getByRole("dialog", { name: "Account created" });
   await expect(shown).toBeVisible();
   await expect(shown.getByRole("alert")).toContainText("Shown once");
@@ -55,7 +58,7 @@ test("ADM-19 Org admin adds an employee with a temporary password: role and depa
   await expect(page.getByTestId("temp-password")).toHaveCount(0);
   await expect(panel.getByText(`Account created for ${person.email}.`)).toBeVisible();
 
-  await narrate(page, "On the Employees page the new person is active; Reset Password issues a new password, once");
+  await narrate(page, "On the Employees page the new person is active; Reset password issues a new password, once");
   await go("/w/admin/employees");
   await page.getByPlaceholder(/Search/).first().fill(person.name);
   await page.getByRole("row", { name: new RegExp(person.name) }).first().click();
@@ -76,9 +79,9 @@ test("ADM-19b The new employee signs in on the tenant host, must choose a passwo
   const page = await ctx.newPage();
   await page.goto(`${ACME}/login`);
   await narrate(page, "The employee signs in with the e-mail and the temporary password");
-  await page.getByLabel("User Name").fill(person.email);
+  await page.getByLabel("Email", { exact: true }).fill(person.email);
   await page.getByLabel("Password", { exact: true }).fill(person.temp);
-  await page.getByRole("button", { name: /^Sign In/ }).click();
+  await page.getByRole("button", { name: /^Sign in/ }).click();
   await page.waitForURL(/\/change-password$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Choose your password", level: 1 })).toBeVisible();
 
@@ -105,12 +108,12 @@ test("ADM-19b The new employee signs in on the tenant host, must choose a passwo
   const p2 = await again.newPage();
   await p2.goto(`${ACME}/login`);
   await narrate(p2, "The temporary password no longer works; the new one does");
-  await p2.getByLabel("User Name").fill(person.email);
+  await p2.getByLabel("Email", { exact: true }).fill(person.email);
   await p2.getByLabel("Password", { exact: true }).fill(person.temp);
-  await p2.getByRole("button", { name: /^Sign In/ }).click();
+  await p2.getByRole("button", { name: /^Sign in/ }).click();
   await expect(p2.getByText("Incorrect email or password.")).toBeVisible();
   await p2.getByLabel("Password", { exact: true }).fill(person.chosen);
-  await p2.getByRole("button", { name: /^Sign In/ }).click();
+  await p2.getByRole("button", { name: /^Sign in/ }).click();
   await p2.waitForURL((u) => u.pathname.startsWith("/w/hr"), { timeout: 30_000 });
   await again.close();
 

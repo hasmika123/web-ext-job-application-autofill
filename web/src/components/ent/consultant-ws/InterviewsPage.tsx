@@ -1,41 +1,30 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent } from "react";
 import {
   BookOpenIcon,
-  BriefcaseIcon,
-  CalendarCheckIcon,
   CalendarIcon,
-  CheckCircleIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ClipboardCheckIcon,
-  ClockIcon,
   ErrorState,
   FileTextIcon,
-  GraduationCapIcon,
   MapPinIcon,
   Menu,
-  MessageIcon,
   MoreVerticalIcon,
   PencilIcon,
   PhoneIcon,
   Skeleton,
-  Sparkline,
   VideoIcon,
-  ZapIcon,
-  chartColor,
   cn,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
+import PageHeader from "@/components/ent/shell/ShellContext";
+import ConsultantInterviewPrepPage from "./InterviewPrepPage";
+import { PageTabs, useUrlTab } from "./tabs";
+import { BASE, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
 import InterviewSheet, { type SheetState } from "./InterviewSheet";
-import { deltaText, firstName } from "@/lib/ent/consultant-ws/home";
 import {
   CHIP_LABELS,
   MODE_LABELS,
@@ -51,7 +40,6 @@ import {
   joinUrl,
   monthGrid,
   monthLabel,
-  nextJoinable,
   roleSubtitle,
   shiftMonth,
   sortInterviews,
@@ -61,7 +49,6 @@ import {
   type Fetched,
   type InterviewDetail,
   type InterviewRow,
-  type InterviewTile,
   type InterviewsView,
   type Mode,
   type SortKey,
@@ -73,72 +60,6 @@ import {
  * details and feedback. Nothing here creates, moves or cancels an interview (the marketer or the client does that), and Join only opens a
  * link the consultant saved. Empty blocks say so in a sentence; there is no made-up number and nothing is marked sample.
  */
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: keyof InterviewsView["tiles"];
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "upcoming", title: "Upcoming Interviews", icon: CalendarIcon, tone: "accent" },
-  { key: "thisWeek", title: "This Week", icon: CalendarCheckIcon, tone: "accent" },
-  { key: "completed", title: "Completed Interviews", icon: CheckCircleIcon, tone: "green" },
-  { key: "feedbackPending", title: "Feedback Pending", icon: ClockIcon, tone: "amber" },
-];
-
-function Tile({ spec, tile, index }: { spec: TileSpec; tile: InterviewTile | null; index: number }) {
-  const Icon = spec.icon;
-  const d = tile ? deltaText(tile.deltaPct) : null;
-  const gained = tile && !d && tile.previous !== null && tile.value > tile.previous ? tile.value - tile.previous : null;
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-[12px]", TONES[spec.tone])}>
-        <Icon size={22} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[13px] font-semibold leading-tight text-ink-soft">{spec.title}</h3>
-        {tile ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[28px] font-extrabold leading-none tabular-nums text-ink">
-                {tile.value}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 hidden w-[42%] max-w-[72px] flex-none 2xl:block">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              {d ? (
-                <>
-                  <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                    {d.dir === "up" ? "↑ +" : d.dir === "down" ? "↓ -" : "→ "}
-                    {d.text}
-                  </span>
-                  <span>vs {tile.vs}</span>
-                </>
-              ) : gained ? (
-                <>
-                  <span className="font-bold text-v2-green-ink">↑ +{gained}</span>
-                  <span>vs {tile.vs}</span>
-                </>
-              ) : null}
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── upcoming interviews table ──────────────────────────────────────────────────────── */
 
@@ -182,7 +103,7 @@ function UpcomingTable({ view, onOpen }: { view: InterviewsView; onOpen: (id: nu
   return (
     <Card
       id="interviews-list"
-      title="Upcoming Interviews"
+      title="Upcoming interviews"
       icon={CalendarIcon}
       extra={
         <label className="ml-auto flex flex-none items-center gap-1.5 text-[12.5px] font-medium text-muted">
@@ -259,7 +180,7 @@ function UpcomingTable({ view, onOpen }: { view: InterviewsView; onOpen: (id: nu
                           items={[
                             { label: "View details", icon: <CalendarIcon size={15} />, onSelect: () => onOpen(r.id) },
                             { label: "Add notes", icon: <PencilIcon size={15} />, onSelect: () => onOpen(r.id, true) },
-                            { label: "Open preparation pack", icon: <BookOpenIcon size={15} />, onSelect: () => router.push(`${BASE}/interview-prep`) },
+                            { label: "Open preparation pack", icon: <BookOpenIcon size={15} />, onSelect: () => router.push(`${BASE}/interviews?tab=prepare`) },
                           ]}
                         />
                       </span>
@@ -329,7 +250,7 @@ function CalendarCard({ entries, onOpen }: { entries: CalendarEntry[]; onOpen: (
 
   const dayEntries = picked ? (byDay.get(picked) ?? []) : [];
   return (
-    <Card id="interviews-calendar" title="Interview Calendar" icon={CalendarIcon}>
+    <Card id="interviews-calendar" title="Interview calendar" icon={CalendarIcon}>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" aria-label="Previous month" onClick={() => go(-1)} className={NAV_BTN}>
           <ChevronLeftIcon size={16} />
@@ -436,7 +357,7 @@ function CalendarCard({ entries, onOpen }: { entries: CalendarEntry[]; onOpen: (
 
 function FeedbackCard({ view, onOpen }: { view: InterviewsView; onOpen: (id: number) => void }) {
   return (
-    <Card id="interviews-feedback" title="Recent Interview Feedback" icon={FileTextIcon}>
+    <Card id="interviews-feedback" title="Recent interview feedback" icon={FileTextIcon}>
       {view.feedback.length === 0 ? (
         <Empty>No feedback recorded yet. After an interview, note how it went and it will appear here.</Empty>
       ) : (
@@ -492,108 +413,18 @@ function FeedbackCard({ view, onOpen }: { view: InterviewsView; onOpen: (id: num
   );
 }
 
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-const ROW_CLS = "flex min-h-14 w-full items-center gap-3 rounded-xl px-1.5 py-2 text-left hover:bg-paper-2";
-
-function RailRow({ icon: Icon, tone, title, subtitle, children }: { icon: ComponentType<IconProps>; tone: IconTone; title: string; subtitle: string; children?: ReactNode }) {
-  return (
-    <>
-      <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl", TONES[tone])}>
-        <Icon size={19} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-semibold leading-tight text-ink">{title}</span>
-        <span className="mt-0.5 block text-[12.5px] leading-snug text-muted">{subtitle}</span>
-      </span>
-      {children ?? <ChevronRightIcon size={16} className="flex-none text-muted" />}
-    </>
-  );
-}
-
-function QuickActions({ view, onOpen }: { view: InterviewsView; onOpen: (id: number, focusNote?: boolean) => void }) {
-  const next = nextJoinable(view.upcoming);
-  const nextUrl = next ? joinUrl(next) : null;
-  const firstUp = sortInterviews(view.upcoming, "soonest")[0] ?? null;
-  return (
-    <Card id="interviews-quick" title="Quick Actions" icon={ZapIcon} tone="accent">
-      <ul className="-mt-1 divide-y divide-line">
-        <li>
-          {nextUrl && next ? (
-            <a href={nextUrl} target="_blank" rel="noopener noreferrer" data-quick="join" aria-label={`Join meeting: ${next.title} (opens in a new tab)`} className={ROW_CLS}>
-              <RailRow icon={VideoIcon} tone="accent" title="Join Meeting" subtitle="Open your upcoming interview" />
-            </a>
-          ) : (
-            <button type="button" data-quick="join" aria-disabled="true" title="No meeting link saved yet. Open an interview and add one." onClick={(e) => e.preventDefault()} className={cn(ROW_CLS, "cursor-not-allowed opacity-70")}>
-              <RailRow icon={VideoIcon} tone="accent" title="Join Meeting" subtitle="No meeting link saved yet">
-                <span className="sr-only">Unavailable</span>
-              </RailRow>
-            </button>
-          )}
-        </li>
-        <li>
-          <Link href={`${BASE}/interview-prep`} data-quick="prep" className={ROW_CLS}>
-            <RailRow icon={FileTextIcon} tone="accent" title="View Preparation Pack" subtitle="Review role-specific materials" />
-          </Link>
-        </li>
-        <li>
-          <Link href={`${BASE}/marketer`} data-quick="marketer" className={ROW_CLS}>
-            <RailRow icon={MessageIcon} tone="pink" title="Ask Marketer" subtitle="Get guidance from your marketer" />
-          </Link>
-        </li>
-        <li>
-          {firstUp ? (
-            <button type="button" data-quick="notes" onClick={() => onOpen(firstUp.id, true)} className={ROW_CLS}>
-              <RailRow icon={PencilIcon} tone="accent" title="Add Notes" subtitle="Record your interview notes" />
-            </button>
-          ) : (
-            <button type="button" data-quick="notes" aria-disabled="true" title="No upcoming interview to add notes to." onClick={(e) => e.preventDefault()} className={cn(ROW_CLS, "cursor-not-allowed opacity-70")}>
-              <RailRow icon={PencilIcon} tone="accent" title="Add Notes" subtitle="No upcoming interview yet">
-                <span className="sr-only">Unavailable</span>
-              </RailRow>
-            </button>
-          )}
-        </li>
-      </ul>
-    </Card>
-  );
-}
-
-const PREP: { title: string; subtitle: string; icon: ComponentType<IconProps>; tone: IconTone }[] = [
-  { title: "Common Interview Questions", subtitle: "Practice frequently asked questions", icon: ClipboardCheckIcon, tone: "accent" },
-  { title: "Technical Preparation Tips", subtitle: "Role-specific technical resources", icon: BriefcaseIcon, tone: "amber" },
-  { title: "Behavioral Interview Guide", subtitle: "Tips for behavioral questions", icon: GraduationCapIcon, tone: "violet" },
-  { title: "Company Research", subtitle: "Learn about the company and culture", icon: BookOpenIcon, tone: "green" },
-];
-
-function Preparation() {
-  return (
-    <Card id="interviews-prep" title="Interview Preparation" icon={BookOpenIcon} tone="accent">
-      <ul className="-mt-1 divide-y divide-line">
-        {PREP.map((p) => (
-          <li key={p.title}>
-            <Link href={`${BASE}/interview-prep`} className={ROW_CLS}>
-              <RailRow icon={p.icon} tone={p.tone} title={p.title} subtitle={p.subtitle} />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
-}
-
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
 
 export interface InterviewsPageProps {
   orgId: number;
-  firstName: string;
+  /** Not used any more (the help card is gone); the route still passes it. */
+  firstName?: string;
 }
 
 type SheetData = { id: number; result: Fetched<InterviewDetail> } | null;
 
-export default function ConsultantInterviewsPage({ orgId, firstName: first }: InterviewsPageProps) {
+function InterviewSchedule({ orgId }: InterviewsPageProps) {
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchInterviews(orgId), [orgId]));
-  const loading = status === "loading";
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const [sheetData, setSheetData] = useState<SheetData>(null);
   const [attempt, setAttempt] = useState(0);
@@ -622,10 +453,6 @@ export default function ConsultantInterviewsPage({ orgId, firstName: first }: In
 
   return (
     <div data-consultant-interviews data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Interviews" subtitle="Manage your interview schedule, prepare for upcoming interviews, and track your progress." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-
       <p role="status" aria-live="polite" data-notice className={cn("rounded-lg bg-v2-green-soft px-3 py-2 text-[13px] font-medium text-v2-green-ink", !notice && "sr-only hidden")}>
         {notice}
       </p>
@@ -633,13 +460,8 @@ export default function ConsultantInterviewsPage({ orgId, firstName: first }: In
       {status === "failed" ? (
         <ErrorState what="your interviews" description="Your interviews didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
-        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.36fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5">
           <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
-            <section aria-label="Key numbers" data-interviews-tiles className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-              {TILE_SPECS.map((s, i) => (
-                <Tile key={s.key} spec={s} tile={loading || !view ? null : view.tiles[s.key]} index={i} />
-              ))}
-            </section>
             {view ? (
               <>
                 <UpcomingTable view={view} onOpen={open} />
@@ -655,19 +477,6 @@ export default function ConsultantInterviewsPage({ orgId, firstName: first }: In
                 ))}
               </div>
             )}
-          </div>
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-            <BeeCard
-              name={firstName(first)}
-              title="Your interview companion, here to help!"
-              body="Get interview tips, review preparation materials, practice common questions, and make your best impression."
-            />
-            {view ? (
-              <>
-                <QuickActions view={view} onOpen={open} />
-                <Preparation />
-              </>
-            ) : null}
           </div>
         </div>
       )}
@@ -689,6 +498,26 @@ export default function ConsultantInterviewsPage({ orgId, firstName: first }: In
           void reload();
         }}
       />
+    </div>
+  );
+}
+
+/* ── the page: Schedule | Prepare ───────────────────────────────────────────────────── */
+
+const TABS = ["schedule", "prepare"] as const;
+const TAB_LABELS = [
+  { value: "schedule", label: "Schedule" },
+  { value: "prepare", label: "Prepare" },
+] as const;
+
+/** Consultant Interviews (UI refresh Phase 1, s6): the schedule and the preparation as two tabs of one page, chosen by `?tab=prepare`. */
+export default function ConsultantInterviewsPage(props: InterviewsPageProps) {
+  const [tab, setTab] = useUrlTab(TABS, "schedule");
+  return (
+    <div className="flex flex-col gap-4 sm:gap-5">
+      <PageHeader title="Interviews" subtitle="Your interviews, and how to get ready for them." />
+      <PageTabs label="Interviews views" tabs={TAB_LABELS} value={tab} onChange={setTab} />
+      {tab === "prepare" ? <ConsultantInterviewPrepPage orgId={props.orgId} /> : <InterviewSchedule {...props} />}
     </div>
   );
 }
