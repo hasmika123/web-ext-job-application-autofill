@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        K8.1 (docs/subscriptions/07 s5, 08): the webhook scope router records which world an event went to. Purely additive, both columns nullable,
+        existing rows keep NULL (they were all personal). No index: the admin timeline reads by customer/user, not by scope.
+    -->
+    <changeSet id="sub-stripe-event-scope-1" author="subscriptions">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="stripe_event" columnName="scope"/></not></preConditions>
+        <addColumn tableName="stripe_event">
+            <column name="scope" type="varchar(12)"/>
+        </addColumn>
+    </changeSet>
+    <changeSet id="sub-stripe-event-scope-2" author="subscriptions">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="stripe_event" columnName="org_id"/></not></preConditions>
+        <addColumn tableName="stripe_event">
+            <column name="org_id" type="bigint"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

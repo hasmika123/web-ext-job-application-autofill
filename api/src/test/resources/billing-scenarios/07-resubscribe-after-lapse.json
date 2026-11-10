@@ -1,0 +1,26 @@
+{
+  "name": "resubscribe-after-lapse",
+  "description": "After a lapse the same customer checks out again: the new subscription takes over the row, access returns, the lapsed invoice stays void and only the two paid invoices count.",
+  "steps": [
+    { "do": "quote", "as": "q1", "kind": "CHECKOUT", "interval": "MONTH", "addons": [] },
+    { "do": "checkout", "quote": "q1" },
+    { "do": "stripe.completeCheckout" },
+    { "do": "stripe.card", "state": "DECLINED" },
+    { "do": "advance", "toPeriodEnd": true, "plusHours": 1 },
+    { "do": "advance", "days": 50 },
+    { "do": "expect", "subscription": { "status": "canceled" }, "pro": false },
+    { "do": "stripe.card", "state": "OK" },
+    { "do": "quote", "as": "q2", "kind": "CHECKOUT", "interval": "MONTH", "addons": [ { "featureKey": "resume.extra_pack", "quantity": 1 } ] },
+    { "do": "checkout", "quote": "q2" },
+    { "do": "stripe.completeCheckout" },
+    { "do": "expect",
+      "subscription": { "status": "active", "interval": "MONTH" },
+      "subscriptionIdChanged": true,
+      "pro": true,
+      "addons": { "resume.extra_pack": 1 },
+      "stripeItems": { "price_tq_base_m": 1, "price_tq_pack_m": 1 },
+      "invoices": 3,
+      "paidTotalMinor": 4297,
+      "reconcileDrift": 0 }
+  ]
+}

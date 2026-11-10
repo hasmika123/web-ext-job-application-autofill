@@ -1,0 +1,30 @@
+{
+  "name": "addon-add-and-remove",
+  "description": "Raising a quantity is granted now and Stripe gets the items plus Kiwiply's own proration as an invoice item that lands on the next invoice; a removal keeps the add-on until the period end and Stripe's item goes at once. The reconciler agrees with Stripe after each step.",
+  "steps": [
+    { "do": "quote", "as": "q1", "kind": "CHECKOUT", "interval": "MONTH", "addons": [ { "featureKey": "ai.credits_extra", "quantity": 1 } ] },
+    { "do": "checkout", "quote": "q1" },
+    { "do": "stripe.completeCheckout" },
+    { "do": "quote", "as": "q2", "kind": "CHANGE", "addons": [ { "featureKey": "ai.credits_extra", "quantity": 3 } ] },
+    { "do": "confirm", "quote": "q2" },
+    { "do": "expect",
+      "addons": { "ai.credits_extra": 3 },
+      "stripeItems": { "price_tq_base_m": 1, "price_tq_ai_m": 3 },
+      "invoices": 1,
+      "reconcileDrift": 0 },
+    { "do": "quote", "as": "q3", "kind": "CHANGE", "addons": [] },
+    { "do": "confirm", "quote": "q3" },
+    { "do": "expect",
+      "addons": {},
+      "addonsEnding": [ "ai.credits_extra" ],
+      "stripeItems": { "price_tq_base_m": 1 },
+      "pro": true,
+      "reconcileDrift": 0 },
+    { "do": "advance", "toPeriodEnd": true, "plusHours": 1 },
+    { "do": "expect",
+      "subscription": { "status": "active" },
+      "invoices": 2,
+      "lastInvoice": { "status": "paid", "recurringMinor": 1999, "prorationOfQuote": "q2", "hasProration": true },
+      "reconcileDrift": 0 }
+  ]
+}

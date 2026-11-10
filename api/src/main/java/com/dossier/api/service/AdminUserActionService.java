@@ -169,7 +169,7 @@ public class AdminUserActionService {
         if (user.getEmail() != null) {
             Cache byEmail = cacheManager.getCache(UserRepository.USERS_BY_EMAIL_CACHE);
             if (byEmail != null) {
-                byEmail.evictIfPresent(user.getEmail());
+                byEmail.evictIfPresent(UserRepository.emailCacheKey(user.getOrgId(), user.getEmail()));
             }
         }
         LOG.debug("Evicted user caches for {}", user.getLogin());

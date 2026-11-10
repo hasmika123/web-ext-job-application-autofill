@@ -1,0 +1,1011 @@
+{
+  "version": 1,
+  "doc": "docs/enterprise-v2/16-ui-ux-page-inventory.md sections 3 and 5",
+  "workspaces": [
+    {
+      "key": "ADMIN",
+      "slug": "admin",
+      "label": "Administration",
+      "order": 1,
+      "home": "/w/admin",
+      "primaryFor": [
+        "OWNER",
+        "ORG_ADMIN"
+      ],
+      "bottomTabs": [
+        "home",
+        "employees",
+        "consultants",
+        "applications"
+      ],
+      "groups": [
+        {
+          "key": "people",
+          "label": "People"
+        },
+        {
+          "key": "talent",
+          "label": "Talent"
+        },
+        {
+          "key": "pipeline",
+          "label": "Pipeline"
+        },
+        {
+          "key": "organization",
+          "label": "Organization"
+        }
+      ],
+      "nav": [
+        {
+          "key": "home",
+          "label": "Home",
+          "icon": "Home",
+          "href": "/w/admin",
+          "needs": [
+            "dashboard.view_org"
+          ]
+        },
+        {
+          "key": "employees",
+          "label": "Employees",
+          "icon": "Users",
+          "href": "/w/admin/employees",
+          "needs": [
+            "member.view_summary",
+            "members.invite"
+          ],
+          "badge": "attention",
+          "group": "people"
+        },
+        {
+          "key": "teams",
+          "label": "Teams & Departments",
+          "icon": "Network",
+          "href": "/w/admin/teams",
+          "needs": [
+            "groups.manage"
+          ],
+          "group": "people"
+        },
+        {
+          "key": "roles",
+          "label": "Roles",
+          "icon": "Key",
+          "href": "/w/admin/roles",
+          "needs": [
+            "roles.manage"
+          ],
+          "module": "roles",
+          "group": "people"
+        },
+        {
+          "key": "consultants",
+          "label": "Consultants",
+          "icon": "Briefcase",
+          "href": "/w/admin/consultants",
+          "needs": [
+            "consultants.view"
+          ],
+          "module": "marketing",
+          "group": "talent"
+        },
+        {
+          "key": "assignments",
+          "label": "Assignments",
+          "icon": "Handshake",
+          "href": "/w/admin/marketing-assignments",
+          "needs": [
+            "assignments.manage",
+            "workload.view"
+          ],
+          "group": "talent"
+        },
+        {
+          "key": "resumes",
+          "label": "Resumes",
+          "icon": "FileText",
+          "href": "/w/admin/resumes",
+          "needs": [
+            "resumes.view_for"
+          ],
+          "module": "marketing",
+          "group": "talent"
+        },
+        {
+          "key": "jobs",
+          "label": "Jobs",
+          "icon": "Target",
+          "href": "/w/admin/jobs",
+          "needs": [
+            "pipeline.view"
+          ],
+          "module": "marketing",
+          "group": "pipeline"
+        },
+        {
+          "key": "applications",
+          "label": "Applications",
+          "icon": "Board",
+          "href": "/w/admin/applications",
+          "needs": [
+            "member.view_summary"
+          ],
+          "group": "pipeline"
+        },
+        {
+          "key": "interviews",
+          "label": "Interviews",
+          "icon": "CalendarCheck",
+          "href": "/w/admin/interviews",
+          "needs": [
+            "member.view_summary"
+          ],
+          "group": "pipeline"
+        },
+        {
+          "key": "clients",
+          "label": "Clients",
+          "icon": "Building",
+          "href": "/w/admin/clients",
+          "needs": [
+            "clients.view"
+          ],
+          "module": "marketing",
+          "group": "pipeline"
+        },
+        {
+          "key": "placements",
+          "label": "Placements",
+          "icon": "Trophy",
+          "href": "/w/admin/placements",
+          "needs": [
+            "placements.view",
+            "placements.manage"
+          ],
+          "group": "pipeline"
+        },
+        {
+          "key": "reports",
+          "label": "Reports",
+          "icon": "Chart",
+          "href": "/w/admin/reports",
+          "needs": [
+            "reports.view"
+          ],
+          "group": "organization"
+        },
+        {
+          "key": "audit",
+          "label": "Audit Log",
+          "icon": "Shield",
+          "href": "/w/admin/audit",
+          "needs": [
+            "audit.view"
+          ],
+          "group": "organization"
+        },
+        {
+          "key": "branding",
+          "label": "Branding",
+          "icon": "Sparkles",
+          "href": "/w/admin/branding",
+          "needs": [
+            "branding.manage"
+          ],
+          "group": "organization"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "icon": "Gear",
+          "href": "/w/admin/settings",
+          "needs": [
+            "org.settings.manage"
+          ],
+          "group": "organization"
+        },
+        {
+          "key": "billing",
+          "label": "Plan & Billing",
+          "icon": "CreditCard",
+          "href": "/w/admin/billing",
+          "needs": [
+            "billing.view"
+          ],
+          "module": "billing",
+          "group": "organization"
+        }
+      ]
+    },
+    {
+      "key": "MARKETING",
+      "slug": "marketing",
+      "label": "Marketing",
+      "order": 2,
+      "home": "/w/marketing",
+      "primaryFor": [
+        "MARKETING_SPECIALIST"
+      ],
+      "bottomTabs": [
+        "home",
+        "talent",
+        "jobs",
+        "tasks"
+      ],
+      "groups": [
+        {
+          "key": "talent",
+          "label": "Talent"
+        },
+        {
+          "key": "pipeline",
+          "label": "Pipeline"
+        },
+        {
+          "key": "mywork",
+          "label": "My work"
+        }
+      ],
+      "nav": [
+        {
+          "key": "home",
+          "label": "Home",
+          "icon": "Home",
+          "href": "/w/marketing",
+          "needs": [
+            "consultants.view"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "talent",
+          "label": "My Talent",
+          "icon": "Users",
+          "href": "/w/marketing/talent",
+          "needs": [
+            "consultants.view"
+          ],
+          "module": "marketing",
+          "group": "talent"
+        },
+        {
+          "key": "resumes",
+          "label": "Resumes",
+          "icon": "FileText",
+          "href": "/w/marketing/resumes",
+          "needs": [
+            "resumes.view_for"
+          ],
+          "module": "marketing",
+          "group": "talent"
+        },
+        {
+          "key": "jobs",
+          "label": "Jobs",
+          "icon": "Search",
+          "href": "/w/marketing/jobs",
+          "needs": [
+            "matches.run"
+          ],
+          "module": "marketing",
+          "group": "pipeline"
+        },
+        {
+          "key": "opportunities",
+          "label": "Opportunities",
+          "icon": "Briefcase",
+          "href": "/w/marketing/opportunities",
+          "needs": [
+            "opportunities.manage"
+          ],
+          "module": "marketing",
+          "group": "pipeline"
+        },
+        {
+          "key": "submissions",
+          "label": "Submissions",
+          "icon": "Send",
+          "href": "/w/marketing/submissions",
+          "needs": [
+            "submissions.record"
+          ],
+          "module": "marketing",
+          "group": "pipeline"
+        },
+        {
+          "key": "applications",
+          "label": "Applications",
+          "icon": "Board",
+          "href": "/w/marketing/applications",
+          "needs": [
+            "member.view_summary"
+          ],
+          "group": "pipeline"
+        },
+        {
+          "key": "interviews",
+          "label": "Interviews",
+          "icon": "CalendarCheck",
+          "href": "/w/marketing/interviews",
+          "needs": [
+            "interviews.coordinate"
+          ],
+          "module": "marketing",
+          "group": "pipeline"
+        },
+        {
+          "key": "tasks",
+          "label": "Tasks",
+          "icon": "ClipboardCheck",
+          "href": "/w/marketing/tasks",
+          "needs": [
+            "followups.manage"
+          ],
+          "module": "marketing",
+          "group": "mywork"
+        },
+        {
+          "key": "activity",
+          "label": "Activity",
+          "icon": "Route",
+          "href": "/w/marketing/activity",
+          "needs": [
+            "pipeline.view"
+          ],
+          "module": "marketing",
+          "group": "mywork"
+        },
+        {
+          "key": "performance",
+          "label": "Performance",
+          "icon": "TrendingUp",
+          "href": "/w/marketing/performance",
+          "needs": [
+            "reports.view"
+          ],
+          "module": "marketing",
+          "group": "mywork"
+        }
+      ]
+    },
+    {
+      "key": "MARKETING_MGMT",
+      "slug": "marketing-mgmt",
+      "label": "Marketing management",
+      "order": 3,
+      "home": "/w/marketing-mgmt",
+      "primaryFor": [
+        "MARKETING_MANAGER"
+      ],
+      "bottomTabs": [
+        "home",
+        "team",
+        "approvals",
+        "pipeline"
+      ],
+      "nav": [
+        {
+          "key": "home",
+          "label": "Home",
+          "icon": "Home",
+          "href": "/w/marketing-mgmt",
+          "needs": [
+            "workload.view"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "team",
+          "label": "Team",
+          "icon": "Users",
+          "href": "/w/marketing-mgmt/team",
+          "needs": [
+            "member.view_summary"
+          ]
+        },
+        {
+          "key": "assignments",
+          "label": "Consultant Assignments",
+          "icon": "Handshake",
+          "href": "/w/marketing-mgmt/assignments",
+          "needs": [
+            "assignments.manage"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "pipeline",
+          "label": "Pipeline",
+          "icon": "Route",
+          "href": "/w/marketing-mgmt/pipeline",
+          "needs": [
+            "pipeline.view"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "approvals",
+          "label": "Approvals",
+          "icon": "CheckCircle",
+          "href": "/w/marketing-mgmt/approvals",
+          "needs": [
+            "approvals.decide"
+          ],
+          "module": "marketing",
+          "badge": "attention"
+        },
+        {
+          "key": "workload",
+          "label": "Workload",
+          "icon": "BarChart",
+          "href": "/w/marketing-mgmt/workload",
+          "needs": [
+            "workload.view"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "escalations",
+          "label": "Escalations",
+          "icon": "Alert",
+          "href": "/w/marketing-mgmt/escalations",
+          "needs": [
+            "escalations.manage"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "reports",
+          "label": "Reports",
+          "icon": "Chart",
+          "href": "/w/marketing-mgmt/reports",
+          "needs": [
+            "reports.view"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "CONSULTANT",
+      "slug": "consultant",
+      "label": "My workspace",
+      "order": 4,
+      "home": "/w/consultant",
+      "primaryFor": [
+        "CONSULTANT"
+      ],
+      "bottomTabs": [
+        "home",
+        "opportunities",
+        "applications",
+        "interviews"
+      ],
+      "groups": [
+        {
+          "key": "me",
+          "label": "Me"
+        },
+        {
+          "key": "work",
+          "label": "Work"
+        },
+        {
+          "key": "keepup",
+          "label": "Keep up"
+        }
+      ],
+      "nav": [
+        {
+          "key": "home",
+          "label": "Home",
+          "icon": "Home",
+          "href": "/w/consultant",
+          "needs": [
+            "self.share_scope.set"
+          ]
+        },
+        {
+          "key": "profile",
+          "label": "My Profile",
+          "icon": "User",
+          "href": "/w/consultant/profile",
+          "needs": [
+            "self.share_scope.set"
+          ],
+          "group": "me"
+        },
+        {
+          "key": "resumes",
+          "label": "My Resumes",
+          "icon": "FileText",
+          "href": "/w/consultant/resumes",
+          "needs": [
+            "resumes.manage"
+          ],
+          "group": "me"
+        },
+        {
+          "key": "availability",
+          "label": "Availability",
+          "icon": "Clock",
+          "href": "/w/consultant/availability",
+          "needs": [
+            "self.share_scope.set"
+          ],
+          "group": "me"
+        },
+        {
+          "key": "opportunities",
+          "label": "Opportunities",
+          "icon": "Briefcase",
+          "href": "/w/consultant/opportunities",
+          "needs": [
+            "opportunities.respond",
+            "submissions.authorize"
+          ],
+          "group": "work"
+        },
+        {
+          "key": "submissions",
+          "label": "Submissions",
+          "icon": "ClipboardCheck",
+          "href": "/w/consultant/submissions",
+          "needs": [
+            "submissions.authorize"
+          ],
+          "group": "work"
+        },
+        {
+          "key": "applications",
+          "label": "My Applications",
+          "icon": "Board",
+          "href": "/w/consultant/applications",
+          "needs": [
+            "applications.manage"
+          ],
+          "group": "work"
+        },
+        {
+          "key": "interviews",
+          "label": "Interviews",
+          "icon": "CalendarCheck",
+          "href": "/w/consultant/interviews",
+          "needs": [
+            "interviews.manage"
+          ],
+          "group": "work"
+        },
+        {
+          "key": "offers",
+          "label": "Offers",
+          "icon": "Trophy",
+          "href": "/w/consultant/offers",
+          "needs": [
+            "offers.respond"
+          ],
+          "group": "work"
+        },
+        {
+          "key": "placements",
+          "label": "My Placement",
+          "icon": "Handshake",
+          "href": "/w/consultant/placements",
+          "needs": [
+            "self.share_scope.set"
+          ],
+          "group": "work"
+        },
+        {
+          "key": "tasks",
+          "label": "Tasks",
+          "icon": "CheckCircle",
+          "href": "/w/consultant/tasks",
+          "needs": [
+            "applications.manage"
+          ],
+          "group": "keepup"
+        },
+        {
+          "key": "activity",
+          "label": "Activity",
+          "icon": "Route",
+          "href": "/w/consultant/activity",
+          "needs": [],
+          "group": "keepup"
+        },
+        {
+          "key": "inbox",
+          "label": "Email Tracking",
+          "icon": "Mail",
+          "href": "/w/consultant/inbox",
+          "needs": [
+            "applications.manage"
+          ],
+          "group": "keepup"
+        },
+        {
+          "key": "marketer",
+          "label": "My Marketer",
+          "icon": "Users",
+          "href": "/w/consultant/marketer",
+          "needs": [
+            "opportunities.respond"
+          ],
+          "group": "keepup"
+        },
+        {
+          "key": "settings",
+          "label": "Settings",
+          "icon": "Gear",
+          "href": "/w/consultant/settings",
+          "needs": [
+            "self.share_scope.set"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "HR",
+      "slug": "hr",
+      "label": "People",
+      "order": 5,
+      "home": "/w/hr",
+      "primaryFor": [
+        "HR_SPECIALIST",
+        "TALENT_ACQUISITION"
+      ],
+      "bottomTabs": [
+        "home",
+        "employees",
+        "onboarding",
+        "compliance"
+      ],
+      "nav": [
+        {
+          "key": "home",
+          "label": "Home",
+          "icon": "Home",
+          "href": "/w/hr",
+          "needs": [
+            "hr.view",
+            "candidates.manage",
+            "talent_pools.manage",
+            "onboarding.coordinate",
+            "members.invite"
+          ]
+        },
+        {
+          "key": "employees",
+          "label": "Employees",
+          "icon": "Users",
+          "href": "/w/hr/employees",
+          "needs": [
+            "member.view_summary",
+            "members.invite",
+            "hr.view"
+          ]
+        },
+        {
+          "key": "onboarding",
+          "label": "Onboarding",
+          "icon": "ClipboardCheck",
+          "href": "/w/hr/onboarding",
+          "needs": [
+            "hr.manage",
+            "onboarding.coordinate"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "documents",
+          "label": "Documents",
+          "icon": "FileText",
+          "href": "/w/hr/documents",
+          "needs": [
+            "hr.manage"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "compliance",
+          "label": "Compliance",
+          "icon": "ShieldCheck",
+          "href": "/w/hr/compliance",
+          "needs": [
+            "hr.view"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "lifecycle",
+          "label": "Lifecycle",
+          "icon": "Refresh",
+          "href": "/w/hr/lifecycle",
+          "needs": [
+            "lifecycle.manage"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "offboarding",
+          "label": "Offboarding",
+          "icon": "SignOut",
+          "href": "/w/hr/offboarding",
+          "needs": [
+            "members.remove",
+            "lifecycle.manage"
+          ]
+        },
+        {
+          "key": "candidates",
+          "label": "Candidates",
+          "icon": "Users",
+          "href": "/w/hr/candidates",
+          "needs": [
+            "candidates.manage"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "talent-pools",
+          "label": "Talent pools",
+          "icon": "Network",
+          "href": "/w/hr/talent-pools",
+          "needs": [
+            "talent_pools.manage"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "reports",
+          "label": "Reports",
+          "icon": "Chart",
+          "href": "/w/hr/reports",
+          "needs": [
+            "reports.view"
+          ],
+          "module": "hrFinance"
+        }
+      ]
+    },
+    {
+      "key": "FINANCE",
+      "slug": "finance",
+      "label": "Finance",
+      "order": 6,
+      "home": "/w/finance",
+      "primaryFor": [
+        "FINANCE_SPECIALIST"
+      ],
+      "bottomTabs": [
+        "home",
+        "subscriptions",
+        "invoices",
+        "timesheets"
+      ],
+      "nav": [
+        {
+          "key": "home",
+          "label": "Home",
+          "icon": "Home",
+          "href": "/w/finance",
+          "needs": [
+            "finance.view",
+            "billing.view"
+          ]
+        },
+        {
+          "key": "subscriptions",
+          "label": "Consultant Subscriptions",
+          "icon": "Layers",
+          "href": "/w/finance/subscriptions",
+          "needs": [
+            "licenses.view"
+          ],
+          "module": "billing"
+        },
+        {
+          "key": "billing",
+          "label": "Billing",
+          "icon": "CreditCard",
+          "href": "/w/finance/billing",
+          "needs": [
+            "billing.view"
+          ],
+          "module": "billing"
+        },
+        {
+          "key": "invoices",
+          "label": "Invoices",
+          "icon": "FileText",
+          "href": "/w/finance/invoices",
+          "needs": [
+            "billing.view"
+          ],
+          "module": "billing"
+        },
+        {
+          "key": "placements",
+          "label": "Placements",
+          "icon": "Trophy",
+          "href": "/w/finance/placements",
+          "needs": [
+            "placements.view"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "timesheets",
+          "label": "Timesheets",
+          "icon": "Clock",
+          "href": "/w/finance/timesheets",
+          "needs": [
+            "ops.*"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "approvals",
+          "label": "Approvals",
+          "icon": "CheckCircle",
+          "href": "/w/finance/approvals",
+          "needs": [
+            "ops.*"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "payments",
+          "label": "Payments",
+          "icon": "Dollar",
+          "href": "/w/finance/payments",
+          "needs": [
+            "finance.manage"
+          ],
+          "module": "hrFinance"
+        },
+        {
+          "key": "reports",
+          "label": "Reports",
+          "icon": "Chart",
+          "href": "/w/finance/reports",
+          "needs": [
+            "reports.export"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ACCOUNTS",
+      "slug": "accounts",
+      "label": "Clients",
+      "order": 7,
+      "home": "/w/accounts",
+      "primaryFor": [
+        "ACCOUNT_MANAGER"
+      ],
+      "bottomTabs": [
+        "home",
+        "clients",
+        "requirements",
+        "submissions"
+      ],
+      "nav": [
+        {
+          "key": "home",
+          "label": "Home",
+          "icon": "Home",
+          "href": "/w/accounts",
+          "needs": [
+            "clients.view"
+          ]
+        },
+        {
+          "key": "clients",
+          "label": "Clients",
+          "icon": "Building",
+          "href": "/w/accounts/clients",
+          "needs": [
+            "clients.view"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "contacts",
+          "label": "Contacts",
+          "icon": "Users",
+          "href": "/w/accounts/contacts",
+          "needs": [
+            "clients.manage"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "requirements",
+          "label": "Requirements",
+          "icon": "ClipboardCheck",
+          "href": "/w/accounts/requirements",
+          "needs": [
+            "requirements.manage"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "submissions",
+          "label": "Submissions",
+          "icon": "Send",
+          "href": "/w/accounts/submissions",
+          "needs": [
+            "submissions.record"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "interviews",
+          "label": "Interviews",
+          "icon": "CalendarCheck",
+          "href": "/w/accounts/interviews",
+          "needs": [
+            "interviews.coordinate"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "offers",
+          "label": "Offers",
+          "icon": "Trophy",
+          "href": "/w/accounts/offers",
+          "needs": [
+            "offers.manage"
+          ],
+          "module": "marketing"
+        },
+        {
+          "key": "placements",
+          "label": "Placements",
+          "icon": "Handshake",
+          "href": "/w/accounts/placements",
+          "needs": [
+            "placements.manage"
+          ],
+          "module": "marketing"
+        }
+      ]
+    },
+    {
+      "key": "EXEC",
+      "slug": "exec",
+      "label": "Overview",
+      "order": 8,
+      "home": "/w/exec",
+      "primaryFor": [
+        "EXECUTIVE_VIEWER"
+      ],
+      "bottomTabs": [
+        "home",
+        "reports"
+      ],
+      "nav": [
+        {
+          "key": "home",
+          "label": "Home",
+          "icon": "Home",
+          "href": "/w/exec",
+          "needs": [
+            "dashboard.view_org"
+          ]
+        },
+        {
+          "key": "reports",
+          "label": "Reports",
+          "icon": "Chart",
+          "href": "/w/exec/reports",
+          "needs": [
+            "reports.view"
+          ]
+        }
+      ]
+    }
+  ]
+}

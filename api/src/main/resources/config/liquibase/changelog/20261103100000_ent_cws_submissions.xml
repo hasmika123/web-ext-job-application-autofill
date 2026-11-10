@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Submissions and Approvals page (branch ent-talent-consultant). One table:
+          cws_submission  a submission the MARKETER prepared for one consultant and one job, waiting for the consultant's approval, and what
+                          happened to it afterwards. The consultant approves or declines (decided_at / decline_reason); everything after that
+                          (submitted_on, client_update, CLIENT_INTERVIEW, NOT_SELECTED ...) is written by the marketer / client side, which is
+                          not built yet: the demo seeder writes stand-in rows (sample_data = true) until the role branches merge.
+        Kiwiply never submits anything: approving only records the consultant's attestation.
+        A job is submitted once per consultant (unique org, consultant, requirement).
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FKs to the parents (consultant_profile, client_requirement,
+        org_resume, org_member), every secondary index starts with org_id, DATETIME(6) UTC, additive, empty rollback, no JSON, no sensitive columns
+        (marketer_note, decline_reason and client_update are scanned by the PII guard before they are stored).
+    -->
+    <changeSet id="ent-cws-10-cws_submission" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_submission"/></not></preConditions>
+        <createTable tableName="cws_submission">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="resume_id" type="bigint"/>
+            <column name="resume_version_no" type="int"/>
+            <column name="marketer_member_id" type="bigint"/>
+            <column name="marketer_note" type="varchar(500)"/>
+            <column name="due_at" type="${datetimeType}"/>
+            <column name="status" type="varchar(24)" defaultValue="PENDING_APPROVAL"><constraints nullable="false"/></column>
+            <column name="decided_at" type="${datetimeType}"/>
+            <column name="decline_reason" type="varchar(300)"/>
+            <column name="client_update" type="varchar(300)"/>
+            <column name="client_update_at" type="${datetimeType}"/>
+            <column name="submitted_on" type="${datetimeType}"/>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_submission" baseColumnNames="org_id" constraintName="fk_cws_submission_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_submission" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_submission_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_submission" baseColumnNames="org_id, requirement_id" constraintName="fk_cws_submission_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_submission" baseColumnNames="org_id, resume_id" constraintName="fk_cws_submission_resume" referencedTableName="org_resume" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_submission" baseColumnNames="org_id, marketer_member_id" constraintName="fk_cws_submission_marketer" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_submission" columnNames="org_id, consultant_id, requirement_id" constraintName="uk_cws_submission_job"/>
+        <addUniqueConstraint tableName="cws_submission" columnNames="org_id, id" constraintName="uk_cws_submission_org_id"/>
+        <createIndex tableName="cws_submission" indexName="ix_cws_submission_consultant"><column name="org_id"/><column name="consultant_id"/><column name="status"/><column name="due_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="cws_submission" constraintName="fk_cws_submission_marketer"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

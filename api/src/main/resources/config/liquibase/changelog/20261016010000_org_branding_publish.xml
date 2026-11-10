@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 X2.5 - branding draft / publish / versions (docs/enterprise-v2/11-branding-and-login.md section 1.2).
+
+        Additive only. org_branding keeps the PUBLISHED values in its columns and the unpublished draft as a full branding
+        object in draft_json; draft_version is the optimistic-lock counter the autosaving editor sends as If-Match, and
+        draft_updated_at feeds the "draft older than a day" dashboard alert (X2.4). support_email is the published IT
+        contact shown on the login ("Need help? Contact IT Support at ..."). org_branding_version is append-only: one
+        snapshot per publish, never edited, so a restore can always find what was live.
+    -->
+
+    <changeSet id="20261016010000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_branding" columnName="draft_version"/></not>
+        </preConditions>
+        <addColumn tableName="org_branding">
+            <column name="draft_version" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <rollback><dropColumn tableName="org_branding" columnName="draft_version"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261016010000-2" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_branding" columnName="draft_updated_at"/></not>
+        </preConditions>
+        <addColumn tableName="org_branding">
+            <column name="draft_updated_at" type="${datetimeType}"/>
+        </addColumn>
+        <rollback><dropColumn tableName="org_branding" columnName="draft_updated_at"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261016010000-3" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_branding" columnName="support_email"/></not>
+        </preConditions>
+        <addColumn tableName="org_branding">
+            <column name="support_email" type="varchar(254)"/>
+        </addColumn>
+        <rollback><dropColumn tableName="org_branding" columnName="support_email"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261016010000-4" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_branding_version"/></not>
+        </preConditions>
+        <createTable tableName="org_branding_version">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="version_no" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="snapshot_json" type="json">
+                <constraints nullable="false"/>
+            </column>
+            <column name="published_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="published_by_member_id" type="bigint"/>
+        </createTable>
+        <addUniqueConstraint tableName="org_branding_version" columnNames="org_id, version_no" constraintName="uk_org_branding_version"/>
+        <addForeignKeyConstraint baseTableName="org_branding_version" baseColumnNames="org_id"
+            constraintName="fk_org_branding_version_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_branding_version" baseColumnNames="published_by_member_id"
+            constraintName="fk_org_branding_version_member" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+        <rollback><dropTable tableName="org_branding_version"/></rollback>
+    </changeSet>
+
+    <!-- the three short feature chips shown on the login (a JSON list of up to three labels); null = the defaults -->
+    <changeSet id="20261016010000-5" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_branding" columnName="login_chips_json"/></not>
+        </preConditions>
+        <addColumn tableName="org_branding">
+            <column name="login_chips_json" type="json"/>
+        </addColumn>
+        <rollback><dropColumn tableName="org_branding" columnName="login_chips_json"/></rollback>
+    </changeSet>
+</databaseChangeLog>

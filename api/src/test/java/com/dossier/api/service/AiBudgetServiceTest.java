@@ -13,7 +13,9 @@ import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.service.AiBudgetService.Decision;
 import com.dossier.api.service.AiBudgetService.Verdict;
 import com.dossier.api.service.ai.AiPolicy;
-import com.dossier.api.service.ai.AiProvider;
+import com.dossier.api.service.ai.AiEnv;
+import com.dossier.api.service.ai.AiRuntimeSettings;
+import com.dossier.api.service.ai.FakeSettings;
 import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.service.billing.StripeProperties;
 import java.time.Instant;
@@ -37,7 +39,7 @@ class AiBudgetServiceTest {
     private static final int FREE_PARSES = 3;
 
     private AiPolicy policy;
-    private AiProvider provider;
+    private FakeSettings fake;
     private AiQuotaOverrideRepository overrides;
     private EntitlementService entitlement;
     private AiCallRepository calls;
@@ -45,22 +47,24 @@ class AiBudgetServiceTest {
     private SubscriptionRepository subscriptions;
     private StripeProperties stripe;
     private AiBudgetService service;
+    private DemoAiCap demoCap;
 
     @BeforeEach
     void setUp() {
         policy = new AiPolicy(); // soft cap 80 %, no economy model, nothing disabled
         policy.setProMonthlyBudgetUsd(5.0); // round numbers for the percentage tests below
-        provider = Mockito.mock(AiProvider.class);
-        when(provider.defaultModel()).thenReturn(DEFAULT_MODEL);
+        fake = new FakeSettings();
+        AiRuntimeSettings runtime = fake.runtime(new AiEnv(true, "gemini", "", DEFAULT_MODEL, 400, 4000), policy);
         overrides = Mockito.mock(AiQuotaOverrideRepository.class); // no override by default
         entitlement = Mockito.mock(EntitlementService.class);
         calls = Mockito.mock(AiCallRepository.class);
         metering = Mockito.mock(AiMeteringService.class);
         subscriptions = Mockito.mock(SubscriptionRepository.class); // no row: the calendar-month fallback
+        demoCap = Mockito.mock(DemoAiCap.class); // not a demo account: never reached
         stripe = new StripeProperties();
         stripe.setPriceMonthly("price_month");
         stripe.setPrice3mo("price_3mo");
-        service = new AiBudgetService(policy, provider, overrides, entitlement, calls, metering, subscriptions, stripe, FREE_PARSES);
+        service = new AiBudgetService(policy, runtime, overrides, entitlement, calls, metering, subscriptions, stripe, demoCap, FREE_PARSES);
     }
 
     private void pro() {
@@ -319,6 +323,52 @@ class AiBudgetServiceTest {
         policy.setDisabledTasks(Set.of("draft", "pick", "map", "enrich", "parse"));
         spent(FIVE_DOLLARS / 2);
         assertThat(service.usage("u").used()).isEqualTo(50);
+    }
+
+    // ---- runtime settings (I1.10): an admin edit applies on the next call --------------------------
+
+    @Test
+    void aRuntimeRouteSwitchStopsATaskWithoutARestart() {
+        pro();
+        assertThat(service.decide("u", AiTask.ENRICH).verdict()).isEqualTo(Verdict.OK);
+        fake.put("ai.route.enrich.enabled", "false");
+        assertThat(service.decide("u", AiTask.ENRICH).verdict()).isEqualTo(Verdict.TASK_DISABLED);
+        assertThat(service.decide("u", AiTask.PICK).verdict()).isEqualTo(Verdict.OK);
+        fake.put("ai.route.parse.enabled", "false");
+        assertThat(service.decide("u", AiTask.PARSE).verdict()).as("the Free parse exception is switchable too").isEqualTo(Verdict.TASK_DISABLED);
+    }
+
+    @Test
+    void aRuntimeRowOverridesTheEnvKillListBothWays() {
+        pro();
+        policy.setDisabledTasks(Set.of("enrich"));
+        fake.put("ai.route.enrich.enabled", "true");
+        assertThat(service.decide("u", AiTask.ENRICH).verdict()).isEqualTo(Verdict.OK);
+    }
+
+    @Test
+    void aRuntimeModelBeatsTheEnvModel() {
+        pro();
+        policy.getModels().put("draft", "gemini-2.5-flash");
+        fake.put("ai.route.draft.model", "gemini-3.5-flash");
+        Decision d = service.decide("u", AiTask.DRAFT);
+        assertThat(d.model()).isEqualTo("gemini-3.5-flash");
+        assertThat(d.model()).as("Decision.model() is what the route says").isEqualTo(fake.settings.stored("ai.route.draft.model").orElseThrow());
+    }
+
+    @Test
+    void theEconomyModelAndSoftCapComeFromRuntimeSettings() {
+        pro();
+        fake.put("ai.economy_model", "gemini-2.5-flash-lite");
+        fake.put("ai.soft_cap_pct", "50");
+        fake.put("ai.route.draft.model", "gemini-2.5-flash");
+        spent(FIVE_DOLLARS * 49 / 100);
+        assertThat(service.decide("u", AiTask.DRAFT).model()).isEqualTo("gemini-2.5-flash");
+        spent(FIVE_DOLLARS / 2);
+        Decision d = service.decide("u", AiTask.DRAFT);
+        assertThat(d.economy()).isTrue();
+        assertThat(d.model()).isEqualTo("gemini-2.5-flash-lite");
+        assertThat(service.usage("u").economy()).isTrue();
     }
 
     @Test

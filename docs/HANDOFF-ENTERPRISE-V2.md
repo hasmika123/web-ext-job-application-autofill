@@ -1,0 +1,84 @@
+# HANDOFF-ENTERPRISE-V2.md — Enterprise V2 (multi-tenant portals, roles, consultant licensing, talent marketing)
+
+> Branch: local **`enterprise-v2`** (cut from `5191298`, merged with the verified resume-builder tip
+> `32046a8`). **Not pushed.** Design by Fable only; **all code is written by Sonnet agents** from the
+> specs under `docs/enterprise-v2/`. The user's requirements (33 sections, 2026-10-12) are the source of
+> intent; `CLAUDE.md`'s locked decisions win on conflict and every conflict is escalated in
+> `docs/enterprise-v2/08-decisions-for-user.md`.
+
+## START HERE
+
+**Branch layout (2026-10-12):** `enterprise-v2` = the design line (Phase 0). `ev2-design-b/c/d` = the three
+parallel design sessions (docs 10–16, 20–29, 17 + 30–38). **`ev2-design-e`** = Session E, which merged B, C and D
+(`93c519e`, `d8629f4`, `6d0aba1` — conflicts resolved by content, `ent.json` parses, `--list` → 0 dangling ids) and was
+**paused by the usage limit** at the WIP commit `wip: enterprise-v2 design E — paused (usage limit), see HANDOFF`.
+`ev2-build-p1` = Phase 1 code in progress (X1.1 done at `f3e71b2`; X1.2–X1.3 next). Nothing is pushed.
+
+**Session E status — resume here (checkout `ev2-design-e`):**
+| Task | State | Where |
+|---|---|---|
+| 0 Merge B/C/D, regenerate roadmap | **done** | three merge commits; `08-decisions-for-user.md` restructured (Answered table → open items → B/C/D blocks) |
+| 1 Cross-session consistency pass | **done** — all 20 rows of `docs/enterprise-v2/09-consistency-decisions.md` applied to the docs and to `ent.json`/`07-backlog.md` (✅ + commit per row in 09; "Decisions made while applying" recorded there). **X1.4 is amended** (`(tenant)/_t/**` + `proxy.ts` rewrite) — `ev2-build-p1` must build the amended spec | new stories X1.13, X2.15; X4.10 finalised; story review (Task 4) still pending |
+| 2 CLAUDE.md E3 change (+ Go-to-market line, Enterprise V2 locked bullet, ROADMAP.md note at the org price table) | **done** | `CLAUDE.md` Organizations bullet rewritten (E3), Go-to-market consultancies line, new "Enterprise V2 (locked 2026-10-12)" bullet; `ROADMAP.md` "Prices — organizations" carries the superseded note |
+| 3 Docs 40–44 (API, DB, threat model, testing, deployment) | **done** | `40`–`44` written; README index updated |
+| 3b Requirements coverage audit | **done** | `45-requirements-coverage.md`: 4 missing + 9 partial fixed (new X6.17 break-glass, X11.8 Talent Acquisition, X12.8 EXEC workspace, X12.12 Platform Analytics; X8.6 Escalations, X4.12 Invitations, X9.11 Settings, X4.4 verbs), 8 deliberate deviations (E1/E2/E3/E17/C1/C3/D4/D5) |
+| 3c Known corrections (Task 3) | **done** | `(tenant)/%5Ft/` directory (URL `/_t`) in 16 §2.3 / 09 / X1.4 / X2.6; X1.13 = 42 §5 (env `DOSSIER_SCRAPE_TOKEN`, host-rule union); doc 10 dedicated `DOSSIER_ASK_TOKEN`/`KIWIPLY_ASK_TOKEN`, HTTP catch-all, spoof test 7b; 23 §2.2 + X5.5/X5.15 `version_from/version_to`; `job_opportunity` in 03; 40 SSO → X12.4/X12.10; 42 §6.2 ACs applied; login google/MFA flags are org settings (X2.3/X2.9); X1.4/X1.5 proxy matcher covers `/api/auth/*`, BFF never forwards `X-Forwarded-Host`, root-layout chrome split (no cookie-consent/bug-report on tenant pages) |
+| 3d ⚑ design reviews (Task 4) | **done** | decisions written into `41` §13, `42` §9, `44` §14 (+ small notes in 40/43); material items → `08` **E21–E29** with safe defaults |
+| 4 Story review (Task 5) | **done** | every story carries the §30 fields; X12.1–X12.7 fully specified + X12.8–X12.11 splits; 27 L → S/M (original id = foundation/API half, new id = UI/lifecycle half; dependents re-pointed); global build order in `06` §7 and `progress-tracker.md` (regenerated from `ent.json`, notes preserved); **154 stories, 0 dangling ids** |
+| 5 This START HERE (next Sonnet stories, open escalations) | **done** (this table) | Phase 1 order is now **X1.1 → X1.2 → X1.3 → X1.4 → X1.5 → X1.6 → X1.7 → X1.14 → X1.8 → X1.15 → X1.10 → X1.11 → X1.12 → X1.9 → X1.13**; `ev2-build-p1` must build the amended X1.4 (`%5Ft` directory, chrome-free tenant layout, matcher over `/api/auth/*`) and X1.5 (OriginCheckFilter, `__Host-` cookies) |
+
+**Session E commits (branch `ev2-design-e`, local only):** Task 3 corrections → doc 45 → Task 5 batches 1–4 (Phases 1–4, 5–6, 7–11, 12) → Task 4 reviews + build order + handoff. The lead fast-forwards; nothing is pushed.
+
+**Open escalations needing the user (material only):** E4 role ceiling, E8 break-glass (story X6.17 now), E9 coupons, E10 subdomain approval,
+E12 ops endpoints (fix story X1.13 + the edge deny rule 44 §6.4), B1 ask-token via query param (now a dedicated secret), C1 enterprise credits, C3 Stripe Tax, C5 preset
+pricing, D1 link checks, D2 Autopilot feed (X12.2/X12.9 wait on it), D4 marketer inbox, **E21–E29 from the Task 4 review** (one type widening, legacy seats, residual risks, no staging / upsize trigger, S3 versioning + dump disclosure, point-in-time backup before Phase 6 live, least-privilege DB user, Cloudflare-for-SaaS trigger) — all with safe defaults applied (`08-decisions-for-user.md`).
+
+**Last design commit:** `enterprise-v2: phase 0 audit, architecture debate, ADRs, foundation design, phase plan` on `enterprise-v2` (see `git log --oneline -1`).
+**Build branch:** `ev2-build-p1` (cut from `enterprise-v2` at `834e2fa`; not pushed). **Verified and done:** X1.1 (`ev2-x1.1`) and X1.2 (`ev2-x1.2`), both with full `test integrationTest` green (X1.2: one unrelated 15 s `OrgLimitsIT` timeout under load, green alone). **WIP, unverified:** X1.3 (`wip: ev2-x1.3 ...` commit on top): all code and tests are written but NEVER compiled or run. **Resume:** `cd api && ./gradlew test --tests '*Tenant*' --tests '*OrgTenancyServiceTest'` then `integrationTest --tests '*TenantResolutionIT' --tests '*InternalTenantHostResourceIT'`, fix what breaks, run the full suites, regenerate `api/openapi.json` (OpenApiContractIT writes it), set `--set X1.3=done`, add the PROGRESS.md line, commit `ev2-x1.3: ...`. Design choices to review are in the X1.3 resolver javadoc (platform hosts before DB lookups; allow list exclusive; missing host = legacy). Then X1.4. Design branch `enterprise-v2` is the Phase 0 design only.
+
+**First commands**
+```bash
+git checkout ev2-build-p1
+git log --oneline -3
+node docs/roadmap/build-master-roadmap.mjs --list | tail -4      # ent area present, 0 dangling ids
+cat docs/enterprise-v2/README.md                                  # the index and who owns what
+cat docs/enterprise-v2/progress-tracker.md                        # statuses
+```
+
+**If you are a design session (Fable):** pick your letter in `docs/enterprise-v2/README.md` (B domains/branding/login/identity/dashboards UX · C catalog/pricing/entitlements/metering/billing · D talent marketing/resumes/applications/clients/placements/HR/finance · E API specs/test plan/deployment plan/full story set). Read `00`–`08` first (they are short on purpose), then the ADRs your section names, then write only your files. Do not re-open an ADR without a superseding ADR. Write every story in the §30 format used in `07-backlog.md` §2 and add it to `docs/roadmap/areas/ent.json` by editing the generator spec, never by hand.
+
+**If you are a build session (Sonnet):** X1.1–X1.4 are built and merged (X1.5 tenant-bound sessions is committed on `ev2-build-p1`; review-fix commits `ent-fix:` follow it). Continue the Phase 1 order from `06-phase-plan.md` §7: **X1.6 → X1.7 → X1.14 → X1.8 → X1.15 → X1.10 → X1.11 → X1.12 → X1.9 → X1.13** (X1.10/X1.12 may run in parallel). Each story in `07-backlog.md` is build-ready (§30 format). Loop per `CLAUDE.md`: one story → tests green → `progress-tracker.md` + `--set X1.n=…` → one commit `ent-x1.n: <subject>`; never push, never `main`.
+
+## What was done this session (Phase 0)
+- Audited the real code at `ce30edc` (after merging `32046a8`), the three merging branches and the two parked org branches; wrote the reuse matrix, the subscription audit and the infra audit (`01-existing-system-audit.md`).
+- Debated 23 topics and reconciled the requirements with `CLAUDE.md` (`02-architecture-debate.md`); one ADR per decision (`adr/`).
+- Foundation design: `00` vision, `03` domain model (bounded contexts, every entity, migration map), `04` tenancy & security (resolution, context, per-layer isolation, negative tests, threat model), `05` permission model (11-step order, templates, scopes, actor/beneficiary), `06` phase plan (0–12, flags, migration strategy, DoD).
+- Plan: `07-backlog.md` + roadmap area **`ent` (prefix `X`)** with 13 epics / 109 stories (Phase 1 fully specified), back-links from `org.json`/`admin.json`, roadmap regenerated with 0 dangling ids; `progress-tracker.md`; `08-decisions-for-user.md` (20 escalations with safe defaults).
+
+## Session D (2026-10-12, branch `ev2-design-d`, not pushed)
+Designed assignments (`17`), org resume management (`30`), the talent-marketing lifecycle as state machines
+(`31`), applications (`32`), interviews (`33`), clients (`34`), placements + Timesheets bridge (`35`),
+HR & Finance record-only (`36`), the entitlement hook map for Session C (`37`) and the talent UX (`38`).
+Specified 44 stories (X4.7–X4.8, X7–X11; new X8.10 pipeline schema/engine, X10.8 Timesheets bridge,
+X11.7 PII-scanner coverage) in `ent.json` + `07-backlog.md`; added escalations D1–D7 and recorded
+**E1, E2, E3, E5 as answered 2026-10-12** in `08-decisions-for-user.md`. Build order per phase is in the
+`07-backlog.md` section headers and `progress-tracker.md`. Sessions B/C must align on: `ORG_*` notification
+kinds, `X-Kiwiply-Workspace`, `AiCallContext` + `ai_call` columns, feature keys/units in `37` §4,
+`ShareField.OFFERS` doc row, `interview.application_id` nullable, `ops_placement.pipeline_placement_id`.
+
+## The decisions in one breath
+Shared schema + `org_id` + explicit `TenantContext` (ADR-001) · Caddy on-demand TLS at the shared edge, Cloudflare for SaaS reserved (002) · the API resolves the host, clients never name a tenant, unknown hosts 404 (003) · host-only sessions + `tid` claim (004) · roles as data, N roles per member, five scopes, ceiling rule (005) · basic profile vs membership-scoped consultant overlay (006) · one shell, permission nav, data-defined workspaces (007) · `org_assignment` history (008) · person-owned resumes + `org_resume` links (009) · **marketers prepare, consultants submit, Kiwiply never submits** (010) · one client model with relationship edges; HR/Finance record-only, no identity documents (011) · base license + feature add-ons, presets as shortcuts (012) · immutable effective-dated prices (013) · list → contract → one discount → volume tier (014) · volume tiers ship empty (015) · idempotent usage ledger, per-consultant allowances (016) · one Stripe subscription per org, quantities aggregate (017) · personal subscriptions untouched, no cross-workspace stacking (018) · add now/remove at period end, backend quotes with expiry (019) · discounts as Stripe coupons, 20-item fallback, test clocks (020) · one `EntitlementService.check` with the 11-step order (021) · design for two instances, run one (022) · additive Liquibase + per-phase flags (023).
+
+## Waiting on the user (defaults already applied)
+**Answered 2026-10-12:** E1 (the consultant submits; marketers prepare/request/record) · E2 (HR/Finance record-only, no identity documents, no money movement) · E3 (base license + per-feature add-ons) · E5 (edge change planned: Session B wrote the snippet + runbook in `docs/enterprise-v2/10-domain-routing.md` §5.3/§8; the user applies it on the BeeCompete edge once X3.3 is deployed; dev on `*.localhost` until then).
+Still open with defaults: E4 role ceiling · E7 invite email match · E8 admin break-glass · E9 Stripe discount representation · E10 subdomain approval · E12 public ops endpoints at the edge (independent of V2) · Session B's B1–B8 (ask token via query param, `/w/{workspace}` + proxy rewrite, org email MFA, apex domains, invite-only signup on tenant hosts, redirect defaults, two API deps, last-active visibility). Full list: `docs/enterprise-v2/08-decisions-for-user.md`.
+
+## Session B (design, 2026-10-12, branch `ev2-design-b`)
+Docs `10`–`16` (domains, branding/login, identity, profiles, org administration, employees/teams, page inventory) and fully specified stories X2.1–X2.14, X3.1–X3.8, X4.1–X4.6, X4.9 in `07-backlog.md` §3 / `ent.json`. **Alignment note for X1.4 builders:** tenant hosts serve `/login`, `/me`, `/w/{workspace}/…` via a `proxy.ts` rewrite to `web/src/app/(tenant)/_t/**` (16 §2.3, escalation B2) — build X1.4's `(tenant)` group that way from the start.
+
+## Gotchas
+- `OrgIsolationIT` is the CI gate; every new org route must be in its coverage registry or CI fails (by design).
+- The two parked branches (`18f2123`, `2672733`) conflict with each other in web helpers and test fixtures; X2.1 consolidates, X1.8 cherry-picks only `a6a9a62`. Treat their WIP commits as unverified.
+- ITs run only in CI (Testcontainers); locally use `./gradlew test --tests …` for units and the mock API for the web.
+- Never add `org_id` to person-owned tables (resume, application, inbox…); orgs get links and consent-scoped views.
+- Prefix `E` belongs to the extension area; enterprise is `X`.

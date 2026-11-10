@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Inbox accuracy (branch inbox-conf). Purely additive.
+          - inbox_message.confidence: 0..100, how sure the reading and the match together were.
+          - inbox_message.match_kind: how the application was found (ATS_ID, JOB_LINK, THREAD, COMPANY_ROLE, COMPANY, AMBIGUOUS, NONE).
+    -->
+    <changeSet id="inbox-conf-1-message-columns" author="inbox">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="inbox_message" columnName="confidence"/></not></preConditions>
+        <addColumn tableName="inbox_message">
+            <column name="confidence" type="int"/>
+            <column name="match_kind" type="varchar(20)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

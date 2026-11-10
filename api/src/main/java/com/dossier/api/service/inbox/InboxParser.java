@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -64,7 +65,8 @@ public class InboxParser {
         MailClassifier.Category.APPLIED,
         MailClassifier.Category.INTERVIEW,
         MailClassifier.Category.ASSESSMENT,
-        MailClassifier.Category.OFFER
+        MailClassifier.Category.OFFER,
+        MailClassifier.Category.RECRUITER_OUTREACH
     );
 
     /**
@@ -91,8 +93,14 @@ public class InboxParser {
     private final AiBudgetService budget;
     private final AiMeteringService metering;
     private final ApplicationEventPublisher events;
+    private final InboxInterviewApplier interviewApplier;
     private final boolean aiEnabled;
+    private final InboxDecisionPolicy policy;
     private final ObjectMapper om = new ObjectMapper();
+
+    /** The safety gate (inbox-safety): optional, so the parser still builds by hand in unit tests; absent = every forward change is applied as before. */
+    @Autowired(required = false)
+    private InboxSafetyService safety;
 
     public InboxParser(
         InboxMessageRepository messages,
@@ -102,8 +110,11 @@ public class InboxParser {
         AiBudgetService budget,
         AiMeteringService metering,
         ApplicationEventPublisher events,
-        @Value("${dossier.ai.enabled:false}") boolean aiEnabled
+        InboxInterviewApplier interviewApplier,
+        @Value("${dossier.ai.enabled:false}") boolean aiEnabled,
+        InboxDecisionPolicy policy
     ) {
+        this.policy = policy;
         this.messages = messages;
         this.applications = applications;
         this.users = users;
@@ -111,6 +122,7 @@ public class InboxParser {
         this.budget = budget;
         this.metering = metering;
         this.events = events;
+        this.interviewApplier = interviewApplier;
         this.aiEnabled = aiEnabled;
     }
 
@@ -134,6 +146,13 @@ public class InboxParser {
                 m.setClassifiedBy("NONE");
                 continue;
             }
+            // Never keep a sensitive value: a mail that holds one is stored with it removed (and never goes to the model).
+            MailTextGuard.Stored kept = MailTextGuard.forStorage(m.getSubject(), m.getBodyText());
+            if (kept.redacted()) {
+                m.setSubject(kept.subject());
+                m.setBodyText(kept.body());
+                m.setCalendarEvent(null);
+            }
             MailClassifier.Reading r = MailClassifier.read(m.getSubject(), m.getBodyText(), m.getFromName());
             m.setCategory(r.category().name());
             m.setClassifiedBy("RULE");
@@ -142,13 +161,14 @@ public class InboxParser {
             if (r.ambiguous()) unsure.add(m);
         }
 
-        // 2. Ask the model about the unsure ones, if it may be asked.
+        // 2. Ask the model about the unsure ones, if it may be asked. Never a mail with a sensitive value, never one that tries to instruct the model.
         Set<InboxMessage> stillUnsure = new HashSet<>(unsure);
+        List<InboxMessage> askable = unsure.stream().filter(InboxParser::mayAskModel).toList();
         int asked = 0;
-        String login = unsure.isEmpty() ? null : users.findById(userId).map(User::getLogin).orElse(null);
+        String login = askable.isEmpty() ? null : users.findById(userId).map(User::getLogin).orElse(null);
         if (login != null && aiEnabled && provider.isConfigured()) {
-            for (int i = 0; i < unsure.size() && i / AI_BATCH < AI_MAX_BATCHES; i += AI_BATCH) {
-                List<InboxMessage> slice = unsure.subList(i, Math.min(unsure.size(), i + AI_BATCH));
+            for (int i = 0; i < askable.size() && i / AI_BATCH < AI_MAX_BATCHES; i += AI_BATCH) {
+                List<InboxMessage> slice = askable.subList(i, Math.min(askable.size(), i + AI_BATCH));
                 AiBudgetService.Decision d = budget.decide(login, AiTask.INBOX);
                 if (d.verdict() != AiBudgetService.Verdict.OK) break;
                 try {
@@ -160,12 +180,13 @@ public class InboxParser {
                         JsonNode n = byRef.get("m" + (k + 1));
                         if (n == null) continue;
                         InboxMessage m = slice.get(k);
-                        MailClassifier.Category c = category(n.path("category").asText(""));
-                        if (c == null) continue;
-                        m.setCategory(c.name());
+                        // Closed set only: a category from the enum, no application id (none were offered), plain-text company/role; else the rules' reading stands.
+                        MailTextGuard.Verdict v = MailTextGuard.validate(n, Set.of()).orElse(null);
+                        if (v == null) continue;
+                        m.setCategory(v.category().name());
                         m.setClassifiedBy("AI");
-                        if (!n.path("company").asText("").isBlank()) m.setCompanyGuess(n.path("company").asText().trim());
-                        if (!n.path("role").asText("").isBlank()) m.setRoleGuess(n.path("role").asText().trim());
+                        if (v.company() != null) m.setCompanyGuess(v.company());
+                        if (v.role() != null) m.setRoleGuess(v.role());
                         stillUnsure.remove(m);
                     }
                 } catch (AiProviderException e) {
@@ -190,14 +211,39 @@ public class InboxParser {
                 messages.save(m);
                 continue;
             }
-            Optional<Application> app = thread(userId, m, apps).or(() ->
-                MailMatcher.match(apps, m.getCompanyGuess(), m.getRoleGuess(), m.getSubject(), m.getFromAddress(), m.getFromName(), inboxAddress)
+            Long threadApp = thread(userId, m, apps).map(Application::getId).orElse(null);
+            MailMatcher.Ranking rk = MailMatcher.rank(
+                apps,
+                new MailMatcher.Facts(m.getCompanyGuess(), m.getRoleGuess(), m.getSubject(), m.getBodyText(), m.getFromAddress(), m.getFromName(), inboxAddress, threadApp)
             );
+            MailEvent event = event(m, c, rk);
+            m.setConfidence(event.confidence());
+            m.setMatchKind(event.matchKind().name());
+            InboxDecisionPolicy.Decision decision = policy.decide(event);
+            boolean hold = decision.outcome() == InboxDecisionPolicy.Outcome.HOLD;
+            if (event.ambiguous()) {
+                // Two jobs too close: the person picks (InboxSafetyService keeps the candidates for the review list); nothing changes now.
+                if (safety != null) safety.holdAmbiguous(userId, m, event);
+                messages.save(m);
+                continue;
+            }
+            if (hold && (safety == null || rk.best() == null)) {
+                // Plausible but not sure, with nothing the review list could show: kept with its confidence, nothing changes.
+                messages.save(m);
+                continue;
+            }
+            // Mail that changes nothing (alerts, other) still follows its application, so a reply can find the thread.
+            if (rk.best() != null && (c == MailClassifier.Category.OTHER || c == MailClassifier.Category.ALERT)) m.setApplicationId(rk.best().getId());
+            // A held reading on a matched application still goes through act(): its safety gate stores the hold (with the proposed status) for review.
+            Optional<Application> app = decision.outcome() == InboxDecisionPolicy.Outcome.IGNORE ? Optional.empty() : Optional.ofNullable(rk.best());
             if (app.isPresent()) {
                 Application a = app.get();
                 m.setApplicationId(a.getId());
-                if (act(userId, a, c, m)) changed++;
-            } else if (SUGGESTS.contains(c) && m.getCompanyGuess() != null && !companyTracked(apps, m.getCompanyGuess())) {
+                // An interview mail also says when: read it first (a cancellation never moves the status), then set the status, then the interview.
+                ExtractedSchedule schedule = c == MailClassifier.Category.INTERVIEW ? interviewApplier.read(m) : null;
+                if (act(userId, a, c, m, schedule, event)) changed++;
+                if (schedule != null) interviewApplier.apply(userId, a.getId(), m, schedule);
+            } else if (rk.best() == null && !rk.ambiguous() && SUGGESTS.contains(c) && m.getCompanyGuess() != null && !companyTracked(apps, m.getCompanyGuess())) {
                 m.setSuggestion("NEW");
                 suggested++;
             }
@@ -207,18 +253,55 @@ public class InboxParser {
         return new Result(batch.size(), changed, suggested, asked);
     }
 
+    /** The one {@link MailEvent} every classified mail produces: reading confidence, match, candidates, a short evidence line (no mail text, no address). */
+    static MailEvent event(InboxMessage m, MailClassifier.Category c, MailMatcher.Ranking rk) {
+        String domain = JobMailRules.domainOf(m.getFromAddress());
+        boolean hiring = JobMailRules.isHiringDomain(domain);
+        String companyKey = rk.best() == null ? "" : ApplicationKeys.company(rk.best().getCompany());
+        boolean companyDomain = !hiring && companyKey.length() >= 3 && domain.replaceAll("[^\\p{L}\\p{N}]+", "").contains(companyKey);
+        boolean byAi = "AI".equals(m.getClassifiedBy());
+        MailClassifier.Reading subjectOnly = MailClassifier.read(m.getSubject(), "", m.getFromName());
+        MailClassifier.Reading bodyOnly = MailClassifier.read("", m.getBodyText(), m.getFromName());
+        boolean subjectStrong = subjectOnly.category() == c && !subjectOnly.ambiguous();
+        boolean bodyStrong = bodyOnly.category() == c && !bodyOnly.ambiguous();
+        int reading = MailConfidence.reading(new MailConfidence.ReadingSignals(byAi, false, hiring || companyDomain || rk.kind() == MailEvent.MatchKind.THREAD, subjectStrong, bodyStrong));
+        boolean matched = rk.best() != null;
+        int confidence = MailConfidence.combine(reading, rk.score(), matched);
+        String evidence =
+            "read=" + (byAi ? "ai" : "rules") + (hiring ? "+ats-sender" : companyDomain ? "+company-sender" : "") +
+            (subjectStrong ? "+subject" : "") + (bodyStrong ? "+body" : "") + "; match=" + rk.kind().name().toLowerCase(Locale.ROOT) +
+            (rk.ambiguous() ? " (" + rk.candidates().size() + " close)" : "");
+        return new MailEvent(
+            m.getId(),
+            c,
+            confidence,
+            reading,
+            matched ? rk.score() : 0,
+            rk.kind(),
+            matched ? rk.best().getId() : null,
+            rk.candidates(),
+            null,
+            evidence
+        );
+    }
+
     /** Apply what the email says to the application. True when the status moved. */
-    private boolean act(Long userId, Application a, MailClassifier.Category c, InboxMessage m) {
+    private boolean act(Long userId, Application a, MailClassifier.Category c, InboxMessage m, ExtractedSchedule schedule, MailEvent event) {
         ApplicationStatus from = a.getStatus();
-        ApplicationStatus to = MailMatcher.next(from, c);
+        // The category table decides first: only a STATUS category may move an application (a closed role, a reminder, a recruiter's note never does).
+        ApplicationStatus to = !c.mayChangeStatus()
+            ? null
+            : c == MailClassifier.Category.INTERVIEW ? InboxInterviewApplier.statusAfter(from, schedule) : MailMatcher.next(from, c);
+        // The gate: a rejection, a weak reading, an ambiguous or backwards change is held for the person instead of applied.
+        if (to != null && safety != null && !safety.screen(userId, m, a, event, to)) return false;
         boolean touched = false;
-        if (c == MailClassifier.Category.APPLIED && !Boolean.TRUE.equals(a.getSubmissionConfirmed())) {
+        if ((c == MailClassifier.Category.APPLIED || c == MailClassifier.Category.IN_REVIEW) && !Boolean.TRUE.equals(a.getSubmissionConfirmed())) {
             a.setSubmissionConfirmed(true);
             touched = true;
         }
         if (to != null) {
             a.setStatus(to);
-            if (to == ApplicationStatus.APPLIED && a.getAppliedAt() == null) a.setAppliedAt(m.getSentAt() != null ? m.getSentAt() : Instant.now());
+            if ((to == ApplicationStatus.APPLIED || to == ApplicationStatus.IN_REVIEW) && a.getAppliedAt() == null) a.setAppliedAt(m.getSentAt() != null ? m.getSentAt() : Instant.now());
             m.setStatusChange(to.name());
             touched = true;
         }
@@ -246,22 +329,26 @@ public class InboxParser {
         return !key.isEmpty() && apps.stream().anyMatch(a -> key.equals(ApplicationKeys.company(a.getCompany())));
     }
 
+    /** A mail goes to the model only when it holds no sensitive value and does not try to instruct the model. */
+    static boolean mayAskModel(InboxMessage m) {
+        if (MailTextGuard.isSensitive(m.getSubject(), m.getBodyText())) return false;
+        return !(MailTextGuard.looksInjected(m.getSubject()) || MailTextGuard.looksInjected(m.getBodyText()) || MailTextGuard.looksInjected(m.getFromName()));
+    }
+
     String prompt(List<InboxMessage> slice) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Classify each email about a job seeker's applications. For each id return category: ");
-        sb.append("APPLIED (confirms an application was received), INTERVIEW (an invitation to interview or talk, or scheduling one), ");
-        sb.append("ASSESSMENT (a test, coding challenge or take-home), REJECTED (they won't proceed with the candidate), OFFER (a job offer), ");
-        sb.append("ALERT (job recommendations or a newsletter, not about one application), OTHER (anything else). ");
-        sb.append("Also company: the hiring company's name as written — not the applicant-tracking system or job board — and role: the job title ");
-        sb.append("if the email states one, else empty. Judge only from what the email says; if unsure whether it's a decision, choose OTHER.\n\n");
+        sb.append(MailTextGuard.preamble());
+        sb.append("Classify each email about a job seeker's applications. For each id (m1, m2, ...) return category, one of exactly: ");
+        sb.append("APPLIED (confirms an application was received), IN_REVIEW (says the application is under review), INTERVIEW (an invitation to interview or talk, or scheduling one), ");
+        sb.append("ASSESSMENT (a test, coding challenge or take-home), ASSESSMENT_REMINDER (a reminder about a test already sent), REJECTED (they won't proceed with the candidate), OFFER (a job offer), ");
+        sb.append("APPLICATION_CLOSED (the position was filled or closed, the candidate was not turned down), RECRUITER_OUTREACH (a recruiter writes about a role the person did not apply to), ");
+        sb.append("ALERT (job recommendations, not about one application), NEWSLETTER (marketing or a newsletter), OTHER (anything else). ");
+        sb.append("Also company: the hiring company's name as written - not the applicant-tracking system or job board - and role: the job title ");
+        sb.append("if the email states one, else empty. Judge only from what the email says; if unsure whether it's a decision, choose OTHER. ");
+        sb.append("Reply with JSON only: {\"results\":[{\"id\":\"m1\",\"category\":\"...\",\"company\":\"...\",\"role\":\"...\"}]}\n\n");
         for (int i = 0; i < slice.size(); i++) {
             InboxMessage m = slice.get(i);
-            sb.append("[m").append(i + 1).append("] From: ");
-            if (m.getFromName() != null) sb.append(m.getFromName()).append(' ');
-            sb.append('<').append(m.getFromAddress() == null ? "" : m.getFromAddress()).append(">\nSubject: ");
-            sb.append(m.getSubject() == null ? "" : m.getSubject()).append('\n');
-            String body = m.getBodyText() == null ? "" : m.getBodyText().replaceAll("\\s+", " ").trim();
-            sb.append(body.length() > EXCERPT ? body.substring(0, EXCERPT) : body).append("\n\n");
+            sb.append(MailTextGuard.wrap("m" + (i + 1), m.getFromName(), m.getFromAddress(), m.getSubject(), m.getBodyText(), EXCERPT).block());
         }
         return sb.toString();
     }

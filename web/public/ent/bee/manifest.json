@@ -1,0 +1,310 @@
+[
+  {
+    "name": "welcome",
+    "file": "welcome.png",
+    "set": "poses",
+    "w": 172,
+    "h": 205
+  },
+  {
+    "name": "happy",
+    "file": "happy.png",
+    "set": "poses",
+    "w": 159,
+    "h": 204
+  },
+  {
+    "name": "excited",
+    "file": "excited.png",
+    "set": "poses",
+    "w": 203,
+    "h": 207
+  },
+  {
+    "name": "grateful",
+    "file": "grateful.png",
+    "set": "poses",
+    "w": 181,
+    "h": 204
+  },
+  {
+    "name": "thinking",
+    "file": "thinking.png",
+    "set": "poses",
+    "w": 167,
+    "h": 204
+  },
+  {
+    "name": "idea",
+    "file": "idea.png",
+    "set": "poses",
+    "w": 190,
+    "h": 219
+  },
+  {
+    "name": "confident",
+    "file": "confident.png",
+    "set": "poses",
+    "w": 155,
+    "h": 218
+  },
+  {
+    "name": "friendly",
+    "file": "friendly.png",
+    "set": "poses",
+    "w": 162,
+    "h": 205
+  },
+  {
+    "name": "working",
+    "file": "working.png",
+    "set": "poses",
+    "w": 186,
+    "h": 196
+  },
+  {
+    "name": "typing",
+    "file": "typing.png",
+    "set": "poses",
+    "w": 182,
+    "h": 199
+  },
+  {
+    "name": "reviewing",
+    "file": "reviewing.png",
+    "set": "poses",
+    "w": 174,
+    "h": 202
+  },
+  {
+    "name": "presenting",
+    "file": "presenting.png",
+    "set": "poses",
+    "w": 202,
+    "h": 200
+  },
+  {
+    "name": "task-complete",
+    "file": "task-complete.png",
+    "set": "poses",
+    "w": 156,
+    "h": 198
+  },
+  {
+    "name": "searching",
+    "file": "searching.png",
+    "set": "poses",
+    "w": 178,
+    "h": 194
+  },
+  {
+    "name": "analyzing",
+    "file": "analyzing.png",
+    "set": "poses",
+    "w": 155,
+    "h": 201
+  },
+  {
+    "name": "scheduling",
+    "file": "scheduling.png",
+    "set": "poses",
+    "w": 166,
+    "h": 198
+  },
+  {
+    "name": "notification",
+    "file": "notification.png",
+    "set": "poses",
+    "w": 172,
+    "h": 198
+  },
+  {
+    "name": "success",
+    "file": "success.png",
+    "set": "poses",
+    "w": 182,
+    "h": 198
+  },
+  {
+    "name": "approved",
+    "file": "approved.png",
+    "set": "poses",
+    "w": 181,
+    "h": 198
+  },
+  {
+    "name": "great-job",
+    "file": "great-job.png",
+    "set": "poses",
+    "w": 182,
+    "h": 195
+  },
+  {
+    "name": "confused",
+    "file": "confused.png",
+    "set": "poses",
+    "w": 178,
+    "h": 198
+  },
+  {
+    "name": "surprised",
+    "file": "surprised.png",
+    "set": "poses",
+    "w": 169,
+    "h": 195
+  },
+  {
+    "name": "error-oops",
+    "file": "error-oops.png",
+    "set": "poses",
+    "w": 181,
+    "h": 198
+  },
+  {
+    "name": "sad",
+    "file": "sad.png",
+    "set": "poses",
+    "w": 157,
+    "h": 198
+  },
+  {
+    "name": "processing",
+    "file": "processing.png",
+    "set": "poses",
+    "w": 180,
+    "h": 191
+  },
+  {
+    "name": "help-guidance",
+    "file": "help-guidance.png",
+    "set": "poses",
+    "w": 177,
+    "h": 195
+  },
+  {
+    "name": "resume-help",
+    "file": "resume-help.png",
+    "set": "poses",
+    "w": 172,
+    "h": 194
+  },
+  {
+    "name": "onboarding",
+    "file": "onboarding.png",
+    "set": "poses",
+    "w": 200,
+    "h": 193
+  },
+  {
+    "name": "secure",
+    "file": "secure.png",
+    "set": "poses",
+    "w": 178,
+    "h": 194
+  },
+  {
+    "name": "tips-suggestions",
+    "file": "tips-suggestions.png",
+    "set": "poses",
+    "w": 180,
+    "h": 196
+  },
+  {
+    "name": "collaboration",
+    "file": "collaboration.png",
+    "set": "poses",
+    "w": 220,
+    "h": 181
+  },
+  {
+    "name": "goodbye-sign-out",
+    "file": "goodbye-sign-out.png",
+    "set": "poses",
+    "w": 147,
+    "h": 194
+  },
+  {
+    "name": "peeping-left",
+    "file": "peeping-left.png",
+    "set": "peek",
+    "w": 224,
+    "h": 302
+  },
+  {
+    "name": "peeping-right",
+    "file": "peeping-right.png",
+    "set": "peek",
+    "w": 229,
+    "h": 305
+  },
+  {
+    "name": "peeking-top-edge",
+    "file": "peeking-top-edge.png",
+    "set": "peek",
+    "w": 332,
+    "h": 256
+  },
+  {
+    "name": "peeking-bottom-edge",
+    "file": "peeking-bottom-edge.png",
+    "set": "peek",
+    "w": 331,
+    "h": 204
+  },
+  {
+    "name": "climbing-up",
+    "file": "climbing-up.png",
+    "set": "peek",
+    "w": 287,
+    "h": 299
+  },
+  {
+    "name": "hanging-from-top",
+    "file": "hanging-from-top.png",
+    "set": "peek",
+    "w": 315,
+    "h": 274
+  },
+  {
+    "name": "watching-lying-floor",
+    "file": "watching-lying-floor.png",
+    "set": "peek",
+    "w": 306,
+    "h": 240
+  },
+  {
+    "name": "lying-belly-looking-up",
+    "file": "lying-belly-looking-up.png",
+    "set": "peek",
+    "w": 310,
+    "h": 280
+  },
+  {
+    "name": "sitting-floor-watching",
+    "file": "sitting-floor-watching.png",
+    "set": "peek",
+    "w": 254,
+    "h": 265
+  },
+  {
+    "name": "hiding-behind-card",
+    "file": "hiding-behind-card.png",
+    "set": "peek",
+    "w": 335,
+    "h": 262
+  },
+  {
+    "name": "popping-out-side",
+    "file": "popping-out-side.png",
+    "set": "peek",
+    "w": 266,
+    "h": 269
+  },
+  {
+    "name": "relaxed-lounging",
+    "file": "relaxed-lounging.png",
+    "set": "peek",
+    "w": 351,
+    "h": 263
+  }
+]

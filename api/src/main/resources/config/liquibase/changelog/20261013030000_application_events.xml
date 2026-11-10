@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        APP-E2E U6.1 (docs/design/user/applications-inbox.md section 1) - the tracker gets a memory.
+
+        `application` stays the row; three side tables hang off it:
+          * application_event - every meaningful change, with where it came from. "first became X" for
+            analytics, the timeline tab and the dashboard activity bars all read this table.
+          * application_note  - the user's free text (checked for never-collected values on every write).
+          * interview         - date, kind, place, outcome; drives the dashboard, the .ics export and,
+            later, reminders (the two reminder_*_sent_at columns are idempotence markers for U7).
+
+        `application` gains: last_event_at (the ghosted clock - ghosted is DERIVED, never stored),
+        next_action / next_action_at (the user's own to-do), outcome / accepted_at ("did you accept?"),
+        cover_letter_resume_id (R5.3 link) and posting_id (soft ref to job_posting, no FK).
+
+        The statuses IN_REVIEW and WITHDRAWN are Java-only: application.status is a varchar.
+
+        Strictly additive. The two backfill changesets give every existing application a CREATED event
+        (from created_at) and, when it was ever applied, one STATUS event (from applied_at); both are
+        tagged source SYSTEM, and last_event_at starts at the row's updated_at.
+        Everything here is deleted with the account (user FK) or with its application (FK cascade).
+    -->
+    <changeSet id="20261013030000-1" author="dossier">
+        <addColumn tableName="application">
+            <column name="last_event_at" type="${datetimeType}"/>
+            <column name="next_action" type="varchar(160)"/>
+            <column name="next_action_at" type="${datetimeType}"/>
+            <column name="outcome" type="varchar(12)"/>
+            <column name="accepted_at" type="${datetimeType}"/>
+            <column name="cover_letter_resume_id" type="bigint"/>
+            <column name="posting_id" type="bigint"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261013030000-2" author="dossier">
+        <createTable tableName="application_event">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="application_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(24)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="from_status" type="varchar(12)"/>
+            <column name="to_status" type="varchar(12)"/>
+            <column name="source" type="varchar(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ref_id" type="bigint"/>
+            <column name="summary" type="varchar(200)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="application_event"
+            baseColumnNames="application_id"
+            constraintName="fk_application_event_application_id"
+            referencedTableName="application"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <createIndex tableName="application_event" indexName="ix_application_event_app_created">
+            <column name="application_id"/>
+            <column name="created_at"/>
+        </createIndex>
+
+        <createTable tableName="application_note">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="application_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="body" type="${clobType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pinned" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="application_note"
+            baseColumnNames="application_id"
+            constraintName="fk_application_note_application_id"
+            referencedTableName="application"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <createIndex tableName="application_note" indexName="ix_application_note_app_created">
+            <column name="application_id"/>
+            <column name="created_at"/>
+        </createIndex>
+
+        <createTable tableName="interview">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="application_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="starts_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ends_at" type="${datetimeType}"/>
+            <column name="tz" type="varchar(48)"/>
+            <column name="location" type="varchar(200)"/>
+            <column name="interviewer" type="varchar(120)"/>
+            <column name="notes" type="${clobType}"/>
+            <column name="outcome" type="varchar(12)"/>
+            <column name="reminder_24h_sent_at" type="${datetimeType}"/>
+            <column name="reminder_1h_sent_at" type="${datetimeType}"/>
+            <column name="source" type="varchar(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="inbox_message_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="interview"
+            baseColumnNames="application_id"
+            constraintName="fk_interview_application_id"
+            referencedTableName="application"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+            baseTableName="interview"
+            baseColumnNames="user_id"
+            constraintName="fk_interview_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <createIndex tableName="interview" indexName="ix_interview_user_starts">
+            <column name="user_id"/>
+            <column name="starts_at"/>
+        </createIndex>
+        <createIndex tableName="interview" indexName="ix_interview_application">
+            <column name="application_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Backfill 1: every existing application was "added" when it was created. -->
+    <changeSet id="20261013030000-3" author="dossier">
+        <sql>
+            INSERT INTO application_event (application_id, kind, from_status, to_status, source, summary, created_at)
+            SELECT a.id, 'CREATED', NULL,
+                   CASE WHEN a.status = 'SAVED' THEN 'SAVED' ELSE 'DRAFT' END,
+                   'SYSTEM', 'Added to your tracker', a.created_at
+            FROM application a
+        </sql>
+        <rollback>
+            <sql>DELETE FROM application_event WHERE source = 'SYSTEM' AND kind = 'CREATED' AND summary = 'Added to your tracker'</sql>
+        </rollback>
+    </changeSet>
+
+    <!-- Backfill 2: one STATUS event for every application that was ever applied (status past APPLIED
+         included), dated by applied_at; and the ghosted clock starts at the row's last touch. -->
+    <changeSet id="20261013030000-4" author="dossier">
+        <sql>
+            INSERT INTO application_event (application_id, kind, from_status, to_status, source, summary, created_at)
+            SELECT a.id, 'STATUS', 'DRAFT', 'APPLIED', 'SYSTEM', 'Applied', a.applied_at
+            FROM application a
+            WHERE a.applied_at IS NOT NULL AND a.status IN ('APPLIED', 'INTERVIEW', 'OFFER', 'REJECTED')
+        </sql>
+        <sql>
+            UPDATE application SET last_event_at = COALESCE(updated_at, created_at) WHERE last_event_at IS NULL
+        </sql>
+        <rollback>
+            <sql>DELETE FROM application_event WHERE source = 'SYSTEM' AND kind = 'STATUS' AND summary = 'Applied'</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

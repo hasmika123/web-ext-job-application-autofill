@@ -76,7 +76,7 @@ class AdminBootstrapTest {
         props.setEmail("Admin@Kiwiply.com");
         props.setPasswordHash(VALID_HASH);
         props.setLogin("admin");
-        when(userRepository.findOneByEmailIgnoreCase("Admin@Kiwiply.com")).thenReturn(Optional.empty());
+        when(userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase("Admin@Kiwiply.com")).thenReturn(Optional.empty());
         when(userRepository.findOneByLogin("admin")).thenReturn(Optional.empty());
 
         bootstrap.bootstrapAdmin();
@@ -104,7 +104,7 @@ class AdminBootstrapTest {
 
         props.setEmail("admin@kiwiply.com");
         props.setPasswordHash(VALID_HASH);
-        when(userRepository.findOneByEmailIgnoreCase("admin@kiwiply.com")).thenReturn(Optional.of(existing));
+        when(userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase("admin@kiwiply.com")).thenReturn(Optional.of(existing));
 
         bootstrap.bootstrapAdmin();
 
@@ -119,7 +119,7 @@ class AdminBootstrapTest {
     void runNeverThrowsEvenWhenRepositoryFails() {
         props.setEmail("admin@kiwiply.com");
         props.setPasswordHash(VALID_HASH);
-        when(userRepository.findOneByEmailIgnoreCase(anyString())).thenThrow(new RuntimeException("db down"));
+        when(userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase(anyString())).thenThrow(new RuntimeException("db down"));
         // Must swallow the exception so a bad config never crashes startup.
         bootstrap.run(null);
         verify(userRepository, never()).save(any());

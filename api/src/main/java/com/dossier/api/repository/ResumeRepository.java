@@ -40,4 +40,12 @@ public interface ResumeRepository extends JpaRepository<Resume, Long> {
 
     @Query("select resume from Resume resume left join fetch resume.user where resume.id =:id")
     Optional<Resume> findOneWithToOneRelationships(@Param("id") Long id);
+
+    /**
+     * Points a resume at its new stored file (the async PDF pipeline, R3.7) without loading or
+     * re-writing the rest of the row, so it cannot clobber a concurrent edit of another column.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Resume r set r.r2ObjectKey = :key where r.id = :id")
+    int updateObjectKey(@Param("id") Long id, @Param("key") String key);
 }

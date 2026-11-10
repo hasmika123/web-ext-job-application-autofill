@@ -130,7 +130,7 @@ export default function UserActions({ login, activated, isAdmin, isSelf }: Props
       </section>
 
       <section className="rounded-[var(--radius)] border border-danger/40 bg-paper p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-danger">Danger zone</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-danger-text">Danger zone</h2>
         <p className="mt-1 text-sm text-ink-soft">
           Permanently delete this account and all of its data — resumes, profile, applications, everything.
           This can&apos;t be undone.
@@ -141,7 +141,7 @@ export default function UserActions({ login, activated, isAdmin, isSelf }: Props
           <button
             type="button"
             onClick={() => setConfirmOpen(true)}
-            className="mt-3 self-start rounded-full border border-danger/40 px-4 py-2 text-sm font-semibold text-danger transition-colors hover:bg-danger/5"
+            className="mt-3 self-start rounded-full border border-danger/40 px-4 py-2 text-sm font-semibold text-danger-text transition-colors hover:bg-danger/5"
           >
             Delete account
           </button>

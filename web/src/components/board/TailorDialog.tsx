@@ -141,7 +141,7 @@ export default function TailorDialog({
     load.state === "ready" && !saved ? (
       <div className="flex flex-wrap items-center justify-end gap-2">
         {error && (
-          <span role="alert" className="mr-auto text-[12.5px] font-medium text-danger">
+          <span role="alert" className="mr-auto text-[12.5px] font-medium text-danger-text">
             {error}
           </span>
         )}
@@ -179,7 +179,7 @@ export default function TailorDialog({
         <p className="py-6 text-sm text-ink-soft">
           {load.text}{" "}
           {load.upsell && (
-            <Link href="/#pricing" className="font-semibold text-accent-deep hover:underline">
+            <Link href="/pricing" className="font-semibold text-accent-deep hover:underline">
               See Pro →
             </Link>
           )}

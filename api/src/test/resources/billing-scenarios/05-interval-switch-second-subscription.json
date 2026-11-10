@@ -1,0 +1,20 @@
+{
+  "name": "interval-switch-second-subscription",
+  "description": "K8-Q1 (a): when a schedule cannot do the switch, the old subscription is set to cancel at its period end and a new one is created from the saved card billing from that instant. The row follows the new subscription, access has no gap, nothing is charged twice, the old subscription's deletion changes nothing.",
+  "steps": [
+    { "do": "quote", "as": "q1", "kind": "CHECKOUT", "interval": "MONTH", "addons": [] },
+    { "do": "checkout", "quote": "q1" },
+    { "do": "stripe.completeCheckout" },
+    { "do": "stripe.switchBySecondSubscription" },
+    { "do": "expect", "subscriptionIdChanged": true, "pro": true, "invoices": 1, "paidTotalMinor": 1999 },
+    { "do": "advance", "toPeriodEnd": true, "plusHours": 1 },
+    { "do": "expect",
+      "subscription": { "status": "active", "interval": "QUARTER", "cancelAtPeriodEnd": false },
+      "subscriptionIdChanged": true,
+      "pro": true,
+      "invoices": 2,
+      "paidTotalMinor": 6998,
+      "lastInvoice": { "status": "paid", "amountPaidMinor": 4999 },
+      "reconcileDrift": 0 }
+  ]
+}

@@ -29,6 +29,11 @@ public interface AiProvider {
         return task == AiTask.DRAFT ? SYSTEM_PROMPT : INSTRUCTION_SYSTEM_PROMPT;
     }
 
+    /** The id of this provider ({@code gemini}); adapters override. {@link AiRouter} is the one bean and reports {@code router}. */
+    default String id() {
+        return "unknown";
+    }
+
     /** True when a key/model are configured and the provider can actually be called. */
     boolean isConfigured();
 
@@ -45,6 +50,23 @@ public interface AiProvider {
      * @throws AiProviderException on any provider/transport failure
      */
     AiResult generate(AiTask task, String model, String question, String context) throws AiProviderException;
+
+    /**
+     * {@link #generate(AiTask, String, String, String)} with an output-token ceiling the caller reads from a
+     * setting (Resume Builder R4.1: {@code ai.output_tokens_max.rewrite}). A provider that cannot cap output
+     * ignores the ceiling; {@code maxOutputTokens <= 0} means "the provider's own default".
+     */
+    default AiResult generate(AiTask task, String model, String question, String context, int maxOutputTokens) throws AiProviderException {
+        return generate(task, model, question, context);
+    }
+
+    /**
+     * {@link #generate(AiTask, String, String, String, int)} with a per-call HTTP timeout (the router's admin
+     * probe uses 15 s). An adapter that cannot set a timeout per call ignores {@code timeoutMs}.
+     */
+    default AiResult generateWithTimeout(AiTask task, String model, String question, String context, int maxOutputTokens, int timeoutMs) throws AiProviderException {
+        return generate(task, model, question, context, maxOutputTokens);
+    }
 
     /** The shared resume-parsing system prompt. The output shape itself is enforced by the
      *  provider's structured-output mechanism (a JSON schema), so this focuses on the
@@ -70,4 +92,12 @@ public interface AiProvider {
      * @throws AiProviderException on any provider/transport failure or unusable output
      */
     AiResult parseResume(String model, String text, String fileBase64, String fileMimeType) throws AiProviderException;
+
+    /**
+     * {@link #parseResume(String, String, String, String)} with the output-token ceiling the PARSE route sets
+     * ({@code maxOutputTokens <= 0} = the provider's own default). An adapter that cannot cap output ignores it.
+     */
+    default AiResult parseResume(String model, String text, String fileBase64, String fileMimeType, int maxOutputTokens) throws AiProviderException {
+        return parseResume(model, text, fileBase64, fileMimeType);
+    }
 }

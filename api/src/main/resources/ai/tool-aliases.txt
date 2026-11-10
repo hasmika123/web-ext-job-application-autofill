@@ -1,0 +1,29 @@
+# Other spellings of the SAME tool, one group per line ('|' separated, lower case, single words).
+# AiTruthChecks reads this to tell "Postgres" from a tool the person never named: an alias counts as
+# present only when another spelling from its group is already in the resume. It is NOT a list of
+# things a rewrite may add - a tool absent from the resume is an invented skill and the change is dropped.
+javascript|js|ecmascript
+typescript|ts
+postgresql|postgres|psql
+kubernetes|k8s
+node.js|nodejs
+golang
+react|react.js|reactjs
+vue|vue.js|vuejs
+angular|angularjs
+mongodb|mongo
+sqlserver|mssql
+elasticsearch|opensearch
+tensorflow|tf
+scikit-learn|sklearn
+c#|csharp
+c++|cpp
+.net|dotnet
+cicd|ci/cd
+powerbi
+salesforce|sfdc
+next.js|nextjs
+nest.js|nestjs
+spring|springboot
+bigquery|bq
+dynamodb|dynamo

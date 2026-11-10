@@ -46,7 +46,7 @@ export interface SelectProps {
 export const selectClass = cn(inputClass, "flex items-center gap-2 pr-9 text-left font-medium cursor-pointer");
 
 const PILL_TRIGGER =
-  "flex items-center gap-1.5 rounded-full border border-line bg-paper py-2 pl-3 pr-2.5 text-[13px] " +
+  "flex min-h-11 items-center gap-1.5 rounded-full border border-line bg-paper py-2 sm:min-h-0 pl-3 pr-2.5 text-[13px] " +
   "font-medium text-ink-soft transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-60";
 
 function optionsFromChildren(children: ReactNode): SelectOption[] {
@@ -62,6 +62,24 @@ function optionsFromChildren(children: ReactNode): SelectOption[] {
     });
   });
   return out;
+}
+
+/** Gap between the trigger and the open list, the list's tallest height (Tailwind max-h-64), and the margin kept from the window edge. */
+export const MENU_GAP = 6;
+export const MENU_MAX = 256;
+const EDGE = 8;
+
+/**
+ * Where the open list goes. Under the trigger when it fits there (or when there is no more room above); otherwise ABOVE it, so a
+ * dropdown near the bottom of the window does not open off-screen (scrolling to reach it would close it). The height is capped to the
+ * room on the chosen side. Pure, for tests: `wanted` is the list's natural height.
+ */
+export function menuPlacement(r: { top: number; bottom: number }, viewportHeight: number, wanted: number): { top?: number; bottom?: number; maxHeight: number } {
+  const below = viewportHeight - r.bottom - MENU_GAP - EDGE;
+  const above = r.top - MENU_GAP - EDGE;
+  const need = Math.min(MENU_MAX, wanted);
+  if (below >= need || below >= above) return { top: r.bottom + MENU_GAP, maxHeight: Math.max(96, Math.min(MENU_MAX, below)) };
+  return { bottom: viewportHeight - r.top + MENU_GAP, maxHeight: Math.max(96, Math.min(MENU_MAX, above)) };
 }
 
 function Chevron({ open }: { open: boolean }) {
@@ -87,7 +105,7 @@ export default function Select({
 }: SelectProps) {
   const opts = useMemo(() => options ?? optionsFromChildren(children), [options, children]);
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number; width: number; maxHeight: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const ariaLabel = rest["aria-label"];
@@ -95,13 +113,17 @@ export default function Select({
   const selected = opts.find((o) => o.value === value);
   const place = () => {
     const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 6, left: r.left, width: r.width });
+    if (r) setPos({ ...menuPlacement(r, window.innerHeight, opts.length * 32 + 8), left: r.left, width: r.width }); // ~32 px per option row + padding
   };
 
   useEffect(() => {
     if (!open) return;
     place();
-    const close = () => setOpen(false);
+    // a scroll INSIDE the open list (a long list) is the user reaching an option, not the page moving away
+    const close = (e?: Event) => {
+      if (e?.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
@@ -158,9 +180,9 @@ export default function Select({
             ref={menuRef}
             role="listbox"
             aria-label={ariaLabel}
-            style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
+            style={{ position: "fixed", top: pos.top, bottom: pos.bottom, left: pos.left, minWidth: pos.width, maxHeight: pos.maxHeight }}
             className={cn(
-              "scroll-slim z-[200] max-h-64 overflow-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
+              "scroll-slim z-[1100] max-h-64 overflow-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
               menuClassName,
             )}
           >

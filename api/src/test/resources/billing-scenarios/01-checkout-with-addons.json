@@ -1,0 +1,19 @@
+{
+  "name": "checkout-with-addons",
+  "description": "A quote with two add-ons becomes a Checkout whose items equal the quote; the customer pays; every event is delivered twice (Stripe is at-least-once) and applied once.",
+  "steps": [
+    { "do": "quote", "as": "q1", "kind": "CHECKOUT", "interval": "MONTH", "addons": [ { "featureKey": "ai.credits_extra", "quantity": 2 }, { "featureKey": "resume.extra_pack", "quantity": 1 } ] },
+    { "do": "checkout", "quote": "q1" },
+    { "do": "expect", "subscription": { "status": "none" }, "pro": false },
+    { "do": "stripe.completeCheckout", "duplicates": true },
+    { "do": "expect",
+      "subscription": { "status": "active", "interval": "MONTH", "cancelAtPeriodEnd": false },
+      "pro": true,
+      "addons": { "ai.credits_extra": 2, "resume.extra_pack": 1 },
+      "stripeItems": { "price_tq_base_m": 1, "price_tq_ai_m": 2, "price_tq_pack_m": 1 },
+      "invoices": 1,
+      "lastInvoice": { "status": "paid", "amountPaidMinor": 3296 },
+      "duplicatesIgnored": 5,
+      "reconcileDrift": 0 }
+  ]
+}

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Decision O4 (docs/enterprise-v2/19-separate-enterprise-accounts.md, phase S1): enterprise accounts and personal accounts are
+        separate rows. An enterprise account is a jhi_user row with org_id set (exactly one organization for life); a personal account has
+        org_id NULL. The same email may therefore exist once as a personal account and once per organization.
+
+        Ships DARK: every existing row keeps org_id NULL (scope 0), so the new (scope, email) unique index is satisfied by every existing
+        row and nothing behaves differently until an enterprise account is created (a later phase, behind enterprise.separate_accounts).
+
+          1. jhi_user.org_id                 NULL = personal; FK to organization (RESTRICT) and an index.
+             jhi_user.account_scope_key      STORED generated IFNULL(org_id, 0), the uniqueness scope (same technique as org_member.active_user_key).
+          2. organization.account_mode       SHARED (legacy: members are personal accounts, the default) | SEPARATE (members are enterprise accounts).
+          3. ux_user_scope_email (account_scope_key, email) REPLACES ux_user_email. This is the one non-additive step of the migration and it
+             only RELAXES a constraint: the new index is created first, then the old one is dropped, in the same changeset. The rollback
+             recreates ux_user_email (it fails if two scopes now share an email, which is the right signal). ux_user_login is untouched.
+    -->
+    <changeSet id="separate-accounts-1-user-org" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="jhi_user" columnName="org_id"/></not></preConditions>
+        <addColumn tableName="jhi_user">
+            <column name="org_id" type="bigint"/>
+        </addColumn>
+        <createIndex tableName="jhi_user" indexName="ix_user_org">
+            <column name="org_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="jhi_user" baseColumnNames="org_id" constraintName="fk_user_org"
+                                 referencedTableName="organization" referencedColumnNames="id" onDelete="RESTRICT"/>
+        <!-- Generated columns: Liquibase has no portable syntax for them, so plain MySQL DDL. -->
+        <sql dbms="mysql">ALTER TABLE jhi_user ADD COLUMN account_scope_key BIGINT GENERATED ALWAYS AS (IFNULL(org_id, 0)) STORED</sql>
+        <rollback>
+            <sql dbms="mysql">ALTER TABLE jhi_user DROP COLUMN account_scope_key</sql>
+            <dropForeignKeyConstraint baseTableName="jhi_user" constraintName="fk_user_org"/>
+            <dropIndex tableName="jhi_user" indexName="ix_user_org"/>
+            <dropColumn tableName="jhi_user" columnName="org_id"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="separate-accounts-2-org-account-mode" author="enterprise">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="organization" columnName="account_mode"/></not></preConditions>
+        <addColumn tableName="organization">
+            <column name="account_mode" type="varchar(10)" defaultValue="SHARED"><constraints nullable="false"/></column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="separate-accounts-3-scope-email-unique" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="jhi_user" indexName="ux_user_scope_email"/></not></preConditions>
+        <comment>Create the replacement first, then drop ux_user_email (never a moment without a uniqueness guarantee).</comment>
+        <sql dbms="mysql">CREATE UNIQUE INDEX ux_user_scope_email ON jhi_user (account_scope_key, email)</sql>
+        <sql dbms="mysql">ALTER TABLE jhi_user DROP INDEX ux_user_email</sql>
+        <rollback>
+            <sql dbms="mysql">CREATE UNIQUE INDEX ux_user_email ON jhi_user (email)</sql>
+            <sql dbms="mysql">ALTER TABLE jhi_user DROP INDEX ux_user_scope_email</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

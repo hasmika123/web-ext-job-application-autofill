@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 X2.4 - the Org Admin dashboard (docs/enterprise-v2/14-organization-administration.md section 2.3).
+
+        Additive only: one new table, org_member_dismissal, holding "this administrator hid this alert until then". It is per member
+        (another administrator still sees the alert) and keyed by the alert key, so dismissing again just moves the date. Nothing
+        else changes; the dashboard reads existing tables only.
+    -->
+
+    <changeSet id="20261016090000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_member_dismissal"/></not>
+        </preConditions>
+        <createTable tableName="org_member_dismissal">
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="member_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="dismissal_key" type="varchar(60)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="until_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="org_member_dismissal" columnNames="org_id, member_id, dismissal_key" constraintName="pk_org_member_dismissal"/>
+        <addForeignKeyConstraint baseTableName="org_member_dismissal" baseColumnNames="member_id"
+            constraintName="fk_org_member_dismissal_member" referencedTableName="org_member" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_member_dismissal" baseColumnNames="org_id"
+            constraintName="fk_org_member_dismissal_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <rollback><dropTable tableName="org_member_dismissal"/></rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Interview Prep page (branch ent-talent-consultant). Three tables, all the consultant's OWN rows (nobody else reads or writes them):
+          cws_prep_session  a self-scored practice session (kind, score 0-100, duration, optional notes scanned by the PII guard)
+          cws_prep_answer   the question-level self-scores of one session (question text comes from the in-code catalog, never from the client)
+          cws_prep_check    the "Before Interview Checklist" items the consultant ticked (a row exists = ticked; unticking deletes it)
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FKs, every secondary index starts with org_id,
+        DATETIME(6) UTC, additive, empty rollback, no JSON columns, no sensitive columns.
+    -->
+    <changeSet id="ent-cws-8-cws_prep_session" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_prep_session"/></not></preConditions>
+        <createTable tableName="cws_prep_session">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="score" type="int"><constraints nullable="false"/></column>
+            <column name="duration_minutes" type="int"><constraints nullable="false"/></column>
+            <column name="notes" type="varchar(1000)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_prep_session" baseColumnNames="org_id" constraintName="fk_cws_prep_session_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_prep_session" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_prep_session_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_prep_session" columnNames="org_id, id" constraintName="uk_cws_prep_session_org_id"/>
+        <createIndex tableName="cws_prep_session" indexName="ix_cws_prep_session_consultant"><column name="org_id"/><column name="consultant_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-8-cws_prep_answer" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_prep_answer"/></not></preConditions>
+        <createTable tableName="cws_prep_answer">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="session_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="position" type="int"><constraints nullable="false"/></column>
+            <column name="question" type="varchar(300)"><constraints nullable="false"/></column>
+            <column name="score" type="int"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_prep_answer" baseColumnNames="org_id" constraintName="fk_cws_prep_answer_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_prep_answer" baseColumnNames="org_id, session_id" constraintName="fk_cws_prep_answer_session" referencedTableName="cws_prep_session" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_prep_answer" columnNames="org_id, session_id, position" constraintName="uk_cws_prep_answer"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-8-cws_prep_check" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_prep_check"/></not></preConditions>
+        <createTable tableName="cws_prep_check">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="item_key" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="checked_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_prep_check" baseColumnNames="org_id" constraintName="fk_cws_prep_check_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_prep_check" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_prep_check_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_prep_check" columnNames="org_id, consultant_id, item_key" constraintName="uk_cws_prep_check"/>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

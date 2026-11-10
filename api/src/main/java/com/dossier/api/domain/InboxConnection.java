@@ -21,6 +21,11 @@ public class InboxConnection implements Serializable {
     public static final String NEEDS_RECONNECT = "NEEDS_RECONNECT";
     /** Repeated other failures; the poller is backing off. */
     public static final String ERROR = "ERROR";
+    /**
+     * Nothing includes inbox tracking for this person any more (their Pro plan lapsed, and their organization's license no longer grants it or they
+     * left): the poller stops reading. Kept (not deleted) so reading resumes if it comes back; the person is told why.
+     */
+    public static final String NO_ENTITLEMENT = "NO_ENTITLEMENT";
 
     @Id
     @Column(name = "user_id")
@@ -50,6 +55,14 @@ public class InboxConnection implements Serializable {
     /** Email the user about interviews and offers (14.6). */
     @Column(name = "notify_email", nullable = false)
     private boolean notifyEmail = true;
+
+    /** "Apply rejections automatically" (inbox-safety): off by default, a rejection read from mail waits for the person's confirmation. */
+    @Column(name = "auto_apply_rejections", nullable = false)
+    private boolean autoApplyRejections = false;
+
+    /** The organization whose license allowed this connection (ent-inbox); null = made on the personal plan. Never shown to the organization. */
+    @Column(name = "connected_via_org_id")
+    private Long connectedViaOrgId;
 
     @Column(name = "connected_at", nullable = false)
     private Instant connectedAt = Instant.now();
@@ -124,12 +137,28 @@ public class InboxConnection implements Serializable {
         this.consecutiveFailures = consecutiveFailures;
     }
 
+    public boolean isAutoApplyRejections() {
+        return autoApplyRejections;
+    }
+
+    public void setAutoApplyRejections(boolean autoApplyRejections) {
+        this.autoApplyRejections = autoApplyRejections;
+    }
+
     public boolean isNotifyEmail() {
         return notifyEmail;
     }
 
     public void setNotifyEmail(boolean notifyEmail) {
         this.notifyEmail = notifyEmail;
+    }
+
+    public Long getConnectedViaOrgId() {
+        return connectedViaOrgId;
+    }
+
+    public void setConnectedViaOrgId(Long connectedViaOrgId) {
+        this.connectedViaOrgId = connectedViaOrgId;
     }
 
     public Instant getConnectedAt() {

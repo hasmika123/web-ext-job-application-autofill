@@ -2,6 +2,13 @@ import { apiUrl } from "@/lib/config";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { isEmail, isUsername, LIMITS } from "@/lib/validate";
 
+/** A trimmed, 50-char-capped name part, or undefined when absent/blank (omitted from the JSON). */
+function cleanName(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const t = v.replace(/\s+/g, " ").trim().slice(0, 50).trim();
+  return t || undefined;
+}
+
 /**
  * POST /api/auth/signup — proxy the Spring (JHipster) register endpoint.
  *
@@ -14,7 +21,7 @@ export async function POST(request: Request) {
   const rl = rateLimit(request, "signup", 5, 60 * 60_000); // 5 / hour per client IP
   if (!rl.ok) return tooManyRequests(rl.retryAfter);
 
-  let body: { username?: string; email?: string; password?: string };
+  let body: { username?: string; email?: string; password?: string; firstName?: unknown; lastName?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -43,12 +50,17 @@ export async function POST(request: Request) {
     );
   }
 
+  // The signup screen has one "Full name" field and splits it. The register DTO caps each part at
+  // 50 chars (`AdminUserDTO`), so clamp rather than bounce a long name with a generic 400.
+  const firstName = cleanName(body.firstName);
+  const lastName = cleanName(body.lastName);
+
   let res: Response;
   try {
     res = await fetch(apiUrl("/api/register"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ login, email, password, langKey: "en" }),
+      body: JSON.stringify({ login, email, password, langKey: "en", firstName, lastName }),
       cache: "no-store",
     });
   } catch {

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        K8.5 (docs/subscriptions/07 s7): an admin can replay a Stripe event through the webhook handler. The replay is recorded as its OWN stripe_event row
+        (id "replay:{evt}:{n}") so the original keeps its history; these columns say what it replays and who asked. Purely additive, nullable, no index.
+    -->
+    <changeSet id="sub-fin-stripe-event-replayed-from" author="subscriptions">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="stripe_event" columnName="replayed_from"/></not></preConditions>
+        <addColumn tableName="stripe_event">
+            <column name="replayed_from" type="varchar(255)"/>
+        </addColumn>
+    </changeSet>
+    <changeSet id="sub-fin-stripe-event-replayed-by" author="subscriptions">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="stripe_event" columnName="replayed_by"/></not></preConditions>
+        <addColumn tableName="stripe_event">
+            <column name="replayed_by" type="varchar(50)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

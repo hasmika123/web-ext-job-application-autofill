@@ -17,11 +17,18 @@ import { cn } from "./cn";
  *     <TabPanel value="account">…</TabPanel>
  *     <TabPanel value="ai">…</TabPanel>
  *   </Tabs>
+ *
+ * `variant="underline"` draws the Resume Builder rail's look instead of the segmented pill: a
+ * full-width row with a rule under it and a 3 px underline on the selected tab (icons and count
+ * pills go in the Tab's children). Behaviour and roles are identical.
  */
+export type TabsVariant = "segmented" | "underline";
+
 interface TabsCtx {
   value: string;
   setValue: (v: string) => void;
   baseId: string;
+  variant: TabsVariant;
 }
 const Ctx = createContext<TabsCtx | null>(null);
 
@@ -36,12 +43,14 @@ export interface TabsProps {
   onValueChange: (value: string) => void;
   children: ReactNode;
   className?: string;
+  /** Default "segmented" (the pill group). */
+  variant?: TabsVariant;
 }
 
-export default function Tabs({ value, onValueChange, children, className }: TabsProps) {
+export default function Tabs({ value, onValueChange, children, className, variant = "segmented" }: TabsProps) {
   const baseId = useId();
   return (
-    <Ctx.Provider value={{ value, setValue: onValueChange, baseId }}>
+    <Ctx.Provider value={{ value, setValue: onValueChange, baseId, variant }}>
       <div className={className}>{children}</div>
     </Ctx.Provider>
   );
@@ -52,6 +61,7 @@ export function TabList({ children, className, "aria-label": ariaLabel }: {
   className?: string;
   "aria-label"?: string;
 }) {
+  const { variant } = useTabs("TabList");
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
     if (!keys.includes(e.key)) return;
@@ -74,8 +84,14 @@ export function TabList({ children, className, "aria-label": ariaLabel }: {
     <div
       role="tablist"
       aria-label={ariaLabel}
+      data-variant={variant}
       onKeyDown={onKeyDown}
-      className={cn("inline-flex items-center gap-1 rounded-[var(--radius)] bg-paper-2 p-1", className)}
+      className={cn(
+        variant === "underline"
+          ? "flex w-full items-center gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]"
+          : "inline-flex items-center gap-1 rounded-[var(--radius)] bg-paper-2 p-1",
+        className,
+      )}
     >
       {children}
     </div>
@@ -88,8 +104,9 @@ export function Tab({ value, children, disabled, className }: {
   disabled?: boolean;
   className?: string;
 }) {
-  const { value: active, setValue, baseId } = useTabs("Tab");
+  const { value: active, setValue, baseId, variant } = useTabs("Tab");
   const selected = active === value;
+  const underline = variant === "underline";
   return (
     <button
       type="button"
@@ -101,10 +118,19 @@ export function Tab({ value, children, disabled, className }: {
       disabled={disabled}
       onClick={() => setValue(value)}
       className={cn(
-        "rounded-[var(--radius-sm)] px-3 py-1.5 text-[13px] font-semibold transition-colors " +
+        "text-[13px] font-semibold transition-colors " +
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent " +
           "disabled:opacity-50 disabled:pointer-events-none",
-        selected ? "bg-paper text-ink shadow-[var(--shadow-sm)]" : "text-muted hover:text-ink",
+        underline
+          ? "relative -mb-px inline-flex flex-none items-center gap-1.5 whitespace-nowrap border-b-[3px] px-2.5 py-2.5"
+          : "rounded-[var(--radius-sm)] px-3 py-1.5",
+        underline
+          ? selected
+            ? "border-accent-deep text-ink"
+            : "border-transparent text-muted hover:text-ink"
+          : selected
+            ? "bg-paper text-ink shadow-[var(--shadow-sm)]"
+            : "text-muted hover:text-ink",
         className,
       )}
     >

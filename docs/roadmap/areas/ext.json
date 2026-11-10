@@ -1,0 +1,3030 @@
+{
+  "area": "ext",
+  "name": "Browser extension & application-tracking engine",
+  "prefix": "E",
+  "kind": "cross-cutting",
+  "updated": "2026-10-11",
+  "epics": [
+    {
+      "id": "E0",
+      "name": "Store readiness & release train",
+      "goal": "Ship the Pro build to the Chrome Web Store, then make every release a repeatable, staged, reversible train with generated notes.",
+      "priority": "P0"
+    },
+    {
+      "id": "E1",
+      "name": "Real-DOM fixture harness & regression suite",
+      "goal": "Captured, scrubbed tenant pages become CI fixtures that assert the mapping, the apply, the required audit and the no-submit rule; production fill rates raise an alert when an ATS changes.",
+      "priority": "P0"
+    },
+    {
+      "id": "E2",
+      "name": "ATS coverage",
+      "goal": "Dedicated adapters for every host we already claim (iCIMS, SmartRecruiters, Taleo, BambooHR, Jobvite), depth on the thin ones, and the next ATS families — each with fixtures, never from guessed markup.",
+      "priority": "P0"
+    },
+    {
+      "id": "E3",
+      "name": "Fill engine quality",
+      "goal": "Generic multi-step orchestration, reliable combos, custom required widgets, a post-fill report and a performance budget — the engine handles the long tail without silent misses.",
+      "priority": "P0"
+    },
+    {
+      "id": "E4",
+      "name": "Capture, submit detection & tracker write-through",
+      "goal": "Submission detection with per-ATS signals and a measured precision, resolved in the drawer, plus JD snapshots and events so the tracker fills itself honestly.",
+      "priority": "P0"
+    },
+    {
+      "id": "E5",
+      "name": "Drawer & on-page experience",
+      "goal": "The drawer tells the user what it found and what needs them, badges boards, asks for a review once, and hands off to tailoring in one tap.",
+      "priority": "P1"
+    },
+    {
+      "id": "E6",
+      "name": "In-page AI assist",
+      "goal": "Grounded drafts for free-text questions, option-validated picks and the field mapper, on by default for Pro with explicit consent, capped and cached.",
+      "priority": "P1"
+    },
+    {
+      "id": "E7",
+      "name": "Autopilot orchestrator (Phase 19)",
+      "goal": "Batch-prepare applications in the user's own browser window, park what needs them, ask and remember answers, and stop before submit, every time.",
+      "priority": "P1"
+    },
+    {
+      "id": "E8",
+      "name": "Telemetry, errors & remote config",
+      "goal": "Count-only engine telemetry v2, product events through one seam, error fingerprints, and a read-only remote config that can pause an ATS or require an update without a release.",
+      "priority": "P0"
+    },
+    {
+      "id": "E9",
+      "name": "Cross-browser: Firefox, Edge, Safari",
+      "goal": "Firefox live-verified and listed on AMO, Edge listed, Safari evaluated — one release train, one artifact per browser.",
+      "priority": "P1"
+    },
+    {
+      "id": "E10",
+      "name": "Security, privacy & trust proofs",
+      "goal": "A test that proves we never click submit, CI that proves the privacy disclosure matches the manifest, detectors that stop at CAPTCHAs, and a panel that shows what the extension sends.",
+      "priority": "P0"
+    },
+    {
+      "id": "E11",
+      "name": "Organization & marketer hooks",
+      "goal": "The marketer's drawer action and the assignment status flow from submit-detect, consent-scoped and never submitting.",
+      "priority": "P2"
+    },
+    {
+      "id": "E12",
+      "name": "Web ↔ extension hand-off & install funnel",
+      "goal": "Connect that never dead-ends, extension-aware web cards, a try-it page that proves the fill in 30 seconds, and an install/uninstall funnel we can measure.",
+      "priority": "P1"
+    }
+  ],
+  "stories": [
+    {
+      "id": "E0.1",
+      "epic": "E0",
+      "title": "W5.7 visual QA walk, screenshots, reviewer account → CWS resubmit with the Pro build (15.3)",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the product owner I want the Pro build live on the Chrome Web Store with real screenshots so that users install what the landing page describes.",
+      "genz": "The store page is the first screen most of them see; it has to look like the app they were promised.",
+      "ac": [
+        "W5-QA.md walked in light + dark with findings fixed as `w5.7:` commits",
+        "Six 1280×800 screenshots from STORE-LISTING.md shot list on the synthetic persona",
+        "Reviewer account seeded and credentials in the CWS notes box",
+        "Listing copy prices match web/src/lib/prices.ts",
+        "NEXT_PUBLIC_KIWIPLY_EXTENSION_ID verified against the store id; web redeployed if changed"
+      ],
+      "tests": [
+        "npm test green",
+        "check-manifest-limits.mjs passes",
+        "W5-QA.md Findings section has no open item"
+      ],
+      "tech": "job-autofill/W5-QA.md, STORE-LISTING.md, DEPLOY.md §8, .github/workflows/publish-extension.yml",
+      "evidence": [
+        "PROGRESS.md §Store status (v1 published, under review)",
+        "EXT-UI-PLATFORM-PLAN.md W5.7/W6.4 unchecked"
+      ],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": true,
+      "benchmark": "Simplify Copilot: 4.9★ / 3.8k ratings / 600k users — the listing quality bar"
+    },
+    {
+      "id": "E0.2",
+      "epic": "E0",
+      "title": "Playwright screenshot job: store images regenerated from fixtures on every release",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.4"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a maintainer I want store screenshots produced by CI so that they never drift from the shipped UI.",
+      "genz": "Screens that match reality — no bait-and-switch.",
+      "ac": [
+        "Playwright captures drawer home, overlay on the Greenhouse fixture, gaps card, options, dark mode at 1280×800",
+        "Artifacts attached to the release workflow",
+        "Persona and fixture data only"
+      ],
+      "tests": [
+        "screenshot job green in CI",
+        "pixel diff < 1 % against the committed baseline or a reviewed update"
+      ],
+      "tech": "job-autofill/e2e/screenshots.spec.ts, publish-extension.yml",
+      "evidence": [],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false
+    },
+    {
+      "id": "E0.3",
+      "epic": "E0",
+      "title": "CHANGELOG + store 'What's new' generated from commit prefixes; drawer shows the update line",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.4"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want to know what changed in the update so that I trust the thing filling my forms.",
+      "genz": "One line, in the drawer, not a blog post.",
+      "ac": [
+        "scripts/ext-release.mjs builds job-autofill/CHANGELOG.md from `phase*`/`e*` commits since the last ext-v tag",
+        "The same text is posted as the CWS/AMO/Edge 'What's new'",
+        "An announcement with id=version shows once in the drawer via remote config"
+      ],
+      "tests": [
+        "unit test for the changelog parser",
+        "dry run in CI"
+      ],
+      "tech": "scripts/ext-release.mjs, CHANGELOG.md, E8.4 announcements",
+      "evidence": [],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false
+    },
+    {
+      "id": "E0.4",
+      "epic": "E0",
+      "title": "Staged rollout (10/50/100 %) with fill-rate and error gates + rollback runbook",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.5",
+        "E8.3"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want releases to reach 10 % first and roll back in minutes so that a broken adapter never hits everyone.",
+      "genz": "Fewer 'it broke today' moments.",
+      "ac": [
+        "Release workflow supports CWS percentage rollout when available for the listing",
+        "Gates: no new top-5 error fingerprint and no ATS fill-rate drop > 10 pts in 24 h before 50 %",
+        "Rollback runbook in DEPLOY.md §8 (re-tag previous build with patch bump; remote kill switch meanwhile)"
+      ],
+      "tests": [
+        "workflow dry run",
+        "runbook rehearsed once and logged"
+      ],
+      "tech": "publish-extension.yml, DEPLOY.md §8, E8.4 kill switch",
+      "evidence": [],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false
+    },
+    {
+      "id": "E0.5",
+      "epic": "E0",
+      "title": "Release baseline — existing (publish workflow, manifest-limit check, tag==version, CI tests)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a maintainer I have a tag-driven packaging and publish path.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": ".github/workflows/publish-extension.yml, .github/scripts/check-manifest-limits.mjs, inject-ga.js",
+      "evidence": [
+        ".github/workflows/publish-extension.yml",
+        "EXT-UI-PLATFORM-PLAN.md W6.0"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E1.1",
+      "epic": "E1",
+      "title": "Fixture scrubber + runner with the six already-captured ATS pages",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an engineer I want real tenant pages as CI fixtures so that a selector change can never silently lower a fill rate.",
+      "genz": "The fill works the same on Tuesday as it did on Monday.",
+      "ac": [
+        "test/fixtures/<ats>/<name>.html + .expect.json for Greenhouse (Figma), Lever (Field Nation), Ashby (Harvey), Workable (TP-Link), SmartRecruiters (Versant, shadow DOM), Workday (CME My Information)",
+        "scripts/fixture-scrub.mjs strips scripts/values/PII, inlines open shadow roots as declarative shadow DOM, caps 1.5 MB; CI grep for emails outside options",
+        "test/fixtures.test.js: adapter id, map/absent/manual expectations, apply read-back, requiredAudit count — 100 % per fixture or fail",
+        "Per-ATS summary printed and written to .output/fixture-report.json"
+      ],
+      "tests": [
+        "test/fixtures.test.js",
+        "test/fixture_scrub.test.js",
+        "added to the npm test chain"
+      ],
+      "tech": "job-autofill/test/harness.js (declarative shadow DOM needs jsdom ≥ 24), src/content/filler.js buildPlan, src/content/required-audit.js",
+      "evidence": [
+        "AUTOFILL-QA.md §1–5, §11 (captured ids)",
+        "test/harness.js"
+      ],
+      "design": "docs/design/ext/ats-fixture-harness.md",
+      "critical": true,
+      "benchmark": "G2 — Simplify's measured weak spot is Workday (~70 %); we assert 100 % per fixture in CI"
+    },
+    {
+      "id": "E1.2",
+      "epic": "E1",
+      "title": "Dev-only 'Capture fixture' drawer action (serialise + scrub + expectation skeleton)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an engineer I want to capture a tenant page from the drawer so that adding a fixture takes a minute, not an afternoon.",
+      "genz": "—",
+      "ac": [
+        "Visible only when settings.devFixtureCapture is on AND the build is not production (dead-code-eliminated from the store bundle)",
+        "JAF_CAPTURE_FIXTURE serialises document incl. shadow roots, runs the scrubber in-page, returns {html, meta}",
+        "Drawer builds the .expect.json skeleton from the current buildPlan and downloads both files",
+        "Multi-step captures carry the step in the file name"
+      ],
+      "tests": [
+        "test/fixture_capture.test.js (serialiser round-trips a shadow fixture)",
+        "grep the production bundle for 'CAPTURE_FIXTURE' → absent"
+      ],
+      "tech": "entrypoints/panel/HomeView.tsx footer, src/content/fixture-capture.js (dev), wxt.config.ts define",
+      "evidence": [],
+      "design": "docs/design/ext/ats-fixture-harness.md",
+      "critical": false
+    },
+    {
+      "id": "E1.3",
+      "epic": "E1",
+      "title": "Workday steps 2–4, iCIMS and Taleo fixtures captured behind throwaway accounts",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an engineer I want the login-gated ATS steps as fixtures so that the adapters most users hit on enterprise jobs are covered.",
+      "genz": "Big-company applications (the ones with four pages) stop being a gamble.",
+      "ac": [
+        "Workday CME: My Experience, Application Questions, Voluntary Disclosures, Self-Identify captured",
+        "iCIMS profile + questions + EEO steps; Taleo TBE and Enterprise apply pages",
+        "All on the synthetic persona; query strings and tokens stripped; README notes the account used",
+        "Fixtures carry successSignals + submit.neverClick for E4/E10"
+      ],
+      "tests": [
+        "test/fixtures.test.js covers the new files at 100 %"
+      ],
+      "tech": "test/fixtures/{workday,icims,taleo}/, AUTOFILL-QA.md persona",
+      "evidence": [],
+      "design": "docs/design/ext/ats-fixture-harness.md",
+      "critical": false
+    },
+    {
+      "id": "E1.4",
+      "epic": "E1",
+      "title": "Playwright e2e with the built extension: drawer, fill on a fixture, gaps card, save-a-job, connect",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a maintainer I want a browser-level smoke on every PR so that injection, shadow DOM, the iframe drawer and the real message plumbing are proven, not assumed.",
+      "genz": "The thing that 'works on my machine' also works in CI.",
+      "ac": [
+        "Chromium with --load-extension=.output/chrome-mv3 and a local static server for fixtures + web/scripts/mock-api.mjs",
+        "Specs: drawer opens as iframe without reflow; Greenhouse fixture fills and shows the gaps card; save-a-job creates a SAVED row on the mock; /connect handoff on localhost stores a session",
+        "Runs in ci.yml for job-autofill changes (≤ 5 min)"
+      ],
+      "tests": [
+        "job-autofill/e2e/*.spec.ts green in CI"
+      ],
+      "tech": "job-autofill/e2e/, playwright config, ci.yml, web/scripts/mock-api.mjs",
+      "evidence": [],
+      "design": "docs/design/ext/ats-fixture-harness.md",
+      "critical": false
+    },
+    {
+      "id": "E1.5",
+      "epic": "E1",
+      "title": "Adapter-rot watch: nightly fill_quality_daily rollup + admin alert on a drop of setting `ext.rot.drop_points` (default 15)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "E8.2",
+        "A5.1"
+      ],
+      "relates": [
+        "A10.2",
+        "A11.1"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want to learn that Workday changed before users review-bomb us so that the fixture is re-captured the same day.",
+      "genz": "—",
+      "ac": [
+        "Liquibase: fill_quality_daily(day, ats, adapter, ext_version, fills, fill_rate_bp, gap_rate_bp)",
+        "FillQualityWatch 03:30 UTC: at least setting `ext.rot.min_fills_7d` (default 30) fills/7 d and rate7 < rate28 − `ext.rot.drop_points` → admin alert ADAPTER_ROT naming test/fixtures/<ats>/",
+        "Admin Fill-quality panel shows the 7-vs-28 delta per ATS"
+      ],
+      "tests": [
+        "FillQualityWatchTest (rule, floor, idempotency)",
+        "FillQualityRollupIT"
+      ],
+      "tech": "api service/FillTelemetryService.java, new FillQualityWatch, web admin-v3/analytics/AnalyticsPage.tsx",
+      "evidence": [
+        "api/.../FillTelemetryService.java",
+        "web/src/components/admin-v3/analytics/AnalyticsPage.tsx"
+      ],
+      "design": "docs/design/ext/ats-fixture-harness.md",
+      "critical": false
+    },
+    {
+      "id": "E1.6",
+      "epic": "E1",
+      "title": "Published fill-accuracy report: fixture-report.json → /help table with date and fixture count (G2)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension",
+        "web"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [
+        "G2",
+        "S4.4",
+        "S1.3"
+      ],
+      "supersedes": [
+        "M0.6",
+        "S1.5"
+      ],
+      "story": "As a visitor I want to see the measured fill rate per ATS and when it was measured so that the claim is checkable.",
+      "genz": "Numbers with a date beat 'works everywhere'.",
+      "ac": [
+        "CI publishes fixture-report.json as a release asset and commits docs/roadmap/fill-accuracy.json on release",
+        "Web reads it into a /help table: ATS, fixtures, fields mapped %, required gaps, measured on",
+        "ARCHITECTURE.md rule: no adapter change without a fixture"
+      ],
+      "tests": [
+        "report schema test",
+        "web page renders the committed file"
+      ],
+      "tech": "publish-extension.yml, web/src/app/(marketing)/help (S/M areas own the page)",
+      "evidence": [],
+      "design": "docs/design/ext/ats-fixture-harness.md",
+      "critical": false,
+      "benchmark": "G2 — no competitor publishes measured per-ATS accuracy"
+    },
+    {
+      "id": "E1.7",
+      "epic": "E1",
+      "title": "Engine unit-test baseline — existing (28 node/jsdom suites in CI)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a maintainer I have adapter, cache, capture, sync, telemetry and handoff tests.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "job-autofill/test/*.test.js, test/run.js",
+      "evidence": [
+        "job-autofill/package.json test script",
+        ".github/workflows/ci.yml"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E2.1",
+      "epic": "E2",
+      "title": "iCIMS adapter (same-domain iframe, profile + questions + EEO steps)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.3"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant on an iCIMS careers site I want the profile steps filled so that the most common enterprise ATS after Workday just works.",
+      "genz": "Less retyping on the boring big-company forms.",
+      "ac": [
+        "Adapter src/content/adapters/icims.js with matches/plan/fileInput/captureJob (+ steps() where multi-step); selectors from captured DOM only",
+        "≥ 3 fixtures (E1) at 100 %; generic-only score on the same fixtures does not drop",
+        "rules.js version bump; fill-telemetry adapter id added; listing copy names the ATS",
+        "Injects into the ?in_iframe=1 frame; pickFrame chooses it",
+        "Resume file input and the Profile step rows claimed"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "entrypoints/content.ts order, wxt.config.ts hosts (already *.icims.com), AUTOFILL-QA.md §6",
+      "evidence": [
+        "AUTOFILL-QA.md §6 (structural check)"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": true,
+      "benchmark": "G1 — Jobright/Simplify name iCIMS as supported"
+    },
+    {
+      "id": "E2.2",
+      "epic": "E2",
+      "title": "SmartRecruiters adapter + live apply verification of the shadow-DOM combos",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant on SmartRecruiters I want every field filled, not just found, so that the site we once filled nothing on is now a strong one.",
+      "genz": "—",
+      "ac": [
+        "Adapter src/content/adapters/smartrecruiters.js with matches/plan/fileInput/captureJob (+ steps() where multi-step); selectors from captured DOM only",
+        "≥ 3 fixtures (E1) at 100 %; generic-only score on the same fixtures does not drop",
+        "rules.js version bump; fill-telemetry adapter id added; listing copy names the ATS",
+        "Live apply check of city autocomplete + file-input on oneclick-ui logged in AUTOFILL-QA.md",
+        "LinkedIn/Indeed import buttons ignored"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "src/content/adapters/base.js deepQueryAll, AUTOFILL-QA.md §5",
+      "evidence": [
+        "AUTOFILL-QA.md BUG-5 fixed v0.37.0"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false
+    },
+    {
+      "id": "E2.3",
+      "epic": "E2",
+      "title": "Taleo adapters (TBE + Enterprise career sections)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.3"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant on a Taleo site I want the legacy multi-page form filled so that public-sector and large-enterprise jobs are covered.",
+      "genz": "—",
+      "ac": [
+        "Adapter src/content/adapters/taleo.js with matches/plan/fileInput/captureJob (+ steps() where multi-step); selectors from captured DOM only",
+        "≥ 3 fixtures (E1) at 100 %; generic-only score on the same fixtures does not drop",
+        "rules.js version bump; fill-telemetry adapter id added; listing copy names the ATS",
+        "Two variants detected by host/path (tbe.taleo.net vs <tenant>.taleo.net/careersection)",
+        "steps() from the Taleo progress bar"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "src/content/adapters/taleo.js, rules.js taleo section",
+      "evidence": [],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false
+    },
+    {
+      "id": "E2.4",
+      "epic": "E2",
+      "title": "BambooHR adapter (file + custom questions)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.2"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant at a small company on BambooHR I want the custom questions matched so that startup applications are as smooth as enterprise ones.",
+      "genz": "Startups are where many of them apply first.",
+      "ac": [
+        "Adapter src/content/adapters/bamboohr.js with matches/plan/fileInput/captureJob (+ steps() where multi-step); selectors from captured DOM only",
+        "≥ 3 fixtures (E1) at 100 %; generic-only score on the same fixtures does not drop",
+        "rules.js version bump; fill-telemetry adapter id added; listing copy names the ATS"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "src/content/adapters/bamboohr.js",
+      "evidence": [],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false,
+      "benchmark": "Huntr's complaint: 'struggles with custom forms at smaller companies'"
+    },
+    {
+      "id": "E2.5",
+      "epic": "E2",
+      "title": "Jobvite adapter (iframe apply + EEO)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.2"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant on Jobvite I want the embedded apply form and EEO step filled.",
+      "genz": "—",
+      "ac": [
+        "Adapter src/content/adapters/jobvite.js with matches/plan/fileInput/captureJob (+ steps() where multi-step); selectors from captured DOM only",
+        "≥ 3 fixtures (E1) at 100 %; generic-only score on the same fixtures does not drop",
+        "rules.js version bump; fill-telemetry adapter id added; listing copy names the ATS",
+        "Iframe frame selection verified"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "src/content/adapters/jobvite.js",
+      "evidence": [],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false
+    },
+    {
+      "id": "E2.6",
+      "epic": "E2",
+      "title": "Greenhouse depth: education/employment repeaters, demographic step, embedded grnhse_iframe on company sites",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1",
+        "E3.1"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant on Greenhouse I want education and work history rows and the demographic step filled so that the most common startup ATS is complete, not just contact details.",
+      "genz": "The form they hit most often, done in full.",
+      "ac": [
+        "Repeaters (#education_school_name_0 …) filled from the chosen resume's education[]/experience[] with ensureRows",
+        "Demographic questions section mapped to EEO values (always fill when the user has them, reviewable)",
+        "Company-site embeds (iframe#grnhse_iframe → boards.greenhouse.io) fill via the frame; drawer injects with activeTab on the host page",
+        "Fixtures: job-boards style, classic boards style, embedded"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "src/content/adapters/greenhouse.js (61 lines today), workday.js ensureRows pattern",
+      "evidence": [
+        "AUTOFILL-QA.md §1",
+        "src/content/adapters/greenhouse.js"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false
+    },
+    {
+      "id": "E2.7",
+      "epic": "E2",
+      "title": "Lever depth: card questions by prompt, EEO selects, location typeahead apply",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant on Lever I want work-auth/sponsorship cards and the location box filled.",
+      "genz": "—",
+      "ac": [
+        "cards[uuid] questions mapped via groupPrompt to canonical fields",
+        "eeo[gender|race|veteran] selects filled when values exist",
+        "location async typeahead applied with read-back verification (E3.2)",
+        "Fixture at 100 %"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "src/content/adapters/lever.js",
+      "evidence": [
+        "AUTOFILL-QA.md §2 BUG-2/3 fixed"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false
+    },
+    {
+      "id": "E2.8",
+      "epic": "E2",
+      "title": "Ashby depth: section-aware plan, school/employer typeaheads",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant on Ashby I want sections and typeaheads handled.",
+      "genz": "—",
+      "ac": [
+        "_systemfield_* precedence kept; fieldset sections planned in order",
+        "Unlabelled 'Start typing…' combos resolved from the section heading",
+        "Fixture at 100 %"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "src/content/adapters/ashby.js",
+      "evidence": [
+        "AUTOFILL-QA.md §3 BUG-4 fixed"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false
+    },
+    {
+      "id": "E2.9",
+      "epic": "E2",
+      "title": "Workday steps 2–4 live-validated on two tenants with fixtures (My Experience, Application Questions, Voluntary Disclosures, Self-Identify)",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.3"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant on Workday I want the whole four-step flow filled so that the biggest enterprise ATS matches the claim on our listing.",
+      "genz": "Workday is where Simplify stumbles; we win here.",
+      "ac": [
+        "Two tenants captured (CME + one other) for steps 2–4",
+        "ensureRows/degreeAlts/self-identify verified on fixtures and live (AUTOFILL-QA.md updated)",
+        "steps() implemented from the progress bar; final page detected"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "src/content/adapters/workday.js (479 lines), JAF.__wdInternals",
+      "evidence": [
+        "AUTOFILL-QA.md §11 (step 1 only)"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false,
+      "benchmark": "Simplify ~70 % on Workday (jobhire.ai 2026 test)"
+    },
+    {
+      "id": "E2.10",
+      "epic": "E2",
+      "title": "New hosts batch 1: SuccessFactors + Oracle Recruiting Cloud + Taleo Enterprise (one store re-review)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.2",
+        "E3.2",
+        "E10.3"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant at an SAP/Oracle shop I want Kiwiply to run on those career sites so that enterprise coverage is real.",
+      "genz": "—",
+      "ac": [
+        "host_permissions + content matches for *.successfactors.com/.eu, *.sapsf.com, *.oraclecloud.com (CandidateExperience)",
+        "Adapters with fixtures; UI5/JET combo strategies in selectCustom",
+        "PRIVACY.md table + AMO data_collection reviewed; shipped as its own release with listing copy",
+        "Sign-in wall detector covers Oracle's OTP page"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "wxt.config.ts, entrypoints/content.ts, src/content/adapters/{successfactors,oracle}.js, src/lib/fill-telemetry.js FAMILIES",
+      "evidence": [],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false
+    },
+    {
+      "id": "E2.11",
+      "epic": "E2",
+      "title": "New hosts batch 2: Phenom, Eightfold, Paylocity, ADP WorkforceNow, UKG, Dayforce, Rippling, JazzHR, Breezy",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E2.10"
+      ],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As an applicant on a mid-market ATS I want auto-injection there too, not just activeTab.",
+      "genz": "—",
+      "ac": [
+        "Chosen by telemetry 'other' volume + capture; hosts batched in one release",
+        "Adapters only where generic scores < 90 % on fixtures; else host-only",
+        "PRIVACY/AMO updated"
+      ],
+      "tests": [
+        "npm test (job-autofill) green",
+        "version bumped in wxt.config.ts + package.json"
+      ],
+      "tech": "same as E2.10",
+      "evidence": [],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false,
+      "benchmark": "Simplify claims '100+ ATS'; coverage breadth is table stakes"
+    },
+    {
+      "id": "E2.12",
+      "epic": "E2",
+      "title": "Adapter baseline — existing (Workday, Greenhouse, Lever, Ashby, Workable, Indeed smartapply, generic; QA fix pass v0.37.0)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant I can fill the six supported ATS plus any labelled form.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "src/content/adapters/*.js",
+      "evidence": [
+        "AUTOFILL-QA.md ledger (5/5 fixed)",
+        "test/qa_fixes.test.js"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E2.13",
+      "epic": "E2",
+      "title": "LinkedIn decision record: save + applyUrl deep link, never fill Easy Apply (policy)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "G1"
+      ],
+      "supersedes": [],
+      "story": "As a user on a LinkedIn job I want Kiwiply to save it and take me to the employer's own form so that my LinkedIn account is never at risk.",
+      "genz": "Account restrictions are the hidden cost of auto-apply bots.",
+      "ac": [
+        "boardCapture reads JSON-LD/og only (no linkedin.com host permission, no DOM reads)",
+        "If JSON-LD exposes an employer applyUrl/ATS URL the drawer offers 'Open the employer form'",
+        "Help copy explains why Easy Apply is not automated (LinkedIn UA §8.2)"
+      ],
+      "tests": [
+        "test/job_capture.test.js LinkedIn applyUrl case"
+      ],
+      "tech": "src/lib/job-capture.js boardCapture, entrypoints/panel/SaveJobDialog.tsx",
+      "evidence": [
+        "src/lib/job-capture.js"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false,
+      "benchmark": "LazyApply (2.4★ Trustpilot, LinkedIn bans) — what not to copy"
+    },
+    {
+      "id": "E3.1",
+      "epic": "E3",
+      "title": "Generic multi-step loop: fill → audit → next → settle → re-plan, with per-step memory",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant on any multi-page form I want auto-advance to carry my fill through the steps and stop at gaps so that one click handles the whole application except the submit.",
+      "genz": "One tap, then just the parts only I can answer.",
+      "ac": [
+        "filler.runSteps() generalises Workday/Indeed loops: max steps from remote-config `ext.fill.max_steps` (default 12, clamped), settle on navigation or 600 ms DOM quiet (≤ 45 s)",
+        "State per tab in sessionStorage (resume, step, unchecked field keys, attached) survives navigation re-injection",
+        "Never clicks a submit-class control; stops on required gaps; final-page detection",
+        "Overlay shown on step 1 only; later steps reuse unchecks"
+      ],
+      "tests": [
+        "test/steps.test.js on a synthetic 3-step chain and the Workday 4-step fixtures",
+        "no_submit assertion"
+      ],
+      "tech": "src/content/filler.js, src/content/adapters/base.js findNextButton, workday.js/indeed.js loops",
+      "evidence": [
+        "filler.js auto-advance branch (lines 216–232)"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": true
+    },
+    {
+      "id": "E3.2",
+      "epic": "E3",
+      "title": "Combo/typeahead strategies (native, react-select, ARIA combobox, UI5/JET) with read-back verification",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant I want dropdowns and typeaheads to actually stick so that 'filled' never means 'typed into a search box'.",
+      "genz": "—",
+      "ac": [
+        "selectCustom tries strategies in order; the displayed value is read back; mismatch marks the item failed (counted, shown)",
+        "Live verification of Greenhouse country/city, Workable country, Lever location logged in AUTOFILL-QA.md",
+        "Telemetry v2 counts failures by class 'combo'"
+      ],
+      "tests": [
+        "test/autocomplete_confidence.test.js extended with ARIA + UI5 fixtures"
+      ],
+      "tech": "src/content/adapters/base.js selectCustom/bestOption/openListbox",
+      "evidence": [
+        "AUTOFILL-QA.md VERIFY-1/2"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false,
+      "benchmark": "Simplify Firefox reviews: 'doesn't fill the dropdown if a degree doesn't exist'"
+    },
+    {
+      "id": "E3.3",
+      "epic": "E3",
+      "title": "Required audit sees custom widgets (adapter requiredWidgets() + marked ARIA widgets)",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant I want 'N required fields still need you' to include the fancy dropdowns so that the count is honest.",
+      "genz": "No surprise red boxes after we said 'done'.",
+      "ac": [
+        "requiredAudit accepts adapter.requiredWidgets(); generic heuristic for [role=combobox|listbox|radiogroup] and Workday buttons with a required marker and placeholder value",
+        "Under-count policy kept: only explicit required markers",
+        "Admin count and user card still share one scan"
+      ],
+      "tests": [
+        "test/required_gaps.test.js extended (Workday/Oracle fixtures)"
+      ],
+      "tech": "src/content/required-audit.js",
+      "evidence": [
+        "required-audit.js header: custom widgets unseen"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false
+    },
+    {
+      "id": "E3.4",
+      "epic": "E3",
+      "title": "Post-fill report: filled / skipped / uncertain with one-tap focus and 'why' (G3)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E3.3"
+      ],
+      "relates": [
+        "G3",
+        "U13.2"
+      ],
+      "supersedes": [],
+      "story": "As an applicant I want a short report after the fill — what landed, what was skipped and why — with a tap to jump there so that nothing is silently missed.",
+      "genz": "Instant feedback, not a scavenger hunt.",
+      "ac": [
+        "The gaps card grows into a report: Filled (n), Needs you (required gaps), Skipped (no value / low confidence / manual combo) with reason chips",
+        "Tap → scroll, focus, outline; items tick off live",
+        "Skipped-with-no-value items offer 'Remember my answer' → profile-learn (10.3d) candidate",
+        "Dismisses itself when complete; never blocks the page"
+      ],
+      "tests": [
+        "test/fill_report.test.js",
+        "e2e: report appears on the Greenhouse fixture"
+      ],
+      "tech": "src/content/filler.js showGaps → showReport, src/content/profile-learn.js",
+      "evidence": [
+        "filler.js showGaps"
+      ],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false,
+      "benchmark": "G3 — Simplify fills silently; this is a differentiator"
+    },
+    {
+      "id": "E3.5",
+      "epic": "E3",
+      "title": "File attach reliability: drag-drop uploaders, Workday file widget, DOCX/PDF both, attach-failure counted",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant I want my resume attached every time so that I never submit without it.",
+      "genz": "—",
+      "ac": [
+        "attachFile handles hidden inputs behind drop zones (dispatch drop with DataTransfer when input is display:none)",
+        "Workday's file widget path verified on fixture + live",
+        "Attach failure is a counted telemetry class and shown in the report"
+      ],
+      "tests": [
+        "test/attach_file.test.js"
+      ],
+      "tech": "src/content/adapters/base.js attachFile, filler.js b64ToBlob",
+      "evidence": [],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false
+    },
+    {
+      "id": "E3.6",
+      "epic": "E3",
+      "title": "Content-script performance budget: idle injection, lazy scans, all_frames audit, memory check",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want Kiwiply to be invisible until I open it so that my browser never slows down because of it.",
+      "genz": "Simplify's top Firefox complaint is slowdown; we measure ours.",
+      "ac": [
+        "No scan on page load; scanGeneric runs on JAF_PING/JAF_FILL only (verify; fix any eager work)",
+        "all_frames injection audited: skip frames < 2 inputs after first ping; no MutationObserver before a fill",
+        "Budget asserted in e2e: content bundle ≤ 250 kB gz, idle CPU ~0, heap < 10 MB on a fixture page"
+      ],
+      "tests": [
+        "e2e perf spec",
+        "bundle size check in CI"
+      ],
+      "tech": "entrypoints/content.ts, src/content/content-script.js",
+      "evidence": [],
+      "design": "docs/design/ext/ats-coverage-strategy.md",
+      "critical": false,
+      "benchmark": "Simplify Firefox 4.2★: 'significant slowdowns, high memory'"
+    },
+    {
+      "id": "E3.7",
+      "epic": "E3",
+      "title": "Fill engine baseline — existing (overlay, confidence tiers, field cache, post-fill audit 10.2, shadow DOM, group prompts)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant I review every field before it lands and see required gaps after.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "src/content/filler.js, base.js, required-audit.js, field-cache.js",
+      "evidence": [
+        "PROGRESS.md 10.2",
+        "test/required_gaps.test.js"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E4.1",
+      "epic": "E4",
+      "title": "Per-ATS submit signals + confidence ladder + count-only precision telemetry",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant I want the tracker to know I submitted without me telling it, and to be right about it.",
+      "genz": "The board updates itself — the feature they screenshot.",
+      "ac": [
+        "rules.js submitSignals per adapter (marker selector, URL pattern, copy) captured with fixtures",
+        "Verdict {signal, confidence}: url/ats HIGH, copy MEDIUM (only with a URL change since fill), LOW never flips status",
+        "POST /api/telemetry/fills/{id}/submit {signal, confidence}; fill_event gains submit_* columns (no user id)"
+      ],
+      "tests": [
+        "test/app_tracking.test.js extended",
+        "FillTelemetrySubmitIT"
+      ],
+      "tech": "src/lib/app-tracking.js, src/content/submit-detect.js, service-worker.js confirmForTab, api FillTelemetryResource",
+      "evidence": [
+        "app-tracking.js SUCCESS_URL/SUCCESS_COPY (generic only)"
+      ],
+      "design": "docs/design/ext/submit-detection-tracking.md",
+      "critical": true,
+      "benchmark": "Simplify auto-logs every submit; Teal needs manual status"
+    },
+    {
+      "id": "E4.2",
+      "epic": "E4",
+      "title": "Submit-click watch: observe the user's own submit click (never click it) as a MEDIUM signal",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E4.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant I want my own click on Submit to count so that detection works even on ATS with no thank-you page.",
+      "genz": "—",
+      "ac": [
+        "Capture-phase click listener after a fill; name filter (submit|apply|send application|finish); pairs with navigation/DOM change ≤ 10 s",
+        "Only a boolean leaves the page; disarms on navigation; never fires on synthetic events",
+        "Documented in PRIVACY.md as observation"
+      ],
+      "tests": [
+        "test/submit_click_watch.test.js"
+      ],
+      "tech": "src/content/submit-detect.js armClickWatch",
+      "evidence": [],
+      "design": "docs/design/ext/submit-detection-tracking.md",
+      "critical": false
+    },
+    {
+      "id": "E4.3",
+      "epic": "E4",
+      "title": "Drawer 'Did you submit?' card + per-job pending lookup",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E4.1",
+        "A5.5"
+      ],
+      "relates": [
+        "U6.3"
+      ],
+      "supersedes": [],
+      "story": "As an applicant I want to resolve a pending application in the drawer with one tap so that I never have to open the web board to fix the tracker.",
+      "genz": "Yes / Not yet / I won't — done.",
+      "ac": [
+        "Card shows when a DRAFT is older than remote-config `ext.submit_check.draft_age_min` (default 10) on the same host or the drawer reopens on that job; once per DRAFT per day",
+        "Yes → APPLIED + outcome CONFIRMED; Not yet → window extended by remote-config `ext.submit_check.extend_hours` (default 24); I won't → DRAFT archived",
+        "Pending lookup by externalJobId so any tab on the job can confirm; toast links to kiwiply.com/applications"
+      ],
+      "tests": [
+        "vitest test/drawer_submit_card.test.tsx",
+        "test/app_tracking.test.js pending-by-job"
+      ],
+      "tech": "entrypoints/panel/HomeView.tsx, home-actions.ts, service-worker.js pending store",
+      "evidence": [],
+      "design": "docs/design/ext/submit-detection-tracking.md",
+      "critical": false
+    },
+    {
+      "id": "E4.4",
+      "epic": "E4",
+      "title": "Admin submit-precision panel + remote demotion of weak signals",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "E4.1",
+        "E8.4"
+      ],
+      "relates": [
+        "A11.1"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want precision per signal per ATS so that a noisy signal is demoted without a release.",
+      "genz": "—",
+      "ac": [
+        "GET /api/admin/analytics/submit-precision {ats, signal, asserted, confirmed, denied, precisionPct}",
+        "client config ext.submit.signals overrides confidence; client clamps to HIGH/MEDIUM/LOW",
+        "Panel on the admin analytics page"
+      ],
+      "tests": [
+        "SubmitPrecisionIT",
+        "test/remote_config.test.js signal overrides"
+      ],
+      "tech": "api FillTelemetryService, web admin-v3/analytics",
+      "evidence": [],
+      "design": "docs/design/ext/submit-detection-tracking.md",
+      "critical": false
+    },
+    {
+      "id": "E4.5",
+      "epic": "E4",
+      "title": "Tracker events write-through: application_event rows with source=EXTENSION (CREATED, STATUS, RESUME, ATTACHMENT)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "U6.1"
+      ],
+      "relates": [
+        "U6.1",
+        "U6.3"
+      ],
+      "supersedes": [],
+      "story": "As a user I want the timeline to show 'Filled on Greenhouse with resume v3 · Submission detected' so that the tracker's memory starts in the extension.",
+      "genz": "A timeline that writes itself.",
+      "ac": [
+        "pushApplication/updateApplication carry optional event{kind, summary, signal?, confidence?}; server writes application_event",
+        "Old extensions without event still work",
+        "Timeline shows source badges (extension/inbox/web)"
+      ],
+      "tests": [
+        "ApplicationEventIT extension source",
+        "test/tracking.test.js event payload"
+      ],
+      "tech": "src/lib/tracking.js, src/lib/app-tracking.js, api ApplicationSyncResource",
+      "evidence": [],
+      "design": "docs/design/ext/submit-detection-tracking.md",
+      "critical": false
+    },
+    {
+      "id": "E4.6",
+      "epic": "E4",
+      "title": "JD snapshot v2: full description text, captured_at, source URL and resume link on every save/fill (G4)",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "G4",
+        "U6.3",
+        "R5.1",
+        "N1.2",
+        "U6.1"
+      ],
+      "supersedes": [],
+      "story": "As a user I want the job description as it was when I applied, and the resume I used, kept with the application so that tailoring, fit and interview prep read the snapshot later.",
+      "genz": "Postings vanish; the snapshot stays.",
+      "ac": [
+        "JobCapture.jobDescription sent in full (up to setting `tracker.jd_snapshot_max_kb`, default 50; server column TEXT/MEDIUMTEXT additive) with captured_at and the capture sources map",
+        "resumeId link verified (404/400 fallback keeps the row without the link — exists); attachment id recorded when a PDF was attached",
+        "U6.3 detail reads the snapshot; R5.1/U4.7 read it without re-fetch"
+      ],
+      "tests": [
+        "test/app_tracking.test.js snapshot fields",
+        "ApplicationSyncIT size cap"
+      ],
+      "tech": "src/lib/app-tracking.js buildApplicationDraft, api application columns (additive Liquibase)",
+      "evidence": [
+        "app-tracking.js jobDescription/resumeId already sent"
+      ],
+      "design": "docs/design/ext/submit-detection-tracking.md",
+      "critical": false,
+      "benchmark": "G4 — Teal/Simplify/Huntr all store the JD"
+    },
+    {
+      "id": "E4.7",
+      "epic": "E4",
+      "title": "Board capture v2: Glassdoor, ZipRecruiter, Wellfound, Google Jobs, company career pages; employer applyUrl deep link",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "U5.1",
+        "G14"
+      ],
+      "supersedes": [],
+      "story": "As a user browsing any job board I want 'Save this job' to capture title/company/salary/description reliably so that saving is one click everywhere.",
+      "genz": "Save on any site, apply from the laptop later.",
+      "ac": [
+        "boardCapture recognises the new hosts by URL shape; JSON-LD/og remain the only data source (no board DOM scraping)",
+        "applyUrl from JSON-LD surfaces 'Open the employer form' in the SaveJobDialog",
+        "Provenance shown in the dialog (from posting data / from page meta)"
+      ],
+      "tests": [
+        "test/job_capture_v2.test.js new hosts"
+      ],
+      "tech": "src/lib/job-capture.js boardCapture, entrypoints/panel/SaveJobDialog.tsx",
+      "evidence": [
+        "job-capture.js boardCapture (LinkedIn/Indeed/Dice)"
+      ],
+      "design": "docs/design/ext/submit-detection-tracking.md",
+      "critical": false
+    },
+    {
+      "id": "E4.8",
+      "epic": "E4",
+      "title": "Capture & tracking baseline — existing (3.1–3.6 capture chain, DRAFT/APPLIED auto-log, save-a-job, enrichment)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user my fills and saves appear on the board.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "src/lib/{job-capture,app-tracking,job-enrich}.js, service-worker.js",
+      "evidence": [
+        "PROGRESS.md 3.0–3.6",
+        "test/job_capture*.test.js"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E5.1",
+      "epic": "E5",
+      "title": "Page-state header on open: 'Greenhouse · 14 fields ready · 2 need you'",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E3.3"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I want to know what the drawer sees the moment it opens so that I decide in one glance whether to fill.",
+      "genz": "Status first, buttons second.",
+      "ac": [
+        "Drawer pings frames on open (scanFrames exists) and renders adapter label, fillable count, required count, resume-fit hint",
+        "Non-job page → neutral state with Save only; signed-out → connect prompt (exists)",
+        "Updates on KIWIPLY_MIRROR_UPDATED and tab change"
+      ],
+      "tests": [
+        "vitest HomeView header states"
+      ],
+      "tech": "entrypoints/panel/HomeView.tsx, home-actions.ts scanFrames",
+      "evidence": [
+        "home-actions.ts scanFrames/framesHaveForm"
+      ],
+      "design": null,
+      "critical": false,
+      "benchmark": "Simplify shows a field count on open"
+    },
+    {
+      "id": "E5.2",
+      "epic": "E5",
+      "title": "Keyboard shortcut (Alt+K) + command to open the drawer; focus management inside the iframe",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a keyboard user I want to open and drive the drawer without the mouse.",
+      "genz": "—",
+      "ac": [
+        "manifest commands: _execute_action with a default Alt+K; documented in options",
+        "Opening moves focus into the drawer; Esc closes and returns focus to the page",
+        "Works on Chrome/Edge/Firefox"
+      ],
+      "tests": [
+        "e2e keyboard spec",
+        "test/panel_frame.test.ts focus return"
+      ],
+      "tech": "wxt.config.ts commands, lib/panel-frame.ts, entrypoints/background.ts",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E5.3",
+      "epic": "E5",
+      "title": "Provenance + 'why this value' in the overlay rows (3.6.7)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant I want to see where a value came from (profile, resume v3, learned on Workday, AI) so that I trust or fix it in place.",
+      "genz": "Transparency beats magic.",
+      "ac": [
+        "Row detail (tap/chevron): source (bio/resume/field cache host/global/AI mapped/drafted) and the signal tier that matched the field",
+        "Salary pill shows its source (posting data vs text)",
+        "No layout break at 400 px"
+      ],
+      "tests": [
+        "test/overlay_rows.test.js"
+      ],
+      "tech": "src/content/filler.js badges/rowHtml, src/lib/job-capture.js sources",
+      "evidence": [
+        "PROGRESS.md 3.6.7 (later)"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E5.4",
+      "epic": "E5",
+      "title": "Learned-answers peek + per-application 'Open on kiwiply.com' deep links",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E4.3"
+      ],
+      "relates": [
+        "U13.2",
+        "G7"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to see what Kiwiply learned on this application and jump to the right web page so that the two surfaces feel like one product.",
+      "genz": "—",
+      "ac": [
+        "After a fill: 'We'll suggest 2 answers for your profile — review on kiwiply.com' with the count from profile-learn",
+        "Application card links to /applications?id=<serverId>",
+        "Account chip link remains /dashboard"
+      ],
+      "tests": [
+        "vitest links + counts"
+      ],
+      "tech": "entrypoints/panel/HomeView.tsx, src/content/profile-learn.js result",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E5.5",
+      "epic": "E5",
+      "title": "Overlay + drawer accessibility: focus trap, SR announcements, 44 px targets, reduced motion, contrast on ATS pages",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "U19.1"
+      ],
+      "supersedes": [
+        "T4.5"
+      ],
+      "story": "As a screen-reader or keyboard user I want the review overlay and the drawer fully usable.",
+      "genz": "Accessibility is a baseline for this audience, not a bonus.",
+      "ac": [
+        "Overlay: role=dialog with focus trap, Esc, initial focus on the first row, 'N fields ready' announced via aria-live",
+        "Checkbox rows ≥ 44 px; buttons labelled; reduced-motion honoured",
+        "axe-core run in e2e on drawer + overlay with zero serious violations"
+      ],
+      "tests": [
+        "e2e axe spec",
+        "W5-QA.md §6 walked"
+      ],
+      "tech": "src/content/filler.js overlay CSS/markup, packages/ui primitives",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E5.6",
+      "epic": "E5",
+      "title": "Announcements banner + update-required prompt in the drawer (consumes remote config)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.4"
+      ],
+      "relates": [
+        "A5.4",
+        "A5.5"
+      ],
+      "supersedes": [],
+      "story": "As a user I want a one-line note when something matters (new ATS, paused ATS, update needed) so that I'm never surprised by a disabled button.",
+      "genz": "—",
+      "ac": [
+        "Banner from config.announcements, dismissible per id, stored locally",
+        "Below minVersion: fill button disabled with 'Update Kiwiply to keep filling'; save/sync still work",
+        "Paused ATS: 'Filling on Taleo is paused while we fix it'"
+      ],
+      "tests": [
+        "vitest banner states"
+      ],
+      "tech": "entrypoints/panel/HomeView.tsx, src/lib/remote-config.js",
+      "evidence": [],
+      "design": "docs/design/ext/telemetry-remote-config.md",
+      "critical": false
+    },
+    {
+      "id": "E5.7",
+      "epic": "E5",
+      "title": "'Saved / Applied' badges on supported boards and career pages from the local mirror (G5)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.1"
+      ],
+      "relates": [
+        "G5",
+        "U20.3"
+      ],
+      "supersedes": [],
+      "story": "As a user browsing Greenhouse boards, Indeed or a company careers page I want jobs already in my tracker badged so that I never apply twice.",
+      "genz": "The board remembers for them.",
+      "ac": [
+        "Background keeps a compact applications mirror {externalJobId|jobUrl hash → status} refreshed on sync",
+        "Content script badges job links on job-boards.greenhouse.io, jobs.lever.co, jobs.ashbyhq.com, *.myworkdayjobs.com listings, smartapply/indeed job pages and our own web cards (U20.3) within 1 s, no network per card",
+        "No LinkedIn DOM (policy); badge style from @kiwiply/ui tokens; toggle in options"
+      ],
+      "tests": [
+        "test/board_badges.test.js (matching, no network)",
+        "e2e on a Greenhouse board fixture"
+      ],
+      "tech": "src/content/board-badges.js (new), src/lib/sync.js mirror, service-worker.js",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "benchmark": "G5 — Simplify/Jobright show applied badges"
+    },
+    {
+      "id": "E5.8",
+      "epic": "E5",
+      "title": "In-product review prompt after the Nth successful fill, at most once per interval — both from remote config (defaults 3 fills, 90 days) — per store (G10)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.1",
+        "A5.5"
+      ],
+      "relates": [
+        "G10",
+        "N6.6",
+        "S4.3"
+      ],
+      "supersedes": [
+        "M10.5",
+        "S5.6"
+      ],
+      "story": "As a happy user I want a polite, once-only nudge to rate the extension so that the listing reflects real experience.",
+      "genz": "Ask once, never nag.",
+      "ac": [
+        "Shown only after a fill with no undo and no gaps left, from remote-config `ext.review_prompt.min_fills` (default 3); at most one per `ext.review_prompt.interval_days` (default 90); kill flag `flag.review_prompt` (default on); dismiss sticky",
+        "Links to the correct store (Chrome/Edge/Firefox) by runtime detection",
+        "Event review_prompt{shown|clicked|dismissed}"
+      ],
+      "tests": [
+        "test/review_prompt.test.js cooldown + conditions"
+      ],
+      "tech": "entrypoints/panel/HomeView.tsx, chrome.storage reviewPrompt",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "benchmark": "G10 — 4.8–4.9★ is the entry ticket"
+    },
+    {
+      "id": "E5.9",
+      "epic": "E5",
+      "title": "One-tap 'Tailor for this job' → new resume + cover letter + attach, from the drawer (Pro) (G21)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E4.6",
+        "R5.1",
+        "R5.3"
+      ],
+      "relates": [
+        "G21",
+        "R5.1",
+        "R5.3",
+        "R5.5",
+        "U6.11"
+      ],
+      "supersedes": [],
+      "story": "As a Pro user on an ATS page I want one tap to tailor my resume to this posting, attach it and paste a cover letter so that the best application takes a minute.",
+      "genz": "The 'wow' moment competitors sell as the headline.",
+      "ac": [
+        "Drawer offers 'Tailor for this job' when the page has a JD snapshot; runs R5.1 tailoring on the server → new resume (counts toward the cap, 402 RESUME_LIMIT handled) → selected in the picker and attached",
+        "Cover letter (R5.3) pasted into a detected cover-letter field or offered as copy",
+        "Truth rules from 13.4; the user reviews the diff on the web link before relying on it; budget meter shown"
+      ],
+      "tests": [
+        "vitest flow with mocked provider",
+        "e2e on the Greenhouse fixture with mock AI"
+      ],
+      "tech": "entrypoints/panel/home-actions.ts, src/lib/tracking.js (tailor/cover endpoints), packages/ui",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "benchmark": "G21 — Simplify+ 'tailored resume in one click'"
+    },
+    {
+      "id": "E5.10",
+      "epic": "E5",
+      "title": "Drawer & options baseline — existing (W5 drawer, resume fit, job fit, upload-on-the-fly, slim options, dark mode)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I pick a resume, scan & fill, save a job and upload a resume from the drawer.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "entrypoints/panel/*, entrypoints/options/*",
+      "evidence": [
+        "EXT-UI-PLATFORM-PLAN.md W5.1–W5.6"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E5.11",
+      "epic": "E5",
+      "title": "Account chip shows plan source ('Pro via Acme') and marketer role from the version endpoint",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "O3.4"
+      ],
+      "relates": [
+        "O3.4"
+      ],
+      "supersedes": [],
+      "story": "As an org member I want the drawer to show that my Pro comes from my organisation.",
+      "genz": "—",
+      "ac": [
+        "GET /api/profile/version via{orgId, orgName}, role rendered in the chip tooltip",
+        "No org data stored beyond the name"
+      ],
+      "tests": [
+        "vitest chip states"
+      ],
+      "tech": "entrypoints/panel/HomeView.tsx, src/lib/sync.js",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E6.1",
+      "epic": "E6",
+      "title": "Kiwiply AI on by default for Pro with a one-time consent sheet (10.5)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.4"
+      ],
+      "relates": [
+        "G6",
+        "T1.6",
+        "I1.2"
+      ],
+      "supersedes": [],
+      "story": "As a Pro user I want the AI mapper, picks and drafts to just work after one clear consent so that I get what I pay for without finding three switches.",
+      "genz": "Defaults that respect the plan they chose, consent that is a real screen.",
+      "ac": [
+        "When plan=PRO/AUTOPILOT and serverAiConsent is unset, the drawer shows a consent sheet naming the provider and what is sent (PRIVACY.md text); Accept sets serverAiEnabled+consent; Decline stays off",
+        "Free users see BYO-key path only (no server AI except resume parsing)",
+        "Flag ext.aiDefaultOnPro from remote config"
+      ],
+      "tests": [
+        "vitest consent sheet",
+        "test/sync.test.js plan-driven defaults"
+      ],
+      "tech": "entrypoints/panel/App.tsx, entrypoints/options/OptionsApp.tsx AI card, service-worker.js draftAnswer gates",
+      "evidence": [
+        "OptionsApp.tsx AI switches default OFF",
+        "PRIVACY.md Optional AI"
+      ],
+      "design": null,
+      "critical": false,
+      "benchmark": "G6 — Simplify+/Jobright Turbo sell AI answers; ours is grounded + consented"
+    },
+    {
+      "id": "E6.2",
+      "epic": "E6",
+      "title": "Draft offers on required free-text fields with 'uses: …' provenance and edit-before-fill (G6)",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E6.1"
+      ],
+      "relates": [
+        "G6"
+      ],
+      "supersedes": [],
+      "story": "As an applicant facing 'Why do you want to work here?' I want a grounded draft that says which profile items it used so that I can edit it honestly before it lands.",
+      "genz": "AI as a co-writer, not a ghostwriter.",
+      "ac": [
+        "Required textareas with no value get a 'Draft with Kiwiply' row in the overlay (exists as JAF_DRAFT for textareas — extend to required-first ordering and inline edit)",
+        "Draft response includes usedFacts[] (resume/profile keys) rendered under the text; the user edits in the overlay before Fill",
+        "Metered per AiTask; 402 shows the plan sheet"
+      ],
+      "tests": [
+        "test/assist_picks.test.js extended for usedFacts",
+        "AiDraftServiceIT usedFacts"
+      ],
+      "tech": "src/content/assist.js, service-worker.js draftAnswer, api AiDraftService",
+      "evidence": [
+        "assist.js JAF_DRAFT",
+        "ARCHITECTURE.md AI layer"
+      ],
+      "design": null,
+      "critical": false,
+      "benchmark": "Jobright's Agent fabricated an accomplishment — grounding is the differentiator"
+    },
+    {
+      "id": "E6.3",
+      "epic": "E6",
+      "title": "Truthfulness guardrails: grounded-only prompts, refusal on missing facts, never invent employers/dates, EEO never AI",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "G6"
+      ],
+      "supersedes": [],
+      "story": "As an applicant I want AI answers that only use what is true about me so that I never send a claim I can't back.",
+      "genz": "—",
+      "ac": [
+        "System prompt asserts grounded-only (exists) + explicit 'If the background lacks the fact, say so in one line' behaviour; the overlay shows 'needs your input' instead of a fabricated answer",
+        "Red-team fixture: 10 questions with missing facts → 0 invented employers/dates/metrics",
+        "EEO_RE guard covered by tests for picks, mapper and drafts"
+      ],
+      "tests": [
+        "test/assist_truth.test.js (BYO + server stub)"
+      ],
+      "tech": "service-worker.js draftAnswer system prompt, src/content/assist.js EEO_RE, api AiDraftService prompt",
+      "evidence": [
+        "service-worker.js draftAnswer system prompt"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E6.4",
+      "epic": "E6",
+      "title": "AI cost in-page: per-fill drafts cap, cache hits shown, budget meter in the drawer",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E6.1",
+        "A5.1"
+      ],
+      "relates": [
+        "A4.3"
+      ],
+      "supersedes": [],
+      "story": "As a Pro user I want to see my AI budget and know when a draft was free (cached) so that the budget never surprises me.",
+      "genz": "—",
+      "ac": [
+        "Drawer shows % used + reset date (aiUsage exists) near the AI actions",
+        "Per fill: at most setting `ai.cap.draft.per_fill` (default 5) server drafts; cached answers badge 'reused'; picks/mapper cached per label",
+        "Budget exhausted → BYO-key hint, never a blocked fill"
+      ],
+      "tests": [
+        "vitest meter",
+        "test/assist_picks.test.js caps"
+      ],
+      "tech": "entrypoints/panel/HomeView.tsx, service-worker.js aiLimitMessage, src/lib/tracking.js aiUsage",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E6.5",
+      "epic": "E6",
+      "title": "Answer library in the extension: show learned answers for this page and 'use everywhere' (G7 web page is U)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "U13.2",
+        "U13.4"
+      ],
+      "relates": [
+        "G7",
+        "U13.2",
+        "U13.4"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to see which learned answer will fill a question and switch it off for this site so that the library is mine.",
+      "genz": "—",
+      "ac": [
+        "Overlay 'reused' rows link to the library entry; a row can be set host-only vs global (field-cache scopes exist)",
+        "Deleting on the web clears the mirror on next pull"
+      ],
+      "tests": [
+        "test/field_cache.test.js scope switch"
+      ],
+      "tech": "src/lib/field-cache.js lookup scopes, filler.js badges",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E6.6",
+      "epic": "E6",
+      "title": "AI baseline — existing (BYO key, consented server proxy, option-validated picks, field mapper, EEO guard, 402 handling)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user I can draft, pick and map with my key or Kiwiply AI.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "src/content/assist.js, src/lib/field-map.js, service-worker.js",
+      "evidence": [
+        "PROGRESS.md 5.1–5.5.4, 12.4",
+        "test/assist_picks.test.js"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E7.1",
+      "epic": "E7",
+      "title": "Autopilot provider methods + pure orchestrator core (leases, caps, jitter, re-adoption)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "B1.2"
+      ],
+      "relates": [
+        "O10.6"
+      ],
+      "supersedes": [],
+      "story": "As an Autopilot subscriber I want the extension to pull my queue safely so that the batch runs only when I allow it and never beyond the caps.",
+      "genz": "—",
+      "ac": [
+        "TrackingProvider: autopilotNext/Progress/Heartbeat/Release/Review (NotSupportedError until 19.1 API)",
+        "src/lib/autopilot.js: tick() plan, lease handling, client guard on entitlements `autopilot.apps_per_day` / `autopilot.apps_per_month` (catalog defaults 30 / 300 — the locked Autopilot ceilings: admin may lower, never raise; the client treats 30 / 300 as hard maxima remote config cannot lift), jitter from remote-config `ext.autopilot.jitter_s` (default 4–12 s per tab, 20–60 s between starts; floors not lowerable by config)",
+        "Behind settings.autopilotEnabled; no UI yet"
+      ],
+      "tests": [
+        "test/autopilot_core.test.js",
+        "test/tracking.test.js new methods"
+      ],
+      "tech": "src/lib/tracking.js, src/lib/autopilot.js (SW-safe), ROADMAP Phase 19.1 tables",
+      "evidence": [],
+      "design": "docs/design/ext/autopilot-orchestrator.md",
+      "critical": true
+    },
+    {
+      "id": "E7.2",
+      "epic": "E7",
+      "title": "Guards: attestation lexicon, final-page, sign-in wall and CAPTCHA detectors",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [
+        "E10.2",
+        "E10.7"
+      ],
+      "supersedes": [],
+      "story": "As a user I want Autopilot to stop at anything that must be me — attestation, sign-in, CAPTCHA, submit — so that nothing is ever asserted or sent in my name.",
+      "genz": "The trust line that separates us from the bots.",
+      "ac": [
+        "src/content/autopilot-guards.js: attestation lexicon (certify/attest/I agree/consent/signature/perjury…) excludes checkboxes/radios from the plan and flags the step",
+        "finalPage: submit-class control and no next-class control; signInWall; captcha markers (recaptcha/hcaptcha/turnstile) → park, never interact",
+        "Booleans only leave the page; lexicon data in rules.js"
+      ],
+      "tests": [
+        "test/autopilot_guards.test.js positive/negative lists",
+        "no_submit across fixtures with autopilot:true"
+      ],
+      "tech": "src/content/autopilot-guards.js, src/config/rules.js, base.js findNextButton",
+      "evidence": [],
+      "design": "docs/design/ext/autopilot-orchestrator.md",
+      "critical": true
+    },
+    {
+      "id": "E7.3",
+      "epic": "E7",
+      "title": "Window/tab orchestrator: dedicated window, ≤ 3 tabs, heartbeats, SW-restart re-adoption",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E7.1",
+        "E7.2",
+        "E3.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an Autopilot subscriber I want up to three applications prepared at a time in their own window so that my browser stays usable and the pace stays human.",
+      "genz": "—",
+      "ac": [
+        "chrome.windows.create once per run; our tab ids stored; tabs outside the window ignored",
+        "On tab load: inject, PING signals, JAF_FILL with autopilot:true (no overlay), runSteps to final page → READY; gaps → NEEDS_YOU",
+        "Heartbeat 60 s per FILLING tab; closed window releases leases and pauses the run; alarm kiwiply-autopilot 1 min"
+      ],
+      "tests": [
+        "test/autopilot_sw.test.js (tab adoption, window close, pause)",
+        "e2e 3-tab run on fixtures with the mock API"
+      ],
+      "tech": "src/background/autopilot-sw.js, entrypoints/background.ts, wxt.config.ts permissions (tabs — E7.6)",
+      "evidence": [],
+      "design": "docs/design/ext/autopilot-orchestrator.md",
+      "critical": true
+    },
+    {
+      "id": "E7.4",
+      "epic": "E7",
+      "title": "'Needs you' handling + ask-and-remember for unknown required questions (G8)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E7.3"
+      ],
+      "relates": [
+        "G8",
+        "G7",
+        "I3.5",
+        "U13.4"
+      ],
+      "supersedes": [
+        "I9.12"
+      ],
+      "story": "As an Autopilot subscriber I want an unknown question asked once and reused for the rest of the run so that I answer each new question one time, not thirty.",
+      "genz": "Ask once, remember forever (with consent).",
+      "ac": [
+        "Reasons SIGN_IN_WALL/CAPTCHA/UNKNOWN_REQUIRED/UPLOAD_FAILED/AI_BUDGET/ATTESTATION/UNSUPPORTED_ATS/PAGE_ERROR/STALLED with the tab left open",
+        "UNKNOWN_REQUIRED shows the question (label text stays local; only the field-cache row syncs as today) in the drawer; the answer is stored in the field cache (global twin) and applied to identical questions in the run",
+        "Resume continues the item from its step"
+      ],
+      "tests": [
+        "test/autopilot_core.test.js needs-you transitions",
+        "test/field_cache.test.js run-scoped reuse"
+      ],
+      "tech": "src/lib/autopilot.js, src/lib/field-cache.js, entrypoints/panel",
+      "evidence": [],
+      "design": "docs/design/ext/autopilot-orchestrator.md",
+      "critical": false,
+      "benchmark": "G8 — Simplify Autopilot roadmap 'pause and ask, save your answers'"
+    },
+    {
+      "id": "E7.5",
+      "epic": "E7",
+      "title": "Drawer review queue: Ready / Needs you lists, Open & review, Skip, Pause, counters",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E7.4"
+      ],
+      "relates": [
+        "U15.1"
+      ],
+      "supersedes": [],
+      "story": "As an Autopilot subscriber I want to see what's ready and what needs me in the drawer so that submitting is a focused review pass.",
+      "genz": "A queue that respects their time.",
+      "ac": [
+        "List from GET /api/autopilot/review; Open focuses the tab; Skip releases; Pause stops the run; Today n/30 · Period n/300",
+        "READY → SUBMITTED only via submit-detect (E4); badge count on the toolbar icon",
+        "Non-subscribers see the plan sheet"
+      ],
+      "tests": [
+        "vitest queue states",
+        "e2e focus tab"
+      ],
+      "tech": "entrypoints/panel/AutopilotView.tsx (new), chrome.action.setBadgeText",
+      "evidence": [],
+      "design": "docs/design/ext/autopilot-orchestrator.md",
+      "critical": false
+    },
+    {
+      "id": "E7.6",
+      "epic": "E7",
+      "title": "`tabs` permission in its own store release with listing + privacy copy (19.5)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E7.5",
+        "E10.3"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user reading the permission warning I want to understand that Kiwiply only manages tabs in its own Autopilot window.",
+      "genz": "—",
+      "ac": [
+        "Manifest adds tabs; PRIVACY.md and AMO data_collection updated; listing 'What's new' explains the Autopilot window",
+        "Release ships nothing else; staged rollout (E0.4)"
+      ],
+      "tests": [
+        "check-privacy-sync passes",
+        "manifest diff reviewed"
+      ],
+      "tech": "wxt.config.ts, PRIVACY.md, STORE-LISTING.md",
+      "evidence": [],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false
+    },
+    {
+      "id": "E7.7",
+      "epic": "E7",
+      "title": "Autopilot QA on the six adapters + generic via fixtures; marketer assignment source (O10.6)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E7.6"
+      ],
+      "relates": [
+        "O10.6"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want proof that a run on each ATS stops at the final page with zero submit clicks before Launch 2.",
+      "genz": "—",
+      "ac": [
+        "Fixture chains per ATS run under autopilot:true in e2e; report of READY/NEEDS_YOU per ATS",
+        "autopilot_item.assignment_id honoured (consultant-side Autopilot source) when O10.6 lands",
+        "AUTOFILL-QA.md gains an Autopilot section"
+      ],
+      "tests": [
+        "e2e autopilot suite",
+        "no_submit"
+      ],
+      "tech": "job-autofill/e2e/autopilot.spec.ts",
+      "evidence": [],
+      "design": "docs/design/ext/autopilot-orchestrator.md",
+      "critical": false
+    },
+    {
+      "id": "E8.1",
+      "epic": "E8",
+      "title": "TrackingProvider.track() + first five product events (ext_installed, drawer_opened, fill_started, fill_completed, job_saved) (U20.4)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "U18.1"
+      ],
+      "relates": [
+        "U20.4",
+        "U18.1",
+        "U18.2"
+      ],
+      "supersedes": [],
+      "story": "As the product team we want extension events in the same pipeline as the web so that the install → first fill funnel is one picture.",
+      "genz": "—",
+      "ac": [
+        "track(name, props) batches ≤ 50 / 30 s, drops when opted out or signed out, FIFO cap 200",
+        "Props allow-listed server-side; no URL/label/value/email",
+        "Replaces the GA4 events for these five names"
+      ],
+      "tests": [
+        "test/tracking.test.js track batching/opt-out",
+        "ProductEventResourceIT surface=ext"
+      ],
+      "tech": "src/lib/tracking.js, service-worker.js wiring, api analytics/*",
+      "evidence": [
+        "docs/design/user/analytics-events.md §0.2"
+      ],
+      "design": "docs/design/ext/telemetry-remote-config.md",
+      "critical": true
+    },
+    {
+      "id": "E8.2",
+      "epic": "E8",
+      "title": "Fill telemetry v2: per-field-class counts, steps, duration bucket, ruleset version; admin breakdown",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "API",
+        "web"
+      ],
+      "deps": [
+        "E3.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want to know whether an ATS fails on combos, radios or files so that the next adapter story is the right one.",
+      "genz": "—",
+      "ac": [
+        "fill_event additive columns (fields_by_class_json, required_left_by_class_json, steps, duration_bucket, ruleset_version, overlay_unchecked, browser); server range-validates",
+        "Still no user id, labels or values (property test)",
+        "Admin panel: ATS × class failure table"
+      ],
+      "tests": [
+        "test/fill_telemetry.test.js v2 + leakage property test",
+        "FillTelemetryV2IT"
+      ],
+      "tech": "src/lib/fill-telemetry.js, filler.js stats, api FillTelemetryService/DTO, web admin analytics",
+      "evidence": [
+        "fill-telemetry.js (counts only)"
+      ],
+      "design": "docs/design/ext/telemetry-remote-config.md",
+      "critical": false
+    },
+    {
+      "id": "E8.3",
+      "epic": "E8",
+      "title": "Error fingerprint reporter (SW + content), capped, message-free; admin top-N by version",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "API",
+        "web"
+      ],
+      "deps": [
+        "A5.5"
+      ],
+      "relates": [
+        "A10.3"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want to see the top crashes per version without ever receiving page content so that a broken release is caught in hours.",
+      "genz": "—",
+      "ac": [
+        "src/lib/errors.js wrap() on SW listeners and content entry points; fingerprint = sha256(name + top 3 relativised frames); no message text",
+        "Caps from remote-config `ext.errors.per_min` (default 5 per fingerprint) and `ext.errors.per_day` (default 20 per install); batched; opt-out respected",
+        "ext_error_daily table + admin list"
+      ],
+      "tests": [
+        "test/errors.test.js",
+        "ExtErrorResourceIT caps"
+      ],
+      "tech": "src/lib/errors.js, api ExtErrorResource, web admin",
+      "evidence": [],
+      "design": "docs/design/ext/telemetry-remote-config.md",
+      "critical": false
+    },
+    {
+      "id": "E8.4",
+      "epic": "E8",
+      "title": "Remote-config client: min version, per-ATS kill switch, announcements, flags (A5.5 consumer)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "A5.5"
+      ],
+      "relates": [
+        "A5.5",
+        "A5.4"
+      ],
+      "supersedes": [],
+      "story": "As the operator I want to pause filling on one ATS or require an update within 15 minutes so that a store review cycle never stands between users and a fix.",
+      "genz": "Fewer broken days.",
+      "ac": [
+        "GET /api/config/client cached 15 min in storage; refreshed on the sync alarm; stale-on-failure; defaults when absent",
+        "apply(): known keys only, clamped ranges, selector-looking strings rejected",
+        "Filler refuses a paused family with the reason; below minVersion only filling is disabled"
+      ],
+      "tests": [
+        "test/remote_config.test.js",
+        "filler paused-family test"
+      ],
+      "tech": "src/lib/remote-config.js, src/lib/tracking.js clientConfig, filler.js, service-worker.js alarm",
+      "evidence": [],
+      "design": "docs/design/ext/telemetry-remote-config.md",
+      "critical": true
+    },
+    {
+      "id": "E8.5",
+      "epic": "E8",
+      "title": "Config keys for submit-signal confidence and Autopilot pacing",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.4",
+        "E4.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I want to demote a noisy submit signal or slow Autopilot pacing without a release.",
+      "genz": "—",
+      "ac": [
+        "ext.submit.signals and ext.autopilot.{minGapMs,maxTabs,maxSteps} consumed with floors/ceilings",
+        "Changes logged with reason in admin (A5)"
+      ],
+      "tests": [
+        "test/remote_config.test.js keys"
+      ],
+      "tech": "src/lib/remote-config.js, app-tracking.js, autopilot.js",
+      "evidence": [],
+      "design": "docs/design/ext/telemetry-remote-config.md",
+      "critical": false
+    },
+    {
+      "id": "E8.6",
+      "epic": "E8",
+      "title": "Retire GA4 Measurement Protocol; drop the google-analytics.com host permission",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.1"
+      ],
+      "relates": [
+        "G30"
+      ],
+      "supersedes": [],
+      "story": "As a privacy-minded user I want one fewer third party in the extension.",
+      "genz": "Fewer hosts in the permission list is a visible trust signal.",
+      "ac": [
+        "After 30 days of product events, remove analytics.js GA path, inject-ga step, host permission; PRIVACY.md updated",
+        "Its own release (permission change)"
+      ],
+      "tests": [
+        "test/analytics.test.js removed/adjusted",
+        "check-privacy-sync"
+      ],
+      "tech": "src/lib/analytics.js, .github/scripts/inject-ga.js, wxt.config.ts",
+      "evidence": [],
+      "design": "docs/design/ext/telemetry-remote-config.md",
+      "critical": false
+    },
+    {
+      "id": "E8.7",
+      "epic": "E8",
+      "title": "Telemetry baseline — existing (10.1 count-only fill events, GA4 MP with opt-out)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As the operator I see fill quality by ATS.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "src/lib/fill-telemetry.js, src/lib/analytics.js",
+      "evidence": [
+        "PROGRESS.md 10.1, 6.1"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E9.1",
+      "epic": "E9",
+      "title": "Firefox live smoke (handoff, drawer, fill, save, event page) + web-ext lint in CI + AMO first submission",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "G11"
+      ],
+      "supersedes": [],
+      "story": "As a Firefox user I want to install Kiwiply from AMO and sign in on the first try so that the browser I use is a first-class one.",
+      "genz": "—",
+      "ac": [
+        "BROWSERS.md §Firefox smoke walked on Firefox 140+ and logged; findings fixed",
+        "ci.yml runs build:firefox + web-ext lint (0 errors)",
+        "AMO submission with source archive + build steps; listing copy from STORE-LISTING.md §AMO; mammoth version filled in"
+      ],
+      "tests": [
+        "web-ext lint gate",
+        "test/connect_handoff.test.js (52 cases)"
+      ],
+      "tech": "BROWSERS.md, wxt.config.ts browser_specific_settings, entrypoints/connect-relay.content.ts",
+      "evidence": [
+        "EXT-UI-PLATFORM-PLAN.md W6.1 'still needs a live smoke test'"
+      ],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": true,
+      "benchmark": "Simplify Firefox is 'beta, best-effort' at 4.2★ — ours ships as supported"
+    },
+    {
+      "id": "E9.2",
+      "epic": "E9",
+      "title": "AMO publish automation with source archive on ext-v tags",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E9.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a maintainer I want Firefox releases to ride the same tag.",
+      "genz": "—",
+      "ac": [
+        "Workflow job: zip:firefox + source tarball + web-ext sign/AMO API upload with secrets; first submission stays manual",
+        "Version parity with Chrome asserted"
+      ],
+      "tests": [
+        "workflow dry run"
+      ],
+      "tech": "publish-extension.yml",
+      "evidence": [],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false
+    },
+    {
+      "id": "E9.3",
+      "epic": "E9",
+      "title": "Firefox-specific regression tests: event-page lifecycle, relay, alarms, storage",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a maintainer I want the Firefox differences covered by tests so that a Chrome-only fix cannot break Firefox silently.",
+      "genz": "—",
+      "ac": [
+        "test/firefox_eventpage.test.js: listeners registered at top level, alarm re-creation on startup, no service-worker-only APIs",
+        "Relay tests already cover handoff; add the sync signal via relay"
+      ],
+      "tests": [
+        "new suite in the npm test chain"
+      ],
+      "tech": "src/background/service-worker.js, entrypoints/connect-relay.content.ts",
+      "evidence": [
+        "test/connect_handoff.test.js"
+      ],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false
+    },
+    {
+      "id": "E9.4",
+      "epic": "E9",
+      "title": "Edge Add-ons listing + Partner Center publish automation",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E0.1"
+      ],
+      "relates": [
+        "G11"
+      ],
+      "supersedes": [],
+      "story": "As an Edge user I want to install from the Edge store, not sideload.",
+      "genz": "Edge is the default browser on many school laptops.",
+      "ac": [
+        "Listing created with the CWS copy; extension id/connect verified on Edge",
+        "Workflow step via Partner Center API after the first manual submission",
+        "BROWSERS.md updated"
+      ],
+      "tests": [
+        "Edge smoke logged"
+      ],
+      "tech": "BROWSERS.md §Edge, publish-extension.yml",
+      "evidence": [],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false
+    },
+    {
+      "id": "E9.5",
+      "epic": "E9",
+      "title": "Safari go/no-go: converter spike, relay reuse, App Store requirements (P2)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "G11"
+      ],
+      "supersedes": [],
+      "story": "As a Mac user I want to know whether Kiwiply will come to Safari.",
+      "genz": "Many of them live on iPhone + Mac; Safari is a real question.",
+      "ac": [
+        "safari-web-extension-converter run on the Firefox build; blockers listed (externally_connectable absent → relay; file access; CSP)",
+        "Go/no-go note with cost (Apple account, Xcode, review) in BROWSERS.md"
+      ],
+      "tests": [
+        "n/a (spike)"
+      ],
+      "tech": "BROWSERS.md §Safari",
+      "evidence": [],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false
+    },
+    {
+      "id": "E9.6",
+      "epic": "E9",
+      "title": "Cross-browser baseline — existing (Edge same bundle, Firefox MV3 build + relay + data_collection_permissions)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a maintainer I have Chrome/Edge/Firefox builds.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "BROWSERS.md, wxt.config.ts",
+      "evidence": [
+        "PROGRESS.md 7.1, 7.2",
+        "EXT-UI-PLATFORM-PLAN.md W6.1"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E10.1",
+      "epic": "E10",
+      "title": "No-submit proof: a suite that runs every fixture with auto-advance and Autopilot on and asserts zero submit-class clicks",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E1.1"
+      ],
+      "relates": [
+        "O10.10"
+      ],
+      "supersedes": [],
+      "story": "As a user I want the 'never submits' promise to be a test, not a sentence, so that no refactor can break it unnoticed.",
+      "genz": "Trust you can read in the test output.",
+      "ac": [
+        "test/no_submit.test.js spies click on every button/input in each fixture; runs runSteps with autoAdvance:true and autopilot:true; fails on any click of a submit-class control (type=submit, or name matching the lexicon) or on the fixture's submit.neverClick",
+        "findNextButton never returns a submit-class control",
+        "Named in the store reviewer notes"
+      ],
+      "tests": [
+        "test/no_submit.test.js"
+      ],
+      "tech": "src/content/filler.js, base.js findNextButton, test/fixtures/*.expect.json",
+      "evidence": [],
+      "design": "docs/design/ext/ats-fixture-harness.md",
+      "critical": true
+    },
+    {
+      "id": "E10.2",
+      "epic": "E10",
+      "title": "CAPTCHA and sign-in wall detectors stop auto-advance and say so in the overlay (non-Autopilot path)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E7.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "story": "As an applicant I want auto-advance to stop before a CAPTCHA and tell me so that Kiwiply never looks like a bot to the site.",
+      "genz": "—",
+      "ac": [
+        "Shared guards from E7.2 used by runSteps: CAPTCHA present → stop with 'Solve the check yourself, then continue'; never interacts with the widget",
+        "Indeed's last-step reCAPTCHA covered by fixture"
+      ],
+      "tests": [
+        "test/steps.test.js captcha stop"
+      ],
+      "tech": "src/content/autopilot-guards.js, filler.js runSteps",
+      "evidence": [],
+      "design": "docs/design/ext/autopilot-orchestrator.md",
+      "critical": false
+    },
+    {
+      "id": "E10.3",
+      "epic": "E10",
+      "title": "CI drift check: manifest permissions/hosts ↔ PRIVACY.md table ↔ AMO data_collection; permissions explainer data for /help (G30)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "G30",
+        "T6.2"
+      ],
+      "supersedes": [],
+      "story": "As a visitor I want the exact permission and host list with reasons, and as a maintainer I want CI to fail when they drift.",
+      "genz": "Honest about what we can see — the trust line reviewers test.",
+      "ac": [
+        ".github/scripts/check-privacy-sync.mjs builds both manifests and diffs permissions/host_permissions/externally_connectable against the PRIVACY.md table and gecko.data_collection_permissions",
+        "Emits docs/roadmap/permissions.json consumed by the /help permissions page (T/M own the copy)",
+        "Runs in ci.yml and publish"
+      ],
+      "tests": [
+        "script unit test with a drifted fixture"
+      ],
+      "tech": ".github/scripts/check-privacy-sync.mjs, PRIVACY.md, wxt.config.ts",
+      "evidence": [],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false,
+      "benchmark": "G30 — Simplify flagged 'medium/very high risk' by permission scanners; scoped hosts + a published list beat it"
+    },
+    {
+      "id": "E10.4",
+      "epic": "E10",
+      "title": "'What this extension sends' transparency panel in options: live counters and last-sent per channel",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.1"
+      ],
+      "relates": [
+        "U14.2",
+        "G31"
+      ],
+      "supersedes": [
+        "T6.3"
+      ],
+      "story": "As a user I want to see what left my browser today (fills counted, suggestions sent, AI calls, config fetched) so that privacy claims are checkable on my own device.",
+      "genz": "Show, don't tell.",
+      "ac": [
+        "Options card lists channels (fill counts, product events, suggestions, AI drafts, sync, config) with today's count, last time, and the switch that controls each",
+        "Values never shown (we don't have them); links to PRIVACY.md sections",
+        "Works offline from local counters"
+      ],
+      "tests": [
+        "vitest panel",
+        "counters unit test"
+      ],
+      "tech": "entrypoints/options/OptionsApp.tsx, src/lib/tracking.js counters",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E10.5",
+      "epic": "E10",
+      "title": "Panel/options CSP, token storage review, session revoke e2e",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "U1.4"
+      ],
+      "supersedes": [],
+      "story": "As a security reviewer I want the extension pages locked down and the revoke path proven.",
+      "genz": "—",
+      "ac": [
+        "content_security_policy.extension_pages set (self only; no inline except Vite's hashed styles)",
+        "trackingAuth stored in storage.local only; never in sessionStorage/page; documented",
+        "e2e: sign out on web → drawer returns to connect prompt; refresh-token reuse rejected"
+      ],
+      "tests": [
+        "e2e revoke spec",
+        "test/account_clear.test.js"
+      ],
+      "tech": "wxt.config.ts csp, src/lib/tracking.js chromeTokenStore",
+      "evidence": [
+        "test/account_clear.test.js",
+        "ARCHITECTURE.md Revoke path"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E10.6",
+      "epic": "E10",
+      "title": "Security baseline — existing (origin gate from manifest, no remote code, salted context hash, count-only telemetry, key never in bundle)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user my session and data are handled safely.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "service-worker.js, PRIVACY.md",
+      "evidence": [
+        "test/connect_handoff.test.js",
+        "EXT-UI-PLATFORM-PLAN.md W6.0"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E11.1",
+      "epic": "E11",
+      "title": "'Save for consultant…' drawer action for MARKETER sessions (O10.7)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "O10.5",
+        "E5.11"
+      ],
+      "relates": [
+        "O10.7"
+      ],
+      "supersedes": [],
+      "story": "As a marketer I want to assign a job to a consultant from the posting page so that the job bank fills from where I browse.",
+      "genz": "—",
+      "ac": [
+        "Shown only when role=MARKETER on the version endpoint; posts JobCapture to the assignment create endpoint (source EXTENSION)",
+        "Autofill still uses the marketer's own profile; no consultant data in the extension"
+      ],
+      "tests": [
+        "vitest role gating",
+        "test/tracking.test.js assignment call"
+      ],
+      "tech": "entrypoints/panel/SaveJobDialog.tsx, src/lib/tracking.js",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E11.2",
+      "epic": "E11",
+      "title": "Submit-detect links a consultant's detected submission to the assignment (O10.8, extension half)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E4.1",
+        "O10.8"
+      ],
+      "relates": [
+        "O10.8"
+      ],
+      "supersedes": [],
+      "story": "As a consultant I want my own submission to mark the marketer's assignment APPLIED so that nobody has to report it by hand.",
+      "genz": "—",
+      "ac": [
+        "Sync payload carries the url hash; server links to job_assignment; only this path sets APPLIED",
+        "No marketer action can trigger it"
+      ],
+      "tests": [
+        "ApplicationSyncIT assignment link"
+      ],
+      "tech": "src/lib/app-tracking.js confirmSubmission, api ApplicationSyncResource",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E12.1",
+      "epic": "E12",
+      "title": "Connect v2 extension half: ping/pong on Chrome too, Edge id check, 'copy connect code' fallback",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "extension",
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U20.1"
+      ],
+      "supersedes": [],
+      "story": "As a user on any browser I want /connect to detect the extension and never dead-end.",
+      "genz": "—",
+      "ac": [
+        "Chrome path answers the same KIWIPLY_CONNECT_PING as Firefox so the page knows before minting",
+        "Fallback: a short-lived connect code the user pastes into options when messaging fails (CSP/Edge id mismatch)",
+        "Edge: id verified; env override documented"
+      ],
+      "tests": [
+        "test/connect_handoff.test.js ping on Chrome + code path"
+      ],
+      "tech": "service-worker.js onMessageExternal, entrypoints/options/OptionsApp.tsx, web/src/app/connect/page.tsx",
+      "evidence": [
+        "web/src/app/connect/page.tsx"
+      ],
+      "design": "docs/design/ext/store-release-engineering.md",
+      "critical": false
+    },
+    {
+      "id": "E12.2",
+      "epic": "E12",
+      "title": "Extension-aware web: background answers 'connected?' and accepts an open-drawer hint (U20.3 extension half)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.1"
+      ],
+      "relates": [
+        "U20.3"
+      ],
+      "supersedes": [],
+      "story": "As a user clicking 'Apply with Kiwiply' on the web I want the drawer to open on the job page automatically.",
+      "genz": "—",
+      "ac": [
+        "onMessageExternal handles KIWIPLY_STATUS → {connected, version} and KIWIPLY_OPEN_DRAWER {url} (opens the tab, injects the drawer on load) behind the same origin gate",
+        "Rate-limited; no data beyond connected/version"
+      ],
+      "tests": [
+        "test/sync_signal.test.js new messages"
+      ],
+      "tech": "service-worker.js, entrypoints/background.ts toggleDrawer",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E12.3",
+      "epic": "E12",
+      "title": "Install/uninstall funnel: setUninstallURL survey, update notes, ext_installed/updated events",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "E8.1"
+      ],
+      "relates": [
+        "U18.1"
+      ],
+      "supersedes": [],
+      "story": "As the product team we want to know why people uninstall and whether updates land.",
+      "genz": "—",
+      "ac": [
+        "chrome.runtime.setUninstallURL(kiwiply.com/goodbye?v=) with an optional 3-option survey (M owns the page)",
+        "ext_installed/ext_updated events with browser + reason",
+        "No identifiers in the uninstall URL"
+      ],
+      "tests": [
+        "test/sync_signal.test.js install hooks"
+      ],
+      "tech": "service-worker.js onInstalled",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E12.4",
+      "epic": "E12",
+      "title": "Try-it page: the drawer recognises kiwiply.com/try as a sandbox form and fills it in 30 s after install (G9)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "web"
+      ],
+      "deps": [
+        "E12.2",
+        "M1.8"
+      ],
+      "relates": [
+        "G9",
+        "U2.7",
+        "M1.8"
+      ],
+      "supersedes": [],
+      "story": "As a new user I want to see the fill work on a safe practice form right after installing so that the first real application isn't the first test.",
+      "genz": "Instant proof — the first 30 seconds decide whether they keep it.",
+      "ac": [
+        "/try is a static form (web, M/U own the page) with the same field classes as Greenhouse + a combo + a radio group; onInstalled opens /connect then /try",
+        "Drawer treats the page as adapter 'try' (no telemetry family leak; fill events tagged surface try), fills, shows the report, never a submit",
+        "first_fill product event; the page celebrates and links to the dashboard"
+      ],
+      "tests": [
+        "e2e try page fill",
+        "test/job_capture.test.js try page not captured as a job"
+      ],
+      "tech": "src/content/adapters/try.js, service-worker.js onInstalled, web/src/app/(marketing)/try",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "benchmark": "G9 — Simplify's test-autofill page"
+    },
+    {
+      "id": "E12.5",
+      "epic": "E12",
+      "title": "Hand-off baseline — existing (connect handoff, web signal, version-check sync)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "story": "As a user signing in on the web connects the extension and keeps it current.",
+      "genz": "—",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "Exists"
+      ],
+      "tech": "service-worker.js, src/lib/sync.js",
+      "evidence": [
+        "PROGRESS.md 11.1–11.4",
+        "test/sync_signal.test.js"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "E10.7",
+      "epic": "E10",
+      "title": "Never-collected field classes in the engine: SSN/ITIN, bank/routing, tax-ID, passport/visa/document-number and DOB fields are never learned, cached, synced, autofilled from memory, drafted by AI or sent in telemetry",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "T1.1",
+        "T3.3",
+        "S3.4",
+        "E3.7",
+        "U13.4",
+        "E7.2",
+        "S4.2"
+      ],
+      "supersedes": [],
+      "story": "As a user I want the extension to leave identity and money fields entirely to me so that nothing I type into an SSN, bank or passport box is ever remembered, synced, suggested back or sent anywhere.",
+      "genz": "Some boxes are yours alone. We say 'you type this one' and look away.",
+      "ac": [
+        "Canonical schema gains a NEVER class with label matchers (ssn, social security, itin, tax id, ein, vat, routing, account number, iban, passport, visa number, i-9, date of birth, dob, birth date) plus the shared SensitivePatterns value-shape detector (T1.1); a field is NEVER if either matches",
+        "NEVER fields: skipped by fill with an overlay row \"you type this one\" (never a value, never a checkbox); excluded from field-cache writes (local, cross-site twin and server sync), from profile-learn / suggestions, from AI draft / pick / mapper context, from fill-telemetry labels and from S4.2 diagnostics; the S3.4 heads-up banner fires when such a field appears before an offer",
+        "One-time migration on upgrade purges existing cache entries whose label or value matches; the purge count is logged locally only. The server FieldCacheSync endpoint rejects entries matching the name patterns (defence in depth)",
+        "Autopilot (E7.x) parks the item NEEDS_YOU with reason sensitive_field instead of filling; the attestation guard (T3.4) is unchanged",
+        "Fixtures with SSN / bank / DOB fields assert zero cache writes, zero suggestion captures, zero AI calls and zero telemetry labels; ruleset version bump + extension version bump"
+      ],
+      "tests": [
+        "test/never_fields.test.js (matchers, value shapes, cache purge, sync filter)",
+        "fixture run with a synthetic payroll-style form",
+        "Autopilot guard test",
+        "FieldCacheSyncResourceIT rejects deny-list labels"
+      ],
+      "tech": "src/lib/schema.js (NEVER class), src/config/rules.js SENSITIVE_FIELDS extended, src/lib/field-cache.js, src/content/profile-learn.js, src/content/assist.js + field-mapper.js, src/lib/fill-telemetry.js; api FieldCacheSyncResource; shared SensitivePatterns package",
+      "evidence": [
+        "job-autofill/src/lib/field-cache.js",
+        "job-autofill/src/content/profile-learn.js",
+        "job-autofill/src/config/rules.js"
+      ],
+      "design": null,
+      "critical": true,
+      "benchmark": "User rule (2026-10-11): Kiwiply never collects these values anywhere. Competitors (Simplify, Huntr) remember whatever you type; LazyApply/Massive require Gmail and bulk-fill forms blind."
+    }
+  ]
+}

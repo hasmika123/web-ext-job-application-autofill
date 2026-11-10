@@ -2,10 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Input, Field } from "@/components/ui";
+import { ArrowRightIcon, MailIcon } from "@kiwiply/ui";
 import { buttonVariants } from "@/components/ui/Button";
-import { cn } from "@/lib/cn";
 import { isEmail, LIMITS } from "@/lib/validate";
+import AuthField from "@/components/auth/AuthField";
+import { CardHeader } from "@/components/auth/AuthParts";
 
 /**
  * "Forgot password" step 1 — request a reset link. Posts to the BFF, which always reports
@@ -51,14 +52,14 @@ export default function ForgotPasswordForm() {
   if (done) {
     return (
       <div>
-        <h1 className="text-[28px] font-bold tracking-tight text-ink">Check your email</h1>
-        <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-          If an account exists for <span className="font-semibold text-ink">{email}</span>, we&apos;ve
+        <CardHeader title="Check your email" alwaysLogo />
+        <p className="text-center text-[15px] leading-relaxed text-v2-ink-soft">
+          If an account exists for <span className="font-semibold text-v2-navy">{email}</span>, we&apos;ve
           sent a link to reset your password. The link expires after a while — request another if it
           does.
         </p>
-        <Link href="/login" className={cn(buttonVariants("ghost"), "mt-7")}>
-          Back to sign in
+        <Link href="/login" className={buttonVariants("ghost", "lg", "mt-7 h-[52px] w-full")}>
+          Back to log in
         </Link>
       </div>
     );
@@ -66,37 +67,45 @@ export default function ForgotPasswordForm() {
 
   return (
     <>
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Reset your password</h1>
-      <p className="mb-6 mt-1 text-sm text-muted">
-        Enter your account email and we&apos;ll send you a link to set a new password.
-      </p>
+      <CardHeader
+        title="Reset your password"
+        subtitle="Enter your account email and we'll send you a link to set a new password."
+        alwaysLogo
+      />
       <form onSubmit={onSubmit} noValidate>
-        <Field label="Email" htmlFor="forgot-email" error={show ? emailErr : undefined}>
-          <Input
-            id="forgot-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            maxLength={LIMITS.emailMax}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => setTouched(true)}
-            aria-invalid={show && !!emailErr}
-          />
-        </Field>
+        <AuthField
+          id="forgot-email"
+          label="Email address"
+          icon={<MailIcon size={20} />}
+          type="email"
+          name="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          maxLength={LIMITS.emailMax}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => setTouched(true)}
+          error={show ? emailErr : undefined}
+        />
         {error && (
-          <p role="alert" className="mb-3 text-sm font-medium text-danger">
+          <p role="alert" className="mb-3 text-sm font-medium text-danger-text">
             {error}
           </p>
         )}
-        <button type="submit" disabled={busy} className={cn(buttonVariants("accent"), "w-full")}>
-          {busy ? "Sending…" : "Send reset link"}
+        <button type="submit" disabled={busy} className={buttonVariants("accent", "lg", "mt-2 h-[52px] w-full gap-3 text-[17px]")}>
+          {busy ? (
+            "Sending…"
+          ) : (
+            <>
+              Send reset link <ArrowRightIcon size={20} />
+            </>
+          )}
         </button>
       </form>
-      <p className="mt-4 text-sm text-muted">
+      <p className="mt-5 text-center text-[14px] text-v2-ink-soft">
         Remembered it?{" "}
-        <Link href="/login" className="font-medium text-accent-deep hover:underline">
-          Sign in
+        <Link href="/login" className="inline-flex min-h-[44px] items-center font-semibold text-accent-deep hover:underline">
+          Log in
         </Link>
       </p>
     </>

@@ -42,7 +42,7 @@ export default function ManageBillingButton({ label = "Manage billing" }: { labe
       <Button onClick={open} disabled={busy} variant="ghost" size="sm">
         {busy ? "Opening…" : label}
       </Button>
-      {error ? <p className="text-[12.5px] text-danger">{error}</p> : null}
+      {error ? <p className="text-[12.5px] text-danger-text">{error}</p> : null}
     </div>
   );
 }

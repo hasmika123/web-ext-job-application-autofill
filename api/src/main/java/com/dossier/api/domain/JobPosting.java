@@ -69,6 +69,20 @@ public class JobPosting implements Serializable {
     @Column(name = "first_seen_at", nullable = false)
     private Instant firstSeenAt = Instant.now();
 
+    /** Title, company, location and the start of the description, lower-cased, for the FULLTEXT search (E2E-U4.0). */
+    @Lob
+    @Column(name = "search_text")
+    private String searchText;
+
+    public String getSearchText() {
+        return searchText;
+    }
+
+    public void setSearchText(String searchText) {
+        this.searchText = searchText;
+    }
+
+
     public Long getId() {
         return id;
     }

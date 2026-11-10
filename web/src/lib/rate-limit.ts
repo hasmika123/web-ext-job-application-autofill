@@ -20,7 +20,12 @@ const MAX_WINDOW_MS = 60 * 60_000; // the largest window any caller uses (1h) â€
 
 /** Real client IP behind Caddy: the LAST X-Forwarded-For hop (Caddy-appended, trustworthy). */
 export function clientIp(request: Request): string {
-  const xff = request.headers.get("x-forwarded-for");
+  return clientIpFromHeaders(request.headers);
+}
+
+/** Same rule for code that holds a `Headers` but no `Request` (Server Components, via `next/headers`). */
+export function clientIpFromHeaders(headers: { get(name: string): string | null }): string {
+  const xff = headers.get("x-forwarded-for");
   if (xff) {
     const parts = xff
       .split(",")
@@ -28,7 +33,7 @@ export function clientIp(request: Request): string {
       .filter(Boolean);
     if (parts.length) return parts[parts.length - 1];
   }
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
+  return headers.get("x-real-ip")?.trim() || "unknown";
 }
 
 export type RateLimitResult = { ok: true } | { ok: false; retryAfter: number };

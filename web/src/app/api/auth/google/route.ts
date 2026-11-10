@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/config";
+import { authHostHeaders, isNotAMember, NOT_A_MEMBER_MESSAGE } from "@/lib/auth-host";
 import { setAuthCookies } from "@/lib/auth";
 
 /**
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
   try {
     res = await fetch(apiUrl("/api/auth/google"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(await authHostHeaders()) },
       body: JSON.stringify({ credential }),
       cache: "no-store",
     });
@@ -37,6 +38,9 @@ export async function POST(request: Request) {
 
   if (res.status === 503) {
     return Response.json({ error: "Google sign-in isn't enabled yet." }, { status: 503 });
+  }
+  if (await isNotAMember(res)) {
+    return Response.json({ error: NOT_A_MEMBER_MESSAGE, code: "NOT_A_MEMBER" }, { status: 403 });
   }
   if (!res.ok) {
     return Response.json({ error: "Google sign-in failed. Please try again." }, { status: 401 });

@@ -87,6 +87,11 @@ public class StripeProperties {
     }
 
     /** Null-safe trim. A value that is nothing but whitespace becomes empty, i.e. "not set". */
+    /** True when the configured secret (or restricted) key is a LIVE-mode key. A test key, or no key, is false. */
+    public boolean isLiveKey() {
+        return secretKey != null && (secretKey.startsWith("sk_live_") || secretKey.startsWith("rk_live_"));
+    }
+
     private static String trim(String value) {
         return value == null ? null : value.trim();
     }

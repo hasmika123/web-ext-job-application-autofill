@@ -1,0 +1,222 @@
+{
+  "schema": 2,
+  "meta": {
+    "title": "Senior Software Engineer — sample",
+    "target": "Senior Software Engineer",
+    "language": "en",
+    "profileSyncedAt": null,
+    "originalFileKey": null
+  },
+  "basics": {
+    "name": "Jordan Avery",
+    "headline": "Senior Software Engineer",
+    "email": "jordan.avery@example.com",
+    "phone": "+1 (555) 010-0123",
+    "location": "Austin, TX",
+    "links": [
+      { "label": "LinkedIn", "url": "https://www.linkedin.com/in/jordan-avery-example" },
+      { "label": "GitHub", "url": "https://github.com/jordan-avery-example" },
+      { "label": "Portfolio", "url": "https://jordanavery.example.com" }
+    ],
+    "photo": { "key": "resume-photos/sample/jordan-avery.jpg", "updatedAt": "2026-10-01T09:00:00Z" }
+  },
+  "sections": [
+    {
+      "id": "s_sumsample",
+      "kind": "SUMMARY",
+      "title": "Summary",
+      "items": [
+        {
+          "id": "i_sumsample1",
+          "text": "Senior software engineer with 8 years building distributed systems for logistics and healthcare. Led teams of up to 6 engineers and cut infrastructure spend by 31% while raising uptime to 99.95%. Comfortable owning a service from design review to on-call.",
+          "src": "user",
+          "marks": [
+            { "s": 30, "e": 37, "t": "b" },
+            { "s": 47, "e": 66, "t": "i" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_expsample",
+      "kind": "EXPERIENCE",
+      "title": "Experience",
+      "items": [
+        {
+          "id": "i_expsample1",
+          "title": "Senior Software Engineer",
+          "org": "Harbor & Vale Logistics",
+          "location": "Austin, TX",
+          "start": "2022-03",
+          "end": null,
+          "current": true,
+          "bullets": [
+            { "id": "b_expsample11", "text": "Cut p99 checkout latency from 1.8 s to 420 ms for 2.4M monthly shipments by moving rate calculation to an event-driven service with a Redis read model.", "src": "user" },
+            { "id": "b_expsample12", "text": "Reduced cloud spend by 31% ($410k a year) by right-sizing 140 Kubernetes workloads and moving batch jobs to spot capacity with checkpointed retries.", "src": "user" },
+            { "id": "b_expsample13", "text": "Led a team of 6 engineers through the migration of 38 services off a shared monolith with zero customer-facing incidents over 14 months.", "src": "user" }
+          ]
+        },
+        {
+          "id": "i_expsample2",
+          "title": "Software Engineer",
+          "org": "Lumen Grove Health",
+          "location": "Remote",
+          "start": "2019-06",
+          "end": "2022-02",
+          "current": false,
+          "bullets": [
+            { "id": "b_expsample21", "text": "Raised appointment-reminder delivery from 91% to 99.6% across 300k patients a month by rebuilding the SMS pipeline with idempotent retries and carrier failover.", "src": "user" },
+            { "id": "b_expsample22", "text": "Shortened release cycle from two weeks to daily by introducing trunk-based development, contract tests and a canary stage used by 40 engineers.", "src": "user" },
+            { "id": "b_expsample23", "text": "Passed a SOC 2 Type II audit with no findings by designing the audit-log service (Go, Postgres) and its retention policy.", "src": "user" }
+          ]
+        },
+        {
+          "id": "i_expsample3",
+          "title": "Software Engineer I",
+          "org": "Pinecrest Analytics",
+          "location": "Denver, CO",
+          "start": "2017-07",
+          "end": "2019-05",
+          "current": false,
+          "bullets": [
+            { "id": "b_expsample31", "text": "Doubled dashboard query throughput (1.1k to 2.3k queries a minute) by adding a columnar cache layer in front of the warehouse.", "src": "user" },
+            { "id": "b_expsample32", "text": "Wrote the Python SDK used by 60 customer integrations, with 94% test coverage and typed public APIs.", "src": "user" },
+            { "id": "b_expsample33", "text": "Ran the weekly on-call handover and cut mean time to acknowledge from 22 to 6 minutes with clearer runbooks.", "src": "user" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_edusample",
+      "kind": "EDUCATION",
+      "title": "Education",
+      "items": [
+        {
+          "id": "i_edusample1",
+          "school": "University of Westbrook",
+          "degree": "M.S.",
+          "field": "Computer Science",
+          "location": "Westbrook, OR",
+          "start": "2015-08",
+          "end": "2017-05",
+          "gpa": "3.8",
+          "bullets": [
+            { "id": "b_edusample11", "text": "Thesis: adaptive load shedding for latency-sensitive microservices.", "src": "user" }
+          ]
+        },
+        {
+          "id": "i_edusample2",
+          "school": "Cedar State University",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "location": "Pinecrest, CO",
+          "start": "2011-08",
+          "end": "2015-05",
+          "gpa": null,
+          "bullets": []
+        }
+      ]
+    },
+    {
+      "id": "s_sklsample",
+      "kind": "SKILLS",
+      "title": "Skills",
+      "items": [
+        { "id": "i_sklsample1", "group": "Languages", "skills": ["Go", "TypeScript", "Python", "Java", "SQL"] },
+        { "id": "i_sklsample2", "group": "Frameworks", "skills": ["React", "Node.js", "Spring Boot", "gRPC"] },
+        { "id": "i_sklsample3", "group": "Cloud & Infrastructure", "skills": ["AWS", "Kubernetes", "Terraform", "Docker", "GitHub Actions"] },
+        { "id": "i_sklsample4", "group": "Data", "skills": ["PostgreSQL", "Redis", "Kafka", "BigQuery"] },
+        { "id": "i_sklsample5", "group": "Practices", "skills": ["Incident response", "Observability", "Technical leadership", "Mentoring"] }
+      ]
+    },
+    {
+      "id": "s_prjsample",
+      "kind": "PROJECTS",
+      "title": "Projects",
+      "items": [
+        {
+          "id": "i_prjsample1",
+          "title": "Surge",
+          "url": "https://github.com/jordan-avery-example/surge",
+          "start": "2023-02",
+          "end": "2024-01",
+          "bullets": [
+            {
+              "id": "b_prjsample11",
+              "text": "Published Surge, a load-testing harness with 1.2k GitHub stars; adopted by 40+ engineers at three companies.",
+              "src": "user",
+              "marks": [{ "s": 10, "e": 15, "t": "a", "href": "https://github.com/jordan-avery-example/surge" }]
+            },
+            { "id": "b_prjsample12", "text": "Generates realistic traffic shapes from production traces and reports p50/p99 regressions in CI.", "src": "user" }
+          ]
+        },
+        {
+          "id": "i_prjsample2",
+          "title": "Ledgerline",
+          "url": "https://jordanavery.example.com/ledgerline",
+          "start": "2021",
+          "end": "2021",
+          "bullets": [
+            { "id": "b_prjsample21", "text": "Open-source double-entry ledger library (Go) with exactly-once posting; 300 downloads a week.", "src": "user" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_crtsample",
+      "kind": "CERTIFICATIONS",
+      "title": "Certifications",
+      "items": [
+        { "id": "i_crtsample1", "title": "Certified Cloud Architect", "org": "Open Cloud Council", "date": "2023-04", "url": "https://certs.example.com/occ/jordan-avery" },
+        { "id": "i_crtsample2", "title": "Professional Scrum Master I", "org": "Agile Guild", "date": "2020-11", "url": null }
+      ]
+    },
+    {
+      "id": "s_lngsample",
+      "kind": "LANGUAGES",
+      "title": "Languages",
+      "items": [
+        { "id": "i_lngsample1", "name": "English", "level": "Native" },
+        { "id": "i_lngsample2", "name": "Spanish", "level": "Professional working proficiency" }
+      ]
+    },
+    {
+      "id": "s_achsample",
+      "kind": "ACHIEVEMENTS",
+      "title": "Achievements",
+      "items": [
+        { "id": "i_achsample1", "text": "Engineering Excellence Award, Harbor & Vale Logistics (1 of 4 across 220 engineers).", "date": "2024" },
+        { "id": "i_achsample2", "text": "Speaker, Reliability Summit: \"Load shedding without losing customers\".", "date": "2023-09" }
+      ]
+    },
+    {
+      "id": "s_intsample",
+      "kind": "INTERESTS",
+      "title": "Interests",
+      "items": [
+        { "id": "i_intsample1", "text": "Trail running" },
+        { "id": "i_intsample2", "text": "Woodworking" },
+        { "id": "i_intsample3", "text": "Community radio" }
+      ]
+    },
+    {
+      "id": "s_cussample",
+      "kind": "CUSTOM",
+      "title": "Volunteering",
+      "items": [
+        {
+          "id": "i_cussample1",
+          "title": "Mentor",
+          "org": "Code Bridge Austin",
+          "location": "Austin, TX",
+          "start": "2020-01",
+          "end": null,
+          "current": true,
+          "bullets": [
+            { "id": "b_cussample11", "text": "Coached 25 career-changers through their first backend projects; 18 are now employed as engineers.", "src": "user" }
+          ]
+        }
+      ]
+    }
+  ]
+}

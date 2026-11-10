@@ -1,4 +1,5 @@
 import { serverApiFetch } from "@/lib/api";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * GET /api/account/export — proxy the current user's DSAR export and return it as a JSON file
@@ -14,6 +15,8 @@ export async function GET() {
   if (res.status === 401) {
     return new Response("Your session expired — please sign in again.", { status: 401 });
   }
+  const demo = await demoReadOnly(res);
+  if (demo) return demo;
   if (!res.ok) {
     return new Response("Export failed.", { status: res.status });
   }

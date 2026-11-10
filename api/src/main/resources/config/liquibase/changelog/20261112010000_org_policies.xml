@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Tenant policy pages (docs/enterprise-v2/62-tenant-policy-pages.md). Additive only.
+        org_policy = the working copy of one policy kind of one organization (draft body, state, reviewer comment, which version is live).
+        org_policy_version = one immutable body per submission with its review outcome; exactly one version per (org, kind) is PUBLISHED.
+    -->
+    <changeSet id="20261112010000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_policy"/></not>
+        </preConditions>
+        <createTable tableName="org_policy">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="draft_body" type="${clobType}"/>
+            <column name="draft_version" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="state" type="varchar(20)" defaultValue="DRAFT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="review_comment" type="varchar(1000)"/>
+            <column name="live_version_no" type="int"/>
+            <column name="updated_by_member_id" type="bigint"/>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="org_policy" columnNames="org_id, kind" constraintName="uk_org_policy_kind"/>
+        <addForeignKeyConstraint baseTableName="org_policy" baseColumnNames="org_id"
+            constraintName="fk_org_policy_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <rollback><dropTable tableName="org_policy"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261112010000-2" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_policy_version"/></not>
+        </preConditions>
+        <createTable tableName="org_policy_version">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="version_no" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="body" type="${clobType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="submitted_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="submitted_by_member_id" type="bigint"/>
+            <column name="reviewed_at" type="${datetimeType}"/>
+            <column name="reviewed_by_login" type="varchar(50)"/>
+            <column name="review_comment" type="varchar(1000)"/>
+            <column name="published_at" type="${datetimeType}"/>
+        </createTable>
+        <addUniqueConstraint tableName="org_policy_version" columnNames="org_id, kind, version_no" constraintName="uk_org_policy_version"/>
+        <createIndex tableName="org_policy_version" indexName="ix_org_policy_version_status">
+            <column name="status"/>
+            <column name="submitted_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_policy_version" baseColumnNames="org_id"
+            constraintName="fk_org_policy_version_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_policy_version" baseColumnNames="submitted_by_member_id"
+            constraintName="fk_org_policy_version_member" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+        <rollback><dropTable tableName="org_policy_version"/></rollback>
+    </changeSet>
+</databaseChangeLog>

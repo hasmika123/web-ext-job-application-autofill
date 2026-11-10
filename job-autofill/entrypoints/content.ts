@@ -30,6 +30,7 @@ import "../src/content/assist.js";
 import "../src/lib/fill-telemetry.js";
 import "../src/content/required-audit.js";
 import "../src/content/profile-learn.js";
+import "../src/content/batch-prepare.js";
 import "../src/content/filler.js";
 import "../src/content/content-script.js";
 
@@ -50,6 +51,10 @@ export default defineContentScript({
     "https://*.bamboohr.com/*",
     "https://*.jobvite.com/*",
     "https://smartapply.indeed.com/*",
+    // Dev builds only: local stand-in ATS pages (WXT_DEV_ATS_ORIGINS, see wxt.config.ts). Never in a store build.
+    ...(import.meta.env.MODE === "production" || !import.meta.env.WXT_DEV_ATS_ORIGINS
+      ? []
+      : import.meta.env.WXT_DEV_ATS_ORIGINS.split(",").map((o: string) => o.trim().replace(/\/+$/, "") + "/*").filter((o: string) => o !== "/*")),
   ],
   allFrames: true,
   runAt: "document_idle",

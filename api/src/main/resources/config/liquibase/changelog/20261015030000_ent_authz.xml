@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 authorization skeleton, X1.7 (docs/enterprise-v2/17-consultant-assignments.md section 2, 03-domain-model.md,
+        41-database-design.md: "org_assignment shell, empty").
+
+        One new, EMPTY table: org_assignment, with the columns of the final DDL and its three read indexes, so that
+        AuthorizationService step 9 and ScopeEvaluator's ASSIGNED scope have something real to read. Nothing is backfilled and
+        nothing writes it until X4.7 (assignment lifecycle); with no rows every ASSIGNED / act-for question answers "no", the
+        safe direction. The two generated unique keys of 17 section 2 (one open PRIMARY per consultant: primary_active_key; no
+        duplicate open triple: open_key) belong to X4.7, which owns the lifecycle that needs them, and are added there behind a
+        columnExists precondition.
+
+        All foreign keys are RESTRICT (an assignment is history and is never cascaded away): organization, both member
+        references, the creator, and the self reference replaced_by_assignment_id. Preconditions make a re-run a no-op; the
+        rollback drops the table.
+    -->
+
+    <changeSet id="20261015030000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_assignment"/></not>
+        </preConditions>
+        <createTable tableName="org_assignment">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consultant_member_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="assignee_member_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="starts_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ends_at" type="${datetimeType}"/>
+            <column name="reason" type="varchar(200)"/>
+            <column name="end_reason" type="varchar(30)"/>
+            <column name="replaced_by_assignment_id" type="bigint"/>
+            <column name="created_by_member_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="health" type="varchar(20)" defaultValue="OK">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="org_assignment" indexName="ix_org_assignment_consultant">
+            <column name="org_id"/>
+            <column name="consultant_member_id"/>
+            <column name="ends_at"/>
+        </createIndex>
+        <createIndex tableName="org_assignment" indexName="ix_org_assignment_assignee">
+            <column name="org_id"/>
+            <column name="assignee_member_id"/>
+            <column name="ends_at"/>
+        </createIndex>
+        <createIndex tableName="org_assignment" indexName="ix_org_assignment_kind">
+            <column name="org_id"/>
+            <column name="kind"/>
+            <column name="ends_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_assignment" baseColumnNames="org_id"
+            constraintName="fk_org_assignment_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_assignment" baseColumnNames="consultant_member_id"
+            constraintName="fk_org_assignment_consultant" referencedTableName="org_member" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_assignment" baseColumnNames="assignee_member_id"
+            constraintName="fk_org_assignment_assignee" referencedTableName="org_member" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_assignment" baseColumnNames="created_by_member_id"
+            constraintName="fk_org_assignment_creator" referencedTableName="org_member" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_assignment" baseColumnNames="replaced_by_assignment_id"
+            constraintName="fk_org_assignment_replaced_by" referencedTableName="org_assignment" referencedColumnNames="id"/>
+        <rollback>
+            <dropTable tableName="org_assignment"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

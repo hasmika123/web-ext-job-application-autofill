@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace (branch ent-talent-consultant): the consultant's OWN tasks and follow-ups (Home "Tasks and Follow-ups" and
+        "Today's Focus", later the Tasks page). Isolated to the consultant role: nobody else reads or writes it. 41-database-design.md
+        R1-R10: org_id NOT NULL, FK to organization, composite tenant FK (org_id, consultant_id) to consultant_profile, every secondary
+        index starts with org_id, varchar enum names, DATETIME(6) UTC, additive, empty rollback.
+    -->
+    <changeSet id="ent-cws-1-cws_task" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_task"/></not></preConditions>
+        <createTable tableName="cws_task">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="due_on" type="date"/>
+            <column name="priority" type="varchar(10)" defaultValue="MEDIUM"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="NOT_STARTED"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="completed_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_task" baseColumnNames="org_id" constraintName="fk_cws_task_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_task" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_task_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_task" columnNames="org_id, id" constraintName="uk_cws_task_org_id"/>
+        <createIndex tableName="cws_task" indexName="ix_cws_task_consultant"><column name="org_id"/><column name="consultant_id"/><column name="status"/><column name="due_on"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

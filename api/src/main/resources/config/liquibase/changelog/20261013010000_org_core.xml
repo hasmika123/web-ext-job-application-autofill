@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Organization tenant model, O1.1 (docs/design/org/tenant-model.md section 2; APP-E2E-PLAN section 2.1).
+
+        Seven tables: organization, org_member, org_group, org_invite_batch, org_join_code, org_domain and the
+        append-only org_audit_event. An organization BUYS for people but never owns their data: nothing here is a
+        foreign key from a member's resumes or applications to an org. No sensitive personal data lives in any of
+        these tables (no SSN, bank, tax id or passport number): free text is a short label, and money is in the
+        billing tables (a later wave).
+
+        org_member carries two STORED generated columns that make the "one live row" rules a database fact:
+          active_key       = '{org}:{email}'  while INVITED / ACTIVE / SUSPENDED  -> one live row per email per org
+          active_user_key  = '{org}:{user}'   while ACTIVE / SUSPENDED with a user -> one live membership per user per org
+        A NULL key (LEFT, REMOVED, ERASED, or no email / no user) never collides, so an INVITED row that later goes
+        LEFT can be re-invited. Both columns are unique-indexed.
+
+        organization.created_by_user_id is ON DELETE SET NULL: an org must outlive its creator. org_member.user_id
+        cannot be (MySQL refuses SET NULL on a base column of a stored generated column), so account erasure nulls
+        it explicitly (tenant-model.md section 6) before the user row goes. org_audit_event is keyed by login
+        strings (no FK to jhi_user) so it survives erasure. Orgs are never hard-deleted, so the org_id foreign keys
+        are plain RESTRICT. Additive; no data migration (there are no orgs today).
+    -->
+    <changeSet id="20261013010000-1" author="dossier">
+        <createTable tableName="organization">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="slug" type="varchar(60)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_org_slug"/>
+            </column>
+            <column name="name" type="varchar(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)" defaultValue="DRAFT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="stripe_customer_id" type="varchar(64)">
+                <constraints unique="true" uniqueConstraintName="uk_org_stripe_customer"/>
+            </column>
+            <column name="setup_fee_paid_at" type="${datetimeType}"/>
+            <column name="billing_email" type="varchar(254)"/>
+            <column name="logo_key" type="varchar(255)"/>
+            <column name="website" type="varchar(255)"/>
+            <column name="size_band" type="varchar(20)"/>
+            <column name="country" type="char(2)"/>
+            <column name="timezone" type="varchar(50)" defaultValue="UTC">
+                <constraints nullable="false"/>
+            </column>
+            <column name="settings_json" type="json"/>
+            <column name="created_by_user_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="closed_at" type="${datetimeType}"/>
+        </createTable>
+        <createIndex tableName="organization" indexName="ix_org_status">
+            <column name="status"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="organization" baseColumnNames="created_by_user_id"
+            constraintName="fk_org_created_by_user" referencedTableName="jhi_user" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="20261013010000-2" author="dossier">
+        <createTable tableName="org_group">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="varchar(80)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(20)" defaultValue="TEAM">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sort_order" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="org_group" columnNames="org_id, name" constraintName="uk_org_group_name"/>
+        <addForeignKeyConstraint baseTableName="org_group" baseColumnNames="org_id"
+            constraintName="fk_org_group_org" referencedTableName="organization" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="20261013010000-3" author="dossier">
+        <createTable tableName="org_member">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint"/>
+            <column name="role" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="invite_email" type="varchar(254)"/>
+            <column name="invite_token_hash" type="char(64)">
+                <constraints unique="true" uniqueConstraintName="uk_member_invite_token"/>
+            </column>
+            <column name="invite_expires_at" type="${datetimeType}"/>
+            <column name="invited_by_member_id" type="bigint"/>
+            <column name="display_label" type="varchar(80)"/>
+            <column name="group_id" type="bigint"/>
+            <column name="support_owner_member_id" type="bigint"/>
+            <column name="joined_at" type="${datetimeType}"/>
+            <column name="left_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <!-- Generated columns: Liquibase has no portable syntax for them, so plain MySQL DDL. -->
+        <sql dbms="mysql">
+            ALTER TABLE org_member ADD COLUMN active_key VARCHAR(300)
+                GENERATED ALWAYS AS (IF(status IN ('INVITED','ACTIVE','SUSPENDED'), CONCAT(org_id, ':', invite_email), NULL)) STORED
+        </sql>
+        <sql dbms="mysql">
+            ALTER TABLE org_member ADD COLUMN active_user_key VARCHAR(60)
+                GENERATED ALWAYS AS (IF(status IN ('ACTIVE','SUSPENDED') AND user_id IS NOT NULL, CONCAT(org_id, ':', user_id), NULL)) STORED
+        </sql>
+        <createIndex tableName="org_member" indexName="uk_member_active_key" unique="true">
+            <column name="active_key"/>
+        </createIndex>
+        <createIndex tableName="org_member" indexName="uk_member_active_user_key" unique="true">
+            <column name="active_user_key"/>
+        </createIndex>
+        <createIndex tableName="org_member" indexName="ix_member_org_status">
+            <column name="org_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="org_member" indexName="ix_member_user">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex tableName="org_member" indexName="ix_member_support_owner">
+            <column name="support_owner_member_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="org_id"
+            constraintName="fk_member_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="user_id"
+            constraintName="fk_member_user" referencedTableName="jhi_user" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="invited_by_member_id"
+            constraintName="fk_member_invited_by" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="group_id"
+            constraintName="fk_member_group" referencedTableName="org_group" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="support_owner_member_id"
+            constraintName="fk_member_support_owner" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="20261013010000-4" author="dossier">
+        <createTable tableName="org_invite_batch">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="source" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="file_name" type="varchar(255)"/>
+            <column name="row_count" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="invalid_count" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="accepted_count" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="org_invite_batch" indexName="ix_invite_batch_org">
+            <column name="org_id"/>
+            <column name="created_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_invite_batch" baseColumnNames="org_id"
+            constraintName="fk_invite_batch_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_invite_batch" baseColumnNames="created_by_member_id"
+            constraintName="fk_invite_batch_member" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="20261013010000-5" author="dossier">
+        <createTable tableName="org_join_code">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="code" type="char(8)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_join_code"/>
+            </column>
+            <column name="role" type="varchar(20)" defaultValue="MEMBER">
+                <constraints nullable="false"/>
+            </column>
+            <column name="group_id" type="bigint"/>
+            <column name="max_uses" type="int"/>
+            <column name="uses" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="${datetimeType}"/>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="revoked_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="org_join_code" indexName="ix_join_code_org">
+            <column name="org_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_join_code" baseColumnNames="org_id"
+            constraintName="fk_join_code_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_join_code" baseColumnNames="group_id"
+            constraintName="fk_join_code_group" referencedTableName="org_group" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+        <addForeignKeyConstraint baseTableName="org_join_code" baseColumnNames="created_by_member_id"
+            constraintName="fk_join_code_member" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="20261013010000-6" author="dossier">
+        <createTable tableName="org_domain">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="domain" type="varchar(253)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_org_domain"/>
+            </column>
+            <column name="verification_token" type="char(32)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="verified_at" type="${datetimeType}"/>
+            <column name="auto_join" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="auto_join_group_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="org_domain" indexName="ix_org_domain_org">
+            <column name="org_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_domain" baseColumnNames="org_id"
+            constraintName="fk_org_domain_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_domain" baseColumnNames="auto_join_group_id"
+            constraintName="fk_org_domain_group" referencedTableName="org_group" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="20261013010000-7" author="dossier">
+        <createTable tableName="org_audit_event">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="actor_login" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="actor_role" type="varchar(20)"/>
+            <column name="action" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_type" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="target_login" type="varchar(50)"/>
+            <column name="target_id" type="varchar(191)"/>
+            <column name="details" type="varchar(2000)"/>
+            <column name="ip_hash" type="char(64)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="org_audit_event" indexName="ix_org_audit_org_created">
+            <column name="org_id"/>
+            <column name="created_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_audit_event" baseColumnNames="org_id"
+            constraintName="fk_org_audit_org" referencedTableName="organization" referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

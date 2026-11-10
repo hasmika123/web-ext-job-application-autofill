@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The enterprise feature-catalog tables of docs/enterprise-v2/21-feature-catalog.md sections 2.4 to 2.7 (story K1.2; the same tables the enterprise
+        story X5.2 creates). SHARED OWNERSHIP: whichever changelog is applied first creates them and the other one is a no-op, in BOTH directions, because
+        every changeSet is guarded by a tableExists precondition with onFail MARK_RAN. Table and column names match doc 21 and 08-data-model.md section 2.5
+        byte for byte, so the enterprise changelog can land before or after this file. X5.2 MUST guard its own createTable the same way
+        (preConditions not tableExists, onFail MARK_RAN) and MUST keep these column names.
+
+        Kept in its own file (not inside 20261101010000_sub_catalog.xml) so the both-orders test can run exactly these four changeSets against a scratch schema.
+        MySQL reserves the word KEY: license_preset.key is quoted by Liquibase and by every query that names it.
+    -->
+
+    <changeSet id="sub-catalog-limits" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="feature_definition_limit"/></not></preConditions>
+        <createTable tableName="feature_definition_limit">
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="limit_key" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="limit_value" type="bigint"><constraints nullable="false"/></column>
+            <column name="period" type="varchar(8)"><constraints nullable="false"/></column>
+        </createTable>
+        <addPrimaryKey tableName="feature_definition_limit" columnNames="feature_key, limit_key" constraintName="pk_feature_definition_limit"/>
+        <addForeignKeyConstraint baseTableName="feature_definition_limit" baseColumnNames="feature_key" constraintName="fk_feature_definition_limit_feature"
+                                 referencedTableName="feature_definition" referencedColumnNames="feature_key"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-catalog-dependencies" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="feature_dependency"/></not></preConditions>
+        <createTable tableName="feature_dependency">
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="requires_feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(200)"/>
+            <column name="active" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+        </createTable>
+        <addPrimaryKey tableName="feature_dependency" columnNames="feature_key, requires_feature_key, kind" constraintName="pk_feature_dependency"/>
+        <createIndex tableName="feature_dependency" indexName="ix_feature_dependency_requires">
+            <column name="requires_feature_key"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-catalog-presets" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="license_preset"/></not></preConditions>
+        <createTable tableName="license_preset">
+            <column name="key" type="varchar(40)"><constraints primaryKey="true" nullable="false" primaryKeyName="pk_license_preset"/></column>
+            <column name="name" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="description" type="varchar(500)"/>
+            <column name="feature_keys_json" type="json"><constraints nullable="false"/></column>
+            <column name="mirrors_product_code" type="varchar(40)"/>
+            <column name="plan_key" type="varchar(40)"/>
+            <column name="active" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="sort_order" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="catalog_version" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-catalog-tiers" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="volume_tier"/></not></preConditions>
+        <createTable tableName="volume_tier">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="product_id" type="bigint"/>
+            <column name="min_licensed_consultants" type="int"><constraints nullable="false"/></column>
+            <column name="pct_off_bp" type="int"><constraints nullable="false"/></column>
+            <column name="active" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="effective_from" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="effective_until" type="${datetimeType}"/>
+            <column name="catalog_version" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="volume_tier" baseColumnNames="product_id" constraintName="fk_volume_tier_product"
+                                 referencedTableName="product" referencedColumnNames="id"/>
+        <createIndex tableName="volume_tier" indexName="ix_volume_tier_product">
+            <column name="product_id"/>
+            <column name="active"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

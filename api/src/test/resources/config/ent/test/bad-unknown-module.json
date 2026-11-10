@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "workspaces": [
+    {
+      "key": "X",
+      "slug": "x",
+      "label": "X",
+      "order": 1,
+      "home": "/w/x",
+      "primaryFor": [],
+      "bottomTabs": [],
+      "nav": [
+        {
+          "key": "home",
+          "label": "Home",
+          "icon": "Home",
+          "href": "/w/x",
+          "needs": []
+        },
+        {
+          "key": "a",
+          "label": "A",
+          "icon": "Home",
+          "href": "/w/x/a",
+          "needs": [],
+          "module": "nope"
+        }
+      ]
+    }
+  ]
+}

@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/e2e/.auth/
 
 # next.js
 /.next/
@@ -43,3 +46,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+test-results-real/
+test-results-real-applications/
+test-results-real-interviews/

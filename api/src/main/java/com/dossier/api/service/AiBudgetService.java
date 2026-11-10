@@ -6,7 +6,7 @@ import com.dossier.api.repository.AiCallRepository;
 import com.dossier.api.repository.AiQuotaOverrideRepository;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.service.ai.AiPolicy;
-import com.dossier.api.service.ai.AiProvider;
+import com.dossier.api.service.ai.AiRuntimeSettings;
 import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.service.billing.StripeProperties;
 import java.time.Instant;
@@ -33,7 +33,9 @@ import org.springframework.transaction.annotation.Transactional;
  *       resume parsing (the free exception), limited to {@code dossier.ai.free-monthly-quota}
  *       parses a month. Every other task is Pro.</li>
  * </ul>
- * A task listed in {@link AiPolicy#getDisabledTasks()} is refused for everyone, before anything else.
+ * A task switched off ({@code ai.route.<task>.enabled}, defaulting to the env kill list {@link AiPolicy#getDisabledTasks()})
+ * is refused for everyone, before anything else. The routed model, the economy model and the soft cap are read from
+ * {@link AiRuntimeSettings} (stored row, then env, then code), so an admin edit applies on the next call.
  */
 @Service
 @Transactional(readOnly = true)
@@ -70,7 +72,7 @@ public class AiBudgetService {
     record Window(long budgetMicros, Instant start, Instant resetsAt) {}
 
     private final AiPolicy policy;
-    private final AiProvider provider;
+    private final AiRuntimeSettings runtime;
     private final AiQuotaOverrideRepository overrideRepository;
     private final EntitlementService entitlementService;
     private final AiCallRepository callRepository;
@@ -78,20 +80,22 @@ public class AiBudgetService {
     private final SubscriptionRepository subscriptions;
     private final StripeProperties stripe;
     private final int freeMonthlyQuota;
+    private final DemoAiCap demoCap;
 
     public AiBudgetService(
         AiPolicy policy,
-        AiProvider provider,
+        AiRuntimeSettings runtime,
         AiQuotaOverrideRepository overrideRepository,
         EntitlementService entitlementService,
         AiCallRepository callRepository,
         AiMeteringService metering,
         SubscriptionRepository subscriptions,
         StripeProperties stripe,
+        DemoAiCap demoCap,
         @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota
     ) {
         this.policy = policy;
-        this.provider = provider;
+        this.runtime = runtime;
         this.overrideRepository = overrideRepository;
         this.entitlementService = entitlementService;
         this.callRepository = callRepository;
@@ -99,6 +103,7 @@ public class AiBudgetService {
         this.subscriptions = subscriptions;
         this.stripe = stripe;
         this.freeMonthlyQuota = freeMonthlyQuota;
+        this.demoCap = demoCap;
     }
 
     /** The meter for Settings and the extension: use in the current window, and when it resets. */
@@ -110,7 +115,7 @@ public class AiBudgetService {
         }
         Window w = window.get();
         int pct = percent(callRepository.costSince(login, w.start()), w.budgetMicros());
-        boolean economy = policy.hasEconomyModel() && pct >= policy.getSoftCapPercent() && pct < 100;
+        boolean economy = runtime.economyModel().isPresent() && pct >= runtime.softCapPercent() && pct < 100;
         return new Usage("budget", pct, 100, w.resetsAt(), economy);
     }
 
@@ -125,7 +130,23 @@ public class AiBudgetService {
             return Optional.of(new Window(centsToMicros(override.get().getMonthlyBudgetCents()), monthStart(now), resetsAt(now)));
         }
         if (!entitlementService.isPro(login)) return Optional.empty();
-        return Optional.of(proWindow(subscriptions.findOneByUserLogin(login).orElse(null), now));
+        Window legacy = proWindow(subscriptions.findOneByUserLogin(login).orElse(null), now);
+        if (shadow == null) return Optional.of(legacy);
+        // K7.2: the budget follows the resolved plan version, interval and add-ons. While shadowed the legacy window decides and the two are compared.
+        Optional<com.dossier.api.service.entitlement.EntitlementSet.AiBudgetWindow> resolved = shadow.resolve(login).map(com.dossier.api.service.entitlement.EntitlementSet::aiWindow);
+        if (shadow.shadowOn()) {
+            shadow.compareAiBudgetCents(login, legacy.budgetMicros() / 10_000L, resolved.map(com.dossier.api.service.entitlement.EntitlementSet.AiBudgetWindow::budgetCents).orElse(null));
+            return Optional.of(legacy);
+        }
+        return Optional.of(resolved.map(w -> new Window(centsToMicros((int) w.budgetCents()), w.start(), w.resetsAt())).orElse(legacy));
+    }
+
+    private com.dossier.api.service.entitlement.ShadowComparator shadow;
+
+    /** Optional (K7.2): the catalog resolver's comparator. Without it the budget is exactly the legacy one, as in every plain unit test. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setShadowComparator(com.dossier.api.service.entitlement.ShadowComparator shadow) {
+        this.shadow = shadow;
     }
 
     /**
@@ -138,6 +159,11 @@ public class AiBudgetService {
     Window proWindow(Subscription sub, Instant now) {
         boolean threeMonth = sub != null && isThreeMonthPrice(sub.getPriceId());
         long budget = threeMonth ? policy.pro3moBudgetMicros() : policy.proBudgetMicros();
+        // K1.6: the live Pro plan version decides when it is published; the policy values are the fallback for one release
+        if (catalogDefaults != null) {
+            java.util.OptionalInt cents = catalogDefaults.aiBudgetCents("PRO", threeMonth ? "QUARTER" : "MONTH");
+            if (cents.isPresent()) budget = centsToMicros(cents.getAsInt());
+        }
         Instant end = sub == null ? null : sub.getCurrentPeriodEnd();
         if (end == null || !end.isAfter(now)) {
             return new Window(budget, monthStart(now), resetsAt(now));
@@ -146,20 +172,34 @@ public class AiBudgetService {
         return new Window(budget, start.isAfter(now) ? now : start, end);
     }
 
+    private com.dossier.api.service.catalog.CatalogDefaults catalogDefaults;
+
+    /** Optional (K1.6): the published catalog's AI budget and price intervals. Without it the budget is exactly the legacy one. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setCatalogDefaults(com.dossier.api.service.catalog.CatalogDefaults catalogDefaults) {
+        this.catalogDefaults = catalogDefaults;
+    }
+
     private boolean isThreeMonthPrice(String priceId) {
         String threeMonth = stripe.getPrice3mo();
-        return priceId != null && threeMonth != null && !threeMonth.isBlank() && threeMonth.trim().equals(priceId.trim());
+        if (priceId != null && threeMonth != null && !threeMonth.isBlank() && threeMonth.trim().equals(priceId.trim())) return true;
+        return catalogDefaults != null && catalogDefaults.intervalOfStripePrice(priceId).map("QUARTER"::equals).orElse(false);
     }
 
     public Decision decide(String login, AiTask task) {
         Instant now = Instant.now();
         Instant resets = resetsAt(now);
-        if (policy.isDisabled(task)) {
+        if (!runtime.taskEnabled(task)) {
             return new Decision(Verdict.TASK_DISABLED, null, false, 0, 0, resets, false);
         }
 
+        // The shared demo accounts get a small daily cap on top of whatever the plan or an override allows.
+        if (demoCap.reached(login, now)) {
+            return new Decision(Verdict.EXHAUSTED, null, true, 100, 100, demoCap.resetsAt(now), false);
+        }
+
         Optional<Window> window = window(login, now);
-        String routed = policy.modelFor(task, provider.defaultModel());
+        String routed = runtime.route(task).model();
 
         if (window.isEmpty()) {
             if (task != AiTask.PARSE) {
@@ -176,8 +216,8 @@ public class AiBudgetService {
         if (spent >= budget) {
             return new Decision(Verdict.EXHAUSTED, null, true, pct, 100, w.resetsAt(), false);
         }
-        boolean economy = policy.hasEconomyModel() && pct >= policy.getSoftCapPercent();
-        return new Decision(Verdict.OK, economy ? policy.getEconomyModel().trim() : routed, true, pct, 100, w.resetsAt(), economy);
+        boolean economy = runtime.economyModel().isPresent() && pct >= runtime.softCapPercent();
+        return new Decision(Verdict.OK, economy ? runtime.economyModel().get() : routed, true, pct, 100, w.resetsAt(), economy);
     }
 
     /** Whole percent of a budget spent, 0–100. A zero budget (an override of $0) is fully spent. */

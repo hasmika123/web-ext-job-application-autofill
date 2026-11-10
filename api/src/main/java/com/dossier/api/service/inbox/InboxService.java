@@ -15,6 +15,7 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import org.springframework.context.ApplicationEventPublisher;
@@ -64,6 +65,9 @@ public class InboxService {
     /** Published after a successful connect, so the first read starts now rather than at the next quarter hour. */
     public record Connected(Long userId) {}
 
+    /** The Inbox page's email switch moved; notification preferences carry it into their matrix (E2E-U7.0). */
+    public record NotifyEmailChanged(Long userId, boolean on) {}
+
     /** Why a connect didn't happen — a code for the page, and the sentence to show. */
     public record Refusal(String code, String message, HttpStatus status) {}
 
@@ -73,6 +77,7 @@ public class InboxService {
     private final InboxConnectionRepository connections;
     private final UserRepository users;
     private final EntitlementService entitlement;
+    private final InboxEntitlement orgEntitlement;
     private final SecretBox box;
     private final ImapGateway imap;
     private final InboxMessageRepository messages;
@@ -84,6 +89,7 @@ public class InboxService {
         InboxConnectionRepository connections,
         UserRepository users,
         EntitlementService entitlement,
+        InboxEntitlement orgEntitlement,
         SecretBox box,
         ImapGateway imap,
         InboxMessageRepository messages,
@@ -93,6 +99,7 @@ public class InboxService {
         this.connections = connections;
         this.users = users;
         this.entitlement = entitlement;
+        this.orgEntitlement = orgEntitlement;
         this.box = box;
         this.imap = imap;
         this.messages = messages;
@@ -111,8 +118,22 @@ public class InboxService {
      * one transaction: the Gmail sign-in can take seconds, and no database connection is held for it.
      */
     public ConnectResult connect(String rawAddress, String rawPassword) {
+        return connect(rawAddress, rawPassword, null);
+    }
+
+    /**
+     * {@link #connect(String, String)} on behalf of a person working in an organization workspace: {@code viaOrgId} is the organization of the host the
+     * request arrived on (never a client value), and its license must grant {@code inbox.monitoring}. {@code null} is the personal plan, exactly as
+     * before. The organization only ever gets the fact that it made the connection possible (the offboarding purge); it never sees the address, the
+     * app password or a single message.
+     */
+    public ConnectResult connect(String rawAddress, String rawPassword, Long viaOrgId) {
         User user = currentUser();
-        entitlement.requirePro(user.getLogin());
+        if (viaOrgId == null) {
+            entitlement.require(user.getLogin(), com.dossier.api.service.entitlement.FeatureKeys.INBOX_MONITORING);
+        } else if (!orgEntitlement.orgGrants(viaOrgId, user.getId())) {
+            return refuse("FEATURE_NOT_LICENSED", "Your organization's license doesn't include inbox tracking. Ask your administrator to add it.", HttpStatus.PAYMENT_REQUIRED);
+        }
         if (!box.usable()) {
             return refuse("UNAVAILABLE", "Connecting an inbox isn't available right now. Please try again later.", HttpStatus.SERVICE_UNAVAILABLE);
         }
@@ -143,7 +164,8 @@ public class InboxService {
             return new ConnectResult(null, r);
         }
 
-        InboxConnection c = connections.findById(user.getId()).orElseGet(() -> new InboxConnection(user.getId()));
+        Optional<InboxConnection> existing = connections.findById(user.getId());
+        InboxConnection c = existing.orElseGet(() -> new InboxConnection(user.getId()));
         boolean changedAccount = c.getAddress() != null && !c.getAddress().equals(address);
         if (changedAccount) {
             // A different Gmail: nothing read from the old one stays.
@@ -154,6 +176,12 @@ public class InboxService {
         c.setPasswordEnc(box.encrypt(password, context(user.getId())));
         c.setSentFolder(probe.sentFolder());
         c.setStatus(InboxConnection.CONNECTED);
+        // Legacy accounts (decision O4 leaves SHARED organizations untouched): the context it was made in decides who may purge it later. The same
+        // Gmail already connected on the personal plan stays personal: an organization action never purges a connection the person made on their
+        // own plan. An ENTERPRISE account no longer writes the column at all: the account itself belongs to the organization (users.org_id), so
+        // offboarding purges its connection without any bookkeeping on the row. Old rows are still read.
+        boolean staysPersonal = existing.isPresent() && existing.get().getConnectedViaOrgId() == null && !changedAccount;
+        c.setConnectedViaOrgId(user.getOrgId() != null ? null : staysPersonal ? null : viaOrgId);
         c.setLastError(null);
         c.setConsecutiveFailures(0);
         if (changedAccount || c.getLastCheckedAt() == null) c.setConnectedAt(Instant.now());
@@ -222,7 +250,9 @@ public class InboxService {
             .findById(user.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No inbox connected"));
         c.setNotifyEmail(on);
-        return view(connections.save(c));
+        InboxConnection saved = connections.save(c);
+        events.publishEvent(new NotifyEmailChanged(user.getId(), on));
+        return view(saved);
     }
 
     /** Forget the inbox: the connection, its password, and every message read from it. */
@@ -230,6 +260,20 @@ public class InboxService {
     public void disconnect() {
         User user = currentUser();
         deleteAllForUser(user.getId());
+    }
+
+    /**
+     * Offboarding (and only that): forget the inbox if it was connected through {@code orgId}. A connection made on the personal plan, or through
+     * another organization, is left exactly as it is. An ENTERPRISE account of {@code orgId} (decision O4) has no personal ground: its connection is
+     * always the organization's, so it is always purged. Returns whether something was purged.
+     */
+    @Transactional
+    public boolean purgeConnectedVia(Long userId, Long orgId) {
+        if (userId == null || orgId == null) return false;
+        boolean enterpriseOfOrg = users.findById(userId).map(u -> orgId.equals(u.getOrgId())).orElse(false);
+        boolean via = enterpriseOfOrg ? connections.existsById(userId) : connections.findById(userId).map(c -> orgId.equals(c.getConnectedViaOrgId())).orElse(false);
+        if (via) deleteAllForUser(userId);
+        return via;
     }
 
     public void deleteAllForUser(Long userId) {

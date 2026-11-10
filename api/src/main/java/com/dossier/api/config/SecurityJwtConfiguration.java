@@ -48,7 +48,9 @@ public class SecurityJwtConfiguration {
                     new OAuth2Error("invalid_token", "A refresh token cannot be used to access resources", null)
                 )
                 : OAuth2TokenValidatorResult.success();
-        jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefault(), rejectRefreshTokens));
+        // Enterprise V2 (X1.5): a token minted on one tenant's host is useless on another (401 TOKEN_TENANT_MISMATCH).
+        OAuth2TokenValidator<Jwt> tenantBinding = TenantTokenBinding::validate;
+        jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefault(), rejectRefreshTokens, tenantBinding));
         return token -> {
             try {
                 return jwtDecoder.decode(token);
@@ -57,6 +59,8 @@ public class SecurityJwtConfiguration {
                     metersService.trackTokenInvalidSignature();
                 } else if (e.getMessage().contains("Jwt expired at")) {
                     metersService.trackTokenExpired();
+                } else if (e.getMessage().contains(TenantTokenBinding.MISMATCH)) {
+                    LOG.debug("Tenant-bound token presented on another tenant's host");
                 } else if (
                     e.getMessage().contains("Invalid JWT serialization") ||
                     e.getMessage().contains("Malformed token") ||

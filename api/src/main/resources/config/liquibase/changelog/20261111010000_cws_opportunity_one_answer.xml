@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        One record per consultant answer. The consultant workspace's Assigned Opportunities page used to keep the consultant's answer (interest, a question,
+        a decline) in cws_opportunity_response while the marketer's Opportunities board and answer-info read mkt_opportunity, so an answer never reached the
+        marketer. mkt_opportunity is now the one record (the page writes through the same transitions as the extension-facing /con/opportunities API).
+
+        1. decline_note: the consultant's own words for declining (the page takes free text; decline_reason stays the short code the board reads).
+        2. Backfill: an answer that only exists in cws_opportunity_response (AWAITING_RESPONSE or DECLINED on an ASSIGNED match) is copied onto
+           mkt_opportunity (created when the match has none yet; a row still at ASSIGNED / VIEWED is moved). Idempotent, MySQL only, no column or row removed.
+           cws_opportunity_response keeps the marketer's priority / due date and the resume-update note; its status, decline_reason and info_request columns
+           are no longer written.
+    -->
+    <changeSet id="cws-opp-one-answer-1-decline_note" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="mkt_opportunity" columnName="decline_note"/></not></preConditions>
+        <addColumn tableName="mkt_opportunity">
+            <column name="decline_note" type="varchar(300)"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="cws-opp-one-answer-2-backfill-missing" author="enterprise" dbms="mysql" runInTransaction="false">
+        <sql>
+            INSERT INTO mkt_opportunity (org_id, match_id, interest, state, info_request, decline_reason, decline_note, last_response_at, created_at, updated_at)
+            SELECT r.org_id, m.id,
+                   CASE WHEN r.status = 'DECLINED' THEN 'NOT_INTERESTED' ELSE 'NO_RESPONSE' END,
+                   CASE WHEN r.status = 'DECLINED' THEN 'DECLINED' ELSE 'NEEDS_INFO' END,
+                   CASE WHEN r.status = 'AWAITING_RESPONSE' THEN r.info_request END,
+                   CASE WHEN r.status = 'DECLINED' THEN 'OTHER' END,
+                   CASE WHEN r.status = 'DECLINED' THEN r.decline_reason END,
+                   r.responded_at, r.created_at, r.updated_at
+              FROM cws_opportunity_response r
+              JOIN requirement_match m ON m.org_id = r.org_id AND m.consultant_id = r.consultant_id AND m.requirement_id = r.requirement_id AND m.status = 'ASSIGNED'
+             WHERE r.status IN ('AWAITING_RESPONSE', 'DECLINED')
+               AND NOT EXISTS (SELECT 1 FROM mkt_opportunity o WHERE o.org_id = m.org_id AND o.match_id = m.id)
+        </sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="cws-opp-one-answer-3-backfill-existing" author="enterprise" dbms="mysql" runInTransaction="false">
+        <sql>
+            UPDATE mkt_opportunity o
+              JOIN requirement_match m ON m.org_id = o.org_id AND m.id = o.match_id AND m.status = 'ASSIGNED'
+              JOIN cws_opportunity_response r ON r.org_id = m.org_id AND r.consultant_id = m.consultant_id AND r.requirement_id = m.requirement_id
+               SET o.state = 'DECLINED', o.interest = 'NOT_INTERESTED', o.decline_reason = 'OTHER', o.decline_note = r.decline_reason,
+                   o.last_response_at = COALESCE(o.last_response_at, r.responded_at)
+             WHERE r.status = 'DECLINED' AND o.state IN ('ASSIGNED', 'VIEWED', 'INTERESTED')
+        </sql>
+        <sql>
+            UPDATE mkt_opportunity o
+              JOIN requirement_match m ON m.org_id = o.org_id AND m.id = o.match_id AND m.status = 'ASSIGNED'
+              JOIN cws_opportunity_response r ON r.org_id = m.org_id AND r.consultant_id = m.consultant_id AND r.requirement_id = m.requirement_id
+               SET o.state = 'NEEDS_INFO', o.info_request = r.info_request, o.last_response_at = COALESCE(o.last_response_at, r.responded_at)
+             WHERE r.status = 'AWAITING_RESPONSE' AND r.info_request IS NOT NULL AND o.state IN ('ASSIGNED', 'VIEWED', 'INTERESTED')
+        </sql>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

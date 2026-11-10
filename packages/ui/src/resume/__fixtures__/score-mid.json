@@ -1,0 +1,69 @@
+{
+  "schema": 2,
+  "meta": { "title": "Priya Sharma - Product Manager" },
+  "basics": {
+    "name": "Priya Sharma",
+    "headline": "Senior Product Manager",
+    "email": "priya.sharma@example.com",
+    "phone": "(650) 123-4567",
+    "location": "San Francisco, CA",
+    "links": [],
+    "photo": { "key": "resume-photos/1/1-x-photo.jpg" }
+  },
+  "sections": [
+    {
+      "id": "s_summary1",
+      "kind": "SUMMARY",
+      "items": [{ "id": "i_summary1", "text": "I am a passionate product manager and team player who loves building things." }]
+    },
+    {
+      "id": "s_exp0001",
+      "kind": "EXPERIENCE",
+      "items": [
+        {
+          "id": "i_exp0001",
+          "title": "Senior Product Manager",
+          "org": "Acme Analytics",
+          "start": "2022-03",
+          "current": true,
+          "bullets": [
+            {
+              "id": "b_exp0001",
+              "text": "Led a cross-functional team of 8 to launch self-serve dashboards, increasing weekly active users by 35%.",
+              "marks": [{ "s": 0, "e": 3, "t": "i" }]
+            },
+            { "id": "b_exp0002", "text": "Drove a 25% increase in trial conversion through SQL-backed experiments and pricing tests." },
+            { "id": "b_exp0003", "text": "Partnered with engineering and design to deliver 3 major releases ahead of schedule." }
+          ]
+        },
+        {
+          "id": "i_exp0002",
+          "title": "Product Manager",
+          "org": "Beta Labs",
+          "start": "2019-06",
+          "end": "2022-02",
+          "bullets": [
+            { "id": "b_exp0004", "text": "Responsible for the onboarding experience." },
+            { "id": "b_exp0005", "text": "Worked on AI features." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_edu0001",
+      "kind": "EDUCATION",
+      "items": [{ "id": "i_edu0001", "school": "State University", "degree": "B.S.", "field": "Computer Science", "start": "2015-08", "end": "2019-05" }]
+    },
+    {
+      "id": "s_skl0001",
+      "kind": "SKILLS",
+      "items": [
+        {
+          "id": "i_skl0001",
+          "group": "Product",
+          "skills": ["SQL", "Python", "Figma", "Roadmapping", "A/B testing", "Customer research", "Analytics", "Pricing"]
+        }
+      ]
+    }
+  ]
+}

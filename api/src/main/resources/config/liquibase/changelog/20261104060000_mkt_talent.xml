@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Marketing workspace (talent) tables. Owned by the talent page ONLY ("My Assigned Talent").
+        Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
+        table names prefixed mkt_). Never edit another page's changelog.
+
+        mkt_saved_view: a marketer's own named filter set on My Assigned Talent ("Saved Views"). One row per (member, name). The
+        filters are plain columns (no JSON): free text search, status chip, skill, location, experience band, availability.
+        Personal preference only: no consultant data and no PII is stored here.
+    -->
+    <changeSet id="mkt-talent-1-mkt_saved_view" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_saved_view"/></not></preConditions>
+        <createTable tableName="mkt_saved_view">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="page_key" type="varchar(20)" defaultValue="TALENT"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="query_text" type="varchar(120)"/>
+            <column name="status_filter" type="varchar(20)"/>
+            <column name="skill_filter" type="varchar(60)"/>
+            <column name="location_filter" type="varchar(120)"/>
+            <column name="experience_filter" type="varchar(10)"/>
+            <column name="availability_filter" type="varchar(20)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_saved_view" baseColumnNames="org_id" constraintName="fk_mkt_saved_view_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_saved_view" baseColumnNames="org_id, member_id" constraintName="fk_mkt_saved_view_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_saved_view" columnNames="org_id, id" constraintName="uk_mkt_saved_view_org_id"/>
+        <addUniqueConstraint tableName="mkt_saved_view" columnNames="org_id, member_id, page_key, name" constraintName="uk_mkt_saved_view_name"/>
+        <createIndex tableName="mkt_saved_view" indexName="ix_mkt_saved_view_member"><column name="org_id"/><column name="member_id"/><column name="page_key"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_saved_view" constraintName="fk_mkt_saved_view_member"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -1,5 +1,6 @@
 import { serverApiFetch } from "@/lib/api";
 import { LIMITS } from "@/lib/validate";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * PUT /api/resumes/:id — partial update of one of the current user's resumes.
@@ -116,6 +117,8 @@ export async function DELETE(_request: Request, ctx: { params: Promise<{ id: str
   if (res.status === 401) {
     return Response.json({ error: "Your session expired — please sign in again." }, { status: 401 });
   }
+  const demo = await demoReadOnly(res);
+  if (demo) return demo;
   if (res.status === 404) {
     return Response.json({ error: "Resume not found." }, { status: 404 });
   }

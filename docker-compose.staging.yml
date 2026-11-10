@@ -1,0 +1,58 @@
+# Staging overlay (REAL-GAPS-C P3.2; design: docs/design/plat/environments-staging-capacity.md).
+#
+#   docker compose --env-file .env.staging -f docker-compose.prod.yml -f docker-compose.staging.yml up -d
+#   (or: scripts/ops/deploy.sh --staging --build)
+#
+# A second, separate copy of the stack on the shared box, for checking a release before it goes to
+# production. It REPLACES docker-compose.shared-edge.yml - never combine the two: that overlay gives
+# web/api the PRODUCTION aliases (dossier-web, dossier-api) that the edge routes to, and two
+# containers sharing an alias would split production traffic between prod and staging.
+#
+#   * its own Compose project (`dossier-staging`): own containers, own network, own volumes
+#     (dossier-staging_mysql-data, dossier-staging_uploads) - nothing shared with production;
+#   * its own aliases on the shared `web_edge` network: dossier-staging-web / dossier-staging-api.
+#     The route for staging.kiwiply.com lives in the edge Caddyfile (outside this repo, applied by
+#     the user: DEPLOY.md section 5.5) - this repo never edits it;
+#   * our own Caddy stays parked (same profile as the shared-edge overlay);
+#   * memory caps, because the box is shared (3.7 GB total, BeeCompete on it): staging is the first
+#     thing to stop under pressure (`docker compose -p dossier-staging stop`, host-guard says so);
+#   * everything else - secrets, mail, Stripe test mode, cron switches - comes from .env.staging
+#     (template: .env.staging.example). It never reuses a production value.
+
+name: dossier-staging
+
+services:
+  caddy:
+    profiles: ["standalone-edge"]
+
+  mysql:
+    mem_limit: 384m
+    # The production flags plus a small buffer pool (a test asserts this still starts with the
+    # production command, so a flag added there cannot silently go missing here).
+    command: mysqld --lower_case_table_names=1 --skip-mysqlx --character_set_server=utf8mb4 --explicit_defaults_for_timestamp --innodb_buffer_pool_size=64M
+
+  api:
+    mem_limit: 512m
+    environment:
+      - JAVA_OPTS=-Xms128m -Xmx256m
+    networks:
+      internal:
+      web_edge:
+        aliases: [dossier-staging-api]
+
+  web:
+    mem_limit: 256m
+    networks:
+      internal:
+      web_edge:
+        aliases: [dossier-staging-web]
+
+  chromium:
+    mem_limit: 512m
+    cpus: 1
+    shm_size: 256m
+
+networks:
+  # Created and owned by the beecompete-edge stack - never declared here.
+  web_edge:
+    external: true

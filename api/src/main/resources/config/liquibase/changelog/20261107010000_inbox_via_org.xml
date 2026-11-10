@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        ent-inbox - a consultant may connect their OWN Gmail while working in an organization workspace (docs/enterprise-v2/18-consultant-inbox.md).
+        `connected_via_org_id` records the organization whose license made that possible; it is NULL for a connection made on the person's personal
+        plan. It is the only link between the connection and the organization, and it carries no mailbox data: the organization never sees credentials
+        or mail. When the member is offboarded, the connection whose via-org is that organization is purged (password and mail); a personal one never is.
+        Additive; plain column, no foreign key (an organization row is never deleted, and the purge does not depend on one).
+    -->
+    <changeSet id="20261107010000-1" author="dossier">
+        <addColumn tableName="inbox_connection">
+            <column name="connected_via_org_id" type="bigint"/>
+        </addColumn>
+        <createIndex tableName="inbox_connection" indexName="idx_inbox_connection_via_org">
+            <column name="connected_via_org_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

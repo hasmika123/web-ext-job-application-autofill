@@ -12,7 +12,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -35,6 +37,8 @@ import org.springframework.test.web.servlet.MvcResult;
 @AutoConfigureMockMvc
 @ActiveProfiles("api-docs")
 @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
+// Generating the spec for ~170 paths takes ~25 s on a busy machine; the suite-wide 15 s default is too tight here.
+@Timeout(value = 120, unit = TimeUnit.SECONDS)
 class OpenApiContractIT {
 
     @Autowired

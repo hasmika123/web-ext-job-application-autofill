@@ -45,7 +45,11 @@
   function hasSuccessSignal(doc) {
     const body = doc && doc.body;
     if (!body) return false;
-    const text = (body.textContent || "").replace(/\s+/g, " ").trim().slice(0, 20000);
+    // What the person can SEE: `innerText` leaves out hidden blocks (a form page often carries its
+    // "thank you" panel hidden until the submit), `textContent` would count them before any submit.
+    // Environments without layout (tests) have no innerText and fall back to textContent.
+    const raw = typeof body.innerText === "string" ? body.innerText : body.textContent;
+    const text = (raw || "").replace(/\s+/g, " ").trim().slice(0, 20000);
     if (!text) return false;
     return SUCCESS_COPY.some((re) => re.test(text));
   }
@@ -112,7 +116,32 @@
     });
   }
 
+  // --- consultant: assigned-job link (WP5c) ---------------------------------
+  // The drawer tells the fill which assigned job (if any) this page is. Only two positive integers
+  // are kept — anything else from a message is dropped, so a malformed ref can never reach a URL.
+  function opportunityRef(o) {
+    if (!o || typeof o !== "object") return null;
+    const orgId = Number(o.orgId), id = Number(o.id);
+    return Number.isInteger(orgId) && orgId > 0 && Number.isInteger(id) && id > 0 ? { orgId, id } : null;
+  }
+
+  // After the user's OWN submit was confirmed on their OWN application, tell the org that the
+  // assigned job was applied to. Strictly best-effort: the user's flow has already succeeded, so a
+  // failure here is swallowed (the server linker is the fallback). Returns true when linked.
+  async function linkOpportunityAfterSubmit(provider, entry) {
+    const ref = opportunityRef(entry && entry.opportunity);
+    if (!ref || !provider || typeof provider.linkOpportunity !== "function") return false;
+    try {
+      await provider.linkOpportunity(ref.orgId, ref.id, entry.serverId != null ? { applicationId: entry.serverId } : {});
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   JAF.appTracking = {
+    opportunityRef,
+    linkOpportunityAfterSubmit,
     isSuccessUrl,
     hasSuccessSignal,
     buildApplication,

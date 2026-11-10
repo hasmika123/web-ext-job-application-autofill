@@ -3,15 +3,18 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { PasswordInput, Field } from "@/components/ui";
+import { ArrowRightIcon, LockIcon } from "@kiwiply/ui";
 import { buttonVariants } from "@/components/ui/Button";
-import { cn } from "@/lib/cn";
 import { LIMITS } from "@/lib/validate";
+import AuthField from "@/components/auth/AuthField";
+import { CardHeader } from "@/components/auth/AuthParts";
+
+const PRIMARY = "mt-7 h-[52px] w-full gap-3 text-[17px]";
 
 /**
  * "Forgot password" step 2 — set a new password using the key from the emailed link.
  * The key arrives as the `?key=` query param (read on the server page and passed in).
- * On success we send the user to sign in with their new password.
+ * On success we send the user to log in with their new password.
  */
 export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
   const router = useRouter();
@@ -35,11 +38,11 @@ export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
   if (!resetKey) {
     return (
       <div>
-        <h1 className="text-[28px] font-bold tracking-tight text-ink">Invalid reset link</h1>
-        <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+        <CardHeader title="Invalid reset link" alwaysLogo />
+        <p className="text-center text-[15px] leading-relaxed text-v2-ink-soft">
           This password-reset link is missing or malformed. Request a new one and try again.
         </p>
-        <Link href="/forgot-password" className={cn(buttonVariants("accent"), "mt-7")}>
+        <Link href="/forgot-password" className={buttonVariants("accent", "lg", PRIMARY)}>
           Request a new link
         </Link>
       </div>
@@ -74,12 +77,12 @@ export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
   if (done) {
     return (
       <div>
-        <h1 className="text-[28px] font-bold tracking-tight text-ink">Password updated</h1>
-        <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-          Your password has been changed. You can now sign in with your new password.
+        <CardHeader title="Password updated" alwaysLogo />
+        <p className="text-center text-[15px] leading-relaxed text-v2-ink-soft">
+          Your password has been changed. You can now log in with your new password.
         </p>
-        <button onClick={() => router.push("/login")} className={cn(buttonVariants("accent"), "mt-7")}>
-          Go to sign in
+        <button type="button" onClick={() => router.push("/login")} className={buttonVariants("accent", "lg", PRIMARY)}>
+          Go to log in <ArrowRightIcon size={20} />
         </button>
       </div>
     );
@@ -87,45 +90,54 @@ export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
 
   return (
     <>
-      <h1 className="text-[28px] font-bold tracking-tight text-ink">Set a new password</h1>
-      <p className="mb-6 mt-1 text-sm text-muted">Choose a new password for your account.</p>
+      <CardHeader title="Set a new password" subtitle="Choose a new password for your account." alwaysLogo />
       <form onSubmit={onSubmit} noValidate>
-        <Field label="New password" htmlFor="reset-password" error={show("password") ? errs.password : undefined}>
-          <PasswordInput
-            id="reset-password"
-            name="password"
-            autoComplete="new-password"
-            maxLength={LIMITS.passwordMax}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onBlur={() => touch("password")}
-            aria-invalid={show("password") && !!errs.password}
-          />
-        </Field>
-        <Field label="Confirm password" htmlFor="reset-confirm" error={show("confirm") ? errs.confirm : undefined}>
-          <PasswordInput
-            id="reset-confirm"
-            name="confirm"
-            autoComplete="new-password"
-            maxLength={LIMITS.passwordMax}
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            onBlur={() => touch("confirm")}
-            aria-invalid={show("confirm") && !!errs.confirm}
-          />
-        </Field>
+        <AuthField
+          id="reset-password"
+          label="New password"
+          icon={<LockIcon size={20} />}
+          password
+          name="password"
+          autoComplete="new-password"
+          placeholder="Create a password"
+          maxLength={LIMITS.passwordMax}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onBlur={() => touch("password")}
+          error={show("password") ? errs.password : undefined}
+        />
+        <AuthField
+          id="reset-confirm"
+          label="Confirm password"
+          icon={<LockIcon size={20} />}
+          password
+          name="confirm"
+          autoComplete="new-password"
+          placeholder="Confirm your password"
+          maxLength={LIMITS.passwordMax}
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          onBlur={() => touch("confirm")}
+          error={show("confirm") ? errs.confirm : undefined}
+        />
         {error && (
-          <p role="alert" className="mb-3 text-sm font-medium text-danger">
+          <p role="alert" className="mb-3 text-sm font-medium text-danger-text">
             {error}
           </p>
         )}
-        <button type="submit" disabled={busy} className={cn(buttonVariants("accent"), "w-full")}>
-          {busy ? "Saving…" : "Update password"}
+        <button type="submit" disabled={busy} className={buttonVariants("accent", "lg", "mt-2 h-[52px] w-full gap-3 text-[17px]")}>
+          {busy ? (
+            "Saving…"
+          ) : (
+            <>
+              Update password <ArrowRightIcon size={20} />
+            </>
+          )}
         </button>
       </form>
-      <p className="mt-4 text-sm text-muted">
-        <Link href="/login" className="font-medium text-accent-deep hover:underline">
-          Back to sign in
+      <p className="mt-5 text-center text-[14px]">
+        <Link href="/login" className="inline-flex min-h-[44px] items-center font-semibold text-accent-deep hover:underline">
+          Back to log in
         </Link>
       </p>
     </>

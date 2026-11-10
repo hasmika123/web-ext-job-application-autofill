@@ -1,0 +1,368 @@
+package com.dossier.api.service.settings;
+
+import com.dossier.api.service.AdminSettingsWriter.Risk;
+import com.dossier.api.service.ResumeBuilderSettingKeys.Key;
+import com.dossier.api.service.ResumeBuilderSettingKeys.Type;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+/**
+ * The Enterprise V2 settings (docs/enterprise-v2/06-phase-plan.md section 3, X1.1): the master enterprise flag and its
+ * per-phase sub-flags, the reserved platform hosts and the tenancy knobs. Same {@link Key} record and bounds as the
+ * other registries; {@code ResumeBuilderSettingKeys.find} and {@code SettingDefinitions} consult this class, so the admin
+ * Settings page lists these keys with no further wiring and {@code ResumeBuilderSettings} reads them unchanged.
+ *
+ * <p>Every {@code flag.enterprise*} key is a FLAG {@code {on, pct, allow, deny}} that defaults OFF, so a deployment that
+ * never touches these settings behaves exactly as it did before Enterprise V2 (ADR-023). The allow/deny lists hold
+ * <b>organization ids</b> (positive integers, or the same digits as strings), not logins.
+ *
+ * <p>Keys whose feature has not shipped ("not enforced yet") are kept in {@link #deferred()}: the constants exist so the
+ * story that owns the feature can read them, but they are NOT registered ({@link #all()}, {@link #find}), so the admin
+ * page never offers a switch that does nothing. The story that starts reading a key moves its declaration from the
+ * deferred list to the live one ({@code d} to {@code k} in the static block below).
+ */
+public final class EnterpriseSettingKeys {
+
+    /** The master switch: tenant resolution, the public tenant endpoint and every enterprise route. */
+    public static final String FLAG_ENTERPRISE = "flag.enterprise";
+    public static final String FLAG_DOMAINS = "flag.enterprise.domains";
+    public static final String FLAG_ROLES = "flag.enterprise.roles";
+    public static final String FLAG_BILLING = "flag.enterprise.billing";
+    public static final String FLAG_MARKETING = "flag.enterprise.marketing";
+    /** Release 1, Phase 1: the consultant's assigned-jobs API (/api/orgs/{id}/con/**) and the lifecycle behind it. Read by ConScope; not one of the eight tenant modules. */
+    public static final String FLAG_CONSULTANT_JOBS = "flag.enterprise.consultant_jobs";
+    public static final String FLAG_HR_FINANCE = "flag.enterprise.hr_finance";
+    public static final String FLAG_EXTENSION_WORKSPACES = "flag.enterprise.extension_workspaces";
+    /** X2.2: the module booleans of {@code GET /api/me/tenant} read these two as well (12-identity.md section 3); declared, not offered in admin yet. */
+    public static final String FLAG_INTEGRATIONS = "flag.enterprise.integrations";
+    public static final String FLAG_ANALYTICS = "flag.enterprise.analytics";
+
+    /** Hostnames that are the platform itself (kiwiply.com and friends): they never resolve to a tenant. */
+    public static final String HOSTS_PLATFORM = "enterprise.hosts.platform";
+    /** Base domains under which {@code {label}.<base>} may name a tenant subdomain. */
+    public static final String HOSTS_TENANT_BASE_DOMAINS = "enterprise.hosts.tenant_base_domains";
+    public static final String TENANT_CACHE_SECONDS = "enterprise.tenant.cache_seconds";
+    public static final String TENANT_RATE_PER_MIN = "enterprise.tenant.rate_per_min";
+    public static final String DOMAINS_SUBDOMAINS_PER_DAY = "enterprise.domains.subdomains_per_day";
+    public static final String DOMAINS_RECHECK_HOURS = "enterprise.domains.recheck_hours";
+    public static final String DOMAINS_GRACE_HOURS_BEFORE_SUSPEND = "enterprise.domains.grace_hours_before_suspend";
+    public static final String ORG_INVITE_REQUIRE_EMAIL_MATCH = "org.invite.require_email_match";
+    /**
+     * Decision O4 (docs/enterprise-v2/19, phase S1): master switch of separate enterprise accounts. Off (default): every account is a personal
+     * account and every flow behaves as before. On: an organization whose {@code account_mode} is SEPARATE resolves email lookups inside its
+     * own enterprise accounts. Read through {@code AccountScopes}.
+     */
+    public static final String SEPARATE_ACCOUNTS = "enterprise.separate_accounts";
+    /** Marketing Assignments board: when a marketer counts as overloaded (percent of capacity), the most consultants one bulk call may name, and the highest capacity a marketer may be given. An organization may override each in org_setting. */
+    public static final String ORG_MARKETING_OVERLOAD_PCT = "org.marketing.overload_pct";
+    public static final String ORG_MARKETING_BULK_MAX = "org.marketing.bulk_max";
+    public static final String ORG_MARKETING_CAPACITY_MAX = "org.marketing.capacity_max";
+    /**
+     * Sprint 2 / B1 (pipeline guards): what happens when a consultant would be put in front of the same posting twice (WARN asks for a confirmation and a reason, BLOCK refuses),
+     * the days within which the same job through another vendor still counts, the most consultants that may hold one posting at once (0 = off), the most open opportunities one
+     * consultant may hold (0 = off), and whether open work follows a consultant to a new marketer. An organization may override each in org_setting.
+     */
+    public static final String ORG_PIPELINE_DUPLICATE_POLICY = "org.pipeline.duplicate_policy";
+    public static final String ORG_PIPELINE_SAME_CLIENT_WINDOW_DAYS = "org.pipeline.same_client_window_days";
+    public static final String ORG_PIPELINE_MAX_PER_REQUIREMENT = "org.pipeline.max_submissions_per_requirement";
+    public static final String ORG_PIPELINE_OPEN_MATCHES_MAX = "org.pipeline.open_matches_max";
+    public static final String ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK = "org.assignments.handover_open_work";
+    /**
+     * Sprint 2 / H-assign: the longest temporary cover (days) and how far ahead a handover may be scheduled (days); and the licence allowance
+     * {@code consultants.max}, the most consultants one marketer may carry whatever the capacity on the board says (0 = the licence sets no cap).
+     * An organization may override each in org_setting.
+     */
+    public static final String ORG_ASSIGNMENTS_DELEGATE_MAX_DAYS = "org.assignments.delegate_max_days";
+    public static final String ORG_ASSIGNMENTS_SCHEDULE_MAX_DAYS = "org.assignments.schedule_max_days";
+    public static final String ORG_LICENSE_CONSULTANTS_MAX = "org.license.consultants_max";
+    /** Interviews page: how long a status change may be undone (minutes), the most interviewers one interview may list, and the minutes before a reminder may be requested again. An organization may override each in org_setting. */
+    public static final String ORG_INTERVIEWS_UNDO_MINUTES = "org.interviews.undo_minutes";
+    public static final String ORG_INTERVIEWS_MAX_DURATION_MINUTES = "org.interviews.max_duration_minutes";
+    public static final String ORG_INTERVIEWS_MAX_INTERVIEWERS = "org.interviews.max_interviewers";
+    public static final String ORG_INTERVIEWS_REMINDER_COOLDOWN_MINUTES = "org.interviews.reminder_cooldown_minutes";
+    /** Clients page: the days of quiet within which a client with work in flight reads Healthy, the days of quiet after which it reads At Risk, and the work e-mail rule (consumer mail domains refused for a contact). An organization may override the two day counts in org_setting. */
+    public static final String ORG_CLIENTS_HEALTHY_DAYS = "org.clients.healthy_days";
+    public static final String ORG_CLIENTS_AT_RISK_DAYS = "org.clients.at_risk_days";
+    public static final String ORG_CLIENTS_CONSUMER_DOMAINS = "org.clients.consumer_email_domains";
+    /** Account Manager workspace: the days after which an open requirement counts as aging on the Home tile and the Requirements page. An organization may override it in org_setting. */
+    public static final String ORG_ACCOUNTS_REQUIREMENT_AGING_DAYS = "org.accounts.requirement_aging_days";
+    /** Placements board: how many days ahead a placement counts as ending soon / starting soon, and how close an end date turns red. An organization may override each in org_setting. */
+    public static final String ORG_PLACEMENTS_ENDING_SOON_DAYS = "org.placements.ending_soon_days";
+    public static final String ORG_PLACEMENTS_ENDING_URGENT_DAYS = "org.placements.ending_urgent_days";
+    public static final String ORG_PLACEMENTS_STARTING_SOON_DAYS = "org.placements.starting_soon_days";
+    /** Offers (X9.8): days an extended offer stays open for the consultant's answer when the org gave no deadline. An organization may override it in org_setting. */
+    public static final String ORG_OFFERS_EXPIRY_DAYS = "org.offers.expiry_days";
+    public static final String ORG_CONSENT_REQUEST_COOLDOWN_DAYS = "org.consent.request_cooldown_days";
+    /**
+     * Organization Settings page (X2.9). An organization sets its own idle-session timeout and password minimum (org_setting keys
+     * {@link #ORG_SECURITY_SESSION_TIMEOUT_MINUTES} and {@link #ORG_SECURITY_PASSWORD_MIN_LENGTH}, never in the global registry) only inside the
+     * bounds below; the locale only from the allowed list; every Security change needs a reason of at least the configured length.
+     */
+    public static final String ORG_SECURITY_SESSION_TIMEOUT_MINUTES = "org.security.session_timeout_minutes";
+    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH = "org.security.sign_in_min_length";
+    public static final String ORG_SECURITY_SESSION_TIMEOUT_MIN_MINUTES = "org.security.session_timeout_min_minutes";
+    public static final String ORG_SECURITY_SESSION_TIMEOUT_MAX_MINUTES = "org.security.session_timeout_max_minutes";
+    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR = "org.security.sign_in_min_length_floor";
+    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING = "org.security.sign_in_min_length_ceiling";
+    public static final String ORG_SETTINGS_REASON_MIN_CHARS = "org.settings.reason_min_chars";
+    public static final String ORG_SETTINGS_LOCALES = "org.settings.locales";
+    /** Audit viewer CSV export (X4.9): the most rows one export carries (newest first); an export of a longer log says it was cut. */
+    public static final String ORG_AUDIT_EXPORT_MAX_ROWS = "org.audit.export_max_rows";
+    /** org_setting keys of the General section (an organization's own values; not registry keys). */
+    public static final String ORG_LOCALE = "org.locale";
+    public static final String ORG_CONTACT_SUPPORT_EMAIL = "org.contact.support_email";
+    /** Resume Builder inside an organization workspace: how many live (non-archived) resumes one consultant of the organization may keep. The organization license sets the cap; an organization may override it in org_setting. */
+    public static final String ORG_LICENSE_RESUMES_MAX = "org.license.resumes_max";
+    /** Resume Builder inside an organization workspace: whether a consultant may create share links (recruiter link, named people) for their organization resumes. Off unless the organization turns it on; a marketer acting for a consultant never can. */
+    public static final String ORG_RESUMES_CONSULTANT_SHARE_LINKS = "org.resumes.consultant_share_links";
+    /** Tenant policy pages (docs/enterprise-v2/62): whether a Kiwiply admin must approve an organization's policy before it goes live (default true), the policy kinds each organization may publish, and the longest body. */
+    public static final String POLICIES_REQUIRE_REVIEW = "enterprise.policies.require_review";
+    public static final String POLICIES_KINDS = "enterprise.policies.kinds";
+    public static final String POLICIES_MAX_CHARS = "enterprise.policies.max_chars";
+    public static final String DEFAULT_POLICY_KINDS = "[\"PRIVACY\",\"TERMS\",\"ACCEPTABLE_USE\",\"SUPPORT_CONTACT\"]";
+    public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
+    public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
+    public static final String USAGE_RETENTION_MONTHS = "enterprise.usage.retention_months";
+    /**
+     * Change audit (docs/change-audit/README.md section 4.4, X9.15): months of application, interview and submission history an organization keeps.
+     * 0 = for the life of the record (decision D5). Read by {@code EnterpriseHistoryRetentionJob}; an organization may override it in {@code org_setting}.
+     */
+    public static final String HISTORY_RETENTION_MONTHS = "enterprise.history.retention_months";
+    /**
+     * Release 1, WP2 (docs/enterprise-v2/60 section 10): the most job detail an organization's pages may show, MINIMAL (facts and the link) or FULL.
+     * The level actually shown is the lower of this and the job's stored {@code detail_level}; read by {@code JobDetailMapper} / {@code JobDetailCap}.
+     * An organization may override it in {@code org_setting}.
+     */
+    public static final String JOBS_DETAIL_CAP = "enterprise.jobs.detail_cap";
+    /**
+     * Prepare selected openings (docs/enterprise-v2/63, X12.2): the platform switch (default off), the most openings one consultant may prepare per UTC day and
+     * per UTC month, the most in one request, and how long a session accepts events. The extension opens and fills the jobs in the consultant's own browser and
+     * stops; nothing is ever submitted for anyone. The {@code enabled} switch is the MASTER switch: it only makes the feature available. Each organization then opts in itself
+     * (its own {@code org_setting} row of the same key, OFF until its Org Admin turns it on) and may set its own caps and batch size, never above the platform values.
+     */
+    public static final String PREPARE_ENABLED = "enterprise.autopilot.prepare.enabled";
+    public static final String PREPARE_DAILY_CAP = "enterprise.autopilot.prepare.daily_cap";
+    public static final String PREPARE_MONTHLY_CAP = "enterprise.autopilot.prepare.monthly_cap";
+    public static final String PREPARE_MAX_BATCH = "enterprise.autopilot.prepare.max_batch";
+    public static final String PREPARE_SESSION_MINUTES = "enterprise.autopilot.prepare.session_minutes";
+
+    /** The default of {@link #HOSTS_PLATFORM} (06-phase-plan.md section 3). */
+    public static final String DEFAULT_PLATFORM_HOSTS = "[\"kiwiply.com\",\"www.kiwiply.com\",\"app.kiwiply.com\",\"api.kiwiply.com\"]";
+
+    /**
+     * The default of {@link #HOSTS_TENANT_BASE_DOMAINS}: production only. {@code localhost} (for {@code acme.localhost}) is
+     * never a default: it is added by the resolver only where {@code dossier.tenant-host.allow-localhost-tenants} is true
+     * (the dev and test profiles). Loopback names are always platform hosts in the resolver, so they are not listed here.
+     * The web app derives its own copy of the platform list from its site URL and {@code PLATFORM_HOSTS}; this setting is
+     * the source of truth and the two must be kept in step (documented in DEPLOY.md and web/.env.example).
+     */
+    public static final String DEFAULT_TENANT_BASE_DOMAINS = "[\"kiwiply.com\"]";
+
+    public static final String DEFAULT_CONSUMER_DOMAINS = "[\"gmail.com\",\"googlemail.com\",\"yahoo.com\",\"hotmail.com\",\"outlook.com\",\"live.com\",\"icloud.com\",\"me.com\",\"aol.com\",\"proton.me\",\"protonmail.com\",\"gmx.com\",\"mail.com\"]";
+
+    private static final Pattern HOSTNAME = Pattern.compile("(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*");
+    private static final String DEFAULT_LOCALES = "[\"en\",\"en-GB\",\"es\",\"fr\",\"de\"]";
+    private static final Pattern LOCALE_TAG = Pattern.compile("[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}");
+    private static final Pattern POLICY_KIND = Pattern.compile("[A-Z][A-Z_]{1,39}");
+    private static final Pattern ORG_ID_TEXT = Pattern.compile("[1-9][0-9]{0,18}");
+    private static final String NOT_ENFORCED = " Not enforced yet: it takes effect once the feature that reads it ships.";
+
+    private static final List<Key> ALL;
+    private static final List<Key> DEFERRED;
+    private static final Map<String, Key> BY_KEY;
+
+    static {
+        List<Key> k = new ArrayList<>();
+        List<Key> d = new ArrayList<>(); // declared, not enforced yet, hidden from admin
+
+        flag(k, FLAG_ENTERPRISE, Risk.HIGH,
+            "Master switch for Enterprise V2: tenant resolution from the request host, GET /api/public/tenant and every enterprise route. "
+                + "on = enabled; an allow list of organization ids narrows it to those organizations (a pilot); deny always wins. Off = those routes answer 404.");
+        flag(k, FLAG_DOMAINS, Risk.HIGH, "Custom-domain lifecycle and the certificate 'ask' endpoint answering for custom hostnames. Needs the master flag.");
+        flag(k, FLAG_ROLES, Risk.MEDIUM, "Organization member permissions are read from role data (several roles per member, scopes) instead of the fixed role enum, and GET /api/orgs/{id}/roles answers. A member whose role data is missing or disagrees with the enum keeps the enum. Needs the master flag.");
+        flag(d, FLAG_BILLING, Risk.HIGH, "Enterprise license APIs and Stripe organization billing. Needs the master flag." + NOT_ENFORCED);
+        flag(k, FLAG_MARKETING, Risk.MEDIUM, "Talent marketing workspace: the Marketing pages and the /api/orgs/{id}/mkt/** APIs. Needs the master flag.");
+        flag(k, FLAG_CONSULTANT_JOBS, Risk.MEDIUM, "Consultant assigned jobs: the /api/orgs/{id}/con/** APIs, the consultant's Opportunities page and the extension's assigned-jobs list. Needs the master flag and the roles flag.");
+        flag(d, FLAG_HR_FINANCE, Risk.MEDIUM, "HR and Finance record modules. Needs the master flag." + NOT_ENFORCED);
+        flag(d, FLAG_EXTENSION_WORKSPACES, Risk.MEDIUM, "Workspaces on /api/profile/version and the extension workspace header. Needs the master flag." + NOT_ENFORCED);
+
+        flag(d, FLAG_INTEGRATIONS, Risk.MEDIUM, "Integrations and webhooks module (Phase 12). Needs the master flag." + NOT_ENFORCED);
+        flag(d, FLAG_ANALYTICS, Risk.MEDIUM, "Analytics and reports module (Phase 12). Needs the master flag." + NOT_ENFORCED);
+
+        k.add(new Key(HOSTS_PLATFORM, Type.JSON, DEFAULT_PLATFORM_HOSTS, null, null, null,
+            "Hostnames that are the platform itself (never a tenant), as a JSON list of lower-case hostnames. A request for one of them is the personal product and the platform console.",
+            EnterpriseSettingKeys::hostList, Risk.HIGH));
+        k.add(new Key(HOSTS_TENANT_BASE_DOMAINS, Type.JSON, DEFAULT_TENANT_BASE_DOMAINS, null, null, null,
+            "Base domains under which {label}.<base> can name an organization's subdomain, as a JSON list. Development hosts such as acme.localhost are enabled by the dev profile, not by this list.",
+            EnterpriseSettingKeys::hostList, Risk.HIGH));
+        integer(k, TENANT_CACHE_SECONDS, 60, 0, 600, Risk.LOW, "Seconds the API remembers which tenant a hostname belongs to. 0 = no caching. A tenant, hostname or status change evicts the entry at once on that instance.");
+        integer(k, TENANT_RATE_PER_MIN, 120, 10, 6000, Risk.MEDIUM, "Requests per minute per hostname and visitor IP on GET /api/public/tenant.");
+        k.add(new Key(JOBS_DETAIL_CAP, Type.ENUM, "MINIMAL", null, null, List.of("MINIMAL", "FULL"),
+            "The most job detail the organization's pages show: MINIMAL (title, employer, location, work mode, employment type, pay, link, skills) or FULL. "
+                + "The level shown is the lower of this and what the job itself holds, so FULL shows nothing more for a job captured with the extension. An organization can override it in org_setting.",
+            null, Risk.HIGH));
+        k.add(new Key(PREPARE_ENABLED, Type.BOOL, "false", null, null, null,
+            "Prepare selected openings: a consultant ticks assigned openings and the browser extension opens each job in a new tab and fills it from the consultant's own profile, then stops. "
+                + "The consultant reviews, completes anything missing and presses the final button on the real site; Kiwiply never does it for them and never ticks an attestation box. Off = the feature does not exist for anyone. On = available: each organization opts in itself (default off) on its Organization Settings page, and only consultants whose license includes the Autopilot prepare add-on can use it.", null, Risk.HIGH));
+        integer(k, PREPARE_DAILY_CAP, 30, 1, 1000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC day. This is the maximum: an organization can set its own lower number in org_setting.");
+        integer(k, PREPARE_MONTHLY_CAP, 300, 1, 10000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC calendar month. This is the maximum: an organization can set its own lower number in org_setting.");
+        integer(k, PREPARE_MAX_BATCH, 10, 1, 50, Risk.LOW, "Prepare selected openings: the most openings in one request. This is the maximum: an organization can set its own lower number in org_setting.");
+        integer(k, PREPARE_SESSION_MINUTES, 240, 15, 1440, Risk.LOW, "Prepare selected openings: minutes a prepared batch keeps accepting progress events from the extension. An organization can override it in org_setting.");
+        integer(k, HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW,
+            "Months of organization application, interview and submission history kept; 0 keeps it as long as the record exists. Older rows are deleted nightly, but the newest row of every record is always kept. An organization can override it in org_setting.");
+        integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
+        integer(d, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
+        integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
+        k.add(new Key(ORG_INVITE_REQUIRE_EMAIL_MATCH, Type.BOOL, "true", null, null, null,
+            "An organization invitation can only be accepted by the account whose email matches the invited address (409 INVITE_EMAIL_MISMATCH otherwise). Off: any signed-in account may accept and the acceptance is audited with a mismatch flag. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        k.add(new Key(SEPARATE_ACCOUNTS, Type.BOOL, "false", null, null, null,
+            "Separate enterprise accounts (decision O4): when on, an organization in SEPARATE account mode has its own enterprise accounts, kept apart from personal accounts even when the email is the same. Off = every account is a personal account (today's behaviour). Leave it off until the separate-accounts phases have shipped and the production check query is clean.", null, Risk.HIGH));
+        k.add(new Key(POLICIES_REQUIRE_REVIEW, Type.BOOL, "true", null, null, null,
+            "Organization policy pages (privacy, terms, ...): on = an organization's submitted policy goes live only after a Kiwiply admin approves it in Policy reviews; off = a submission publishes at once (still audited). Until a policy is published the organization's host shows a neutral template.", null, Risk.MEDIUM));
+        k.add(new Key(POLICIES_KINDS, Type.JSON, DEFAULT_POLICY_KINDS, null, null, null,
+            "The policy kinds every organization can publish on its own host, as a JSON list of upper-case keys (1 to 12, e.g. PRIVACY, TERMS, ACCEPTABLE_USE, SUPPORT_CONTACT, COOKIES). A known key has its own page path (/privacy, /terms, /acceptable-use, /support); any other is served at /policies/{key}.",
+            EnterpriseSettingKeys::policyKinds, Risk.LOW));
+        integer(k, POLICIES_MAX_CHARS, 40000, 500, 200000, Risk.LOW, "Organization policy pages: the longest policy body (characters) an Org Admin can save.");
+        integer(k, ORG_MARKETING_OVERLOAD_PCT, 90, 50, 100, Risk.LOW, "Marketing Assignments: a marketer counts as overloaded once assigned consultants reach this percent of their capacity. An organization can override it in org_setting.");
+        integer(k, ORG_MARKETING_BULK_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: most consultants one assign, update, unassign or undo call may name. An organization can override it in org_setting.");
+        integer(k, ORG_MARKETING_CAPACITY_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: the highest capacity (consultants at once) a marketer may be given. An organization can override it in org_setting.");
+        k.add(new Key(ORG_PIPELINE_DUPLICATE_POLICY, Type.ENUM, "WARN", null, null, List.of("WARN", "BLOCK"),
+            "Duplicate-submission guard: when assigning or recording would put a consultant in front of the same posting twice (the same link or job, the same role through another vendor, or a posting too many consultants already hold), WARN answers 409 DUPLICATE_WARNING until the marketer confirms with a reason (audited), BLOCK refuses with 409 DUPLICATE_BLOCKED. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        integer(k, ORG_PIPELINE_SAME_CLIENT_WINDOW_DAYS, 90, 1, 730, Risk.LOW, "Duplicate-submission guard: the same role for the same consultant through another vendor counts as a duplicate when the earlier assignment or application is at most this many days old. An organization can override it in org_setting.");
+        integer(k, ORG_PIPELINE_MAX_PER_REQUIREMENT, 0, 0, 50, Risk.LOW, "Duplicate-submission guard: the most consultants that may hold one posting at the same time; the next assignment is a duplicate warning (or a block, per the policy). 0 = off. An organization can override it in org_setting.");
+        integer(k, ORG_PIPELINE_OPEN_MATCHES_MAX, 0, 0, 1000, Risk.LOW, "Assignments: the most open opportunities one consultant may hold; the next assignment answers 409 ASSIGNMENT_CAP. 0 = off. An organization can override it in org_setting.");
+        k.add(new Key(ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK, Type.BOOL, "true", null, null, null,
+            "Marketing Assignments: when a consultant moves to a new marketer, the open opportunities, tasks and follow-ups the previous marketer owned for that consultant move with them (audited, with a note on each). Off: only the assignment moves and the open work stays with the previous owner. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        integer(k, ORG_ASSIGNMENTS_DELEGATE_MAX_DAYS, 90, 1, 365, Risk.LOW, "Marketing Assignments: the longest temporary cover (days) that can be set when a marketer is away. The cover ends by itself on its end date and the consultant goes back. An organization can override it in org_setting.");
+        integer(k, ORG_ASSIGNMENTS_SCHEDULE_MAX_DAYS, 180, 1, 730, Risk.LOW, "Marketing Assignments: how far ahead (days) a handover to a new marketer may be scheduled. An organization can override it in org_setting.");
+        integer(k, ORG_LICENSE_CONSULTANTS_MAX, 0, 0, 500, Risk.MEDIUM, "Marketing Assignments, entitlement consultants.max: the most consultants one marketer may carry, whatever the capacity on the board says; assigning past it answers 409 CONSULTANTS_LIMIT and cannot be overridden. 0 = the licence sets no cap. The marketer license grants it; an organization can override it in org_setting.");
+        integer(k, ORG_INTERVIEWS_UNDO_MINUTES, 10, 1, 120, Risk.LOW, "Interviews: how many minutes a recorded status change may be undone. An organization can override it in org_setting.");
+        integer(k, ORG_INTERVIEWS_MAX_DURATION_MINUTES, 480, 15, 1440, Risk.LOW, "Interviews: the longest interview (minutes) that may be scheduled. An organization can override it in org_setting.");
+        integer(k, ORG_INTERVIEWS_MAX_INTERVIEWERS, 6, 1, 20, Risk.LOW, "Interviews: the most interviewers one interview may list. An organization can override it in org_setting.");
+        integer(k, ORG_INTERVIEWS_REMINDER_COOLDOWN_MINUTES, 60, 1, 1440, Risk.LOW, "Interviews: minutes before a reminder may be requested again for the same interview (the request is a record; no email is sent). An organization can override it in org_setting.");
+        integer(k, ORG_CLIENTS_HEALTHY_DAYS, 14, 1, 365, Risk.LOW, "Clients page health: an active client whose last activity is at most this many days old and that has an open requirement or a consultant placed reads Healthy. An organization can override it in org_setting.");
+        integer(k, ORG_CLIENTS_AT_RISK_DAYS, 45, 2, 730, Risk.LOW, "Clients page health: an active client with no activity for this many days or more reads At Risk (everything between Healthy and At Risk reads Neutral). Must stay above the Healthy days. An organization can override it in org_setting.");
+        k.add(new Key(ORG_CLIENTS_CONSUMER_DOMAINS, Type.JSON, DEFAULT_CONSUMER_DOMAINS, null, null, null,
+            "Clients page: e-mail domains that are private mailboxes, as a JSON list of lower-case hostnames. A client contact must have a work e-mail, so these are refused (422 WORK_EMAIL_REQUIRED): we keep business contacts, not people's private addresses.",
+            EnterpriseSettingKeys::hostList, Risk.LOW));
+        integer(k, ORG_ACCOUNTS_REQUIREMENT_AGING_DAYS, 14, 1, 365, Risk.LOW, "Account Manager workspace: an open requirement posted this many days ago or more counts as aging (the Aging tile and the Aging filter). An organization can override it in org_setting.");
+        integer(k, ORG_PLACEMENTS_ENDING_SOON_DAYS, 45, 1, 365, Risk.LOW, "Placements: a placement whose end date is within this many days counts as ending soon (the Ending Soon tile and the Ends in N days pill). An organization can override it in org_setting.");
+        integer(k, ORG_PLACEMENTS_ENDING_URGENT_DAYS, 14, 1, 90, Risk.LOW, "Placements: an end date this close (or closer) turns the Ends in N days pill red. An organization can override it in org_setting.");
+        integer(k, ORG_PLACEMENTS_STARTING_SOON_DAYS, 30, 1, 180, Risk.LOW, "Placements: a placement starting within this many days counts as starting soon (the Starting Soon tile). An organization can override it in org_setting.");
+        integer(k, ORG_OFFERS_EXPIRY_DAYS, 14, 1, 90, Risk.LOW, "Offers: how many days an offer recorded as extended stays open for the consultant's answer when no deadline was entered; after that it is marked Expired by the nightly job. An organization can override it in org_setting.");
+        integer(k, ORG_LICENSE_RESUMES_MAX, 25, 1, 200, Risk.LOW, "Resume Builder in an organization workspace: the most live (non-archived) resumes one consultant of the organization may keep (counted per account, personal plans never apply there). The consultant license grants it; an organization can override it in org_setting. Creating a resume past it answers 402 RESUME_LIMIT; nothing already created is removed.");
+        k.add(new Key(ORG_RESUMES_CONSULTANT_SHARE_LINKS, Type.BOOL, "false", null, null, null,
+            "Resume Builder in an organization workspace: let a consultant create share links (a recruiter link or named people) for their organization resumes. Off by default; the organization admin can turn it on, and an organization can override it in org_setting. A marketer acting for a consultant can never create share links, whatever this says. Personal accounts are unaffected.", null, Risk.MEDIUM));
+        integer(k, ORG_SECURITY_SESSION_TIMEOUT_MIN_MINUTES, 15, 5, 1440, Risk.MEDIUM, "Organization Settings: the shortest idle-session timeout (minutes) an Org Admin may set for their organization.");
+        integer(k, ORG_SECURITY_SESSION_TIMEOUT_MAX_MINUTES, 43200, 60, 525600, Risk.MEDIUM, "Organization Settings: the longest idle-session timeout (minutes) an Org Admin may set; 43200 is 30 days.");
+        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR, 4, 4, 32, Risk.HIGH, "Organization Settings: the lowest sign-in minimum length an Org Admin may set (never below the platform's own 4).");
+        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING, 32, 8, 100, Risk.MEDIUM, "Organization Settings: the highest sign-in minimum length an Org Admin may set.");
+        integer(k, ORG_SETTINGS_REASON_MIN_CHARS, 10, 3, 200, Risk.LOW, "Organization Settings: the fewest characters of the reason an Org Admin must give for a Security change.");
+        integer(k, ORG_AUDIT_EXPORT_MAX_ROWS, 5000, 100, 50000, Risk.LOW, "Audit log CSV export: the most rows (newest first) one export carries.");
+        k.add(new Key(ORG_SETTINGS_LOCALES, Type.JSON, DEFAULT_LOCALES, null, null, null,
+            "Organization Settings: the default languages an Org Admin can choose for their organization, as a JSON list of language tags (1 to 20, e.g. en, en-GB, es).",
+            EnterpriseSettingKeys::localeList, Risk.LOW));
+        integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
+        d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
+            "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));
+        integer(d, QUOTE_TTL_MINUTES, 15, 1, 240, Risk.MEDIUM, "Minutes a license-change quote stays valid before it must be recomputed." + NOT_ENFORCED);
+        integer(d, USAGE_RETENTION_MONTHS, 24, 3, 84, Risk.LOW, "Months of enterprise usage-ledger rows kept before they are purged." + NOT_ENFORCED);
+
+        Map<String, Key> by = new LinkedHashMap<>();
+        for (Key key : k) {
+            if (by.put(key.key(), key) != null) throw new IllegalStateException("duplicate enterprise setting key " + key.key());
+        }
+        ALL = Collections.unmodifiableList(k);
+        DEFERRED = Collections.unmodifiableList(d);
+        BY_KEY = Collections.unmodifiableMap(by);
+    }
+
+    private EnterpriseSettingKeys() {}
+
+    /** Every key declared here, in declaration order. */
+    public static List<Key> all() {
+        return ALL;
+    }
+
+    /** Declared but not enforced yet (hidden from admin and from {@link #find}); see the class comment. */
+    public static List<Key> deferred() {
+        return DEFERRED;
+    }
+
+    /** The declaration for {@code key}; null when it is not one of these. */
+    public static Key find(String key) {
+        return key == null ? null : BY_KEY.get(key);
+    }
+
+    // ---- value shapes ---------------------------------------------------------
+
+    /**
+     * An enterprise flag: an object with a boolean {@code on}; optional {@code pct} 0-100 and {@code allow}/{@code deny}
+     * lists of organization ids (positive integers, or digit-only strings), at most 50 each (the stored value is capped at 1000 characters).
+     */
+    static boolean enterpriseFlag(JsonNode n) {
+        if (n == null || !n.isObject()) return false;
+        Set<String> allowed = Set.of("on", "pct", "allow", "deny");
+        for (Iterator<String> it = n.fieldNames(); it.hasNext();) {
+            if (!allowed.contains(it.next())) return false;
+        }
+        if (!n.has("on") || !n.get("on").isBoolean()) return false;
+        if (n.has("pct") && !(n.get("pct").isInt() && n.get("pct").intValue() >= 0 && n.get("pct").intValue() <= 100)) return false;
+        for (String list : List.of("allow", "deny")) {
+            if (!n.has(list)) continue;
+            JsonNode a = n.get(list);
+            if (!a.isArray() || a.size() > 50) return false;
+            for (JsonNode e : a) {
+                boolean ok = e.isIntegralNumber() ? e.canConvertToLong() && e.longValue() > 0 : e.isTextual() && ORG_ID_TEXT.matcher(e.textValue()).matches();
+                if (!ok) return false;
+            }
+        }
+        return true;
+    }
+
+    /** A JSON list of 1 to 12 distinct policy kind keys: upper-case letters and underscores, 2 to 40 characters, starting with a letter. */
+    public static boolean policyKinds(JsonNode n) {
+        if (n == null || !n.isArray() || n.isEmpty() || n.size() > 12) return false;
+        Set<String> seen = new java.util.HashSet<>();
+        for (JsonNode e : n) {
+            if (!e.isTextual() || !POLICY_KIND.matcher(e.textValue()).matches() || !seen.add(e.textValue())) return false;
+        }
+        return true;
+    }
+
+    /** A JSON list of 1 to 20 distinct language tags such as {@code en} or {@code en-GB}. */
+    public static boolean localeList(JsonNode n) {
+        if (n == null || !n.isArray() || n.isEmpty() || n.size() > 20) return false;
+        Set<String> seen = new java.util.HashSet<>();
+        for (JsonNode e : n) {
+            if (!e.isTextual() || e.textValue().length() > 20 || !LOCALE_TAG.matcher(e.textValue()).matches() || !seen.add(e.textValue())) return false;
+        }
+        return true;
+    }
+
+    /** A JSON list of 1 to 50 lower-case hostnames (letters, digits, hyphens and dots; at most 253 characters). */
+    static boolean hostList(JsonNode n) {
+        if (n == null || !n.isArray() || n.isEmpty() || n.size() > 50) return false;
+        for (JsonNode e : n) {
+            if (!e.isTextual() || e.textValue().length() > 253 || !HOSTNAME.matcher(e.textValue()).matches()) return false;
+        }
+        return true;
+    }
+
+    // ---- declaration helpers --------------------------------------------------
+
+    private static void flag(List<Key> k, String key, Risk risk, String description) {
+        k.add(new Key(key, Type.JSON, AdminSettingKeys.FLAG_OFF, null, null, null, description, EnterpriseSettingKeys::enterpriseFlag, risk));
+    }
+
+    private static void integer(List<Key> k, String key, int def, int min, int max, Risk risk, String description) {
+        k.add(new Key(key, Type.INT, String.valueOf(def), (double) min, (double) max, null, description, null, risk));
+    }
+}

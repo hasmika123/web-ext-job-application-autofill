@@ -1,10 +1,16 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.domain.Application;
+import com.dossier.api.domain.ApplicationEvent;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.security.SecurityUtils;
-import com.dossier.api.service.ResumeStorageService;
-import com.dossier.api.service.ResumeStorageService.StoredFile;
+import com.dossier.api.service.ApplicationEventService;
+import com.dossier.api.service.tracker.ChangeActor;
+import com.dossier.api.service.tracker.Changes;
+import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.FileStorage.StoredFile;
+import com.dossier.api.service.storage.StorageKeys;
+import com.dossier.api.service.storage.StorageObjectNotFoundException;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,14 +34,20 @@ import org.springframework.web.server.ResponseStatusException;
 public class ApplicationAttachmentResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApplicationAttachmentResource.class);
-    private static final String PREFIX = "application-attachments";
+    private static final String PREFIX = StorageKeys.APPLICATION_ATTACHMENTS;
 
     private final ApplicationRepository applicationRepository;
-    private final ResumeStorageService storageService;
+    private final FileStorage storageService;
+    private final ApplicationEventService eventService;
 
-    public ApplicationAttachmentResource(ApplicationRepository applicationRepository, ResumeStorageService storageService) {
+    public ApplicationAttachmentResource(
+        ApplicationRepository applicationRepository,
+        FileStorage storageService,
+        ApplicationEventService eventService
+    ) {
         this.applicationRepository = applicationRepository;
         this.storageService = storageService;
+        this.eventService = eventService;
     }
 
     @PostMapping
@@ -46,13 +58,25 @@ public class ApplicationAttachmentResource {
         }
         Application app = ownedOr404(id);
         Long userId = app.getUser() != null ? app.getUser().getId() : null;
-        // Replace any previously stored attachment so we don't orphan bytes in S3.
+        // Replace any previously stored attachment so we don't orphan stored bytes.
         String previousKey = app.getAttachmentObjectKey();
         String key = storageService.objectKeyFor(PREFIX, userId, app.getId(), file.getOriginalFilename());
         storageService.store(key, file.getBytes(), file.getContentType());
         app.setAttachmentObjectKey(key);
         app.setAttachmentFilename(safeName(file.getOriginalFilename()));
         applicationRepository.save(app);
+        // Change audit: attaching or replacing the submitted file is a change to the application (the file name is not recorded: it can name a person).
+        eventService.record(
+            app,
+            ApplicationEvent.ATTACHMENT,
+            null,
+            null,
+            ApplicationEvent.SRC_WEB,
+            null,
+            previousKey != null && !previousKey.isBlank() ? "Attachment replaced" : "Attachment added",
+            ChangeActor.forOwner(app.getUser()),
+            new Changes().text("attachment")
+        );
         if (previousKey != null && !previousKey.isBlank() && !previousKey.equals(key)) {
             storageService.delete(previousKey);
         }
@@ -68,7 +92,12 @@ public class ApplicationAttachmentResource {
         if (key == null || key.isBlank()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No attachment for this application");
         }
-        StoredFile stored = storageService.load(key);
+        StoredFile stored;
+        try {
+            stored = storageService.load(key);
+        } catch (StorageObjectNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "FILE_MISSING");
+        }
         MediaType contentType = stored.contentType() != null
             ? MediaType.parseMediaType(stored.contentType())
             : MediaType.APPLICATION_OCTET_STREAM;
@@ -88,9 +117,13 @@ public class ApplicationAttachmentResource {
         if (key != null && !key.isBlank()) {
             storageService.delete(key);
         }
+        boolean had = key != null && !key.isBlank();
         app.setAttachmentObjectKey(null);
         app.setAttachmentFilename(null);
         applicationRepository.save(app);
+        if (had) {
+            eventService.record(app, ApplicationEvent.ATTACHMENT, null, null, ApplicationEvent.SRC_WEB, null, "Attachment removed", ChangeActor.forOwner(app.getUser()), new Changes().text("attachment"));
+        }
         return ResponseEntity.noContent().build();
     }
 

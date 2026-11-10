@@ -2,6 +2,7 @@ package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
 import com.dossier.api.service.AccountDeletionService;
+import com.dossier.api.service.DemoGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,16 +30,20 @@ public class AccountDeletionResource {
 
     private final AccountDeletionService accountDeletionService;
 
-    public AccountDeletionResource(AccountDeletionService accountDeletionService) {
+    private final DemoGuard demoGuard;
+
+    public AccountDeletionResource(AccountDeletionService accountDeletionService, DemoGuard demoGuard) {
         this.accountDeletionService = accountDeletionService;
+        this.demoGuard = demoGuard;
     }
 
     @Operation(
         summary = "Delete my account and all my data",
-        description = "Permanently erases the current user's resumes (files + rows), bio, applications, AI answers, field cache, and the user account."
+        description = "Permanently and immediately erases the current user's resumes (files + rows), bio, applications, AI answers, field cache, and the user account, and writes a purge report. For the undo window use POST /api/account/deletion-request."
     )
     @DeleteMapping("")
     public ResponseEntity<Void> deleteMyAccount() {
+        demoGuard.assertNotDemo();
         LOG.debug("REST request to delete the current user's account and all data");
         accountDeletionService.deleteCurrentUserAccount();
         return ResponseEntity.noContent().build();

@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "meta": {
+    "title": "Backend SWE — 2026",
+    "target": "Backend SWE",
+    "language": "en",
+    "profileSyncedAt": "2026-10-11T10:00:00Z",
+    "originalFileKey": null
+  },
+  "basics": {
+    "name": "  Priya Sharma ",
+    "headline": "Software Engineer",
+    "email": "priya@example.com",
+    "phone": "+1 415 555 0100",
+    "location": "San Francisco, CA",
+    "links": [
+      {"label": "LinkedIn", "url": "https://linkedin.com/in/priya"},
+      {"label": "", "url": "https://github.com/priya"},
+      {"label": "Dangling label", "url": ""}
+    ],
+    "photoKey": null
+  },
+  "sections": [
+    {
+      "id": "s_summary", "kind": "SUMMARY", "title": "Summary", "hidden": false,
+      "items": [
+        {"id": "i_sum0001", "text": "  Results-driven backend engineer with 6 years of experience building payment systems.  ", "src": "ai"},
+        {"id": "i_sum0002", "text": "A hidden alternative summary.", "src": "user", "hidden": true}
+      ]
+    },
+    {
+      "id": "s_experience", "kind": "EXPERIENCE", "title": "Work Experience", "hidden": false,
+      "items": [
+        {
+          "id": "i_exp00001", "profileItemId": 812, "hidden": false,
+          "title": "Software Engineer", "org": "Google", "location": "Mountain View, CA",
+          "start": "2022-06", "end": "2023-01", "current": true,
+          "bullets": [
+            {"id": "b_exp10001", "text": "Led migration of the billing service to Kubernetes, cutting p99 latency by 40%.", "src": "user"},
+            {"id": "b_exp10002", "text": "  Built an internal tool\nused by 300 engineers.  ", "src": "parsed"},
+            {"id": "b_exp10003", "text": "", "src": "user"}
+          ]
+        },
+        {
+          "id": "i_exp00002", "hidden": true,
+          "title": "Intern", "org": "Initech", "location": null,
+          "start": "2016", "end": "2016", "current": false,
+          "bullets": [{"id": "b_exp20001", "text": "This hidden item never leaves the document.", "src": "user"}]
+        },
+        {
+          "id": "i_exp00003",
+          "title": "Backend Developer", "org": "Acme Corp", "location": "Zürich, Switzerland",
+          "start": "2019", "end": "2022-05", "current": false,
+          "bullets": [
+            {"id": "b_exp30001", "text": "Designed a ledger service handling 2M transactions a day.", "src": "learned"},
+            {"id": "b_exp30002", "text": "Mentored three junior engineers – two were promoted.", "src": "user"}
+          ]
+        },
+        {"id": "i_exp00004", "title": "  ", "org": null, "bullets": []}
+      ]
+    },
+    {
+      "id": "s_education", "kind": "EDUCATION", "title": "Education",
+      "items": [
+        {
+          "id": "i_edu00001", "school": "Stanford University", "degree": "B.S.", "field": "Computer Science",
+          "location": "Stanford, CA", "start": "2014-09", "end": "2018-06", "gpa": "3.8",
+          "bullets": [{"id": "b_edu10001", "text": "Dean's List, six quarters.", "src": "parsed"}]
+        },
+        {
+          "id": "i_edu00002", "school": "MIT", "degree": "M.S.", "field": "",
+          "start": null, "end": "2020", "gpa": null, "bullets": []
+        }
+      ]
+    },
+    {
+      "id": "s_skills", "kind": "SKILLS", "title": "Skills",
+      "items": [
+        {"id": "i_skl00001", "group": "Languages", "skills": ["Java", "Go", "  Python "]},
+        {"id": "i_skl00002", "group": "Cloud", "skills": ["AWS", "Kubernetes", ""]},
+        {"id": "i_skl00003", "group": "Legacy", "skills": ["COBOL"], "hidden": true},
+        {"id": "i_skl00004", "group": "Empty", "skills": []}
+      ]
+    },
+    {
+      "id": "s_projects", "kind": "PROJECTS", "title": "Projects",
+      "items": [
+        {
+          "id": "i_prj00001", "title": "Open-source CLI", "url": "https://github.com/priya/cli",
+          "bullets": [{"id": "b_prj10001", "text": "Reached 2k GitHub stars.", "src": "user"}]
+        },
+        {"id": "i_prj00002", "title": "Side project", "url": null, "bullets": []}
+      ]
+    },
+    {
+      "id": "s_certs01", "kind": "CERTIFICATIONS", "title": "Certifications", "hidden": true,
+      "items": [{"id": "i_crt00001", "title": "AWS Solutions Architect Associate", "org": "Amazon", "date": "2024-03", "url": null}]
+    },
+    {
+      "id": "s_languages", "kind": "LANGUAGES", "title": "Languages",
+      "items": [
+        {"id": "i_lng00001", "name": "English", "level": "Native"},
+        {"id": "i_lng00002", "name": "Spanish", "level": "Professional"},
+        {"id": "i_lng00003", "name": "French", "level": null}
+      ]
+    },
+    {
+      "id": "s_achievements", "kind": "ACHIEVEMENTS", "title": "Achievements",
+      "items": [
+        {"id": "i_ach00001", "text": "Won the 2023 company hackathon.", "date": "2023"},
+        {"id": "i_ach00002", "text": "Speaker at GopherCon.", "date": null}
+      ]
+    },
+    {
+      "id": "s_custom01", "kind": "CUSTOM", "title": "Volunteering",
+      "items": [
+        {
+          "id": "i_cus00001", "title": "Mentor", "org": "Code.org", "location": null,
+          "start": "2020-01", "end": null,
+          "bullets": [{"id": "b_cus10001", "text": "Weekly coaching sessions for first-time programmers.", "src": "user"}]
+        }
+      ]
+    }
+  ]
+}

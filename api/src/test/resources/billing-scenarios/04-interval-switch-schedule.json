@@ -1,0 +1,21 @@
+{
+  "name": "interval-switch-schedule",
+  "description": "Monthly to quarterly at the period end through a subscription schedule: nothing changes until the boundary, then the quarter price is charged once, the add-on moves to its quarterly price, and access never lapses. The reconciler flags a schedule no change of Kiwiply accounts for, and stops flagging it once the schedule has completed.",
+  "steps": [
+    { "do": "quote", "as": "q1", "kind": "CHECKOUT", "interval": "MONTH", "addons": [ { "featureKey": "ai.credits_extra", "quantity": 1 } ] },
+    { "do": "checkout", "quote": "q1" },
+    { "do": "stripe.completeCheckout" },
+    { "do": "stripe.scheduleIntervalSwitch", "toInterval": "QUARTER" },
+    { "do": "expect", "subscription": { "status": "active", "interval": "MONTH" }, "stripeItems": { "price_tq_base_m": 1, "price_tq_ai_m": 1 }, "invoices": 1, "pro": true, "reconcileDrift": 1 },
+    { "do": "advance", "toPeriodEnd": true, "plusHours": 1 },
+    { "do": "expect",
+      "subscription": { "status": "active", "interval": "QUARTER" },
+      "pro": true,
+      "addons": { "ai.credits_extra": 1 },
+      "stripeItems": { "price_tq_base_q": 1, "price_tq_ai_q": 1 },
+      "invoices": 2,
+      "paidTotalMinor": 8796,
+      "lastInvoice": { "status": "paid", "amountPaidMinor": 6298 },
+      "reconcileDrift": 0 }
+  ]
+}

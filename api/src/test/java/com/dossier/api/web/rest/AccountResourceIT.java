@@ -162,7 +162,7 @@ class AccountResourceIT {
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(invalidUser)))
             .andExpect(status().isBadRequest());
 
-        Optional<User> user = userRepository.findOneByEmailIgnoreCase("funky@example.com");
+        Optional<User> user = userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase("funky@example.com");
         assertThat(user).isEmpty();
     }
 
@@ -246,7 +246,7 @@ class AccountResourceIT {
             .perform(post("/api/register").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(secondUser)))
             .andExpect(status().isCreated());
 
-        Optional<User> testUser = userRepository.findOneByEmailIgnoreCase("alice2@example.com");
+        Optional<User> testUser = userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase("alice2@example.com");
         assertThat(testUser).isPresent();
         testUser.orElseThrow().setActivated(true);
         userRepository.save(testUser.orElseThrow());
@@ -453,7 +453,7 @@ class AccountResourceIT {
             .perform(post("/api/account").contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDTO)))
             .andExpect(status().isBadRequest());
 
-        assertThat(userRepository.findOneByEmailIgnoreCase("invalid email")).isNotPresent();
+        assertThat(userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase("invalid email")).isNotPresent();
 
         userService.deleteUser("save-invalid-email");
     }

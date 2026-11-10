@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Change audit, enterprise half (docs/change-audit/README.md section 2.2; story X9.13) - "who changed it, and when" for the
+        organization's records. Everything is additive and keyed by MEMBER (the organization seat), as every ent event table already is;
+        org_id is untouched and no foreign keys are added (a row must outlive an erased seat: the resolver renders "a former member").
+
+        talent_application, talent_interview, mkt_submission, cws_submission: created_by_member_id, updated_by_member_id (updated_at exists).
+        talent_application_note: updated_by_member_id + updated_at (author_member_id is its created_by).
+        talent_application_event, talent_interview_event, mkt_submission_event: actor_kind (PERSON | SYSTEM, default PERSON) and
+        changes (VARCHAR 1000, a JSON array of {f, from, to}: field names, and enum / date values only, never free text).
+        No on_behalf_of on ent rows: the beneficiary is the record's own consultant_id, always.
+
+        Backfill (idempotent: every UPDATE is guarded by its own "not yet done" condition): event rows with no actor are SYSTEM (the linker,
+        the demo seeds); a head record's updated_by is the actor of its newest event and its created_by the actor of its oldest, when there
+        is one (else null); mkt_submission.created_by is its preparer; cws_submission.created_by / updated_by is its preparer until the
+        consultant decides it.
+    -->
+    <changeSet id="20261110020000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="talent_application" columnName="updated_by_member_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="talent_application">
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="updated_by_member_id" type="bigint"/>
+        </addColumn>
+        <createIndex tableName="talent_application" indexName="ix_talent_application_org_updated_by">
+            <column name="org_id"/>
+            <column name="updated_by_member_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261110020000-2" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="talent_interview" columnName="updated_by_member_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="talent_interview">
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="updated_by_member_id" type="bigint"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261110020000-3" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="mkt_submission" columnName="updated_by_member_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="mkt_submission">
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="updated_by_member_id" type="bigint"/>
+        </addColumn>
+        <createIndex tableName="mkt_submission" indexName="ix_mkt_submission_org_updated_by">
+            <column name="org_id"/>
+            <column name="updated_by_member_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261110020000-4" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="cws_submission" columnName="updated_by_member_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="cws_submission">
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="updated_by_member_id" type="bigint"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261110020000-5" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="talent_application_note" columnName="updated_by_member_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="talent_application_note">
+            <column name="updated_by_member_id" type="bigint"/>
+            <column name="updated_at" type="${datetimeType}"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261110020000-6" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="talent_application_event" columnName="actor_kind"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="talent_application_event">
+            <column name="actor_kind" type="varchar(12)" defaultValue="PERSON">
+                <constraints nullable="false"/>
+            </column>
+            <column name="changes" type="varchar(1000)"/>
+        </addColumn>
+        <addColumn tableName="talent_interview_event">
+            <column name="actor_kind" type="varchar(12)" defaultValue="PERSON">
+                <constraints nullable="false"/>
+            </column>
+            <column name="changes" type="varchar(1000)"/>
+        </addColumn>
+        <addColumn tableName="mkt_submission_event">
+            <column name="actor_kind" type="varchar(12)" defaultValue="PERSON">
+                <constraints nullable="false"/>
+            </column>
+            <column name="changes" type="varchar(1000)"/>
+        </addColumn>
+    </changeSet>
+
+    <!-- Backfill, events: no actor means the system (the linker, the demo seeds). -->
+    <changeSet id="20261110020000-7" author="dossier">
+        <sql>UPDATE talent_application_event SET actor_kind = 'SYSTEM' WHERE actor_member_id IS NULL AND actor_kind = 'PERSON'</sql>
+        <sql>UPDATE talent_interview_event SET actor_kind = 'SYSTEM' WHERE actor_member_id IS NULL AND actor_kind = 'PERSON'</sql>
+        <sql>UPDATE mkt_submission_event SET actor_kind = 'SYSTEM' WHERE actor_member_id IS NULL AND actor_kind = 'PERSON'</sql>
+        <!-- Rollback: nothing to undo. actor_kind was added by changeset -6, and undoing -6 drops the column (and the data) anyway. -->
+        <rollback/>
+    </changeSet>
+
+    <!-- Backfill, head records: the actor of the newest (updated_by) and oldest (created_by) event, when a person; else left null. -->
+    <changeSet id="20261110020000-8" author="dossier">
+        <sql>
+            UPDATE talent_application
+            SET updated_by_member_id = (SELECT e.actor_member_id FROM talent_application_event e WHERE e.application_id = talent_application.id ORDER BY e.occurred_at DESC, e.id DESC LIMIT 1)
+            WHERE updated_by_member_id IS NULL
+              AND (SELECT e.actor_member_id FROM talent_application_event e WHERE e.application_id = talent_application.id ORDER BY e.occurred_at DESC, e.id DESC LIMIT 1) IS NOT NULL
+        </sql>
+        <sql>
+            UPDATE talent_application
+            SET created_by_member_id = (SELECT e.actor_member_id FROM talent_application_event e WHERE e.application_id = talent_application.id ORDER BY e.occurred_at ASC, e.id ASC LIMIT 1)
+            WHERE created_by_member_id IS NULL
+              AND (SELECT e.actor_member_id FROM talent_application_event e WHERE e.application_id = talent_application.id ORDER BY e.occurred_at ASC, e.id ASC LIMIT 1) IS NOT NULL
+        </sql>
+        <sql>
+            UPDATE talent_interview
+            SET updated_by_member_id = (SELECT e.actor_member_id FROM talent_interview_event e WHERE e.interview_id = talent_interview.id ORDER BY e.occurred_at DESC, e.id DESC LIMIT 1)
+            WHERE updated_by_member_id IS NULL
+              AND (SELECT e.actor_member_id FROM talent_interview_event e WHERE e.interview_id = talent_interview.id ORDER BY e.occurred_at DESC, e.id DESC LIMIT 1) IS NOT NULL
+        </sql>
+        <sql>
+            UPDATE talent_interview
+            SET created_by_member_id = (SELECT e.actor_member_id FROM talent_interview_event e WHERE e.interview_id = talent_interview.id ORDER BY e.occurred_at ASC, e.id ASC LIMIT 1)
+            WHERE created_by_member_id IS NULL
+              AND (SELECT e.actor_member_id FROM talent_interview_event e WHERE e.interview_id = talent_interview.id ORDER BY e.occurred_at ASC, e.id ASC LIMIT 1) IS NOT NULL
+        </sql>
+        <sql>
+            UPDATE mkt_submission
+            SET updated_by_member_id = (SELECT e.actor_member_id FROM mkt_submission_event e WHERE e.submission_id = mkt_submission.id ORDER BY e.occurred_at DESC, e.id DESC LIMIT 1)
+            WHERE updated_by_member_id IS NULL
+              AND (SELECT e.actor_member_id FROM mkt_submission_event e WHERE e.submission_id = mkt_submission.id ORDER BY e.occurred_at DESC, e.id DESC LIMIT 1) IS NOT NULL
+        </sql>
+        <sql>
+            UPDATE mkt_submission SET created_by_member_id = prepared_by_member_id WHERE created_by_member_id IS NULL AND prepared_by_member_id IS NOT NULL
+        </sql>
+        <sql>
+            UPDATE cws_submission SET created_by_member_id = marketer_member_id WHERE created_by_member_id IS NULL AND marketer_member_id IS NOT NULL
+        </sql>
+        <sql>
+            UPDATE cws_submission SET updated_by_member_id = marketer_member_id
+            WHERE updated_by_member_id IS NULL AND marketer_member_id IS NOT NULL AND decided_at IS NULL
+        </sql>
+        <sql>
+            UPDATE talent_application_note SET updated_by_member_id = author_member_id, updated_at = created_at
+            WHERE updated_by_member_id IS NULL AND author_member_id IS NOT NULL
+        </sql>
+        <!-- Rollback: nothing to undo. This only fills the created_by_member_id / updated_by_member_id / updated_at columns that changesets -1 to -5 added, and undoing those drops them (and the data) anyway. -->
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

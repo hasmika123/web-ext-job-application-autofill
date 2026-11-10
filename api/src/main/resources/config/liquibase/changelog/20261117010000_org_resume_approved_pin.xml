@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        X7.4: the approved resume text is pinned. On approval the row records the content fingerprint (resume_doc.content_hash) and the version
+        number of the text that was approved, so a later change by anyone but the consultant is detectable (STALE) and a submission can say whether
+        it uses the approved version. Both nullable (rows approved before this have no pin). Purely additive.
+    -->
+    <changeSet id="20261117010000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_resume" columnName="approved_content_hash"/></not>
+        </preConditions>
+        <addColumn tableName="org_resume">
+            <column name="approved_content_hash" type="varchar(64)"/>
+            <column name="approved_version_no" type="int"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

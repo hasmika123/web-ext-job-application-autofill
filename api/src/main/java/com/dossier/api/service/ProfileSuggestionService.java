@@ -6,6 +6,8 @@ import com.dossier.api.domain.enumeration.SuggestionStatus;
 import com.dossier.api.repository.ProfileSuggestionRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.privacy.SensitiveContent;
+import com.dossier.api.service.privacy.SensitivePatterns;
 import com.dossier.api.service.dto.BioDTO;
 import com.dossier.api.service.dto.LearnedAnswerDTO;
 import com.dossier.api.service.dto.ProfileSuggestionDTO;
@@ -121,6 +123,8 @@ public class ProfileSuggestionService {
             if (a == null || a.fieldKey() == null || !SUGGESTIBLE.contains(a.fieldKey())) continue;
             String value = clean(a.value());
             if (value.isEmpty() || value.length() > MAX_VALUE) continue;
+            // X11.7: a never-collected value (SSN, bank, passport, date of birth...) is never learned, however the field was labelled; skipped quietly like any bad entry
+            if (carriesSensitive(a.fieldKey(), value)) continue;
             if (same(value, textOf(bio, a.fieldKey()))) continue; // the profile already says this
             String context = a.context() != null && CONTEXT.matcher(a.context()).matches() ? a.context() : null;
 
@@ -192,11 +196,12 @@ public class ProfileSuggestionService {
         if (value.isEmpty() || value.length() > MAX_VALUE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A profile value must be 1 to " + MAX_VALUE + " characters");
         }
+        SensitiveContent.check(s.getFieldKey(), s.getFieldKey(), value); // X11.7: an edited value is refused (422) like any other write
 
         ObjectNode bio = readBioStrict();
         bio.put(s.getFieldKey(), value);
         try {
-            profileService.upsertProfile(om.writeValueAsString(bio));
+            profileService.upsertProfile(om.writeValueAsString(bio), ProfileService.PROVENANCE_LEARNED);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Could not serialize the profile", e);
         }
@@ -250,6 +255,11 @@ public class ProfileSuggestionService {
     static boolean isVisible(String currentValue, String value, int seenCount) {
         if (same(currentValue, value)) return false;
         return clean(currentValue).isEmpty() || seenCount >= CHANGE_THRESHOLD;
+    }
+
+    /** X11.7: true when the answer holds a never-collected value (SSN / tax id, bank, passport / visa / document number, date of birth). */
+    static boolean carriesSensitive(String fieldKey, String value) {
+        return !SensitivePatterns.scanField(fieldKey, value).isEmpty();
     }
 
     /** Trimmed, with runs of whitespace collapsed; null-safe. */

@@ -32,7 +32,7 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
     private Long id;
 
     @NotNull
-    @Pattern(regexp = Constants.LOGIN_REGEX)
+    @Pattern(regexp = Constants.ACCOUNT_LOGIN_REGEX)
     @Size(min = 1, max = 50)
     @Column(length = 50, unique = true, nullable = false)
     private String login;
@@ -53,8 +53,17 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
 
     @Email
     @Size(min = 5, max = 254)
-    @Column(length = 254, unique = true)
+    @Column(length = 254)
     private String email;
+
+    /**
+     * Decision O4 (docs/enterprise-v2/19): null = a personal account; non-null = an enterprise account of that organization (exactly one, for
+     * life). Email is unique per scope (the generated {@code account_scope_key} column + {@code ux_user_scope_email}), so the same address can
+     * be a personal account and one enterprise account per organization. Nothing sets it before the separate-accounts phases.
+     */
+    @JsonIgnore
+    @Column(name = "org_id")
+    private Long orgId;
 
     @NotNull
     @Column(nullable = false)
@@ -80,6 +89,32 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
 
     @Column(name = "reset_date")
     private Instant resetDate = null;
+
+    /** True while the account holds an administrator-issued temporary password (X1.11): the session may only change the password. */
+    @JsonIgnore
+    @Column(name = "password_change_required", nullable = false)
+    private boolean passwordChangeRequired = false;
+
+    /** When the temporary password stops working; null for an ordinary account. */
+    @JsonIgnore
+    @Column(name = "password_temp_expires_at")
+    private Instant passwordTempExpiresAt;
+
+    public boolean isPasswordChangeRequired() {
+        return passwordChangeRequired;
+    }
+
+    public void setPasswordChangeRequired(boolean passwordChangeRequired) {
+        this.passwordChangeRequired = passwordChangeRequired;
+    }
+
+    public Instant getPasswordTempExpiresAt() {
+        return passwordTempExpiresAt;
+    }
+
+    public void setPasswordTempExpiresAt(Instant passwordTempExpiresAt) {
+        this.passwordTempExpiresAt = passwordTempExpiresAt;
+    }
 
     @JsonIgnore
     @ManyToMany
@@ -139,6 +174,19 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public Long getOrgId() {
+        return orgId;
+    }
+
+    public void setOrgId(Long orgId) {
+        this.orgId = orgId;
+    }
+
+    /** True for a personal account (no organization). */
+    public boolean isPersonal() {
+        return orgId == null;
     }
 
     public String getImageUrl() {

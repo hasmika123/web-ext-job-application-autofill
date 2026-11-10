@@ -222,4 +222,19 @@ class ErrorDigestTest {
         ErrorDigestProperties q = bind(java.util.Map.of("dossier.ops.error-digest.ignore-loggers", "org.a,com.b"));
         assertThat(q.getIgnoreLoggers()).containsExactly("org.a", "com.b");
     }
+
+    @Test
+    void anErrorLoggedForATenantNamesItInTheSample() {
+        ErrorDigest digest = new ErrorDigest(10);
+        ErrorDigestAppender appender = new ErrorDigestAppender(digest, List.of());
+        appender.setContext(new LoggerContext());
+        appender.start();
+        ch.qos.logback.classic.spi.LoggingEvent event = new ch.qos.logback.classic.spi.LoggingEvent();
+        event.setLoggerName("x.Y");
+        event.setLevel(ch.qos.logback.classic.Level.ERROR);
+        event.setMessage("it broke");
+        event.setMDCPropertyMap(java.util.Map.of("tenant", "7", "host", "acme.localhost"));
+        appender.doAppend(event);
+        assertThat(digest.drain().entries().get(0).sample()).isEqualTo("[tenant=7 host=acme.localhost] it broke");
+    }
 }

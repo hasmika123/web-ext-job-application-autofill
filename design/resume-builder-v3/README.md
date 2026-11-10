@@ -1,0 +1,53 @@
+# Resume Builder v3 boards (user-supplied, 2026-10-11)
+
+The editor screen the Resume Builder must reproduce exactly (see root memory: "exact to the boards").
+
+| File | Left panel state | Shows |
+|---|---|---|
+| `editor-pick-template.webp` | Pick Template | 5 templates (Modern selected, Classic, Minimal, Executive, Creative; ATS Friendly chips), Customize Template (accent colour, font family, spacing Compact/Normal/Spacious, page length One/Two pages) |
+| `editor-swap-section.webp` | Swap Section | drag-to-reorder sections and their items (Work Experience → roles, Education → degree), per-section up/down + menu + delete |
+| `editor-add-section.webp` | Add Section | Already added vs "Add to resume" (Projects, Certifications, Achievements, Languages, Interests, Custom Section), mascot Pro tip |
+
+Common to all three: top bar (logo, "Resume Builder", "Saved 2 minutes ago", Add Section, Pick Template, Swap Section, Tailor to Job, Download ▾, close); section tabs (Personal Info, Summary, Experience, Education, Skills, More ▾); live document with photo, contact row, PROFESSIONAL SUMMARY with B/I/U/list/link toolbar + "Rewrite with AI"; right rail tabs Insights / AI Suggestions (4) / Job Match: Resume Score 82% ring + checklist + "View tips", AI Suggestions carousel (Apply Suggestion / Preview), Job Match BETA (role @ company, 76% match, key-skills checklist, keyword tip).
+
+Sample data on the boards (Priya Sharma) is SAMPLE — never ship it as a real user's data.
+
+## What these boards are — and are not (user, 2026-10-11)
+- They define the **editor layout only**: top bar, left panel states, section tabs, centre document, right rail.
+- The template thumbnails/names and the document's look (photo, colours) on the boards are **not template
+  specs**. Real templates, including **ATS-friendly** ones, are added separately.
+- **The selected template drives the editor:** with an ATS-friendly template selected, the editor constrains its
+  input elements (e.g. no photo, only allowed text marks, ATS-safe fonts, standard headings) so the result stays
+  ATS-safe. Switching templates is lossless — unsupported content is kept but hidden, with a notice.
+- **The left pane is dynamic — a left sidenav that slides in and closes out:** it opens from the top-bar buttons (Add Section, Pick Template, Swap Section),
+  the clicked button is highlighted (one at a time — the green button on each board), clicking another button
+  switches the panel, and the panel's ✕ or clicking the active button again closes it; the document then uses
+  the freed width.
+- **Print layout + PDF view + Download:** the editor offers a print-layout view and a PDF view (plus
+  download); both open in a **right-side pane that slides in and closes out**.
+- **Save = DB + PDF:** every save updates the database and (re)generates the PDF, stored through the
+  configured `FileStorage` (local now, S3 by config). Design keeps it affordable (async, coalesced, settled).
+- **Resume metadata:** every resume (built or uploaded) has a name, created / last-modified times, and
+  settings — is primary, visibility, and who can see it (private by default; org marketer/coach by consent;
+  specific people; share link) — with an audit of views.
+- **New resume = a start chooser:** upload a resume, use my profile (the Common Profile from onboarding), or
+  copy an existing resume; then the new resume opens in edit mode. The profile is the source; the resume is a
+  snapshot the user modifies.
+- **Save and Save & Download** actions in the editor (explicit save checkpoint; save then download).
+- **`editor-metadata-header.webp` (latest layout, supersedes the centre-top of the other three):** a resume
+  header bar above the section tabs — document icon, resume name "Senior Software Engineer Resume" with a
+  rename pencil, a **"Master Resume" ▾** type selector, kebab menu; second row: **Created Oct 2, 2026**,
+  **Last modified 2 hours ago**, **Private ▾** (visibility), **★ Primary Resume** (green, toggle),
+  **Shared with Recruiters: Off ▾**, **Version 3 ▾** (version history). Swap Section panel open on the left.
+- **`user-my-resumes.webp` — user dashboard "My Resumes" page** (`/resume-builder` list; layout only): hero with
+  "+ New Resume"; tabs All / Active / Drafts / Archived with counts; search, All Status ▾, Last Modified ▾ sort,
+  grid/list toggle; cards = template thumbnail + status chip (Primary / Active / Draft / Archived), name, Created /
+  Modified dates, tags (role, level, "ATS Friendly"), actions edit / duplicate / view / AI, ⋮ menu; "Popular
+  Templates" strip (names are placeholders, not template specs) with View all; "Quick Tips" card; sidebar promo.
+- **`org-resumes-profiles.webp` — org admin dashboard "Resumes & Profiles" page** (`/org/resumes`; layout
+  only): org switcher; stats Total Resumes / New this month / Shortlisted; tabs All / Active / Shortlisted /
+  Archived; Save View, View: Grid ▾; filters Role, Skills, Experience, Education, Location, Status, More Filters;
+  person cards = photo, status chip, star, name, title, location, years, degree, date, skill chips +N, actions
+  view / download / print / assign, select checkbox for bulk. Nav labels on this board (Candidates, Interview
+  Pipeline, Post a Job) are layout reference only — the org model is consultancies/schools with consent-scoped
+  access, not an employer ATS.

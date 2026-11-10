@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The inbox reads interview invitations, reschedules and cancellations (branch inbox-interviews). Purely additive.
+          - inbox_message.sent_zone: the zone of the mail's Date header (e.g. "-07:00"), so a time written without a zone is read in the zone the sender was in.
+          - inbox_message.calendar_event: a few extracted fields (start, end, zone, uid, sequence, link) of the mail's calendar part, as a small JSON text.
+            The calendar file itself is never stored (CLAUDE.md: no attachments).
+          - interview.external_uid / sequence_no: the calendar UID and SEQUENCE of an interview made from a mail, so a reschedule or cancel updates the same row.
+          - interview.schedule_history: the earlier times of a rescheduled interview, newest first (a few lines, no mail text).
+          - talent_interview.personal_interview_id: the consultant's own interview this organization row follows (only for a consultant who shares in full).
+    -->
+    <changeSet id="inbox-interviews-1-message-columns" author="inbox">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="inbox_message" columnName="calendar_event"/></not></preConditions>
+        <addColumn tableName="inbox_message">
+            <column name="sent_zone" type="varchar(40)"/>
+            <column name="calendar_event" type="${clobType}"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="inbox-interviews-2-interview-columns" author="inbox">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="interview" columnName="external_uid"/></not></preConditions>
+        <addColumn tableName="interview">
+            <column name="external_uid" type="varchar(255)"/>
+            <column name="sequence_no" type="int"/>
+            <column name="schedule_history" type="varchar(1000)"/>
+        </addColumn>
+        <createIndex tableName="interview" indexName="ix_interview_app_uid">
+            <column name="application_id"/>
+            <column name="external_uid"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="inbox-interviews-3-talent-interview-personal" author="inbox">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="talent_interview" columnName="personal_interview_id"/></not></preConditions>
+        <addColumn tableName="talent_interview">
+            <column name="personal_interview_id" type="bigint"/>
+        </addColumn>
+        <createIndex tableName="talent_interview" indexName="ix_talent_interview_personal">
+            <column name="org_id"/>
+            <column name="personal_interview_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

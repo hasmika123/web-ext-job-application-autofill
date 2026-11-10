@@ -5,7 +5,7 @@ import { serverApiFetch } from "@/lib/api";
 import BugTriageControl from "@/components/admin/BugTriageControl";
 
 export const metadata: Metadata = {
-  title: "Bug report · Admin · Kiwiply",
+  title: "Bug report · Admin",
   robots: { index: false, follow: false },
 };
 

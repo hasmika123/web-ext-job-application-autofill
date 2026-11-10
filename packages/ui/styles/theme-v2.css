@@ -1,0 +1,114 @@
+/* @kiwiply/ui — "Kiwiply Bright" theme (landing v2). Scoped to `.theme-v2`, which the web
+ * (marketing) layout puts on its wrapper; the signed-in app and the extension never see it.
+ *
+ * Two blocks (spec: web/LANDING-V2-SPEC.md section 2):
+ *  1. NEW tokens in an @theme block so Tailwind emits utilities (bg-v2-lime, text-v2-navy,
+ *     shadow-v2-card, ...). A bare :root block would be stripped (see the comment atop
+ *     tokens.css). `static` keeps every token emitted even before a utility uses it, because
+ *     the overrides below reference them through plain var().
+ *  2. OVERRIDES of the existing token names under `.theme-v2`, so primitives (Button, Card,
+ *     Badge, Dialog...) restyle without any component change. Light only - no .dark for v2.
+ */
+@theme static {
+  --color-v2-canvas: #F6F9FF;
+  --color-v2-navy: #1B1F5E;
+  --color-v2-navy-deep: #0F1340;
+  --color-v2-ink-soft: #4A4F78;
+  --color-v2-muted: #646989; /* was #6E7294 (4.4:1 on the canvas); #646989 is 5:1, AA for small text (R1.12) */
+  --color-v2-line: #E3E8F2;
+
+  --color-v2-lime: #84E33D;
+  --color-v2-lime-deep: #5FBF1F;
+  --color-v2-lime-soft: #E9FBD9;
+  --color-v2-green: #20B33D;
+  --color-v2-green-soft: #E4F7E8;
+  --color-v2-violet: #6A4CF5;
+  --color-v2-violet-soft: #EEEAFF;
+  --color-v2-blue: #1E6FF5;
+  --color-v2-blue-soft: #E8F0FF;
+  --color-v2-teal: #1EA7A0;
+  --color-v2-teal-soft: #E3F6F4;
+  --color-v2-coral: #F05252;
+  --color-v2-coral-soft: #FFECEC;
+  --color-v2-danger-text: #B42318; /* error TEXT: 6.6:1 on white, 6.0 on paper-2, 5.8 on coral-soft, 5.0 on a 16% coral tint (coral #F05252 is 3.5:1) */
+  --color-v2-amber: #F5A623;
+  --color-v2-amber-soft: #FFF4E0;
+  --color-v2-pink: #E040A0;
+  --color-v2-pink-soft: #FFE8F4;
+  --color-v2-sticky: #FFF3B0;
+  --color-v2-sticky-ink: #5C4A00;
+
+  --shadow-v2-card: 0 10px 30px rgba(27, 31, 94, 0.08), 0 1px 0 rgba(27, 31, 94, 0.04);
+  --shadow-v2-float: 0 24px 60px rgba(27, 31, 94, 0.14);
+  --radius-v2-card: 18px;
+}
+
+.theme-v2 {
+  --color-app-bg: var(--color-v2-canvas);
+  --color-paper: #FFFFFF;
+  --color-paper-2: #F1F5FB;
+  --color-ink: var(--color-v2-navy);
+  --color-ink-soft: var(--color-v2-ink-soft);
+  --color-muted: var(--color-v2-muted);
+  --color-line: var(--color-v2-line);
+
+  --color-accent: var(--color-v2-lime);
+  --color-accent-2: var(--color-v2-lime-deep);
+  --color-accent-soft: var(--color-v2-lime-soft);
+  --color-accent-deep: #2F7A06; /* AA green text on white AND on lime-soft (was #3E8F0E: 3.9:1; R1.12) */
+  --color-on-accent: var(--color-v2-navy);
+  --color-hero-ink: #FFFFFF;
+
+  --color-ok: var(--color-v2-green);
+  --color-warn: var(--color-v2-amber);
+  --color-danger: var(--color-v2-coral); /* bright coral: icons, borders, fills. NOT text (3.5:1 on white) */
+  --color-danger-text: var(--color-v2-danger-text);
+
+  --shadow: var(--shadow-v2-card);
+  --shadow-lg: var(--shadow-v2-float);
+
+  --radius: 12px;
+  --radius-lg: 18px;
+  --radius-button: 12px;
+
+  --font-display: var(--font-jakarta), "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+  --font-hand: var(--font-caveat), "Caveat", cursive;
+
+  /* The wrapper paints the canvas (body keeps the app colour outside the marketing group). */
+  background: var(--color-v2-canvas);
+  color: var(--color-v2-navy);
+}
+
+.theme-v2 h1,
+.theme-v2 h2,
+.theme-v2 h3 {
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
+}
+
+/* ── App v2 tokens (signed-in app + org admin; spec web/APP-V2-SPEC.md section 1.5) ───────
+ * Added, never renamed. "-ink" variants are the AA-contrast text colours for chips on the
+ * matching "-soft" tint (the bright brand colours fail contrast on their own tints).
+ */
+@theme static {
+  /* App v3: the individual app's active nav pill is blue (APP-V3-SPEC section 1); lime stays for CTAs. */
+  --color-v2-nav-active-bg: #E8F0FF;
+  --color-v2-nav-active-text: #1A64E0; /* 4.65:1 on the pill (was #1E6FF5, 3.95:1; R1.12) */
+  --color-v2-org-blue: #1E6FF5;
+  --color-v2-org-blue-deep: #1558C9;
+  --color-v2-org-nav-active-bg: #E8F0FF;
+  --color-v2-org-nav-active-text: #1A64E0;
+
+  --color-v2-blue-ink: #1553C0;
+  --color-v2-green-ink: #167A2C;
+  --color-v2-amber-ink: #935700;
+  --color-v2-violet-ink: #4A31C9;
+  --color-v2-teal-ink: #11706A;
+  --color-v2-coral-ink: #BE2E2E;
+  --color-v2-pink-ink: #A32776;
+
+  --color-v2-hero-lime: #EAF8D2;
+  --color-v2-hero-sky: #DDEBFF;
+  --shadow-v2-soft: 0 4px 14px rgba(27, 31, 94, 0.06), 0 1px 0 rgba(27, 31, 94, 0.03);
+}

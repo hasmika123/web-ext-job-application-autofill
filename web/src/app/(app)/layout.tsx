@@ -1,8 +1,30 @@
 import { redirect } from "next/navigation";
+import { Caveat, Plus_Jakarta_Sans } from "next/font/google";
 import { hasSession } from "@/lib/auth";
 import { serverApiFetch } from "@/lib/api";
 import AppShell, { type AppAccount } from "@/components/app-shell/AppShell";
 import { getPlan } from "@/lib/billing";
+import { SamplesProvider } from "@/components/app-v3/SamplesProvider";
+import { getPublicConfig } from "@/lib/public-config";
+import RetirementBanner from "@/components/billing/RetirementBanner";
+import TermsBanner from "@/components/legal/TermsBanner";
+import { isDemoLogin } from "@/lib/demo";
+
+// App v2 display + handwriting faces (same as the marketing group). The CSS variables go on the
+// `.theme-v2` wrapper below so they are scoped to the signed-in app.
+const jakarta = Plus_Jakarta_Sans({
+  weight: ["700", "800"],
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+  display: "swap",
+});
+
+const caveat = Caveat({
+  weight: "600",
+  subsets: ["latin"],
+  variable: "--font-caveat",
+  display: "swap",
+});
 
 /**
  * Shell for all authed app routes (dashboard/profile/resumes/board/settings).
@@ -35,10 +57,26 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
   // Fetched ONCE here rather than per component: every gated surface would otherwise add a
   // round-trip on each page load. getPlan() never throws — a billing outage must not blank the app.
   const plan = await getPlan();
+  // The org feature flag (E2E-O1.9): cached 5 minutes, fails closed. While it is off there is no org entry in the menu.
+  const { orgs } = await getPublicConfig();
 
+  // "Kiwiply Bright" (APP-V2-SPEC section 1.5): the whole signed-in app lives under `.theme-v2`.
   return (
-    <AppShell account={account} isPro={plan.plan === "PRO"}>
-      {children}
-    </AppShell>
+    <div className={`theme-v2 ${jakarta.variable} ${caveat.variable} flex flex-1 flex-col`}>
+      <SamplesProvider login={account?.login}>
+        <AppShell account={account} isPro={plan.plan === "PRO"} orgsEnabled={orgs}>
+          {plan.retirement || plan.lock ? (
+            <div className="mb-4">
+              <RetirementBanner retirement={plan.retirement} lock={plan.lock} />
+            </div>
+          ) : null}
+          {/* T0.2: asks (non-blocking) when a NEW terms / privacy version is in force; renders nothing when the account is up to date. */}
+          <div className="mb-4 empty:hidden">
+            <TermsBanner demo={isDemoLogin(account?.login)} />
+          </div>
+          {children}
+        </AppShell>
+      </SamplesProvider>
+    </div>
   );
 }

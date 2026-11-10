@@ -60,6 +60,26 @@ function sendViaRelay(tokens: unknown): Promise<{ ok?: boolean; reason?: string 
   });
 }
 
+/**
+ * Decision O4: an enterprise account connects with a one-time code from its tenant host (`/connect?code=...`, 60 s, single use). The code is
+ * taken out of the address bar at once (history, referrers) and exchanged exactly once per page load, even when React runs the effect twice.
+ */
+const exchanges = new Map<string, Promise<Response>>();
+function exchangeOnce(code: string): Promise<Response> {
+  let p = exchanges.get(code);
+  if (!p) {
+    p = fetch("/api/extension/token", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    exchanges.set(code, p);
+  }
+  return p.then((r) => r.clone());
+}
+
 type ChromeRuntime = {
   sendMessage?: (extId: string, msg: unknown, cb?: (resp: unknown) => void) => void;
   lastError?: { message?: string };
@@ -78,10 +98,14 @@ type Status = "working" | "connected" | "signed-out" | "no-extension" | "error" 
 export default function ConnectPage() {
   const [status, setStatus] = useState<Status>("working");
   const [detail, setDetail] = useState("");
+  const [account, setAccount] = useState<{ kind: string; orgName?: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const chromeApi = (window as unknown as { chrome?: { runtime?: ChromeRuntime } }).chrome;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (code !== null) window.history.replaceState(null, "", window.location.pathname);
 
     (async () => {
       // Pick a transport first, so we don't mint a session pair that nothing will collect.
@@ -100,17 +124,23 @@ export default function ConnectPage() {
 
       let tokens: unknown;
       try {
-        const res = await fetch("/api/extension/token", { credentials: "include", cache: "no-store" });
-        if (res.status === 401) {
+        const res = code !== null ? await exchangeOnce(code) : await fetch("/api/extension/token", { credentials: "include", cache: "no-store" });
+        if (res.status === 401 && code === null) {
           setStatus("signed-out");
           return;
         }
         if (!res.ok) {
           setStatus("error");
-          setDetail("Couldn't create an extension session. Try again.");
+          setDetail(
+            code !== null && res.status !== 429 && res.status !== 502
+              ? "This connect link has expired or was already used. Open Connect extension in your workspace again."
+              : "Couldn't create an extension session. Try again.",
+          );
           return;
         }
         tokens = await res.json();
+        const t = tokens as { kind?: string; orgName?: string };
+        setAccount({ kind: t.kind === "ENTERPRISE" ? "ENTERPRISE" : "PERSONAL", orgName: t.orgName });
       } catch {
         setStatus("error");
         setDetail("Network error reaching the server.");
@@ -169,12 +199,21 @@ export default function ConnectPage() {
           <>
             <div className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-accent-soft text-accent-deep">✓</div>
             <h1 className="mt-5 font-display text-xl font-semibold text-ink">Extension connected</h1>
-            <p className="mt-2 text-sm text-muted">
-              You&apos;re all set — the Kiwiply extension is now signed in. Manage your profile and resumes here on the web.
-            </p>
-            <Link href="/dashboard" className={buttonVariants("accent") + " mt-6"}>
-              Go to your dashboard
-            </Link>
+            {account?.kind === "ENTERPRISE" ? (
+              <p className="mt-2 text-sm text-muted">
+                You&apos;re all set — the Kiwiply extension is now signed in to your {account.orgName ? `${account.orgName} ` : ""}enterprise account. Manage
+                your work in your organization&apos;s workspace; this does not change your personal Kiwiply account.
+              </p>
+            ) : (
+              <>
+                <p className="mt-2 text-sm text-muted">
+                  You&apos;re all set — the Kiwiply extension is now signed in. Manage your profile and resumes here on the web.
+                </p>
+                <Link href="/dashboard" className={buttonVariants("accent") + " mt-6"}>
+                  Go to your dashboard
+                </Link>
+              </>
+            )}
           </>
         )}
 

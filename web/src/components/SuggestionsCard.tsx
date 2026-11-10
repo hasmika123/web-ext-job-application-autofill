@@ -152,7 +152,7 @@ function Row({ s, onDone }: { s: Suggestion; onDone: (id: number, kept: boolean)
         </div>
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-[12.5px] font-medium text-danger">{error}</p>
+        <p role="alert" className="mt-2 text-[12.5px] font-medium text-danger-text">{error}</p>
       )}
     </li>
   );

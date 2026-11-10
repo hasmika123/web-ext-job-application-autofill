@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Sprint 2 / B1: marketer assignment lifecycle. ONE authoritative model: marketer_assignment (current marketer + backup of a consultant PROFILE;
+        consultants need not hold a seat). This changelog is purely additive:
+
+        1. marketer_assignment_event: the append-only history of that table (who, when, why, from/to marketer and backup, what open work moved).
+           Never updated, never deleted by the application.
+        2. A one-off, idempotent backfill of org_assignment (the spec table behind ASSIGNED scope and authorization step 9) from marketer_assignment for
+           consultants that DO hold a seat, so the two can no longer disagree. From here on org_assignment is a projection written only by the
+           assignment lifecycle service. Rows are inserted only where the seat has no open row of that kind already.
+    -->
+    <changeSet id="20261117010000-1" author="dossier" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="marketer_assignment_event"/></not></preConditions>
+        <createTable tableName="marketer_assignment_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="action" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="from_marketer_member_id" type="bigint"/>
+            <column name="to_marketer_member_id" type="bigint"/>
+            <column name="from_backup_member_id" type="bigint"/>
+            <column name="to_backup_member_id" type="bigint"/>
+            <column name="reason" type="varchar(200)"/>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="handover_summary" type="varchar(300)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="marketer_assignment_event" baseColumnNames="org_id" constraintName="fk_mkt_asg_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <createIndex tableName="marketer_assignment_event" indexName="ix_mkt_asg_event_consultant"><column name="org_id"/><column name="consultant_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="marketer_assignment_event" indexName="ix_mkt_asg_event_org_time"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <rollback><dropTable tableName="marketer_assignment_event"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261117010000-2" author="dossier">
+        <preConditions onFail="MARK_RAN"><tableExists tableName="marketer_assignment"/><tableExists tableName="org_assignment"/></preConditions>
+        <comment>Backfill org_assignment PRIMARY rows for seated consultants that have an ACTIVE marketer assignment and no open PRIMARY row.</comment>
+        <sql>
+            INSERT INTO org_assignment (org_id, consultant_member_id, assignee_member_id, kind, starts_at, reason, created_by_member_id, created_at, updated_at, health)
+            SELECT ma.org_id, cp.member_id, ma.marketer_member_id, 'PRIMARY', ma.assigned_at, 'backfill from marketer_assignment',
+                   COALESCE(ma.assigned_by_member_id, ma.marketer_member_id), CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6), 'OK'
+            FROM marketer_assignment ma
+            JOIN consultant_profile cp ON cp.org_id = ma.org_id AND cp.id = ma.consultant_id
+            WHERE ma.status = 'ACTIVE' AND cp.member_id IS NOT NULL AND cp.member_id &lt;&gt; ma.marketer_member_id
+              AND NOT EXISTS (SELECT 1 FROM org_assignment oa WHERE oa.org_id = ma.org_id AND oa.consultant_member_id = cp.member_id AND oa.kind = 'PRIMARY' AND oa.ends_at IS NULL)
+        </sql>
+        <sql>
+            INSERT INTO org_assignment (org_id, consultant_member_id, assignee_member_id, kind, starts_at, reason, created_by_member_id, created_at, updated_at, health)
+            SELECT ma.org_id, cp.member_id, ma.backup_member_id, 'BACKUP', ma.assigned_at, 'backfill from marketer_assignment',
+                   COALESCE(ma.assigned_by_member_id, ma.backup_member_id), CURRENT_TIMESTAMP(6), CURRENT_TIMESTAMP(6), 'OK'
+            FROM marketer_assignment ma
+            JOIN consultant_profile cp ON cp.org_id = ma.org_id AND cp.id = ma.consultant_id
+            WHERE ma.status = 'ACTIVE' AND ma.backup_member_id IS NOT NULL AND cp.member_id IS NOT NULL AND cp.member_id &lt;&gt; ma.backup_member_id
+              AND NOT EXISTS (SELECT 1 FROM org_assignment oa WHERE oa.org_id = ma.org_id AND oa.consultant_member_id = cp.member_id AND oa.kind = 'BACKUP' AND oa.ends_at IS NULL)
+        </sql>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

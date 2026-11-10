@@ -67,6 +67,15 @@ public class InboxMessage implements Serializable {
     @Column(name = "body_text")
     private String bodyText;
 
+    /** The zone of the mail's Date header (e.g. "-07:00"): the zone a time written without one is read in. */
+    @Column(name = "sent_zone", length = 40)
+    private String sentZone;
+
+    /** A few extracted fields of the mail's calendar part (JSON, see {@code IcsEvent}); the calendar file itself is never kept. */
+    @Lob
+    @Column(name = "calendar_event")
+    private String calendarEvent;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -100,6 +109,18 @@ public class InboxMessage implements Serializable {
 
     @Column(name = "parsed_at")
     private Instant parsedAt;
+
+    /** Set when the person undid the status change this mail made (inbox-safety): the mail is then dismissed for that application. */
+    @Column(name = "undone_at")
+    private Instant undoneAt;
+
+    public Instant getUndoneAt() {
+        return undoneAt;
+    }
+
+    public void setUndoneAt(Instant undoneAt) {
+        this.undoneAt = undoneAt;
+    }
 
     public Long getId() {
         return id;
@@ -209,6 +230,22 @@ public class InboxMessage implements Serializable {
         this.jobMail = jobMail;
     }
 
+    public String getSentZone() {
+        return sentZone;
+    }
+
+    public void setSentZone(String sentZone) {
+        this.sentZone = sentZone;
+    }
+
+    public String getCalendarEvent() {
+        return calendarEvent;
+    }
+
+    public void setCalendarEvent(String calendarEvent) {
+        this.calendarEvent = calendarEvent;
+    }
+
     public String getBodyText() {
         return bodyText;
     }
@@ -275,6 +312,30 @@ public class InboxMessage implements Serializable {
 
     public void setSuggestion(String suggestion) {
         this.suggestion = suggestion;
+    }
+
+    /** 0..100, how sure the reading and the match together were (null until read). */
+    @Column(name = "confidence")
+    private Integer confidence;
+
+    /** ATS_ID, JOB_LINK, THREAD, COMPANY_ROLE, COMPANY, AMBIGUOUS or NONE; null until read. */
+    @Column(name = "match_kind", length = 20)
+    private String matchKind;
+
+    public Integer getConfidence() {
+        return confidence;
+    }
+
+    public void setConfidence(Integer confidence) {
+        this.confidence = confidence;
+    }
+
+    public String getMatchKind() {
+        return matchKind;
+    }
+
+    public void setMatchKind(String matchKind) {
+        this.matchKind = matchKind;
     }
 
     public Instant getParsedAt() {

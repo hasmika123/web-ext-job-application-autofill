@@ -1,6 +1,7 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.service.AccountExportService;
+import com.dossier.api.service.DemoGuard;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,12 +22,16 @@ public class AccountExportResource {
 
     private final AccountExportService exportService;
 
-    public AccountExportResource(AccountExportService exportService) {
+    private final DemoGuard demoGuard;
+
+    public AccountExportResource(AccountExportService exportService, DemoGuard demoGuard) {
         this.exportService = exportService;
+        this.demoGuard = demoGuard;
     }
 
     @GetMapping("/export")
     public Map<String, Object> export() {
+        demoGuard.assertNotDemo();
         LOG.debug("REST request to export the current user's data");
         return exportService.exportCurrentUser();
     }

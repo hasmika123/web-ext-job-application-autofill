@@ -19,15 +19,51 @@ import java.util.regex.Pattern;
  */
 public final class MailClassifier {
 
+    /** What a category is allowed to do to an application. The one table the parser, the policy and the tests read. */
+    public enum Effect {
+        /** May move the application's status (forward only, see {@link MailMatcher#next}). */
+        STATUS,
+        /** Writes a timeline event only; the status never changes. */
+        TIMELINE_ONLY,
+        /** May create a suggested application only; never changes an existing one. */
+        SUGGESTION_ONLY,
+        /** Not about an application: stored, never acted on. */
+        NONE,
+    }
+
     public enum Category {
-        APPLIED,
-        INTERVIEW,
-        ASSESSMENT,
-        REJECTED,
-        OFFER,
-        /** Job alerts and newsletters from boards — not about one of the user's applications. */
-        ALERT,
-        OTHER,
+        APPLIED(Effect.STATUS),
+        /** "Your application is under review": past the receipt, before any interview. */
+        IN_REVIEW(Effect.STATUS),
+        INTERVIEW(Effect.STATUS),
+        ASSESSMENT(Effect.STATUS),
+        REJECTED(Effect.STATUS),
+        OFFER(Effect.STATUS),
+        /** Job alerts and digests from boards - not about one of the user's applications. */
+        ALERT(Effect.NONE),
+        OTHER(Effect.NONE),
+        /** A recruiter writes about a role the person did not apply to: a suggestion at most. */
+        RECRUITER_OUTREACH(Effect.SUGGESTION_ONLY),
+        /** The position was filled, closed or is no longer accepting applications: a note on the timeline, no status change. */
+        APPLICATION_CLOSED(Effect.TIMELINE_ONLY),
+        /** "Your assessment is due soon": a note on the timeline; the status already moved with the invitation. */
+        ASSESSMENT_REMINDER(Effect.TIMELINE_ONLY),
+        /** Newsletters, marketing and promotions: not job mail. */
+        NEWSLETTER(Effect.NONE);
+
+        private final Effect effect;
+
+        Category(Effect effect) {
+            this.effect = effect;
+        }
+
+        public Effect effect() {
+            return effect;
+        }
+
+        public boolean mayChangeStatus() {
+            return effect == Effect.STATUS;
+        }
     }
 
     /**
@@ -47,17 +83,45 @@ public final class MailClassifier {
     private static final Pattern REJECTED_STRONG = p(
         "not (to )?(be )?(mov(e|ing)|proceed(ing)?|progress(ing)?) forward|decided to (move|go) (forward|ahead) with other|" +
         "pursu(e|ing) other candidates|no longer (being )?considered|will not be (moving|progressing|proceeding)|" +
-        "position has (now )?been filled|role has (now )?been filled|not (been )?selected|regret to inform|" +
+        "not (been )?selected|regret to inform|" +
         "candidates whose (experience|background|qualifications)|closer (match|fit)|won't be moving forward|" +
         "we have decided not to|not the right fit|unable to offer you"
     );
-    private static final Pattern REJECTED_WEAK = p("unfortunately|we (will|won't) keep your (resume|application) on file");
+    // The job went away; the person was not turned down. "Regret to inform ... filled" still reads as a rejection (REJECTED_STRONG wins).
+    private static final Pattern CLOSED = p(
+        "(position|role|job|opening|vacancy|requisition|search) (has|have|is|was) (now |since |already )?(been )?(filled|closed|cancel(l)?ed|withdrawn|put on hold|on hold)|" +
+        "(position|role|job|opening) (is )?no longer (available|open|accepting)|no longer (accepting|taking) applications|" +
+        "(job )?posting (has )?(been )?(closed|removed|expired)|we (have )?(closed|cancel(l)?ed) (this|the) (position|role|search|opening)|" +
+        "stopped accepting applications|hiring (for this (role|position) )?(has been )?(paused|frozen)"
+    );
+    // The sender found the person; nothing in the mail says they applied.
+    private static final Pattern COLD = p(
+        "came across your (profile|resume|cv|linkedin|background|work)|found your (profile|resume|cv|linkedin)|saw your (profile|resume|cv|linkedin)|" +
+        "reaching out (to you )?(about|regarding|because|with|on behalf)|your (background|profile|experience) (caught|stood out|looks|is (a )?(great|strong))|" +
+        "are you (currently )?(open to (new |exploring |hearing about |a new )|interested in (a |an |new |this |the |exploring |hearing))|open to (new |exploring |hearing about )?(opportunit|a new|new roles|roles)|exciting (opportunity|role|position)|" +
+        "i('m| am) a (senior |technical |lead )?(recruiter|sourcer|talent)|(we have|i have|i've got|i got) an? (role|position|opening|opportunity)|" +
+        "(role|position|opportunity) (that )?(i think|might|may|would) (be )?(a )?(good )?(fit|interest)"
+    );
+    private static final Pattern YOUR_APPLICATION = p("your (application|candidacy)|you applied|you('ve| have) applied|thank(s| you) for applying");
+    private static final Pattern REMINDER = p(
+        "reminder|friendly nudge|haven'?t (yet )?(started|completed|finished|submitted)|not (yet )?(started|completed|finished)|still (waiting|pending|open)|" +
+        "(is|are) (almost |nearly )?(due|expiring)|due (soon|tomorrow|today)|expires? (in|soon|tomorrow|today)|last chance"
+    );
+    // Marketing and digest wording. A bare "unsubscribe" footer is a weaker sign (UNSUBSCRIBE): it counts only when the mail says nothing about an application.
+    private static final Pattern NEWSLETTER = p(
+        "newsletter|weekly (roundup|round-up|update|digest)|monthly (digest|update)|daily digest|webinar|\\d+% off|limited[- ]time|special offer|" +
+        "career (tips|advice) (for|from)|(read|view) (this email )?in (your )?browser|you('re| are) receiving this (email |message )?because you (subscribed|signed up|opted)"
+    );
+    private static final Pattern UNSUBSCRIBE = p("unsubscribe|manage (your )?(email )?(preferences|subscriptions?)|email preferences|opt[- ]out");
+    private static final Pattern REJECTED_WEAK= p("unfortunately|we (will|won't) keep your (resume|application) on file");
     private static final Pattern INTERVIEW = p(
         "schedul(e|ing) (an |a |your |the )?(interview|call|chat|conversation|time|phone screen)|interview (invitation|request|invite)|" +
         "invite you to (an |a )?(interview|call|chat|conversation|onsite)|phone screen|(your|my|share your|send your) availability|" +
         "book a time|next round|move (you )?(forward|on) to (the )?(next|an?)|(like|love) to (speak|chat|talk|connect) (with you|about)|" +
         "calendly\\.com|goodtime\\.io|interview (with|for)|onsite interview|virtual interview"
     );
+    // An interview that is called off or moved: still an interview mail (the schedule reader tells the two apart), and "unfortunately" in it is not a rejection.
+    private static final Pattern INTERVIEW_WORD = p("interview|call|meeting|chat|conversation|phone screen|screening|session");
     private static final Pattern ASSESSMENT = p(
         "assessment|coding (challenge|exercise|test)|take[- ]home|hackerrank|codesignal|codility|online test|skills test"
     );
@@ -65,6 +129,21 @@ public final class MailClassifier {
         "thank(s| you) for (applying|your application|your interest|submitting)|(we('ve| have)|has been) received your application|" +
         "application (has been )?(received|submitted)|successfully (applied|submitted)|your application (to|for|with)|" +
         "we received your application|application confirmation|thanks for applying"
+    );
+
+    // A receipt: the first mail after applying. Boilerplate like "our team will review your application"
+    // appears in these, so a mail that is a receipt is never read as "in review".
+    private static final Pattern RECEIPT = p(
+        "thank(s| you) for (applying|your application|your interest|submitting)|(we('ve| have)|has been) received your application|" +
+        "application (has been )?(received|submitted)|successfully (applied|submitted)|application confirmation|thanks for applying"
+    );
+    // A status update that says the application is being looked at.
+    private static final Pattern IN_REVIEW = p(
+        "(your )?application (is|has been|status( is)?:?) ?(currently |now )?(under review|in review|being reviewed|being considered)|" +
+        "(application|candidacy) status:? ?(under review|in review)|" +
+        "we('re| are) (currently |now )?(reviewing|looking at) your (application|resume|profile|candidacy)|" +
+        "(has|have) (now )?(moved|been moved) (your application )?to (the )?(review|screening) (stage|phase)|" +
+        "(the )?(hiring team|recruiting team|recruiter) (is|are) (currently )?reviewing your"
     );
 
     // What the mail says the job is.
@@ -92,12 +171,23 @@ public final class MailClassifier {
         if (OFFER.matcher(text).find()) strong.add(Category.OFFER);
         if (REJECTED_STRONG.matcher(text).find()) strong.add(Category.REJECTED);
         if (INTERVIEW.matcher(text).find()) strong.add(Category.INTERVIEW);
+        boolean change =
+            (InterviewScheduleExtractor.CANCEL.matcher(text).find() || InterviewScheduleExtractor.RESCHEDULE.matcher(text).find()) && INTERVIEW_WORD.matcher(text).find();
+        if (change) strong.add(Category.INTERVIEW);
         if (ASSESSMENT.matcher(text).find()) strong.add(Category.ASSESSMENT);
         boolean applied = APPLIED.matcher(text).find();
         boolean weakReject = REJECTED_WEAK.matcher(text).find();
 
-        // Alerts are only alerts when nothing about the user's own application is said.
-        if (strong.isEmpty() && !applied && ALERT.matcher(text).find()) return new Reading(Category.ALERT, false, company, role);
+        boolean aboutYou = YOUR_APPLICATION.matcher(text).find();
+        boolean alert = ALERT.matcher(text).find();
+        boolean unsub = UNSUBSCRIBE.matcher(text).find();
+        boolean decision = strong.contains(Category.OFFER) || strong.contains(Category.REJECTED);
+
+        // Bulk mail is never about one application. An alert phrase plus an unsubscribe footer is two signs and settles it even when a
+        // digest happens to mention "interview with"; either one alone must stand with nothing else strong in the mail.
+        boolean bulk = !applied && !aboutYou && !decision && !change && (alert && unsub || strong.isEmpty());
+        if (bulk && alert) return new Reading(Category.ALERT, false, company, role);
+        if (bulk && (NEWSLETTER.matcher(text).find() || unsub)) return new Reading(Category.NEWSLETTER, false, company, role);
 
         // A decision outranks everything; two decisions that disagree need a reader.
         if (strong.contains(Category.OFFER) && strong.contains(Category.REJECTED)) return new Reading(Category.OTHER, true, company, role);
@@ -106,8 +196,22 @@ public final class MailClassifier {
             boolean conflict = strong.contains(Category.INTERVIEW) || strong.contains(Category.ASSESSMENT);
             return new Reading(Category.REJECTED, conflict, company, role);
         }
-        if (strong.contains(Category.INTERVIEW)) return new Reading(Category.INTERVIEW, weakReject, company, role);
-        if (strong.contains(Category.ASSESSMENT)) return new Reading(Category.ASSESSMENT, weakReject, company, role);
+        // The job went away: a note, never a rejection.
+        if (CLOSED.matcher(text).find() && !strong.contains(Category.INTERVIEW) && !strong.contains(Category.ASSESSMENT)) {
+            return new Reading(Category.APPLICATION_CLOSED, false, company, role);
+        }
+        // A recruiter who found the person: only when the mail never refers to an application of theirs and no assessment is in play.
+        if (!applied && !aboutYou && !strong.contains(Category.ASSESSMENT) && !change && COLD.matcher(text).find()) {
+            return new Reading(Category.RECRUITER_OUTREACH, false, company, role);
+        }
+        if (strong.contains(Category.INTERVIEW)) return new Reading(Category.INTERVIEW, weakReject && !change, company, role);
+        if (strong.contains(Category.ASSESSMENT)) {
+            // "Your assessment is due soon" is a nudge about a test already sent, not a new test.
+            if (REMINDER.matcher(text).find()) return new Reading(Category.ASSESSMENT_REMINDER, false, company, role);
+            return new Reading(Category.ASSESSMENT, weakReject, company, role);
+        }
+        // "Under review" is its own stage, unless the mail is the receipt itself (which says it as boilerplate).
+        if (IN_REVIEW.matcher(text).find() && !RECEIPT.matcher(text).find()) return new Reading(Category.IN_REVIEW, weakReject, company, role);
         if (applied) return new Reading(Category.APPLIED, weakReject, company, role);
         // "Unfortunately…" with nothing else: probably a rejection in words the rules don't know.
         return new Reading(Category.OTHER, true, company, role);

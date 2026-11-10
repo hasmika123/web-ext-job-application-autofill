@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant contact fields (demo-day Talent Marketer gap): the org overlay of a consultant gets a work phone, an IANA time zone and a
+        preferred-contact label so an assigned marketer can reach the person. All three are nullable and contact data only (never an
+        identity document, SSN, bank or tax number, or date of birth). Purely additive.
+    -->
+    <changeSet id="20261116010000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="consultant_profile" columnName="phone"/></not>
+        </preConditions>
+        <addColumn tableName="consultant_profile">
+            <column name="phone" type="varchar(32)"/>
+            <column name="time_zone" type="varchar(64)"/>
+            <column name="preferred_contact" type="varchar(40)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

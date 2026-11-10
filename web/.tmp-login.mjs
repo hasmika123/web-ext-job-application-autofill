@@ -1,0 +1,10 @@
+import { chromium } from "@playwright/test";
+const b = await chromium.launch({ channel: "chrome" });
+const p = await b.newPage({ viewport: { width: 1448, height: 900 } });
+p.on("response", (r) => console.log(r.status(), r.url().slice(0, 100)));
+await p.goto("http://acme.localhost:3214/login");
+await p.getByRole("button", { name: /Demo accounts/ }).first().click();
+await p.getByRole("button", { name: "Sign in as Sarah Chen" }).click({ timeout: 60000 });
+await p.waitForTimeout(15000);
+console.log(p.url());
+await b.close();

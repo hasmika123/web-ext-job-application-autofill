@@ -1,0 +1,36 @@
+<!doctype html>
+<!--
+  Organization invite e-mail (enterprise theme, shows the organization name and logo). Goes to the invited address.
+  Model (unchanged): subject, name (nullable), org, inviter, role, pays (list), paysList, message (nullable), link, expires, logoUrl (nullable).
+  Optional: assetBase (art folder, default https://kiwiply.com/email), brand (hex). The text only says the person joins the organization:
+  the template cannot know whether the organization is shared or separate, so it makes no claim about the person's own account.
+-->
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}" lang="en">
+  <head>
+    <title th:text="${subject}">Invite</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+  </head>
+  <body style="margin: 0; padding: 0">
+    <div th:replace="~{mail/fragments :: preheader(#{email.inv.pre(${inviter}, ${org})})}"></div>
+    <th:block th:with="art=${assetBase} ?: 'https://kiwiply.com/email', accent=${brand} ?: '#0d63e8', btnText='#ffffff', heroBg='#eaf3fd', stripBg='#e7f3ee', greet=(${name != null} ? #{email.invite.greeting(${name})} : #{email.invite.greeting.anon})">
+      <th:block th:replace="~{mail/fragments :: shell('enterprise', ${brand}, ${logoUrl}, ${org}, ${art}, ~{::section})}">
+        <section>
+          <table th:replace="~{mail/fragments :: hero(${heroBg}, ${art} + '/ent-hero-welcome.png', 250, #{email.inv.kicker}, #{email.inv.hero1}, ${org}, ${accent}, ${greet} + ' ' + #{email.invite.text1(${inviter}, ${org}, ${role})}, ${link}, #{email.invite.button(${org})}, ${accent}, ${btnText})}"></table>
+          <table th:if="${message != null}" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="padding: 12px 20px 4px 20px">
+                <blockquote th:text="${message}" th:style="'margin: 0; padding: 12px 16px; background: #f1f6fd; border-left: 4px solid ' + ${accent} + '; border-radius: 0 12px 12px 0; font: italic 15px/1.5 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif; color: #232826'">A note from the inviter.</blockquote>
+              </td>
+            </tr>
+          </table>
+          <th:block th:if="${!pays.isEmpty()}"><table th:replace="~{mail/fragments :: strip(${stripBg}, #{email.invite.pays(${org}, ${paysList})}, #{email.inv.pays.text})}"></table></th:block>
+          <table th:replace="~{mail/fragments :: details(#{email.inv.details.title}, #{email.inv.details.org}, ${org}, #{email.inv.details.role}, ${role}, null, null)}"></table>
+          <p style="margin: 0; padding: 14px 28px 4px 28px; font-size: 13px; line-height: 1.5; color: #55615a" th:text="#{email.invite.expires(${expires})}">This link works until 1 Jan.</p>
+          <p style="margin: 0; padding: 4px 28px 18px 28px; font-size: 12px; line-height: 1.5; color: #6b726e" th:text="#{email.invite.notyou}">Not you? Ignore this email.</p>
+        </section>
+      </th:block>
+    </th:block>
+  </body>
+</html>

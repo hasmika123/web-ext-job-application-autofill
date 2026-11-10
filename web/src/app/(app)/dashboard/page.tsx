@@ -1,253 +1,96 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
-import { needsOnboarding, parseBioPayload } from "@/lib/profile-options";
+import { parseBioPayload } from "@/lib/profile-options";
+import { getOnboardingStatus } from "@/lib/onboarding/server";
 import SuggestionsCard, { type Suggestion } from "@/components/SuggestionsCard";
-import { buttonVariants } from "@/components/ui/Button";
-import type { Application } from "@/components/ApplicationBoard";
+import { SUBMITTED_STATUSES, asListPage, statusCsv } from "@/lib/applications";
+import { loadJobs } from "@/components/app-v2/jobs/data";
+import DashboardPage from "@/components/app-v3/home/DashboardPage";
+import FinishProfileCard from "@/components/app-v3/profiles/setup/FinishProfileCard";
+import { Mascot } from "@/components/marketing/media";
+import { getBuilderConfig } from "@/lib/resume-builder-config";
+import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
+import { onboardingSettings } from "@/lib/onboarding-card";
+import ProfileProgressCard from "@/components/app-v3/profiles/setup/ProfileProgressCard";
+import { getCompleteness } from "@/lib/profile-items-server";
+import { computeDashboard, computeProfile } from "@/components/app-v3/home/compute";
+
+export const metadata: Metadata = { title: "Dashboard" };
+
+/** How many recent applications the card lists. */
+const RECENT_COUNT = 5;
 
 /**
- * Dashboard — the authed home (post-login redirect target). KPI row, a "finish setting
- * up" activation checklist, quick actions, and a recent-activity feed that surfaces the
- * "Draft — confirm?" nudge. All read-only/server-rendered from the existing APIs; the
- * board owns the mutations. Session gate + nav live in the `(app)` shell.
+ * Dashboard (app v3, spec 2.1, U3.1): the authed landing page (post-login redirect target). Every number is the
+ * account's own: the tiles and the status donut come from the applications list summary (list v2), the recent list
+ * from its newest submitted rows, activity and upcoming interviews from their feeds (read in the browser, in the
+ * viewer's time zone). Where a source does not exist yet (job alerts) the card is an honest empty state; there is
+ * no sample data on this page at all. Session gate + shell live in the `(app)` layout.
  */
-
-type Account = { login?: string; email?: string; firstName?: string };
-type Bio = Record<string, unknown>;
-
-const APPLIED_STATUSES = new Set(["APPLIED", "INTERVIEW", "OFFER", "REJECTED"]);
-
-function isTruthy(v: unknown): boolean {
-  return v !== undefined && v !== null && String(v).trim() !== "";
-}
-
-function relTime(iso?: string | null): string {
-  if (!iso) return "";
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "";
-  const days = Math.floor((Date.now() - t) / 86_400_000);
-  if (days <= 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
-
-function statusPill(status: string): { label: string; cls: string } {
-  switch (status) {
-    case "DRAFT":
-      return { label: "Draft — confirm?", cls: "bg-brown-soft text-brown-deep" };
-    case "SAVED":
-      return { label: "Saved", cls: "bg-paper-2 text-ink-soft" };
-    case "APPLIED":
-      return { label: "Applied", cls: "bg-accent-soft text-accent-deep" };
-    case "INTERVIEW":
-      return { label: "Interview", cls: "bg-[#dbeafe] text-[#1d4ed8]" };
-    case "OFFER":
-      return { label: "Offer", cls: "bg-accent text-on-accent" };
-    case "REJECTED":
-      return { label: "Rejected", cls: "bg-paper-2 text-muted" };
-    default:
-      return { label: status, cls: "bg-paper-2 text-ink-soft" };
-  }
-}
-
-function Kpi({ label, value, note, warn }: { label: string; value: string; note: string; warn?: boolean }) {
-  return (
-    <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-[18px] shadow-[var(--shadow)]">
-      <div className="text-[12.5px] font-semibold text-muted">{label}</div>
-      <div className="mt-1.5 font-display text-[30px] font-bold text-ink">{value}</div>
-      <div className={`mt-1 text-xs font-semibold ${warn ? "text-warn" : "text-accent-deep"}`}>{note}</div>
-    </div>
-  );
-}
-
-function PanelCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-[var(--radius-lg)] border border-line bg-paper p-[22px] shadow-[var(--shadow)] ${className ?? ""}`}>
-      {children}
-    </div>
-  );
-}
-
-export default async function DashboardPage() {
-  const [accountRes, appsRes, resumesRes, profileRes, suggestionsRes] = await Promise.all([
+export default async function Page() {
+  const [accountRes, appsRes, profileRes, resumesRes, suggestionsRes, jobsData, completeness, builderConfig, onboardingStatus] = await Promise.all([
     serverApiFetch("/api/account"),
-    serverApiFetch("/api/profile/applications"),
-    serverApiFetch("/api/profile/resumes"),
+    // List v2: one page of the newest submitted applications, and `summary` = the counts behind the tiles and the donut.
+    serverApiFetch(`/api/profile/applications?size=${RECENT_COUNT}&sort=updatedAt,desc&status=${statusCsv(SUBMITTED_STATUSES)}`),
     serverApiFetch("/api/profile"),
-    // Phase 10.3e — answers learned while applying, awaiting the user's decision. Best-effort: a
-    // failure here just means no card, never a broken dashboard.
+    serverApiFetch("/api/profile/resumes"),
+    // Answers learned while applying, awaiting the user's decision. Best-effort: no card on failure.
     serverApiFetch("/api/profile/suggestions").catch(() => null),
+    loadJobs(),
+    // The profile strength meter card (R1.4). Null on failure: no card.
+    getCompleteness(),
+    // The admin threshold under which that card shows (`profile.setup.promptBelowPercent`) and the onboarding tunables.
+    getBuilderConfig(),
+    // Where setup stands and whether the "Finish your profile" card shows (R1.9: the server evaluates `card.show` /
+    // `card.state`; "n of total done" comes from its draft). Null on failure: no card, it never nags on a hiccup.
+    getOnboardingStatus(),
   ]);
 
-  const account: Account | null = accountRes.ok ? await accountRes.json().catch(() => null) : null;
-  const applications: Application[] = appsRes.ok ? ((await appsRes.json().catch(() => [])) as Application[]) : [];
-  const resumes: unknown[] = resumesRes.ok ? ((await resumesRes.json().catch(() => [])) as unknown[]) : [];
-  const suggestions: Suggestion[] = suggestionsRes?.ok
-    ? ((await suggestionsRes.json().catch(() => [])) as Suggestion[])
+  const account = accountRes.ok
+    ? ((await accountRes.json().catch(() => null)) as { login?: string; email?: string; firstName?: string } | null)
+    : null;
+  // `asListPage` also reads a failed or legacy answer as an empty page: the page then shows zeros, never someone else's numbers.
+  const apps = asListPage(appsRes.ok ? await appsRes.json().catch(() => null) : null);
+  const resumes: unknown[] = resumesRes.ok ? (((await resumesRes.json().catch(() => [])) as unknown[]) ?? []) : [];
+  const suggestions: Suggestion[] = suggestionsRes?.ok ? ((await suggestionsRes.json().catch(() => [])) as Suggestion[]) : [];
+
+  // 404 = no bio yet (brand-new account). Nobody is ever redirected into onboarding from here (Onboarding
+  // v2): a new account simply sees the "Let's get you job-ready" card below.
+  const bio = profileRes.ok ? parseBioPayload(await profileRes.json().catch(() => null)) : {};
+
+  const n = computeDashboard(apps.summary, apps.items);
+
+  const firstName = account?.firstName || account?.login || account?.email?.split("@")[0] || "there";
+  // Matches exist for Pro accounts; everyone else sees the empty state that says how to get them.
+  const recommended = jobsData.real
+    ? jobsData.jobs.slice(0, 3).map((j) => ({ id: j.id, title: j.title, company: j.company, score: j.score, real: j.real }))
     : [];
 
-  // 404 = no bio yet (a brand-new account). Any other failure is NOT "no profile" — it must not
-  // bounce someone with a full profile into onboarding because the API hiccuped.
-  const bio: Bio = profileRes.ok ? parseBioPayload(await profileRes.json().catch(() => null)) : {};
-  const bioKnown = profileRes.ok || profileRes.status === 404;
-
-  // Phase 10.3b: a new user answers the few questions a resume can't, once. The dashboard is the
-  // post-login landing page, so this catches first sign-in without touching `?next=` flows
-  // (e.g. /connect) — those land where they asked to.
-  if (bioKnown && needsOnboarding(bio)) redirect("/welcome");
-
-  // KPIs
-  const appliedCount = applications.filter((a) => APPLIED_STATUSES.has(a.status)).length;
-  const interviewCount = applications.filter((a) => a.status === "INTERVIEW" || a.status === "OFFER").length;
-  const offerCount = applications.filter((a) => a.status === "OFFER").length;
-  const savedCount = applications.filter((a) => a.status === "SAVED").length;
-  const draftCount = applications.filter((a) => a.status === "DRAFT").length;
-  const responseRate = appliedCount > 0 ? Math.round((interviewCount / appliedCount) * 100) : 0;
-
-  // Setup checklist (verifiable items drive the %; extension install is a tip).
-  const checklist = [
-    { label: "Add your contact details", hint: "Name, email, phone — the basics every form asks for", done: isTruthy(bio.firstName) && isTruthy(bio.email), href: "/profile", cta: "Add" },
-    { label: "Upload a resume", hint: "Kiwiply parses it so the right details autofill", done: resumes.length > 0, href: "/resumes", cta: "Upload" },
-    { label: "Answer the quick questions", hint: "Work authorization, salary, notice — asked on almost every form", done: isTruthy(bio.authorizedToWork), href: "/welcome", cta: "Answer" },
-  ];
-  const doneCount = checklist.filter((i) => i.done).length;
-  const pct = Math.round((doneCount / checklist.length) * 100);
-
-  // Recent activity — newest first by appliedAt/createdAt.
-  const recent = [...applications]
-    .sort((a, b) => {
-      const ta = new Date(a.appliedAt || a.createdAt || 0).getTime();
-      const tb = new Date(b.appliedAt || b.createdAt || 0).getTime();
-      return tb - ta;
-    })
-    .slice(0, 6);
+  // `feature.onboarding_v2.enabled` (R1.8) switches the card; its timings and the mascot flair come from `config.onboarding`
+  // (an API without the group falls back to the declared defaults).
+  const onboarding = builderConfig.onboarding ?? DEFAULT_BUILDER_CONFIG.onboarding;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      {/* Topbar */}
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[.08em] text-muted">Home</div>
-          <h1 className="mt-1 text-[26px] font-bold tracking-tight text-ink">
-            Welcome back{account?.firstName ? `, ${account.firstName}` : ""}
-          </h1>
-        </div>
-        <Link href="/board" className={buttonVariants("accent")}>
-          Go to board
-        </Link>
-      </header>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-[15px] lg:grid-cols-4">
-        <Kpi label="Applications" value={String(appliedCount)} note={`${savedCount} saved`} />
-        <Kpi label="Interviews" value={String(interviewCount)} note={offerCount > 0 ? `${offerCount} offer${offerCount === 1 ? "" : "s"}` : "keep going"} />
-        <Kpi label="Response rate" value={`${responseRate}%`} note="interviews ÷ applied" />
-        <Kpi label="Drafts to confirm" value={String(draftCount)} note={draftCount > 0 ? "Needs review" : "All clear"} warn={draftCount > 0} />
-      </div>
-
-      {/* Learned while applying — keep or dismiss (renders nothing when there's nothing to review) */}
+    <DashboardPage
+      firstName={firstName}
+      stats={n.stats}
+      status={n.status}
+      total={n.total}
+      recent={n.recent}
+      recommended={recommended}
+      profile={computeProfile(profileRes.ok ? bio : null, resumes.length)}
+    >
+      {onboarding.enabled && (
+      <FinishProfileCard
+        login={account?.login ?? account?.email ?? "me"}
+        status={onboardingStatus}
+        settings={onboardingSettings(builderConfig)}
+        mascotWave={onboarding.mascot ? <Mascot pose="wave" className="h-24 w-24 sm:h-32 sm:w-32" /> : undefined}
+        mascotLaptop={onboarding.mascot ? <Mascot pose="laptop" className="h-24 w-24 sm:h-32 sm:w-32" /> : undefined}
+      />
+      )}
+      <ProfileProgressCard completeness={completeness} promptBelow={builderConfig.profile.setupPromptBelowPercent} />
       <SuggestionsCard initial={suggestions} />
-
-      {/* Checklist + quick actions */}
-      <div className="grid gap-[18px] lg:grid-cols-[1.4fr_1fr]">
-        <PanelCard>
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="font-display text-lg font-semibold text-ink">Finish setting up</h2>
-              <span className="text-[13px] text-muted">A complete profile fills more fields automatically.</span>
-            </div>
-            <span className="inline-block flex-none rounded-full bg-accent-soft px-[9px] py-[3px] text-[11px] font-bold text-accent-deep">
-              {pct}% complete
-            </span>
-          </div>
-          <ul className="flex flex-col gap-2.5">
-            {checklist.map((item) => (
-              <li key={item.label} className="flex items-center gap-3 rounded-[var(--radius)] border border-line p-3">
-                <span
-                  className={`grid h-[22px] w-[22px] flex-none place-items-center rounded-full border-2 text-[11px] ${
-                    item.done ? "border-ok bg-ok text-white" : "border-line text-transparent"
-                  }`}
-                >
-                  ✓
-                </span>
-                <div className="flex-1">
-                  <div className={`text-sm font-semibold ${item.done ? "text-muted line-through" : "text-ink"}`}>{item.label}</div>
-                  {!item.done && <div className="text-[12.5px] text-muted">{item.hint}</div>}
-                </div>
-                {!item.done && (
-                  <Link href={item.href} className="flex-none text-[12.5px] font-bold text-accent-deep hover:underline">
-                    {item.cta} →
-                  </Link>
-                )}
-              </li>
-            ))}
-            {/* Extension install — can't be detected server-side, shown as a tip. */}
-            <li className="flex items-center gap-3 rounded-[var(--radius)] border border-line p-3">
-              <span className="grid h-[22px] w-[22px] flex-none place-items-center rounded-full border-2 border-line text-transparent">✓</span>
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-ink">Install the browser extension</div>
-                <div className="text-[12.5px] text-muted">The on-page agent that does the filling</div>
-              </div>
-              <Link href="/#features" className="flex-none text-[12.5px] font-bold text-accent-deep hover:underline">
-                Install →
-              </Link>
-            </li>
-          </ul>
-        </PanelCard>
-
-        <PanelCard>
-          <h2 className="mb-4 font-display text-lg font-semibold text-ink">Quick actions</h2>
-          <div className="flex flex-col gap-3">
-            {[
-              { icon: "📄", t: "Upload a resume", s: "Parse a new variant", href: "/resumes" },
-              { icon: "✏️", t: "Edit your profile", s: "Update details & answers", href: "/profile" },
-              { icon: "📊", t: "View your board", s: "Every application you've tracked", href: "/board" },
-            ].map((a) => (
-              <Link key={a.t} href={a.href} className="flex items-center gap-3 rounded-[var(--radius)] bg-paper-2 p-[13px] transition-colors hover:bg-[var(--color-brown-soft)]">
-                <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-accent-soft text-[17px]">{a.icon}</span>
-                <div>
-                  <div className="text-[13.5px] font-semibold text-ink">{a.t}</div>
-                  <div className="text-xs text-muted">{a.s}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </PanelCard>
-      </div>
-
-      {/* Recent activity */}
-      <PanelCard>
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-semibold text-ink">Recent activity</h2>
-          <Link href="/board" className="text-[12.5px] font-bold text-accent-deep hover:underline">
-            View board →
-          </Link>
-        </div>
-        {recent.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">
-            No applications yet — fill or save a job with the extension and it shows up here.
-          </p>
-        ) : (
-          <ul className="flex flex-col">
-            {recent.map((app) => {
-              const pill = statusPill(app.status);
-              return (
-                <li key={app.id} className="flex items-center gap-3 border-b border-line py-2.5 text-sm last:border-b-0">
-                  <span className="w-[74px] flex-none text-xs text-muted">{relTime(app.appliedAt || app.createdAt)}</span>
-                  <span className="min-w-0 flex-1 truncate">
-                    <b className="text-ink">{app.company}</b>
-                    {app.roleTitle ? <span className="text-ink-soft"> · {app.roleTitle}</span> : null}
-                  </span>
-                  <span className={`flex-none rounded-full px-[9px] py-[3px] text-[11px] font-bold ${pill.cls}`}>{pill.label}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </PanelCard>
-    </div>
+    </DashboardPage>
   );
 }

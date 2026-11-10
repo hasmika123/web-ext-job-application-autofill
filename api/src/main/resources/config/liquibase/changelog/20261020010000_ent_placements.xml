@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 Placements page (branch ent-placements, docs/enterprise-v2/page-placements.md). Additive only.
+
+        talent_placement (foundation) gains: placement_type, account_manager_member_id, client_contact_id, the redeployment pool flag and date,
+        completed_at. Three new org-owned tables: placement_extension (a requested or recorded extension of the end date), placement_note and
+        placement_event (the append-only timeline; the prev_* columns snapshot the state an Undo restores). Rules (41-database-design.md):
+        org_id NOT NULL + FK, composite tenant FKs to the parent's (org_id, id), indexes start with org_id, varchar enum names, DATETIME(6) UTC,
+        no sensitive PII (bill rates are RECORDS, money is never moved), empty rollbacks (flag off, data inert).
+    -->
+
+    <changeSet id="ent-placements-1-uk" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="talent_placement" indexName="uk_talent_placement_org_id"/></not></preConditions>
+        <addUniqueConstraint tableName="talent_placement" columnNames="org_id, id" constraintName="uk_talent_placement_org_id"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-placements-2-columns" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="talent_placement" columnName="placement_type"/></not></preConditions>
+        <addColumn tableName="talent_placement">
+            <column name="placement_type" type="varchar(20)" defaultValue="CONTRACT"><constraints nullable="false"/></column>
+            <column name="account_manager_member_id" type="bigint"/>
+            <column name="client_contact_id" type="bigint"/>
+            <column name="redeployment_pool" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="redeployment_date" type="date"/>
+            <column name="completed_at" type="${datetimeType}"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="talent_placement" baseColumnNames="org_id, account_manager_member_id" constraintName="fk_talent_placement_am" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_placement" baseColumnNames="org_id, client_contact_id" constraintName="fk_talent_placement_contact" referencedTableName="client_contact" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="talent_placement" indexName="ix_talent_placement_pool"><column name="org_id"/><column name="redeployment_pool"/></createIndex>
+        <createIndex tableName="talent_placement" indexName="ix_talent_placement_am"><column name="org_id"/><column name="account_manager_member_id"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_placement" constraintName="fk_talent_placement_am"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Existing rows: the account manager is the consultant's marketer, the contact is the client's first contact, the type follows the job's employment. -->
+    <changeSet id="ent-placements-3-backfill" author="enterprise" dbms="mysql" runInTransaction="false">
+        <sql>
+            UPDATE talent_placement p SET p.account_manager_member_id =
+              (SELECT ma.marketer_member_id FROM marketer_assignment ma WHERE ma.org_id = p.org_id AND ma.consultant_id = p.consultant_id)
+            WHERE p.account_manager_member_id IS NULL
+        </sql>
+        <sql>
+            UPDATE talent_placement p SET p.client_contact_id =
+              (SELECT MIN(cc.id) FROM client_contact cc WHERE cc.org_id = p.org_id AND cc.client_id = p.client_id)
+            WHERE p.client_contact_id IS NULL
+        </sql>
+        <sql>
+            UPDATE talent_placement p JOIN client_requirement r ON r.org_id = p.org_id AND r.id = p.requirement_id
+            SET p.placement_type = r.employment_label WHERE r.employment_label IN ('CONTRACT', 'FTE', 'C2C')
+        </sql>
+        <rollback/>
+    </changeSet>
+
+    <!-- An extension of the end date: REQUESTED (waiting for a decision), APPROVED (recorded: the end date moved), DECLINED, CANCELLED. -->
+    <changeSet id="ent-placements-4-extension" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="placement_extension"/></not></preConditions>
+        <createTable tableName="placement_extension">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="REQUESTED"><constraints nullable="false"/></column>
+            <column name="from_end_date" type="date"/>
+            <column name="requested_end_date" type="date"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(500)"/>
+            <column name="requested_by_member_id" type="bigint"/>
+            <column name="decided_by_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="decided_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="placement_extension" baseColumnNames="org_id" constraintName="fk_placement_ext_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="placement_extension" baseColumnNames="org_id, placement_id" constraintName="fk_placement_ext_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="placement_extension" baseColumnNames="org_id, requested_by_member_id" constraintName="fk_placement_ext_requested_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="placement_extension" baseColumnNames="org_id, decided_by_member_id" constraintName="fk_placement_ext_decided_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="placement_extension" indexName="ix_placement_ext_placement"><column name="org_id"/><column name="placement_id"/><column name="status"/></createIndex>
+        <createIndex tableName="placement_extension" indexName="ix_placement_ext_status"><column name="org_id"/><column name="status"/><column name="created_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="placement_extension" constraintName="fk_placement_ext_requested_by"/>
+            <dropForeignKeyConstraint baseTableName="placement_extension" constraintName="fk_placement_ext_decided_by"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="ent-placements-5-note" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="placement_note"/></not></preConditions>
+        <createTable tableName="placement_note">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="author_member_id" type="bigint"/>
+            <column name="body" type="varchar(1000)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="placement_note" baseColumnNames="org_id" constraintName="fk_placement_note_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="placement_note" baseColumnNames="org_id, placement_id" constraintName="fk_placement_note_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="placement_note" baseColumnNames="org_id, author_member_id" constraintName="fk_placement_note_author" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="placement_note" indexName="ix_placement_note_placement"><column name="org_id"/><column name="placement_id"/><column name="created_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="placement_note" constraintName="fk_placement_note_author"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Append-only timeline of a placement; prev_* hold the state before the change, which is what an Undo restores. -->
+    <changeSet id="ent-placements-6-event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="placement_event"/></not></preConditions>
+        <createTable tableName="placement_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="event_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="detail" type="varchar(300)"/>
+            <column name="ref_id" type="bigint"/>
+            <column name="prev_status" type="varchar(20)"/>
+            <column name="prev_end_date" type="date"/>
+            <column name="prev_pool" type="boolean"/>
+            <column name="prev_pool_date" type="date"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="placement_event" baseColumnNames="org_id" constraintName="fk_placement_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="placement_event" baseColumnNames="org_id, placement_id" constraintName="fk_placement_event_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="placement_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_placement_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="placement_event" indexName="ix_placement_event_placement"><column name="org_id"/><column name="placement_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="placement_event" indexName="ix_placement_event_type"><column name="org_id"/><column name="event_type"/><column name="occurred_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="placement_event" constraintName="fk_placement_event_actor"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
