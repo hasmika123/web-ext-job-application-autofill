@@ -8,7 +8,6 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ClipboardCheckIcon,
   EmptyState,
   ErrorState,
   FilterBar,
@@ -17,13 +16,11 @@ import {
   ListIcon,
   PlusIcon,
   Select,
-  ShieldIcon,
   Tab,
   TabList,
   Tabs,
   TableSkeleton,
   UploadIcon,
-  UsersIcon,
   useMediaQuery,
   useNarrow,
   useToast,
@@ -53,8 +50,6 @@ import {
   type Visibility,
 } from "@/lib/ent/resumes";
 import ResumeDrawer, { printHtml } from "./ResumeDrawer";
-import BeeBanner from "@/components/ent/shell/BeeBanner";
-import ResumeKpiTiles from "./ResumeKpiTiles";
 import { Pagination, ResumesTable } from "./ResumesTable";
 import NewResumeForConsultant from "./NewResumeForConsultant";
 import UploadResumeDialog from "./UploadResumeDialog";
@@ -64,16 +59,14 @@ const UNDO_MS = 9000; // config-literal-ok: how long an Undo stays offered (UI t
 
 export interface ResumesPageProps {
   orgId: number;
-  orgName: string;
   workspace: string;
   selfMemberId: number;
   /** `me.permissions` of the tenant session: decides which buttons are drawn (the API is the gate). */
   permissions: Record<string, string>;
-  supportEmail?: string | null;
 }
 
 const SORT_OPTIONS = [
-  { value: "modified,desc", label: "Last Modified" },
+  { value: "modified,desc", label: "Last modified" },
   { value: "modified,asc", label: "Least recently modified" },
   { value: "created,desc", label: "Newest created" },
   { value: "consultant,asc", label: "Consultant A to Z" },
@@ -82,11 +75,9 @@ const SORT_OPTIONS = [
   { value: "status,asc", label: "Status" },
 ];
 
-const TAB_LABEL: Record<TabKey, string> = { all: "All Resumes", pending: "Pending Approval", recent: "Recent Updates" };
-
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: ResumeRow[]; total: number };
 
-export default function ResumesPage({ orgName, orgId, workspace, permissions, supportEmail }: ResumesPageProps) {
+export default function ResumesPage({ orgId, workspace, permissions }: ResumesPageProps) {
   const toast = useToast();
   const narrow = useNarrow();
   const wide = useMediaQuery(WIDE_QUERY, false);
@@ -102,6 +93,7 @@ export default function ResumesPage({ orgName, orgId, workspace, permissions, su
   const [counts, setCounts] = useState<{ status: "loading" | "ok" | "error"; data: ResumeCounts | null }>({ status: "loading", data: null });
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({ departments: [], owners: [] });
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const pendingCount = counts.data?.needsApproval.value ?? 0;
   const [moreOpen, setMoreOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
@@ -265,9 +257,9 @@ export default function ResumesPage({ orgName, orgId, workspace, permissions, su
   const moreCount = [state.primary, state.owner, state.updated].filter(Boolean).length;
 
   const filters = [
-    { name: "department", label: "Department", allLabel: "All Departments", options: filterOptions.departments },
-    { name: "visibility", label: "Visibility", allLabel: "All Visibility", options: VISIBILITY_OPTIONS.map((o) => ({ value: o.value, label: o.label })) },
-    { name: "status", label: "Status", allLabel: "All Statuses", options: [{ value: "APPROVED", label: "Approved" }, { value: "PENDING", label: "Pending" }, { value: "REJECTED", label: "Rejected" }] },
+    { name: "department", label: "Department", allLabel: "All departments", options: filterOptions.departments },
+    { name: "visibility", label: "Visibility", allLabel: "All visibility", options: VISIBILITY_OPTIONS.map((o) => ({ value: o.value, label: o.label })) },
+    { name: "status", label: "Status", allLabel: "All statuses", options: [{ value: "APPROVED", label: "Approved" }, { value: "PENDING", label: "Pending" }, { value: "REJECTED", label: "Rejected" }] },
   ];
   const filterValues = { department: state.department, visibility: state.visibility, status: state.status };
   const onFilter = (name: string, value: string) => apply(name === "department" ? { department: value } : name === "visibility" ? { visibility: value } : { status: value });
@@ -279,46 +271,22 @@ export default function ResumesPage({ orgName, orgId, workspace, permissions, su
 
   return (
     <div ref={root} data-resumes-page className="ent-fit">
-      <PageHeader title="Resumes" subtitle="Manage and organize consultant resumes, track versions, and control visibility across your organization." />
-      <div className="grid items-start gap-[15px] xl:grid-cols-[minmax(0,3.43fr)_minmax(0,1fr)]">
-        <ResumeKpiTiles compact={false} counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
-        <BeeBanner
-          title="Manage consultant resumes"
-          body="Store, review, and control resume visibility. Set primary resumes and approve updates for your team."
-          topic="resumes"
-          orgName={orgName}
-          supportEmail={supportEmail}
-        />
-      </div>
-
-      <div className="mt-[18px] flex items-start">
+      <PageHeader title="Resumes" subtitle="Every consultant's resumes, and the ones waiting for approval." />
+      <div className="flex items-start">
         <div className="min-w-0 flex-1">
           <section aria-label="Resumes" className="ent-card space-y-3 !p-2 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ent-table-line)] pl-1.5">
               <Tabs value={state.tab} onValueChange={(v) => apply({ tab: v as TabKey })} variant="underline" className="ent-tabs min-w-0 max-w-full overflow-x-auto">
                 <TabList aria-label="Resume views">
-                  <Tab value="all">
-                    <span className="inline-flex items-center gap-2">
-                      <UsersIcon aria-hidden size={17} className="hidden sm:block" /> {TAB_LABEL.all}
-                    </span>
-                  </Tab>
-                  <Tab value="pending">
-                    <span className="inline-flex items-center gap-2">
-                      <ShieldIcon aria-hidden size={17} className="hidden sm:block" /> {TAB_LABEL.pending}
-                    </span>
-                  </Tab>
-                  <Tab value="recent">
-                    <span className="inline-flex items-center gap-2">
-                      <ClipboardCheckIcon aria-hidden size={17} className="hidden sm:block" /> {TAB_LABEL.recent}
-                    </span>
-                  </Tab>
+                  <Tab value="all">All</Tab>
+                  <Tab value="pending">{pendingCount ? `Pending approval (${pendingCount})` : "Pending approval"}</Tab>
                 </TabList>
               </Tabs>
               <span className="flex flex-wrap items-center">
                 {canNewFor && <NewResumeForConsultant orgId={orgId} onCreated={refresh} />}
                 {canUpload && (
                   <Button type="button" variant="accent" onClick={() => setUploadOpen(true)} data-upload-open className="ent-btn mb-1.5 mr-1.5">
-                    <PlusIcon aria-hidden size={15} /> Upload Resume
+                    <PlusIcon aria-hidden size={15} /> Upload resume
                   </Button>
                 )}
               </span>
@@ -336,7 +304,7 @@ export default function ResumesPage({ orgName, orgId, workspace, permissions, su
                 filters={filters}
                 actions={
                   <Button type="button" variant="ghost" size="sm" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters className="ent-ctl-btn">
-                    <FilterIcon size={14} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
+                    <FilterIcon size={14} aria-hidden /> More filters{moreCount > 0 ? ` (${moreCount})` : ""}
                   </Button>
                 }
               />
@@ -459,15 +427,13 @@ export default function ResumesPage({ orgName, orgId, workspace, permissions, su
             {list.status === "ok" && rows.length === 0 && (
               <EmptyState
                 variant="inline"
-                title={active ? "No resumes match" : state.tab === "pending" ? "Nothing is waiting for approval" : state.tab === "recent" ? "No recent updates" : "No resumes yet"}
+                title={active ? "No resumes match" : state.tab === "pending" ? "Nothing is waiting for approval" : "No resumes yet"}
                 description={
                   active
                     ? "Try a different search, or clear the filters to see everything in your view."
                     : state.tab === "pending"
                       ? "Resumes prepared for a consultant show up here until someone approves them."
-                      : state.tab === "recent"
-                        ? "Resumes changed in the last 30 days show up here."
-                        : "Resumes appear here once they are added for the consultants in your view."
+                      : "Resumes appear here once they are added for the consultants in your view."
                 }
                 action={
                   active ? (
@@ -476,7 +442,7 @@ export default function ResumesPage({ orgName, orgId, workspace, permissions, su
                     </Button>
                   ) : canUpload && state.tab === "all" ? (
                     <Button type="button" variant="accent" onClick={() => setUploadOpen(true)}>
-                      <UploadIcon aria-hidden size={15} /> Upload Resume
+                      <UploadIcon aria-hidden size={15} /> Upload resume
                     </Button>
                   ) : undefined
                 }

@@ -11,18 +11,18 @@ export type StageKey = "applied" | "awaiting" | "interviewing" | "offer" | "hire
 export const STAGE_KEYS: StageKey[] = ["applied", "awaiting", "interviewing", "offer", "hired", "not_selected"];
 export const STAGE_LABELS: Record<StageKey, string> = {
   applied: "Applied",
-  awaiting: "Awaiting Response",
+  awaiting: "Awaiting response",
   interviewing: "Interviewing",
   offer: "Offer",
   hired: "Hired",
-  not_selected: "Not Selected",
+  not_selected: "Not selected",
 };
 export type Consent = "FULL" | "SUMMARY";
 export type DotTone = "blue" | "violet" | "amber" | "green" | "red";
 
 export type KpiKey = "active" | "awaiting" | "interviewing" | "offers";
 export const KPI_KEYS: KpiKey[] = ["active", "awaiting", "interviewing", "offers"];
-export const KPI_TITLES: Record<KpiKey, string> = { active: "Active Applications", awaiting: "Awaiting Response", interviewing: "Interviewing", offers: "Offers" };
+export const KPI_TITLES: Record<KpiKey, string> = { active: "Active applications", awaiting: "Awaiting response", interviewing: "Interviewing", offers: "Offers" };
 
 export interface Kpi { key: KpiKey; value: number; deltaPct: number | null; sparkline: number[] }
 export interface Person { id: number | null; name: string; avatarUrl: string | null }
@@ -112,11 +112,11 @@ export function parseApplications(raw: unknown): ApplicationsView | null {
 
 export type Period = "1m" | "3m" | "6m" | "12m" | "all";
 export const PERIODS: { value: Period; label: string }[] = [
-  { value: "1m", label: "Last Month" },
-  { value: "3m", label: "Last 3 Months" },
-  { value: "6m", label: "Last 6 Months" },
-  { value: "12m", label: "Last 12 Months" },
-  { value: "all", label: "All Time" },
+  { value: "1m", label: "Last month" },
+  { value: "3m", label: "Last 3 months" },
+  { value: "6m", label: "Last 6 months" },
+  { value: "12m", label: "Last 12 months" },
+  { value: "all", label: "All time" },
 ];
 
 export interface BoardQuery {

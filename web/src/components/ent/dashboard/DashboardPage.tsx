@@ -6,27 +6,16 @@ import {
   AlertIcon,
   BarChartSolidIcon,
   BellSolidIcon,
-  BoardIcon,
-  BoltSolidIcon,
   BriefcaseSolidIcon,
-  BuildingIcon,
   CalendarSolidIcon,
   CheckCircleIcon,
-  ChevronRightIcon,
   ClockIcon,
-  CoinsSolidIcon,
   ErrorState,
-  FileTextIcon,
   FileTextSolidIcon,
-  GearIcon,
   InfoIcon,
   PieSolidIcon,
-  SparklesIcon,
-  TeamSolidIcon,
   Tooltip,
   IconButton,
-  UserIcon,
-  UsersIcon,
   UsersSolidIcon,
   XIcon,
   BarChart,
@@ -37,8 +26,7 @@ import {
   cn,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot, openHelpPanel } from "@/components/ent/shell/ShellContext";
-import { ENT_MASCOT_BASE } from "@/lib/ent/mascot";
+import PageHeader from "@/components/ent/shell/ShellContext";
 import { undoToast } from "@/lib/undo-toast";
 import {
   TILE_KEYS,
@@ -52,7 +40,6 @@ import {
   invitesOf,
   lastMonths,
   pipelineOf,
-  quickActionsOf,
   relativeTime,
   subscriptionOf,
   teamOf,
@@ -60,7 +47,6 @@ import {
   type AlertItem,
   type DashboardView,
   type DashboardWidget,
-  type QuickActionItem,
   type TileKey,
 } from "@/lib/ent/dashboard";
 import ChecklistCard from "./ChecklistCard";
@@ -76,24 +62,12 @@ import { CARD, CardError, CardHead, CardSkeleton, StatTile, TONES, Unavailable, 
 export const REVALIDATE_MS = 30_000;
 export const UNDO_MS = 6_000;
 
-/** The board's six tile palettes, left to right: violet, green, blue, orange, indigo, pink (a fixed palette, never the tenant's brand). */
+/** The four tile palettes, left to right: violet, blue, orange, indigo (a fixed palette, never the tenant's brand). */
 const TILES: Record<TileKey, Omit<TileSpec, "key" | "title">> = {
   "consultants.total": { icon: UsersSolidIcon, tone: "violet" },
-  "employees.active": { icon: TeamSolidIcon, tone: "green" },
   "applications.active": { icon: FileTextSolidIcon, tone: "blue" },
   "interviews.upcoming": { icon: CalendarSolidIcon, tone: "orange" },
   placements: { icon: BriefcaseSolidIcon, tone: "indigo" },
-  "finance.summary": { icon: CoinsSolidIcon, tone: "pink" },
-};
-
-/** Quick action icon tiles: solid colour, white glyph (the board): brand, green, violet, the brand's second colour. */
-const ACTION_ICONS: Record<string, { icon: ComponentType<IconProps>; solid: string }> = {
-  "invite-employee": { icon: UserIcon, solid: "bg-[var(--brand-solid,var(--color-accent))]" },
-  "assign-marketer": { icon: UsersIcon, solid: "bg-[var(--color-v2-green)]" },
-  "configure-licenses": { icon: GearIcon, solid: "bg-[var(--color-v2-violet)]" },
-  "review-applications": { icon: FileTextIcon, solid: "bg-[var(--brand-2-solid,var(--color-v2-amber))]" },
-  "view-pipeline": { icon: BoardIcon, solid: "bg-[var(--color-v2-teal)]" },
-  "configure-organization": { icon: BuildingIcon, solid: "bg-[var(--color-v2-coral)]" },
 };
 
 /* ── data hook ─────────────────────────────────────────────────────────────────────── */
@@ -174,20 +148,20 @@ const TEAM_COLORS: Record<string, string> = { applications: chartColor(0), inter
 const STAGE_COLORS: Record<string, string> = { new: chartColor(0), in_review: "var(--color-v2-teal)", interviewing: chartColor(1), offered: "var(--color-v2-green)", hired: "var(--color-v2-violet)" };
 
 const RANGES = [
-  { months: 3, label: "Last 3 Months" },
-  { months: 6, label: "Last 6 Months" },
+  { months: 3, label: "Last 3 months" },
+  { months: 6, label: "Last 6 months" },
 ] as const;
 
 function TeamPerformanceCard({ body }: { body: CardBody }) {
   const [range, setRange] = useState<number>(6);
   const { widget } = body;
   if (!body.loading && !widget) return null;
-  const shared = stateBody(body, "team performance");
+  const shared = stateBody(body, "the monthly chart");
   const full = !body.loading ? teamOf(widget) : null;
   const team = full ? lastMonths(full, range) : null;
   return (
     <section aria-labelledby="dash-team" data-dash-card="team.performance" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col px-[14px] pb-3.5 pt-3 sm:px-[14px] lg:col-span-2 xl:col-span-1 xl:min-h-[297px]")}>
-      <CardHead id="dash-team" icon={BarChartSolidIcon} title="Team Performance">
+      <CardHead id="dash-team" icon={BarChartSolidIcon} title="Applications, interviews and placements by month">
         {team ? (
           <select
             aria-label="Range"
@@ -205,7 +179,7 @@ function TeamPerformanceCard({ body }: { body: CardBody }) {
         ) : null}
       </CardHead>
       <div className="mt-3.5 flex flex-1 flex-col px-1">
-        {shared ?? (team ? <BarChart variant="board" label="Team performance by month" categories={team.months} series={team.series.map((x) => ({ ...x, color: TEAM_COLORS[x.key] }))} height={150} /> : <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>)}
+        {shared ?? (team ? <BarChart variant="board" label="Applications, interviews and placements by month" categories={team.months} series={team.series.map((x) => ({ ...x, color: TEAM_COLORS[x.key] }))} height={150} /> : <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>)}
       </div>
     </section>
   );
@@ -218,11 +192,11 @@ function PipelineCard({ body }: { body: CardBody }) {
   const pipe = !body.loading ? pipelineOf(widget) : null;
   return (
     <section aria-labelledby="dash-pipeline" data-dash-card="pipeline.overview" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col px-[14px] pb-3.5 pt-3 sm:px-[16px] xl:min-h-[297px]")}>
-      <CardHead id="dash-pipeline" icon={PieSolidIcon} title="Pipeline Overview" tone="accent" />
+      <CardHead id="dash-pipeline" icon={PieSolidIcon} title="Pipeline overview" tone="accent" />
       <div className="mt-3 flex flex-1 flex-col justify-center">
         {shared ??
           (pipe ? (
-            <DonutChart variant="board" size={152} label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
+            <DonutChart variant="board" size={152} label="Applications by stage" total={pipe.total} totalLabel="Total applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
           ) : (
             <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>
           ))}
@@ -232,66 +206,6 @@ function PipelineCard({ body }: { body: CardBody }) {
 }
 
 const ACTIVITY_SHOWN = 5; // the board shows five; "View all" has the rest
-const QUICK_SHOWN = 4; // the board shows four; the rest the API sends are reachable from the menu
-
-function QuickActionsCard({ body }: { body: CardBody }) {
-  const { widget } = body;
-  if (!body.loading && !widget) return null;
-  const shared = stateBody(body, "your shortcuts");
-  const every = widget && !body.loading ? quickActionsOf(widget) : [];
-  const items = every.slice(0, QUICK_SHOWN);
-  return (
-    <section aria-labelledby="dash-quick" data-dash-card="quick.actions" className={cn(CARD, "flex min-w-0 flex-col px-3 pb-3 pt-2.5 xl:min-h-[297px]")}>
-      <CardHead id="dash-quick" icon={BoltSolidIcon} title="Quick Actions" tile={false} />
-      <div className="mt-0.5 flex-1">
-        {shared ?? (
-          <ul className="flex flex-col gap-1.5">
-            {items.map((a) => (
-              <li key={a.key}>
-                <ActionRow a={a} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function ActionRow({ a }: { a: QuickActionItem }) {
-  const meta = ACTION_ICONS[a.key] ?? { icon: SparklesIcon, solid: "bg-[var(--brand-solid,var(--color-accent))]" };
-  const Icon = meta.icon;
-  const inner = (
-    <>
-      <span aria-hidden className={cn("grid h-[46px] w-[46px] flex-none place-items-center rounded-[11px] text-white", meta.solid)}>
-        <Icon size={24} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[16px] font-bold leading-tight text-ink">{a.label}</span>
-        <span className="line-clamp-1 text-[14px] leading-snug text-muted">{a.description}</span>
-      </span>
-    </>
-  );
-  const row = "flex min-h-[54px] items-center gap-3.5 rounded-xl border border-line/80 bg-paper px-2 py-[3px] shadow-[0_1px_2px_rgba(20,33,79,0.03)]";
-  if (!a.available)
-    return (
-      <div data-quick-action={a.key} data-available="false" aria-disabled="true" className={cn(row, "bg-paper-2/50")}>
-        {inner}
-        <Tooltip content={a.soonModule ? `Arrives with ${a.soonModule}` : "Coming soon"} side="left">
-          <span tabIndex={0} data-soon-chip className="mr-1 flex-none rounded-full bg-paper-2 px-2 py-0.5 text-[11.5px] font-bold text-ink-soft ring-1 ring-line">
-            Soon
-          </span>
-        </Tooltip>
-      </div>
-    );
-  return (
-    <Link href={a.href} data-quick-action={a.key} data-available="true" className={cn(row, "group transition-colors hover:bg-paper-2")}>
-      {inner}
-      <ChevronRightIcon aria-hidden size={18} className="mr-2 flex-none text-accent-deep transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
-    </Link>
-  );
-}
-
 const SEVERITY: Record<AlertItem["severity"], { icon: ComponentType<IconProps>; tone: IconTone; word: string }> = {
   danger: { icon: AlertIcon, tone: "coral", word: "Urgent" },
   warn: { icon: AlertIcon, tone: "amber", word: "Warning" },
@@ -310,7 +224,7 @@ function AlertsCard({ body, hidden, onDismiss, now }: { body: CardBody; hidden: 
   const allClear = !shared && items.length === 0;
   return (
     <section aria-labelledby="dash-alerts" data-dash-card="alerts" className={cn(CARD, "flex min-w-0 flex-col px-[14px] pb-3 pt-3 xl:min-h-[295px]")}>
-      <CardHead id="dash-alerts" icon={BellSolidIcon} title="Activity & Alerts" tone="coral" tile={false}>
+      <CardHead id="dash-alerts" icon={BellSolidIcon} title="Activity & alerts" tone="coral" tile={false}>
         {every.length > ALERTS_SHOWN ? (
           <button
             type="button"
@@ -403,7 +317,7 @@ function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: numbe
   const items = widget && !body.loading ? activityOf(widget).slice(0, ACTIVITY_SHOWN) : [];
   return (
     <section aria-labelledby="dash-activity" data-dash-card="activity.recent" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col px-[14px] pb-3 pt-3 xl:min-h-[295px]")}>
-      <CardHead id="dash-activity" icon={ClockIcon} title="Recent Activity" tone="accent" tile={false}>
+      <CardHead id="dash-activity" icon={ClockIcon} title="Recent activity" tone="accent" tile={false}>
         {viewAll ? (
           <Link href={viewAll} className="ent-chip-btn">
             View all
@@ -449,67 +363,11 @@ function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: numbe
   );
 }
 
-/** The help card's "dismissed" memory: per organization, in this browser only (a convenience, never state that matters). */
-const helpKey = (orgId: number) => `kiwiply.dashboard.help.dismissed.${orgId}`;
-
-function useHelpDismissed(orgId: number): { dismissed: boolean | null; dismiss: () => void } {
-  const [dismissed, setDismissed] = useState<boolean | null>(null); // null until the browser has been asked
-  useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        setDismissed(window.localStorage.getItem(helpKey(orgId)) === "1");
-      } catch {
-        setDismissed(false);
-      }
-    }, 0);
-    return () => clearTimeout(t);
-  }, [orgId]);
-  const dismiss = useCallback(() => {
-    setDismissed(true);
-    try {
-      window.localStorage.setItem(helpKey(orgId), "1");
-    } catch {
-      /* private window or blocked storage: it simply comes back next time */
-    }
-  }, [orgId]);
-  return { dismissed, dismiss };
-}
-
-function BeeHelpCard({ firstName, orgName, onDismiss }: { firstName: string; orgName: string; onDismiss: () => void }) {
-  return (
-    <section aria-label="Help" data-dash-card="help" className="ent-card relative flex min-w-0 flex-col p-[7px] md:col-span-2 xl:col-span-1 xl:min-h-[295px]">
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-      <div className="ent-help-plate h-[140px] flex-none">
-        {/* eslint-disable-next-line @next/next/no-img-element -- a fixed static bee plate */}
-        <img src={`${ENT_MASCOT_BASE}/typing.png`} alt="" width={182} height={199} className="absolute bottom-0 left-1/2 h-[128px] w-auto -translate-x-[58%]" />
-        <IconButton aria-label="Dismiss the help card" data-help-dismiss onClick={onDismiss} className="absolute right-2 top-2 z-10 h-8 w-8 rounded-lg bg-paper/90">
-          <XIcon size={16} />
-        </IconButton>
-      </div>
-      <div className="flex flex-1 flex-col px-3.5 pb-2.5 pt-3">
-        <h2 className="text-[20px] font-extrabold leading-tight text-ink">Need help, {firstName}?</h2>
-        <p className="mt-1 text-[15px] leading-snug text-ink-soft">I can help you find reports, manage users, or answer questions about {orgName}.</p>
-        <button
-          type="button"
-          onClick={openHelpPanel}
-          className="mt-auto flex min-h-10 w-full items-center gap-2.5 rounded-[10px] ent-ask-btn px-3.5 text-left text-[16px] font-semibold"
-        >
-          <SparklesIcon size={20} className="flex-none" />
-          <span className="min-w-0 flex-1 truncate">Ask a question...</span>
-          <ChevronRightIcon size={18} className="flex-none" />
-        </button>
-      </div>
-    </section>
-  );
-}
-
 /* ── the page ──────────────────────────────────────────────────────────────────────── */
 
 export interface DashboardPageProps {
   orgId: number;
   orgName: string;
-  firstName: string;
   /** The audit log page for "View all" on Recent Activity, when this member's menu has one. */
   auditHref?: string | null;
   /** The applications page, where "View all" goes when there is no audit page. */
@@ -519,10 +377,9 @@ export interface DashboardPageProps {
   invitationsHref?: string | null;
 }
 
-export default function DashboardPage({ orgId, orgName, firstName, auditHref = null, applicationsHref = null, employeesHref = null, invitationsHref = null }: DashboardPageProps) {
+export default function DashboardPage({ orgId, orgName, auditHref = null, applicationsHref = null, employeesHref = null, invitationsHref = null }: DashboardPageProps) {
   const { view, status, updatedAt, refreshing, reload } = useDashboard(orgId);
   const toast = useToast();
-  const help = useHelpDismissed(orgId);
   const now = useNow();
   const loading = status === "loading";
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
@@ -602,7 +459,7 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
         href: invitationsHref,
         tone: invites.expiringSoon > 0 ? "warn" : "info",
       });
-    if (invites && invites.suspended > 0) out.push({ key: "suspended", text: `${invites.suspended} suspended`, href: employeesHref, tone: "info" });
+    if (invites && invites.suspended > 0) out.push({ key: "suspended", text: `${invites.suspended} suspended`, href: employeesHref ? `${employeesHref}?status=suspended` : null, tone: "info" });
     if (sub && sub.orgStatus.toUpperCase() !== "ACTIVE") out.push({ key: "subscription", text: `Subscription ${sub.orgStatus.toLowerCase().replace(/_/g, " ")}`, href: null, tone: "warn" });
     return out;
   }, [invites, sub, invitationsHref, employeesHref]);
@@ -613,7 +470,7 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
 
   return (
     <div data-dashboard data-status={status} className="ent-page relative flex flex-col gap-4 sm:gap-[17px]">
-      <PageHeader title="Organization Dashboard" subtitle={`Welcome back! Here's what's happening at ${orgName} today.`} />
+      <PageHeader title="Organization Dashboard" subtitle={`Here's where ${orgName} stands today.`} />
 
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1 xl:justify-end">
         <ul aria-label="Needs a look" className="flex min-w-0 flex-wrap gap-2">
@@ -639,7 +496,7 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
         <ErrorState what="the dashboard" description="Your organization's numbers didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <>
-          <section aria-label="Key numbers" data-dash-tiles className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6 xl:gap-[17px] xl:pt-2.5">
+          <section aria-label="Key numbers" data-dash-tiles className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 xl:gap-[17px] xl:pt-2.5">
             {TILE_KEYS.map((key, i) => (
               <StatTile key={key} index={i} loading={loading} widget={w(key)} spec={{ key, title: TILE_TITLES[key], ...TILES[key] }} onRetry={() => void reload()} />
             ))}
@@ -647,16 +504,14 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
 
           {checklistGone ? null : <ChecklistCard widget={w("checklist")} onDismiss={() => void dismissChecklist()} />}
 
-          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.77fr)_minmax(0,1.16fr)_minmax(0,1fr)] xl:gap-[17px]">
-            <TeamPerformanceCard body={body("team.performance")} />
-            <PipelineCard body={body("pipeline.overview")} />
-            <QuickActionsCard body={body("quick.actions")} />
-          </div>
-
-          <div className={cn("grid gap-4 sm:gap-5 lg:grid-cols-2 xl:gap-[17px]", help.dismissed === false ? "xl:grid-cols-[minmax(0,1.47fr)_minmax(0,1.46fr)_minmax(0,1fr)]" : "xl:grid-cols-2")}>
+          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:gap-[17px]">
             <AlertsCard body={body("alerts")} hidden={hidden} onDismiss={dismiss} now={now} />
             <RecentActivityCard body={body("activity.recent")} now={now} viewAll={auditHref ?? applicationsHref} />
-            {help.dismissed === false ? <BeeHelpCard firstName={firstName} orgName={orgName} onDismiss={help.dismiss} /> : null}
+          </div>
+
+          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.77fr)_minmax(0,1.16fr)] xl:gap-[17px]">
+            <TeamPerformanceCard body={body("team.performance")} />
+            <PipelineCard body={body("pipeline.overview")} />
           </div>
         </>
       )}

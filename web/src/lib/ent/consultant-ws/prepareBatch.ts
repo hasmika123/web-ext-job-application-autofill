@@ -35,7 +35,7 @@ export interface PrepareStatus {
 
 /** The calm one-liners for a feature that is off for this consultant. PLATFORM_OFF has none: the feature does not exist for anyone yet. */
 export const NOTE_ORG_OFF = "Your organization hasn't turned on preparing applications.";
-export const NOTE_NO_LICENSE = "Your organization's licence doesn't include preparing applications.";
+export const NOTE_NO_LICENSE = "Your organization's license doesn't include preparing applications.";
 export function reasonNote(reason: string | null): string | null {
   if (reason === "ORG_OFF") return NOTE_ORG_OFF;
   if (reason === "NO_LICENSE") return NOTE_NO_LICENSE;

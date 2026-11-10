@@ -78,13 +78,13 @@ test("VIDEO-08 Open assigned openings: interest, a question, a decline, 'I appli
     await expect(mrowA).toBeVisible({ timeout: 20_000 });
     await narrate(page, "They're all assigned to Ben, and every one says No response. Ben hasn't looked at them yet. Now it's his turn.", undefined, mrowA);
 
-    // ---- Ben: Assigned Opportunities
+    // ---- Ben: Opportunities › Assigned
     await f.switchTo("ben", "Now let's switch to Ben, the consultant.", "/w/consultant/opportunities");
     await ready(page, "[data-consultant-opportunities]").waitFor();
     await mockPostingSite({ page, context, go: f.go });
-    await narrate(page, "This is Ben's Assigned Opportunities page. It lists the jobs his marketer assigned to him, each with a priority and a due date.");
-    const tiles = page.locator("[data-opps-tiles]");
-    await narrate(page, "The tiles up here count them: the total, the high priority ones, those waiting for his answer, and the ones he declined.", undefined, tiles);
+    await narrate(page, "This is Ben's Opportunities page, on the Assigned tab. It lists the jobs his marketer assigned to him, each with a priority and a due date.");
+    const chips = page.locator("[data-opps-chips]");
+    await narrate(page, "The chips up here count them and filter the list: all of them, those that need his answer, the ones he is interested in, those in review, and the ones he declined.", undefined, chips);
     const rowA = rowOf(page, 0);
     await expect(rowA).toBeVisible({ timeout: 30_000 });
     await narrate(page, `Ben spots the new Senior Platform Engineer job from ${C1}. He opens it to read the details.`, undefined, rowA);
@@ -146,11 +146,9 @@ test("VIDEO-08 Open assigned openings: interest, a question, a decline, 'I appli
     await narrate(page, `${C1} now says Interested. Ben's answer reached the board by itself.`, undefined, mA);
     const mB = boardOf(page, 1);
     await expect(mB.locator("[data-opp-interest=NOT_INTERESTED]")).toBeVisible();
-    await narrate(page, `${C2} says Not Interested.`, undefined, mB);
+    await narrate(page, `${C2} says Not interested.`, undefined, mB);
     const mC = boardOf(page, 2);
     await narrate(page, `And ${C3} shows that Ben says he applied.`, undefined, mC);
-    await expect(page.locator("[data-opp-card=activity]")).toContainText(/asked a question/);
-    await narrate(page, "The activity feed on the side lists each step too: Ben is interested, Ben asked a question, Ben declined, and Ben says he applied.", undefined, page.locator("[data-opp-card=activity]"));
 
     // decline reason
     await mB.getByRole("button", { name: "Compare" }).click();

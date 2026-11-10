@@ -31,13 +31,12 @@ test.describe("jobs (real stack)", () => {
     await page.goto(`${base}/w/admin/jobs`);
     await expect(page.locator("[data-jobs-page]")).toBeVisible();
 
-    // the four tiles come from the seeded rows
+    // the two tiles (Open, New this week) come from the seeded rows
     const kpi = (k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
     await expect(kpi("openJobs")).toHaveText(/^\d+$/);
     const open0 = Number(await kpi("openJobs").innerText());
     const fresh0 = Number(await kpi("newThisWeek").innerText());
     expect(open0).toBeGreaterThan(0);
-    await expect(page.locator("[data-kpi=openJobs] [data-kpi-delta]")).toContainText("vs last month");
     await expect(rows(page)).toHaveCount(10);
     const total0 = Number(((await page.locator("[data-showing]").first().innerText()).match(/of (\d+) jobs/) ?? [])[1]);
     expect(total0).toBeGreaterThanOrEqual(24); // a fresh seed has 24; earlier runs add the jobs they created
@@ -74,7 +73,7 @@ test.describe("jobs (real stack)", () => {
     await fresh.close();
 
     // one mutation: assign the best SUGGESTED match, the application code comes back and the match shows as assigned
-    await page.getByRole("tab", { name: /Top Matches/ }).click();
+    await page.getByRole("tab", { name: /Top matches/ }).click();
     const assign = drawer.getByRole("button", { name: /^Assign / }).first();
     await expect(assign).toBeVisible();
     await assign.click();
@@ -94,7 +93,7 @@ test.describe("jobs (real stack)", () => {
 
     // create a job: it opens in the drawer and the list shows it first
     await page.locator("[data-clear-filters]").click();
-    await page.getByRole("button", { name: /Create Job/ }).click();
+    await page.getByRole("button", { name: /Create job/ }).click();
     await page.getByLabel(/Job title/).fill("Journey Platform Engineer");
     await page.locator("[data-create-form] button").first().click();
     await page.getByRole("option", { name: "TechCorp" }).click();

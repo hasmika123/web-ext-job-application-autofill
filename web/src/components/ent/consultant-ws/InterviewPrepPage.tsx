@@ -4,36 +4,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
-  BarChartIcon,
   BookOpenIcon,
   BuildingIcon,
-  CalendarIcon,
   CheckCircleIcon,
   ChevronRightIcon,
   ClockIcon,
   ErrorState,
   FileTextIcon,
-  LightbulbIcon,
   Menu,
-  MessageIcon,
   MoreVerticalIcon,
   PlayIcon,
   SideSheet,
   Skeleton,
-  Sparkline,
-  TargetIcon,
   Textarea,
   UsersIcon,
-  ZapIcon,
-  chartColor,
   cn,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import ProgressRing from "@/components/app-v2/common/ProgressRing";
 import { CARD, TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
-import { firstName } from "@/lib/ent/consultant-ws/home";
+import { BASE, Card, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
 import {
   KIND_LABEL,
   KIND_MODULE,
@@ -41,7 +31,6 @@ import {
   MAX_NOTES,
   averageScore,
   checklistProgress,
-  deltaIsGood,
   durationText,
   elapsedMinutes,
   fetchPrep,
@@ -54,13 +43,11 @@ import {
   sessionWhen,
   sheetProblem,
   setChecked,
-  tileDelta,
   withChecked,
   type CheckItem,
   type Fetched,
   type NextInterview,
   type PrepModule,
-  type PrepTile,
   type PrepView,
   type SessionDetail,
   type SessionRow,
@@ -72,83 +59,6 @@ import {
  * short fixed question list the consultant scores themselves, and saving records a real session. The module catalog is static default
  * content from the API (it moves to admin configuration later). Research links to Interviews; nothing is fetched from outside.
  */
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: keyof PrepView["tiles"];
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-  lowerIsBetter?: boolean;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "upcoming", title: "Upcoming Prep Sessions", icon: CalendarIcon, tone: "accent" },
-  { key: "score", title: "Practice Score", icon: TargetIcon, tone: "green" },
-  { key: "sets", title: "Suggested Question Sets", icon: FileTextIcon, tone: "violet" },
-  { key: "weak", title: "Weak Areas", icon: BarChartIcon, tone: "amber", lowerIsBetter: true },
-];
-
-function tileValue(spec: TileSpec, t: PrepTile): string {
-  if (t.value === null) return "-";
-  return spec.key === "score" ? `${t.value}%` : String(t.value);
-}
-
-function tileNote(spec: TileSpec, t: PrepTile, view: PrepView): string {
-  if (spec.key === "upcoming") return "Scheduled interviews";
-  if (spec.key === "sets") return "From your skills and interviews";
-  if (spec.key === "score") return t.value === null ? "Practice to get a score" : "Average of your sessions";
-  if (view.history.length === 0) return "Practice to find weak areas";
-  return view.weakKinds.length > 0 ? view.weakKinds.map((k) => KIND_LABEL[k]).join(", ") : "No area below 75%";
-}
-
-function Tile({ spec, view, index }: { spec: TileSpec; view: PrepView | null; index: number }) {
-  const Icon = spec.icon;
-  const tile = view ? view.tiles[spec.key] : null;
-  const d = tile ? tileDelta(tile) : null;
-  const good = d ? deltaIsGood(d.dir, spec.lowerIsBetter === true) : null;
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-[12px]", TONES[spec.tone])}>
-        <Icon size={22} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[13px] font-semibold leading-tight text-ink-soft">{spec.title}</h3>
-        {tile && view ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[28px] font-extrabold leading-none tabular-nums text-ink">
-                {tileValue(spec, tile)}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 w-[42%] max-w-[84px] flex-none">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              {d ? (
-                <>
-                  <span data-delta={d.dir} className={cn("font-bold", good === true ? "text-v2-green-ink" : good === false ? "text-v2-coral-ink" : "text-muted")}>
-                    {d.text}
-                  </span>
-                  <span>vs last month</span>
-                </>
-              ) : (
-                <span>{tileNote(spec, tile, view)}</span>
-              )}
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── preparation modules ────────────────────────────────────────────────────────────── */
 
@@ -226,7 +136,7 @@ function ModuleCard({ m, next, onPractice }: { m: PrepModule; next: NextIntervie
 
 function Modules({ view, onPractice }: { view: PrepView; onPractice: (m: PrepModule) => void }) {
   return (
-    <Card id="prep-modules" title="Preparation Modules" icon={BookOpenIcon}>
+    <Card id="prep-modules" title="Preparation modules" icon={BookOpenIcon}>
       <p className="-mt-1 mb-3 text-[12.5px] text-muted">Explore targeted resources and practice tools to help you feel confident and prepared.</p>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2 sm:gap-4">
         {view.modules.map((m) => (
@@ -257,7 +167,7 @@ function History({ view, onReview, onAgain }: { view: PrepView; onReview: (s: Se
   return (
     <Card
       id="prep-history"
-      title="Practice Session History"
+      title="Practice session history"
       icon={ClockIcon}
       extra={
         more ? (
@@ -519,7 +429,7 @@ function RailCard({ id, title, icon: Icon, tone = "accent", extra, children }: {
 function Checklist({ items, notice, undo, onToggle, onUndo }: { items: CheckItem[]; notice: string; undo: { label: string; checked: boolean } | null; onToggle: (i: CheckItem) => void; onUndo: () => void }) {
   const { done, total } = checklistProgress(items);
   return (
-    <RailCard id="prep-checklist" title="Before Interview Checklist" icon={CheckCircleIcon} extra={<span className="flex-none text-[12.5px] font-semibold text-muted" data-progress>{`${done}/${total}`}</span>}>
+    <RailCard id="prep-checklist" title="Before-interview checklist" icon={CheckCircleIcon} extra={<span className="flex-none text-[12.5px] font-semibold text-muted" data-progress>{`${done}/${total}`}</span>}>
       <ul aria-label="Before interview checklist" className="divide-y divide-line">
         {items.map((c) => (
           <li key={c.key}>
@@ -553,60 +463,17 @@ function Checklist({ items, notice, undo, onToggle, onUndo }: { items: CheckItem
   );
 }
 
-function QuickActions({ onReview, onTips }: { onReview: () => void; onTips: () => void }) {
-  const tile = "flex min-h-14 min-w-0 items-center gap-2.5 rounded-xl border border-line bg-paper p-2.5 text-left hover:bg-accent-soft/40";
-  const items: { key: string; title: string; sub: string; icon: ComponentType<IconProps>; href?: string; onClick?: () => void }[] = [
-    { key: "schedule", title: "Schedule a Prep Session", sub: "Book time with your marketer", icon: CalendarIcon, href: `${BASE}/marketer` },
-    { key: "ask", title: "Ask My Marketer", sub: "Get personalized guidance", icon: MessageIcon, href: `${BASE}/marketer` },
-    { key: "review", title: "Review Feedback", sub: "See past session results", icon: BarChartIcon, onClick: onReview },
-    { key: "tips", title: "Interview Tips", sub: "Best practices and resources", icon: LightbulbIcon, onClick: onTips },
-  ];
-  return (
-    <RailCard id="prep-quick" title="Quick Actions" icon={ZapIcon} tone="violet">
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        {items.map((q) => {
-          const Icon = q.icon;
-          const body = (
-            <>
-              <Icon size={22} className="flex-none text-accent-deep" />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-bold leading-tight text-ink">{q.title}</span>
-                <span className="mt-0.5 block text-[11.5px] leading-tight text-muted">{q.sub}</span>
-              </span>
-            </>
-          );
-          return (
-            <li key={q.key} className="min-w-0">
-              {q.href ? (
-                <Link href={q.href} data-quick={q.key} className={tile}>
-                  {body}
-                </Link>
-              ) : (
-                <button type="button" data-quick={q.key} onClick={q.onClick} className={cn(tile, "w-full")}>
-                  {body}
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </RailCard>
-  );
-}
-
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
 
 export interface InterviewPrepPageProps {
   orgId: number;
-  firstName: string;
 }
 
 type ReviewState = { row: SessionRow; result: Fetched<SessionDetail> | null } | null;
 
-export default function ConsultantInterviewPrepPage({ orgId, firstName: first }: InterviewPrepPageProps) {
+export default function ConsultantInterviewPrepPage({ orgId }: InterviewPrepPageProps) {
   const router = useRouter();
   const { view, status, reload, setView } = useWorkspaceData(useCallback(() => fetchPrep(orgId), [orgId]));
-  const loading = status === "loading";
   const [practice, setPractice] = useState<PrepModule | null>(null);
   const [review, setReview] = useState<ReviewState>(null);
   const [banner, setBanner] = useState("");
@@ -663,61 +530,36 @@ export default function ConsultantInterviewPrepPage({ orgId, firstName: first }:
     else setPractice(m);
   };
 
-  const toHistory = () => document.getElementById("prep-history")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-  const toTechnical = () => {
-    const el = document.getElementById("module-technical");
-    el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-    el?.querySelector<HTMLButtonElement>("[data-action='practice']")?.focus();
-  };
-
   if (status === "denied") return <ErrorState what="your workspace" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
 
   return (
     <div data-consultant-interview-prep data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Interview Prep" subtitle="Prepare with curated resources, practice questions, and personalized guidance to help you succeed in your upcoming interviews." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-
       {status === "failed" ? (
         <ErrorState what="your interview prep" description="Your interview prep didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <>
-          <section aria-label="Key numbers" data-prep-tiles className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-            {TILE_SPECS.map((s, i) => (
-              <Tile key={s.key} spec={s} view={loading ? null : view} index={i} />
-            ))}
-          </section>
+          {view ? (
+            <p data-practice-score className="text-[14px] font-semibold text-ink">
+              {view.tiles.score.value === null ? "No practice sessions yet" : `Practice score ${view.tiles.score.value}%`}
+            </p>
+          ) : null}
           <p role="status" aria-live="polite" data-banner className={cn("text-[13px] font-medium text-v2-green-ink", !banner && "sr-only")}>
             {banner}
           </p>
-          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.36fr)]">
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
-              {view ? (
-                <>
-                  <Modules view={view} onPractice={setPractice} />
-                  <History view={view} onReview={openReview} onAgain={again} />
-                </>
-              ) : (
-                <div className="grid gap-4" aria-busy="true">
-                  {[0, 1].map((i) => (
-                    <Skeleton key={i} className="h-56 w-full" />
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-              <BeeCard
-                name={firstName(first)}
-                title="Your interview companion, here to help!"
-                body="Get personalized interview tips, practice questions, feedback on your answers, and guidance from your marketer. I'm here to help you feel confident and ace your interviews!"
-              />
-              {view ? (
-                <>
-                  <Checklist items={view.checklist} notice={checkNotice} undo={undo} onToggle={toggle} onUndo={undoLast} />
-                  <QuickActions onReview={toHistory} onTips={toTechnical} />
-                </>
-              ) : null}
-            </div>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
+            {view ? (
+              <>
+                <Modules view={view} onPractice={setPractice} />
+                <History view={view} onReview={openReview} onAgain={again} />
+                <Checklist items={view.checklist} notice={checkNotice} undo={undo} onToggle={toggle} onUndo={undoLast} />
+              </>
+            ) : (
+              <div className="grid gap-4" aria-busy="true">
+                {[0, 1].map((i) => (
+                  <Skeleton key={i} className="h-56 w-full" />
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}

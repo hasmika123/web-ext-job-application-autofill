@@ -8,7 +8,7 @@ import {
   addSkill,
   parseProfile,
   saveEmploymentTypes,
-  strengthVerdict,
+  completenessLine,
   yearsRange,
   yearsText,
 } from "./profile";
@@ -77,10 +77,10 @@ describe("helpers", () => {
     expect(yearsRange(null, null)).toBe("");
   });
 
-  it("words the strength verdict and formats months and initials", () => {
-    expect(strengthVerdict(78)).toBe("Your profile is looking good!");
-    expect(strengthVerdict(60)).toBe("Your profile is getting there.");
-    expect(strengthVerdict(10)).toBe("Your profile needs attention.");
+  it("words the completeness line and formats months and initials", () => {
+    expect(completenessLine(100, [])).toBe("Profile complete");
+    expect(completenessLine(83, [{ label: "Add a summary statement" }, { label: "Add certifications" }])).toBe("Profile 83% complete: add a summary statement");
+    expect(completenessLine(0, [{ label: "Key skills" }])).toBe("Profile 0% complete: key skills");
     expect(monthYear("2023-03-01")).toBe("Mar 2023");
     expect(monthYear(null)).toBe("");
     expect(initialsOf("Anika Rao")).toBe("AR");

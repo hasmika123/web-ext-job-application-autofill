@@ -78,7 +78,7 @@ export interface DetailDrawerProps {
   returnFocusTo?: RefObject<HTMLElement | null>;
 }
 
-/* ── Interview Progress: the rounds of the application, the current one marked ──────── */
+/* ── Interview progress: the rounds of the application, the current one marked ──────── */
 
 export function ProgressSteps({ steps }: { steps: Step[] }) {
   return (
@@ -361,7 +361,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
 
           <TabPanel value="details" className="space-y-2.5 pt-3">
             <Section
-              title="Interview Progress"
+              title="Interview progress"
               testId="progress"
             >
               <ProgressSteps steps={d.steps} />
@@ -381,7 +381,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
             </Section>
 
             <Section
-              title="Meeting Details"
+              title="Meeting details"
               testId="meeting"
               action={
                 d.actions.edit ? (
@@ -403,7 +403,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                 </div>
                 {d.mode === "VIDEO" && (
                   <div className="grid grid-cols-[5.2rem_1fr] items-start gap-x-1.5">
-                    <dt className="whitespace-nowrap pt-1.5 text-[11.5px] text-muted">Meeting Link</dt>
+                    <dt className="whitespace-nowrap pt-1.5 text-[11.5px] text-muted">Meeting link</dt>
                     <dd className="min-w-0">
                       {editing && d.actions.edit ? (
                         <AutosaveField label="Meeting link" value={d.meetingLink ?? ""} field="meetingLink" save={saveAndNote} maxLength={300} placeholder="https://" />
@@ -471,7 +471,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
               )}
               {d.actions.edit && (
                 <>
-                  <h4 className="mt-2 text-[13.5px] font-bold text-ink">Next Step</h4>
+                  <h4 className="mt-2 text-[13.5px] font-bold text-ink">Next step</h4>
                   <AutosaveField label="Next step" value={d.nextStepCustom ?? ""} field="nextStep" save={saveAndNote} maxLength={120} placeholder={d.nextStep} className="mt-1.5" />
                 </>
               )}

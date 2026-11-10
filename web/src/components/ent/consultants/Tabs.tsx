@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { EmptyState, ErrorState, StatePill, Skeleton, hasStateMap, registerStateMap } from "@kiwiply/ui";
+import { matchScoreText } from "@/lib/ent/jobs";
 import {
   activitySentence,
   CLOSED_LABEL,
@@ -77,7 +78,7 @@ export function AssignmentsTab({ orgId, id, version }: { orgId: number | string;
                         <span className="block truncate font-semibold text-ink">{j.title}</span>
                         <span className="block truncate text-[12px] text-muted">{j.clientName}</span>
                       </span>
-                      {j.score !== null && <span className="flex-none text-[12px] font-semibold tabular-nums text-accent-deep">{j.score}% match</span>}
+                      {j.score !== null && <span className="flex-none text-[12px] font-semibold tabular-nums text-accent-deep">{matchScoreText(j.score)}</span>}
                     </li>
                   ))}
                 </ul>

@@ -111,39 +111,38 @@ afterEach(() => {
 });
 
 describe("OpportunitiesPage", () => {
-  it("draws the board's title, subtitle and four KPI tiles with value and delta", async () => {
+  it("draws the board's title, the plan's subtitle and two tiles (awaiting, stale) with no delta or sparkline", async () => {
     stub();
     mount();
     expect(screen.getByRole("heading", { name: "Opportunities", level: 1 })).toBeTruthy();
-    expect(screen.getByText("Manage shortlisted openings, assign opportunities to consultants, and track consultant interest and readiness.")).toBeTruthy();
-    const open = await waitFor(() => {
-      const t = document.querySelector('[data-stat-tile="open"]') as HTMLElement;
-      expect(within(t).getByText("86")).toBeTruthy();
-      return t;
+    expect(screen.getByText("Openings you've shortlisted for your consultants, and where each stands.")).toBeTruthy();
+    await waitFor(() => {
+      const t = document.querySelector('[data-stat-tile="awaiting"]') as HTMLElement;
+      expect(within(t).getByText("42")).toBeTruthy();
     });
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(4);
-    for (const [key, title, value] of [["open", "Open Opportunities", "86"], ["ready", "Ready to Assign", "28"], ["awaiting", "Awaiting Consultant Review", "42"], ["stale", "Stale Opportunities", "14"]]) {
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(2);
+    for (const [key, title, value] of [["awaiting", "Awaiting consultant review", "42"], ["stale", "Stale", "14"]]) {
       const t = document.querySelector(`[data-stat-tile="${key}"]`) as HTMLElement;
       expect(within(t).getByText(title)).toBeTruthy();
       expect(within(t).getByText(value)).toBeTruthy();
+      expect(t.textContent).not.toContain("%");
+      expect(t.textContent).not.toContain("vs last month");
     }
-    expect(open.textContent).toContain("12%");
-    expect((document.querySelector('[data-stat-tile="stale"]') as HTMLElement).textContent).toContain("22%");
-    expect(open.textContent).toContain("vs last month");
   });
 
-  it("omits the delta chip when the API has no previous value", async () => {
-    stub(() => json(200, fixture({ kpis: [kpi("open", 5, null), kpi("ready", 1, null), kpi("awaiting", 0, null), kpi("stale", 0, null)] })));
+  it("interest status is a chip row with counts (it replaced the donut); a chip filters the list and shows pressed", async () => {
+    const calls = stub();
     mount();
-    const t = await waitFor(() => {
-      const x = document.querySelector('[data-stat-tile="open"]') as HTMLElement;
-      expect(within(x).getByText("5")).toBeTruthy();
-      return x;
-    });
-    expect(t.textContent).not.toContain("vs last month");
+    await row(1);
+    const chips = document.querySelector("[data-opp-chips]") as HTMLElement;
+    for (const label of ["Very interested (28)", "Interested (24)", "Open (17)", "Not interested (10)", "No response (7)", "Stale (14)"]) expect(within(chips).getByRole("button", { name: label }), label).toBeTruthy();
+    expect(document.querySelector('[data-opp-card="responses"]')).toBeNull();
+    fireEvent.click(within(chips).getByRole("button", { name: "Interested (24)" }));
+    await waitFor(() => expect(lists(calls).some((c) => c.url.includes("interest=INTERESTED"))).toBe(true));
+    expect(within(chips).getByRole("button", { name: "Interested (24)" }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("lists every board column and row: consultant, job + location, client, score, interest, resume, owner, next action, button", async () => {
+  it("lists every board column and row: consultant, opening + location, client, score, interest, resume, next action, button (no Owner)", async () => {
     stub();
     mount();
     const card = await waitFor(() => {
@@ -151,32 +150,48 @@ describe("OpportunitiesPage", () => {
       expect(within(c).getByText("Alex Morgan")).toBeTruthy();
       return c;
     });
-    expect(within(card).getByRole("heading", { name: "Assigned Opportunities" })).toBeTruthy();
-    expect(within(card).getByRole("button", { name: /Add Opportunity/ })).toBeTruthy();
-    for (const col of ["Consultant", "Opportunity / Job Title", "Client", "Match Score", "Consultant Interest", "Resume Status", "Owner", "Next Action", "Actions"]) {
-      expect(within(card).getAllByText(col).length).toBeGreaterThan(0);
-    }
+    expect(within(card).getByRole("heading", { name: "Opportunities" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: /Add opportunity/ })).toBeTruthy();
+    const heads = Array.from(card.querySelectorAll("thead th")).map((th) => th.textContent?.trim());
+    expect(heads).toEqual(["Consultant", "Opening", "Client", "Match score", "Consultant interest", "Resume status", "Next action", "Actions"]);
     const r1 = await row(1);
-    for (const text of ["Alex Morgan", "Senior Java Developer", "New York, NY (Hybrid)", "TechCorp", "92%", "Very Interested", "Updated", "Sarah Chen", "1 day"]) expect(within(r1).getByText(text)).toBeTruthy();
+    for (const text of ["Alex Morgan", "Senior Java Developer", "New York, NY (Hybrid)", "TechCorp", "92%", "Very interested", "Updated", "1 day"]) expect(within(r1).getByText(text)).toBeTruthy();
+    expect(within(r1).queryByText("Sarah Chen")).toBeNull();
     expect(within(r1).getByRole("button", { name: "Review" })).toBeTruthy();
     const r3 = await row(3);
-    expect(within(r3).getByText("Needs Update")).toBeTruthy();
+    expect(within(r3).getByText("Needs update")).toBeTruthy();
     expect(within(r3).getByText("Today")).toBeTruthy();
-    expect(within(r3).getByRole("button", { name: "Follow Up" })).toBeTruthy();
+    expect(within(r3).getByRole("button", { name: "Follow up" })).toBeTruthy();
     expect(within(await row(2)).getByRole("button", { name: "Assign" })).toBeTruthy();
     expect(within(await row(6)).getByRole("button", { name: "Compare" })).toBeTruthy();
-    expect(within(await row(6)).getByText("Not Interested")).toBeTruthy();
+    expect(within(await row(6)).getByText("Not interested")).toBeTruthy();
     expect(within(r1).getByRole("button", { name: /More for Alex Morgan/ })).toBeTruthy();
     expect(document.querySelectorAll("[data-opp-row]")).toHaveLength(8);
   });
 
-  it("shows the search box and the five filters with the board's labels", async () => {
+  it("writes a score nobody computed as Not scored, never 0%", async () => {
+    stub(() => json(200, fixture({ items: [{ ...ROWS[0], matchScore: 0 }] })));
+    mount();
+    const r1 = await row(1);
+    expect(within(r1).getByText("Not scored")).toBeTruthy();
+    expect(within(r1).queryByText("0%")).toBeNull();
+  });
+
+  it("keeps the search box the save-for-consultant rehearsal types into, and the data-opp-row hook", async () => {
+    stub();
+    mount();
+    await row(1);
+    expect(screen.getByLabelText("Search by consultant or job title")).toBeTruthy();
+  });
+
+  it("shows the search box and the filters with the board labels (interest status is the chip row)", async () => {
     stub();
     mount();
     await row(1);
     const bar = document.querySelector("[data-opp-filters]") as HTMLElement;
     expect(within(bar).getByPlaceholderText("Search by consultant or job title...")).toBeTruthy();
-    for (const label of ["All Consultants", "All Clients", "Interest Status", "Match Score", "Last 30 Days"]) expect(within(bar).getByText(label)).toBeTruthy();
+    for (const label of ["All consultants", "All clients", "Match score", "Last 30 days"]) expect(within(bar).getByText(label)).toBeTruthy();
+    expect(within(bar).queryByText("Interest Status")).toBeNull();
   });
 
   it("asks the API for the filtered list when a filter changes (search is debounced)", async () => {
@@ -188,46 +203,22 @@ describe("OpportunitiesPage", () => {
     expect(lists(calls)[0].url).toContain("days=30");
   });
 
-  it("draws the three lower cards and the right column", async () => {
+  it("has no lower cards, bee help card or Quick Actions (the page ends with the table)", async () => {
     stub();
     mount();
     await row(1);
-    const top = document.querySelector('[data-opp-card="top"]') as HTMLElement;
-    expect(within(top).getByRole("heading", { name: "Top Opportunities by Match" })).toBeTruthy();
-    for (const col of ["Job Title", "Client", "Location", "Match Score"]) expect(within(top).getByText(col)).toBeTruthy();
-    expect(within(top).getByText("Global Bank")).toBeTruthy();
-    expect(within(top).getByText("88%")).toBeTruthy();
-    expect(within(top).getByRole("link", { name: "View all" }).getAttribute("href")).toBe("/w/marketing/matches");
-
-    const resp = document.querySelector('[data-opp-card="responses"]') as HTMLElement;
-    expect(within(resp).getByRole("heading", { name: "Consultant Responses" })).toBeTruthy();
-    expect(within(resp).getByText("86")).toBeTruthy();
-    expect(within(resp).getByText("Opportunities")).toBeTruthy();
-    for (const label of ["Very Interested", "Interested", "Open", "Not Interested", "No Response"]) expect(within(resp).getAllByText(label).length).toBeGreaterThan(0);
-    expect(within(resp).getByText("33%")).toBeTruthy();
-    expect(within(resp).getByText("Last 30 Days")).toBeTruthy();
-
-    const act = document.querySelector('[data-opp-card="activity"]') as HTMLElement;
-    expect(within(act).getByRole("heading", { name: "Recent Opportunity Activity" })).toBeTruthy();
-    expect(within(act).getByText("Alex Morgan")).toBeTruthy();
-    expect(within(act).getByText("Senior Java Developer at TechCorp")).toBeTruthy();
-    expect(within(act).getByText("2 hours ago")).toBeTruthy();
-
-    expect(screen.getByText("Find the right opportunities for your talent faster!")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ask a question/ })).toBeTruthy();
-    const quick = document.querySelector('[data-opp-card="quick"]') as HTMLElement;
-    expect(within(quick).getByRole("heading", { name: "Quick Actions" })).toBeTruthy();
-    for (const q of ["Bulk Assign Opportunities", "Send Opportunity Notifications", "Find Similar Opportunities", "Export Opportunity List", "View Stale Opportunities"]) expect(within(quick).getByText(q)).toBeTruthy();
+    for (const c of ["top", "responses", "activity", "quick"]) expect(document.querySelector(`[data-opp-card="${c}"]`), c).toBeNull();
+    expect(screen.queryByText("Top Opportunities by Match")).toBeNull();
+    expect(screen.queryByText("Recent Opportunity Activity")).toBeNull();
+    expect(screen.queryByText("Quick Actions")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ask a question/ })).toBeNull();
   });
 
   it("shows the board's empty copy with no rows and a filter message when filters hide everything", async () => {
     stub(() => json(200, fixture({ items: [], total: 0, topMatches: [], activity: [], responses: { total: 0, days: 30, slices: [] }, kpis: [] })));
     mount();
     expect(await screen.findByText("Assign the first opportunity.")).toBeTruthy();
-    expect(screen.getByText("No open opportunities to rank yet.")).toBeTruthy();
-    expect(screen.getByText("No consultant responses in this period.")).toBeTruthy();
-    expect(screen.getByText("Nothing has happened on your opportunities yet.")).toBeTruthy();
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(4);
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(2);
     fireEvent.change(screen.getByPlaceholderText("Search by consultant or job title..."), { target: { value: "zzz" } });
     expect(await screen.findByText("No opportunities match these filters.")).toBeTruthy();
   });
@@ -258,18 +249,18 @@ describe("OpportunitiesPage", () => {
     expect(calls.filter((c) => c.method !== "GET").every((c) => !/interest"\s*:|submit/i.test(c.body))).toBe(true);
   });
 
-  it("Follow Up on a stale resume asks the consultant for a resume update", async () => {
+  it("Follow up on a stale resume asks the consultant for a resume update", async () => {
     const calls = stub();
     mount();
-    fireEvent.click(within(await row(3)).getByRole("button", { name: "Follow Up" }));
+    fireEvent.click(within(await row(3)).getByRole("button", { name: "Follow up" }));
     await waitFor(() => expect(calls.some((c) => c.url === "/api/orgs/2/mkt/opportunities/3/request" && c.body === '{"kind":"RESUME"}')).toBe(true));
     expect(await screen.findByText("Asked Michael Park to update their resume.")).toBeTruthy();
   });
 
-  it("Follow Up with an up to date resume asks for their interest", async () => {
+  it("Follow up with an up to date resume asks for their interest", async () => {
     const calls = stub(() => json(200, fixture({ items: [opp(9, [9, "Sam Lee"], "QA Lead", "Remote", "Acme", 81, "NO_RESPONSE", "UPDATED", SARAH, 1, "FOLLOW_UP")] })));
     mount();
-    fireEvent.click(within(await row(9)).getByRole("button", { name: "Follow Up" }));
+    fireEvent.click(within(await row(9)).getByRole("button", { name: "Follow up" }));
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/9/request") && c.body === '{"kind":"INTEREST"}')).toBe(true));
   });
 
@@ -321,58 +312,53 @@ describe("OpportunitiesPage", () => {
     expect(screen.queryByLabelText("Your answer")).toBeNull();
   });
 
-  it("Send Opportunity Notifications asks to confirm, then posts the request", async () => {
+  it("Notify consultants asks to confirm, then posts the request", async () => {
     const calls = stub();
     mount();
     await row(1);
-    fireEvent.click(screen.getByRole("button", { name: /Send Opportunity Notifications/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Notify consultants/ }));
     expect(await screen.findByText(/42 assigned opportunities are waiting/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Send requests" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url === "/api/orgs/2/mkt/opportunities/notify")).toBe(true));
     expect(await screen.findByText("Asked 2 consultants for their interest.")).toBeTruthy();
   });
 
-  it("Export Opportunity List is a download link carrying the board's filters", async () => {
+  it("Export is a download link carrying the board's filters", async () => {
     stub();
     mount();
     await row(1);
-    const link = screen.getByRole("link", { name: /Export Opportunity List/ });
+    const link = screen.getByRole("link", { name: /Export/ });
     expect(link.getAttribute("href")).toBe("/api/orgs/2/mkt/opportunities/export?days=30&sort=recent&dir=desc");
     expect(link.hasAttribute("download")).toBe(true);
   });
 
-  it("View Stale Opportunities filters the list to stale rows for any period", async () => {
+  it("the Stale chip filters the list to stale rows for any period, and pressing it again goes back", async () => {
     const calls = stub();
     mount();
     await row(1);
-    fireEvent.click(screen.getByRole("button", { name: /View Stale Opportunities/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Stale (14)" }));
     await waitFor(() => expect(lists(calls).some((c) => c.url.includes("stale=true") && c.url.includes("days=0"))).toBe(true));
-    expect(await screen.findByText("Stale only")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Stale (14)" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Stale (14)" }));
+    await waitFor(() => expect(lists(calls)[lists(calls).length - 1].url).not.toContain("stale=true"));
   });
 
-  it("Find Similar Opportunities opens the matches page", async () => {
-    stub();
-    mount();
-    await row(1);
-    expect(screen.getByRole("link", { name: /Find Similar Opportunities/ }).getAttribute("href")).toBe("/w/marketing/matches");
-  });
-
-  it("Add Opportunity loads the consultants and jobs and posts a create request", async () => {
+  it("Add opportunity loads the consultants and jobs and posts a create request", async () => {
     const calls = stub();
     mount();
     await row(1);
-    fireEvent.click(screen.getByRole("button", { name: /Add Opportunity/ }));
-    expect(await screen.findByText("Add opportunity")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Add opportunity/ }));
+    expect((await screen.findAllByText("Add opportunity")).length).toBeGreaterThan(1); // the header button and the dialog title
     await waitFor(() => expect(calls.some((c) => c.url.includes("/options"))).toBe(true));
     expect(await screen.findByText(/not contacted until you assign/)).toBeTruthy();
   });
 
-  it("Bulk Assign lists the ready opportunities and assigns the ticked ones", async () => {
+  it("Bulk assign lists the ready opportunities and assigns the ticked ones", async () => {
     const ready = { ...ROWS[1], ready: true };
     const calls = stub(() => json(200, fixture({ items: [ready] })));
     mount();
     await row(2);
-    fireEvent.click(screen.getByRole("button", { name: /Bulk Assign Opportunities/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Bulk assign/ }));
     expect(await screen.findByText("Bulk assign opportunities")).toBeTruthy();
     fireEvent.click(await screen.findByRole("button", { name: "Assign 1" }));
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/bulk-assign") && c.body === '{"ids":[2]}')).toBe(true));
@@ -438,7 +424,7 @@ describe("OpportunitiesPage", () => {
       const calls = stubAssign(() => json(200, {}));
       mount();
       await row(2);
-      fireEvent.click(screen.getByRole("button", { name: /Bulk Assign Opportunities/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Bulk assign/ }));
       fireEvent.click(await screen.findByRole("button", { name: /^Assign \d/ }));
       await waitFor(() => expect(calls.some((c) => c.url.endsWith("/bulk-assign"))).toBe(true));
       expect(await screen.findByText(/Left out: 1 looked like a duplicate \(assign those one by one to confirm\); 1 over the open-opportunity limit\./)).toBeTruthy();

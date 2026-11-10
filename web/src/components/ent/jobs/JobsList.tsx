@@ -75,8 +75,14 @@ export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpe
                 <SkillChips skills={r.skills} max={2} />
               </div>
               <div className="text-center" data-submissions>
-                <p className="text-[12px] font-bold leading-tight text-[var(--ent-title)] tabular-nums">{r.submissions}</p>
-                <p className="text-[9.5px] text-[var(--ent-soft)]">{r.submissions === 1 ? "Submission" : "Submissions"}</p>
+                {r.submissions === 0 ? (
+                  <p className="text-[9.5px] leading-tight text-[var(--ent-soft)]">No submissions</p>
+                ) : (
+                  <>
+                    <p className="text-[12px] font-bold leading-tight text-[var(--ent-title)] tabular-nums">{r.submissions}</p>
+                    <p className="text-[9.5px] text-[var(--ent-soft)]">{r.submissions === 1 ? "Submission" : "Submissions"}</p>
+                  </>
+                )}
               </div>
               <div>
                 <MatchStack matches={r.matches} />

@@ -56,21 +56,21 @@ const flush = () => act(async () => void (await new Promise((res) => setTimeout(
 async function mount() {
   render(
     <ToastProvider>
-      <SubmissionsPage orgId={2} firstName="Anika Rao" />
+      <SubmissionsPage orgId={2} />
     </ToastProvider>,
   );
   await flush();
 }
-const tileOf = (k: string) => document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement;
 const rowOf = (id: number) => document.querySelector(`tr[data-submission="${id}"]`) as HTMLElement;
 
 describe("Submissions and Approvals from real data", () => {
-  it("draws the tiles, the pending rows and the past rows", async () => {
+  it("draws one awaiting chip, the pending rows and the past rows, with no tiles, Quick Actions, checklist card or help card", async () => {
     await mount();
     expect(calls[0]).toEqual({ method: "GET", url: "/api/orgs/2/me-workspace/submissions" });
-    expect(within(tileOf("pending")).getByText("2")).toBeTruthy();
-    expect(within(tileOf("approved")).getByText(/vs last month/)).toBeTruthy();
-    expect(within(tileOf("attention")).getByText(/100%/)).toBeTruthy();
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(document.querySelector("[data-awaiting-chip]")!.textContent).toBe("2 awaiting your approval");
+    expect(screen.queryByText(/Quick Actions|Ask a question/)).toBeNull();
+    expect(document.querySelector("[data-home-card='subs-checklist']")).toBeNull();
     expect(within(rowOf(1)).getByText("v3")).toBeTruthy();
     expect(within(rowOf(2)).getByText("DataSphere")).toBeTruthy();
     expect(screen.getByText("Full Stack Developer")).toBeTruthy();
@@ -120,6 +120,8 @@ describe("Submissions and Approvals from real data", () => {
     expect(calls.map((c) => c.url)).toContain("/api/orgs/2/me-workspace/submissions/1");
     expect(screen.getByText("Casey Resume")).toBeTruthy();
     expect(screen.getByText("Ten years.")).toBeTruthy();
+    expect(document.querySelector("[data-approve-reminder]")!.textContent).toContain("Before you approve");
+    expect(document.querySelectorAll("[data-approve-reminder] li").length).toBeGreaterThan(0);
   });
 
   it("the pager and the status filter ask the API", async () => {

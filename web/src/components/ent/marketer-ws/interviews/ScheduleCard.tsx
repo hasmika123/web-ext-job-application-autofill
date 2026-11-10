@@ -11,6 +11,8 @@ export type Mode = "list" | "calendar";
 
 export interface ScheduleCardProps {
   schedule: Schedule | null;
+  /** Interviews in the current calendar week (the old tile), drawn as "8 this week" next to the title; null draws nothing. */
+  thisWeek: number | null;
   loading: boolean;
   from: string;
   to: string;
@@ -31,15 +33,16 @@ export interface ScheduleCardProps {
 
 const SEG = "h-9 px-4 text-[13.5px] font-semibold transition-colors";
 
-/** The Interview Schedule card: filters, the List / Calendar switch, and the table (or the week grid) of the picked range. */
+/** The Schedule card: filters, the List / Calendar switch, and the table (or the week grid) of the picked range. */
 export default function ScheduleCard(p: ScheduleCardProps) {
   const rows = p.schedule?.items ?? [];
   const total = p.schedule?.total ?? 0;
   const size = p.schedule?.size ?? 25;
   const page = p.schedule?.page ?? 0;
   return (
-    <section data-card="schedule" aria-label="Interview Schedule" className={CARD}>
-      <Head icon={CalendarIcon} title="Interview Schedule" tint="blue">
+    <section data-card="schedule" aria-label="Schedule" className={CARD}>
+      <Head icon={CalendarIcon} title="Schedule" tint="blue">
+        {p.thisWeek !== null ? <span data-this-week className="text-[13px] font-semibold text-ink-soft">{p.thisWeek} this week</span> : null}
         <div className="flex flex-wrap items-center gap-2">
           <DateRangePicker from={p.from} to={p.to} onChange={p.onRange} />
           <Select
@@ -48,9 +51,9 @@ export default function ScheduleCard(p: ScheduleCardProps) {
             value={p.status}
             onChange={p.onStatus}
             className="h-10"
-            options={[{ value: "ALL", label: "All Statuses" }, ...STATUS_OPTIONS.map((s) => ({ value: s, label: STATUS_LABEL[s] }))]}
+            options={[{ value: "ALL", label: "All statuses" }, ...STATUS_OPTIONS.map((s) => ({ value: s, label: STATUS_LABEL[s] }))]}
           />
-          <Select variant="pill" aria-label="Client" value={p.clientId} onChange={p.onClient} className="h-10" options={[{ value: "ALL", label: "All Clients" }, ...p.clients.map((c) => ({ value: String(c.id), label: c.name }))]} />
+          <Select variant="pill" aria-label="Client" value={p.clientId} onChange={p.onClient} className="h-10" options={[{ value: "ALL", label: "All clients" }, ...p.clients.map((c) => ({ value: String(c.id), label: c.name }))]} />
           <div role="group" aria-label="View" className="inline-flex items-center overflow-hidden rounded-[10px] border border-line bg-paper">
             <span className={cn(SEG, "inline-flex items-center text-accent-deep")}>View</span>
             <button type="button" aria-pressed={p.mode === "list"} onClick={() => p.onMode("list")} className={cn(SEG, p.mode === "list" ? "bg-accent text-on-accent" : "text-ink hover:bg-paper-2")}>
@@ -83,15 +86,15 @@ export default function ScheduleCard(p: ScheduleCardProps) {
                 <th className={cn(TH, "rounded-l-lg")}>Consultant</th>
                 <th className={TH}>Role</th>
                 <th className={TH}>Client</th>
-                <th className={TH}>Interview Type</th>
+                <th className={TH}>Interview type</th>
                 <th className={TH} aria-sort={p.dir === "asc" ? "ascending" : "descending"}>
-                  <button type="button" onClick={p.onSort} className="inline-flex items-center gap-1 font-semibold text-accent-deep" aria-label="Sort by Date & Time">
-                    Date &amp; Time
+                  <button type="button" onClick={p.onSort} className="inline-flex items-center gap-1 font-semibold text-accent-deep" aria-label="Sort by date and time">
+                    Date and time
                     {p.dir === "asc" ? <ArrowUpIcon size={13} /> : <ArrowDownIcon size={13} />}
                   </button>
                 </th>
                 <th className={TH}>Round</th>
-                <th className={TH}>Recruiter / Contact</th>
+                <th className={TH}>Recruiter / contact</th>
                 <th className={TH}>Status</th>
                 <th className={cn(TH, "rounded-r-lg text-center")}>Action</th>
               </tr>

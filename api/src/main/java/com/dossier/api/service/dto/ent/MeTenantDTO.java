@@ -40,10 +40,15 @@ public record MeTenantDTO(
 
     public record Role(Long id, String key, String name, boolean isPrimary, String workspaceKey) {}
 
-    /** {@code key} is the URL slug ({@code admin}); {@code workspaceKey} the stored key ({@code ADMIN}); {@code roleKeys} the caller's roles that grant it. */
-    public record Workspace(String key, String workspaceKey, String label, String home, int order, List<String> roleKeys, List<NavItem> nav, List<String> bottomTabs) {}
+    /**
+     * {@code key} is the URL slug ({@code admin}); {@code workspaceKey} the stored key ({@code ADMIN}); {@code roleKeys} the caller's roles that grant it;
+     * {@code groups} the menu's group labels, in order (a nav item names one by {@code group}, or none).
+     */
+    public record Workspace(String key, String workspaceKey, String label, String home, int order, List<String> roleKeys, List<NavItem> nav, List<String> bottomTabs, List<NavGroup> groups) {}
 
-    public record NavItem(String key, String label, String icon, String href, String badge) {}
+    public record NavItem(String key, String label, String icon, String href, String badge, String group) {}
+
+    public record NavGroup(String key, String label) {}
 
     /** {@code scope} is NONE until the data-share grant exists; {@code fullTo} the member id a FULL grant is limited to. */
     public record Consent(String scope, Long fullTo) {}

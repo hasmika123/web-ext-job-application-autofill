@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/matches" }));
 
-import { OPEN_HELP_EVENT } from "@/components/ent/shell/ShellContext";
 import MatchesPage from "./MatchesPage";
 
 const NOW = Date.now();
@@ -82,28 +81,28 @@ afterEach(() => {
 
 const flush = () => act(async () => void (await new Promise((r) => setTimeout(r, 20))));
 async function mount() {
-  const v = render(<MatchesPage orgId={2} firstName="Anika Rao" />);
+  const v = render(<MatchesPage orgId={2} />);
   await flush();
   return v;
 }
-const tileOf = (k: string) => document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement;
 const rowOf = (id: number) => document.querySelector(`tr[data-match="${id}"]`) as HTMLElement;
 const titles = () => [...document.querySelectorAll("tr[data-match]")].map((r) => r.querySelector("td:nth-child(2)")!.textContent);
 
 describe("Job Matches from real data", () => {
-  it("draws the tiles and the ranked table from the API", async () => {
+  it("draws the ranked table from the API, with no tiles, rail, Quick Actions or help card", async () => {
     await mount();
     expect(calls[0]).toEqual({ method: "GET", url: "/api/orgs/2/me-workspace/matches" });
-    expect(within(tileOf("total")).getByText("3")).toBeTruthy();
-    expect(within(tileOf("total")).getByText(/50%/)).toBeTruthy();
-    expect(within(tileOf("viewed")).getByText("0")).toBeTruthy();
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(document.querySelector("[data-home-card='matches-quality']")).toBeNull();
+    expect(document.querySelector("[data-alert]")).toBeNull();
+    expect(screen.queryByText(/Ask a question|Quick Actions/)).toBeNull();
     expect(titles()).toEqual(["Senior Java Developer", "Full Stack Developer", "Data Engineer"]);
     expect(within(rowOf(1)).getByText("94%")).toBeTruthy();
     expect(within(rowOf(1)).getByText("2 days ago")).toBeTruthy();
     expect(within(rowOf(1)).getByLabelText("Skill fit 100%")).toBeTruthy();
     expect(within(rowOf(3)).queryByLabelText(/Skill fit/)).toBeNull();
     expect(within(rowOf(3)).getByText("Interest sent")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Your Matched Jobs" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Your matched jobs" })).toBeTruthy();
   });
 
   it("each row has an Open job link (new tab, noopener) and the detail leads with the marketer's quick info; no link means a disabled control with a tooltip", async () => {
@@ -136,10 +135,14 @@ describe("Job Matches from real data", () => {
     await mount();
     expect(calls.map((c) => c.url)).toContain("/api/orgs/2/me-workspace/matches/1");
     const d = document.querySelector("[data-detail='1']") as HTMLElement;
-    expect(within(d).getByText("94% Match")).toBeTruthy();
+    expect(within(d).getByText("94% match")).toBeTruthy();
     expect(within(d).getByText("Skills and experience align with this role.")).toBeTruthy();
     expect((document.querySelector("[data-skill='Java']") as HTMLElement).dataset.present).toBe("true");
     expect((document.querySelector("[data-skill='Kubernetes']") as HTMLElement).dataset.present).toBe("false");
+    const chips = document.querySelector("[data-skill-chips]") as HTMLElement;
+    expect(within(chips).getByText("You have")).toBeTruthy();
+    expect(within(chips).getByText("Missing")).toBeTruthy();
+    expect(chips.textContent).not.toMatch(/%/);
     expect(document.querySelector("[data-improve='GAP']")!.textContent).toContain("Gap");
     expect(document.querySelector("[data-improve='SUGGESTED']")!.textContent).toContain("Suggested");
   });
@@ -214,18 +217,12 @@ describe("Job Matches from real data", () => {
     expect(screen.getByText(/Choose at least one more job/)).toBeTruthy();
   });
 
-  it("the right rail: quality checklist, alerts and the bee that opens help", async () => {
+  it("a match that was never scored says Not scored, never 0%", async () => {
+    current = page({ matches: [mrow({ matchId: 1, score: 0 })] });
     await mount();
-    const q = document.querySelector("[data-home-card='matches-quality']") as HTMLElement;
-    expect((q.querySelector("[data-check='profile']") as HTMLElement).dataset.done).toBe("true");
-    expect((q.querySelector("[data-check='resume']") as HTMLElement).dataset.done).toBe("false");
-    expect(within(q).getByRole("link", { name: "Improve My Profile" }).getAttribute("href")).toBe("/w/consultant/profile");
-    expect(within(document.querySelector("[data-alert]") as HTMLElement).getByText("2h ago")).toBeTruthy();
-    const heard = vi.fn();
-    window.addEventListener(OPEN_HELP_EVENT, heard);
-    fireEvent.click(screen.getByRole("button", { name: "Ask a question" }));
-    expect(heard).toHaveBeenCalled();
-    window.removeEventListener(OPEN_HELP_EVENT, heard);
+    expect(within(rowOf(1)).getByText("Not scored")).toBeTruthy();
+    expect(document.querySelector("[data-detail='1'] [data-detail-score]")!.textContent).toBe("Not scored");
+    expect(document.body.textContent).not.toMatch(/\b0%/);
   });
 
   it("honest empty states when there is nothing", async () => {
@@ -233,9 +230,6 @@ describe("Job Matches from real data", () => {
     await mount();
     expect(screen.getByText(/No matches yet/)).toBeTruthy();
     expect(screen.getByText(/Pick a match above/)).toBeTruthy();
-    expect(screen.getByText(/No alerts right now/)).toBeTruthy();
-    expect(within(tileOf("total")).getByText("0")).toBeTruthy();
-    expect(tileOf("total").textContent).not.toMatch(/%/);
   });
 
   it("a 404 is the role panel and a failure is retryable", async () => {

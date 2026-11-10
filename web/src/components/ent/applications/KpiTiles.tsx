@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { BriefcaseIcon, FileTextIcon, TrophyIcon, UsersIcon, deltaOf } from "@kiwiply/ui";
+import { BriefcaseIcon, FileTextIcon, TrophyIcon, UsersIcon } from "@kiwiply/ui";
 import type { KpiTone } from "@kiwiply/ui";
 import TalentKpi from "@/components/ent/shell/TalentKpi";
 import type { Counts, Tile } from "@/lib/ent/applications";
@@ -14,15 +14,14 @@ interface TileDef {
 }
 
 const TILES: TileDef[] = [
-  { key: "total", label: "Total Applications", icon: <UsersIcon size={22} />, tone: "violet" },
-  { key: "inReview", label: "In Review", icon: <FileTextIcon size={22} />, tone: "blue" },
+  { key: "total", label: "Total applications", icon: <UsersIcon size={22} />, tone: "violet" },
+  { key: "inReview", label: "In review", icon: <FileTextIcon size={22} />, tone: "blue" },
   { key: "interviewing", label: "Interviewing", icon: <BriefcaseIcon size={22} />, tone: "orange" },
   { key: "offers", label: "Offers", icon: <TrophyIcon size={22} />, tone: "green" },
 ];
 
 /**
- * The four KPI tiles. The delta ("vs last month") is drawn only when the API rebuilt a figure from thirty days ago: an organization
- * younger than a month shows the figure alone. The sparkline is the weekly series the API computed from the application history.
+ * The four KPI tiles: total, in review, interviewing and offers. Plain figures from the API (no trend line, no comparison).
  */
 export default function KpiTiles({ counts, loading, error }: { counts: Counts | null; loading: boolean; error: boolean; docked?: boolean }) {
   return (
@@ -37,10 +36,7 @@ export default function KpiTiles({ counts, loading, error }: { counts: Counts | 
               label={t.label}
               icon={t.icon}
               value={tile ? tile.value.toLocaleString("en-US") : error ? "\u2014" : ""}
-              delta={tile ? deltaOf(tile.value, tile.previous) : null}
-              vs="vs last month"
-              series={tile && tile.series.length > 1 ? tile.series : null}
-              seriesLabel={`${t.label}, last ${tile?.series.length ?? 0} weeks`}
+              vs=""
               loading={loading}
             />
           </li>

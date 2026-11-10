@@ -16,14 +16,14 @@ test("ADM-01 Org admin reviews the Organization Dashboard", async ({ as }) => {
   await expect(page.locator("[data-dashboard]")).toBeVisible();
   await loaded(page);
   await expect(page.locator("[data-page-header] h1")).toHaveText("Organization Dashboard");
-  await expect(page.locator("[data-page-header]")).toContainText(/Welcome back! Here's what's happening at .+ today\./);
+  await expect(page.locator("[data-page-header]")).toContainText(/Here's where .+ stands today\./);
 
-  await narrate(page, "The stat tiles show the numbers of the whole organization");
-  for (const key of ["consultants.total", "employees.active", "applications.active", "interviews.upcoming", "placements", "finance.summary"]) {
+  await narrate(page, "The four stat tiles show the numbers of the whole organization");
+  await expect(page.locator("[data-stat-tile]")).toHaveCount(4);
+  for (const key of ["consultants.total", "applications.active", "interviews.upcoming", "placements"]) {
     await expect(tile(page, key).locator("[data-tile-value]"), key).toBeVisible();
     await expect(tile(page, key).locator("[data-tile-value]"), key).not.toHaveText("");
   }
-  await expect(tile(page, "finance.summary").locator("[data-tile-value]")).toHaveText(/^\$\d+K?$/);
 
   await narrate(page, "Every tile equals what the dashboard API reports");
   const dash = await bff(page, "GET", `/api/orgs/${await orgIdOf(page)}/dashboard`);
@@ -33,7 +33,7 @@ test("ADM-01 Org admin reviews the Organization Dashboard", async ({ as }) => {
   expect(consultants).toBeGreaterThan(100); // the demo bench
   await expect(tile(page, "consultants.total").locator("[data-tile-value]")).toHaveText(consultants.toLocaleString("en-US"));
 
-  await narrate(page, "Team performance: six months of bars, switch to three");
+  await narrate(page, "Applications, interviews and placements by month: six months of bars, switch to three");
   const team = page.locator('[data-dash-card="team.performance"]');
   await expect(team).toHaveAttribute("data-state", "ok");
   await expect(team.locator("[data-bar^='applications:']")).toHaveCount(6);
@@ -45,39 +45,6 @@ test("ADM-01 Org admin reviews the Organization Dashboard", async ({ as }) => {
   const rows = page.locator('[data-dash-card="activity.recent"] [data-activity]');
   expect(await rows.count()).toBeGreaterThan(0);
   await expect(rows.first().locator("time")).toContainText(/ago|just now/);
-});
-
-test("ADM-02 Org admin jumps to a page from a quick action", async ({ as }) => {
-  const { page, go } = await as("sarah");
-  await go("/w/admin");
-  await loaded(page);
-  await narrate(page, "Sarah scans the quick actions on the dashboard");
-  await expect(page.locator("[data-quick-action=invite-employee]")).toHaveAttribute("href", /\/w\/admin\/employees/);
-  await expect(page.locator("[data-quick-action=review-applications]")).toHaveAttribute("href", "/w/admin/applications");
-  await narrate(page, "She clicks Review applications");
-  await page.locator("[data-quick-action=review-applications]").click();
-  await expect(page).toHaveURL(/\/w\/admin\/applications$/);
-  await expect(page.locator("[data-applications-page]")).toBeVisible();
-});
-
-test("ADM-03 Org admin dismisses the help card and it stays dismissed", async ({ as }) => {
-  const { page, go } = await as("sarah");
-  await go("/w/admin");
-  await loaded(page);
-  await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("kiwiply.dashboard.help")).forEach((k) => localStorage.removeItem(k)));
-  await page.reload();
-  await loaded(page);
-  await narrate(page, "The help card with the bee is visible the first time");
-  await expect(page.locator('[data-dash-card="help"]')).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Need help, Sarah?" })).toBeVisible();
-  await narrate(page, "Sarah dismisses it");
-  await page.getByRole("button", { name: "Dismiss the help card" }).click();
-  await expect(page.locator('[data-dash-card="help"]')).toHaveCount(0);
-  await narrate(page, "After a reload it stays gone");
-  await page.reload();
-  await loaded(page);
-  await expect(page.locator('[data-dash-card="activity.recent"]')).toBeVisible();
-  await expect(page.locator('[data-dash-card="help"]')).toHaveCount(0);
 });
 
 test("ADM-04 Beta's owner sees Beta's numbers, never Acme's", async ({ as }) => {

@@ -8,7 +8,7 @@ import { getTenantSession } from "@/lib/ent/tenant-session";
  * Consultant Assigned Opportunities at `/w/consultant/opportunities` (design/enterprise-consultant/opportunities.webp), inside the EnterpriseShell (the sibling
  * layout draws the frame). The API is the gate (404 for anyone who is not a consultant of this organization).
  */
-export const metadata: Metadata = { title: "Assigned Opportunities", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Opportunities", robots: { index: false, follow: false } };
 
 export default async function ConsultantOpportunitiesRoute() {
   const session = await getTenantSession();

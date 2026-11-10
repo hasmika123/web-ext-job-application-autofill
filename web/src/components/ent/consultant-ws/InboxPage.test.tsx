@@ -77,7 +77,9 @@ describe("ConsultantInboxPage", () => {
     await mount();
     const privacy = document.querySelector("[data-inbox-privacy]")!;
     expect(privacy.textContent).toContain("Only you see your mail");
-    expect(privacy.textContent).toContain("never see the password, the address, a subject, a sender or a word of a message");
+    expect(privacy.textContent).toContain("never see the password, the address or any message");
+    expect(privacy.textContent).toContain("they only see the stage an application reaches");
+    expect(privacy.textContent).toContain("Your organization, your marketer and your administrators");
   });
 
   it("walks through the guided steps and checks the pair against Gmail through the tenant route", async () => {

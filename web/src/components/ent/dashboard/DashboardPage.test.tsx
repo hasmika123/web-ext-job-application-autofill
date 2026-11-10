@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/admin" }));
 
 import { ToastProvider } from "@kiwiply/ui";
-import { OPEN_HELP_EVENT } from "@/components/ent/shell/ShellContext";
 import DashboardPage, { REVALIDATE_MS, UNDO_MS } from "./DashboardPage";
 
 type W = Record<string, unknown>;
@@ -30,7 +29,7 @@ const fixture = (over: Record<string, W | null> = {}): { orgId: number; generate
       data: {
         items: [
           { key: "invite-employee", label: "Invite Employee", description: "Add a new team member", href: "/w/admin/employees?invite=1", permission: "members.invite", available: true, soonModule: null },
-          { key: "assign-marketer", label: "Assign Marketer", description: "Connect a marketer", href: "/w/admin/assignments", permission: "assignments.manage", available: false, soonModule: "marketing" },
+          { key: "assign-marketer", label: "Assign marketer", description: "Connect a marketer", href: "/w/admin/assignments", permission: "assignments.manage", available: false, soonModule: "marketing" },
         ],
       },
     },
@@ -78,7 +77,7 @@ function stubFetch() {
 async function mount(props: Partial<React.ComponentProps<typeof DashboardPage>> = {}) {
   const view = render(
     <ToastProvider>
-      <DashboardPage orgId={2} orgName="Acme" firstName="Sarah" auditHref="/w/admin/audit" employeesHref="/w/admin/employees" invitationsHref="/w/admin/employees?status=invited" {...props} />
+      <DashboardPage orgId={2} orgName="Acme" auditHref="/w/admin/audit" employeesHref="/w/admin/employees" invitationsHref="/w/admin/employees?status=invited" {...props} />
     </ToastProvider>,
   );
   await act(async () => {
@@ -106,11 +105,11 @@ describe("the dashboard from real data", () => {
     await mount();
     expect(calls).toEqual([{ method: "GET", url: "/api/orgs/2/dashboard" }]);
     expect(within(tileOf("consultants.total")!).getByText("2")).toBeTruthy();
-    expect(within(tileOf("employees.active")!).getByText("7")).toBeTruthy();
+    expect(within(tileOf("consultants.total")!).getByText("2")).toBeTruthy();
     expect(screen.getByText("Sarah Chen", { selector: "span" })).toBeTruthy();
     expect(screen.getByText("Nina Vogel")).toBeTruthy();
     expect(screen.getByText("2 hours ago")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Need help, Sarah?" })).toBeTruthy();
+    expect(screen.queryByText(/Ask a question/)).toBeNull();
   });
 
   it("shows alerts danger first", async () => {
@@ -122,7 +121,7 @@ describe("the dashboard from real data", () => {
   it("links Recent Activity rows and 'View all' only where a page exists", async () => {
     await mount();
     const row = document.querySelector("[data-activity='audit-5'] a") as HTMLAnchorElement;
-    expect(row.getAttribute("href")).toBe("/w/admin/invitations");
+    expect(row.getAttribute("href")).toBe("/w/admin/employees?tab=invitations");
     expect(within(cardOf("activity.recent")!).getByRole("link", { name: "View all" }).getAttribute("href")).toBe("/w/admin/audit");
     cleanup();
     await mount({ auditHref: null });
@@ -150,9 +149,10 @@ describe("delta handling", () => {
   });
 
   it("deltaPct 0 is a flat chip; deltaPct null draws NO delta (counts instead)", async () => {
-    reply = () => ({ status: 200, body: fixture({ "consultants.total": { key: "consultants.total", state: "ok", data: tile(2, 0, null, { active: 0, invited: 1, suspended: 1 }) } }) });
+    reply = () =>
+      ({ status: 200, body: fixture({ "consultants.total": { key: "consultants.total", state: "ok", data: tile(2, 0, null, { active: 0, invited: 1, suspended: 1 }) }, "applications.active": { key: "applications.active", state: "ok", data: tile(7, 7, 0, { active: 7 }) } }) });
     await mount();
-    expect(tileOf("employees.active")!.querySelector("[data-delta=flat]")).toBeTruthy();
+    expect(tileOf("applications.active")!.querySelector("[data-delta=flat]")).toBeTruthy();
     const t = tileOf("consultants.total")!;
     expect(t.querySelector("[data-delta]")).toBeNull();
     expect(t.querySelector("[data-tile-counts]")!.textContent).toBe("1 invited · 1 suspended");
@@ -166,7 +166,6 @@ describe("widget states", () => {
       ["applications.active", "Available when Applications launches"],
       ["interviews.upcoming", "Available when Interviews launches"],
       ["placements", "Available when Placements launches"],
-      ["finance.summary", "Available when HR and Finance launches"],
     ] as const) {
       const t = tileOf(key)!;
       expect(t.getAttribute("data-state")).toBe("unavailable");
@@ -218,7 +217,7 @@ describe("widget states", () => {
     const card = cardOf("activity.recent")!;
     expect(card.querySelector("[data-widget-error]")).toBeTruthy();
     expect(document.querySelectorAll("[data-widget-error]")).toHaveLength(1);
-    expect(within(tileOf("employees.active")!).getByText("7")).toBeTruthy();
+    expect(within(tileOf("consultants.total")!).getByText("2")).toBeTruthy();
     reply = () => ({ status: 200, body: fixture() });
     await act(async () => {
       fireEvent.click(within(card).getByRole("button", { name: /Try again/ }));
@@ -230,12 +229,11 @@ describe("widget states", () => {
   });
 
   it("absent: a widget the API does not send is simply not drawn", async () => {
-    reply = () => ({ status: 200, body: fixture({ placements: null, "quick.actions": null, "team.performance": null }) });
+    reply = () => ({ status: 200, body: fixture({ placements: null, "team.performance": null }) });
     await mount();
     expect(tileOf("placements")).toBeNull();
-    expect(cardOf("quick.actions")).toBeNull();
     expect(cardOf("team.performance")).toBeNull();
-    expect(tileOf("finance.summary")).toBeTruthy();
+    expect(tileOf("consultants.total")).toBeTruthy();
   });
 
   it("future ok data feeds the charts (the later stories only supply data)", async () => {
@@ -261,28 +259,14 @@ describe("widget states", () => {
       fireEvent.click(within(alert).getByRole("button", { name: /retry/i }));
       await vi.advanceTimersByTimeAsync(20);
     });
-    expect(within(tileOf("employees.active")!).getByText("7")).toBeTruthy();
+    expect(within(tileOf("consultants.total")!).getByText("2")).toBeTruthy();
   });
 
   it("a refused caller sees 'isn't part of your role' and no data", async () => {
     reply = () => ({ status: 404, body: {} });
     await mount();
     expect(screen.getByText("This page isn't part of your role")).toBeTruthy();
-    expect(tileOf("employees.active")).toBeNull();
-  });
-});
-
-describe("quick actions", () => {
-  it("an available action is a link; an unavailable one is a 'Soon' chip with no link", async () => {
-    await mount();
-    const invite = document.querySelector("[data-quick-action=invite-employee]") as HTMLAnchorElement;
-    expect(invite.tagName).toBe("A");
-    expect(invite.getAttribute("href")).toBe("/w/admin/employees?invite=1");
-    const soon = document.querySelector("[data-quick-action=assign-marketer]")!;
-    expect(soon.tagName).toBe("DIV");
-    expect(soon.getAttribute("aria-disabled")).toBe("true");
-    expect(soon.querySelector("a")).toBeNull();
-    expect(soon.querySelector("[data-soon-chip]")!.textContent).toBe("Soon");
+    expect(tileOf("consultants.total")).toBeNull();
   });
 });
 
@@ -371,24 +355,32 @@ describe("refresh and the rest", () => {
       fireEvent.click(screen.getByRole("button", { name: "Refresh dashboard" }));
       await vi.advanceTimersByTimeAsync(20);
     });
-    expect(within(tileOf("employees.active")!).getByText("7")).toBeTruthy();
+    expect(within(tileOf("consultants.total")!).getByText("2")).toBeTruthy();
     expect(screen.queryByText("Couldn't load the dashboard")).toBeNull();
   });
 
-  it("'Ask a question...' opens the shell's help panel", async () => {
+  it("draws the four tiles, no sparkline, no help card and no Quick Actions card", async () => {
     await mount();
-    const on = vi.fn();
-    window.addEventListener(OPEN_HELP_EVENT, on);
-    fireEvent.click(screen.getByRole("button", { name: /Ask a question/ }));
-    expect(on).toHaveBeenCalledTimes(1);
-    window.removeEventListener(OPEN_HELP_EVENT, on);
+    expect([...document.querySelectorAll("[data-stat-tile]")].map((e) => e.getAttribute("data-stat-tile"))).toEqual(["consultants.total", "applications.active", "interviews.upcoming", "placements"]);
+    expect(screen.getByRole("region", { name: "Open applications" })).toBeTruthy();
+    expect(document.querySelector("[data-sparkline]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question|Active Staff|Monthly Spend/)).toBeNull();
+    expect(cardOf("help")).toBeNull();
+    expect(cardOf("quick.actions")).toBeNull();
+  });
+
+  it("the status line links to the invitations tab and to suspended employees", async () => {
+    reply = () => ({ status: 200, body: fixture({ "invites.pending": { key: "invites.pending", state: "ok", data: { invited: 1, expiringSoon: 0, suspended: 1 } } }) });
+    await mount();
+    expect(within(document.querySelector("[data-dash-chip=invited]")!).getByRole("link").getAttribute("href")).toBe("/w/admin/employees?status=invited");
+    expect(within(document.querySelector("[data-dash-chip=suspended]")!).getByRole("link").getAttribute("href")).toBe("/w/admin/employees?status=suspended");
   });
 
   it("phone layout: tiles wrap two across, cards stack in one column until lg, no fixed widths", async () => {
     await mount();
     const tiles = document.querySelector("[data-dash-tiles]")!;
     expect(tiles.className).toContain("grid-cols-2");
-    expect(tiles.className).toContain("xl:grid-cols-6");
+    expect(tiles.className).toContain("xl:grid-cols-4");
     const rows = [...document.querySelectorAll("[data-dashboard] > div.grid")];
     expect(rows).toHaveLength(2);
     for (const r of rows) {

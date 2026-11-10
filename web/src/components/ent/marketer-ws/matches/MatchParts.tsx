@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  AlertIcon, BarChartIcon, BuildingIcon, Button, CheckCircleIcon, ErrorState, MemberAvatar, MinusCircleIcon, Select, SideSheet, SparklesIcon, cn, useNarrow,
+  AlertIcon, BuildingIcon, Button, CheckCircleIcon, ErrorState, MemberAvatar, MinusCircleIcon, Select, SideSheet, SparklesIcon, cn, useNarrow,
 } from "@kiwiply/ui";
 import { CARD, CardSkeleton, Empty, Head, TINTS } from "@/components/ent/marketer-ws/parts";
+import { isScored, scoreText } from "@/lib/ent/marketer-ws/score";
 import {
   fetchCompare, fetchMatchDetail, matchPhoto, scoreTone,
   type Availability, type FitTone, type Insight, type MatchDetail, type MatchRow,
@@ -22,8 +23,8 @@ const BAR: Record<string, string> = {
 
 export function ScoreChip({ score, size = "md" }: { score: number; size?: "md" | "sm" }) {
   return (
-    <span data-score-chip className={cn("inline-block rounded-md font-bold tabular-nums", SCORE_TONE[scoreTone(score)], size === "md" ? "px-2.5 py-1 text-[13px]" : "px-2 py-0.5 text-[12.5px]")}>
-      {score}%
+    <span data-score-chip className={cn("inline-block rounded-md font-bold tabular-nums", isScored(score) ? SCORE_TONE[scoreTone(score)] : "bg-paper-2 font-semibold text-muted", size === "md" ? "px-2.5 py-1 text-[13px]" : "px-2 py-0.5 text-[12.5px]")}>
+      {scoreText(score)}
     </span>
   );
 }
@@ -47,7 +48,7 @@ export function ResumeCell({ row }: { row: MatchRow }) {
   ) : (
     <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-soft">
       <CheckCircleIcon size={15} className="flex-none text-v2-green-ink" />
-      Not Required
+      Not required
     </span>
   );
 }
@@ -103,16 +104,16 @@ export function Ticks({ detail, title }: { detail: MatchDetail; title: string })
 }
 
 /** The "Match Explanation" card: selected consultant, their job, the big score and the ticks. */
-export function ExplanationCard({ detail, loading }: { detail: MatchDetail | null; loading: boolean }) {
+export function ExplanationCard({ detail, loading, stacked = false }: { detail: MatchDetail | null; loading: boolean; stacked?: boolean }) {
   return (
-    <section data-match-card="explanation" aria-label="Match Explanation" className={CARD}>
-      <Head icon={SparklesIcon} title="Match Explanation" tint="violet" />
+    <section data-match-card="explanation" aria-label="Match explanation" className={CARD}>
+      <Head icon={SparklesIcon} title="Match explanation" tint="violet" />
       {loading && !detail ? (
         <CardSkeleton rows={2} />
       ) : !detail ? (
         <Empty>Pick a match to see why it fits.</Empty>
       ) : (
-        <div className="grid items-stretch gap-3 lg:grid-cols-[minmax(0,1.5fr)_auto_minmax(0,1.3fr)_auto_minmax(0,1.2fr)]">
+        <div className={cn("grid items-stretch gap-3", !stacked && "lg:grid-cols-[minmax(0,1.5fr)_auto_minmax(0,1.3fr)_auto_minmax(0,1.2fr)]")}>
           <div className="flex min-w-0 items-center gap-3 rounded-[var(--radius-lg)] border border-line p-3">
             <MemberAvatar name={detail.consultant.name} src={matchPhoto(detail.consultant.name, detail.consultant.avatarUrl, true)} size={56} />
             <div className="min-w-0">
@@ -121,7 +122,7 @@ export function ExplanationCard({ detail, loading }: { detail: MatchDetail | nul
               <div className="mt-1.5 flex flex-wrap gap-1">{detail.consultant.skills.map((s) => <Chip key={s}>{s}</Chip>)}</div>
             </div>
           </div>
-          <span aria-hidden className="hidden self-center text-[20px] text-accent-deep lg:block">{"→"}</span>
+          <span aria-hidden className={cn("hidden self-center text-[20px] text-accent-deep", !stacked && "lg:block")}>{"→"}</span>
           <div className="flex min-w-0 items-center gap-3 rounded-[var(--radius-lg)] border border-line p-3">
             <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-[11px]", TINTS.blue)}><BuildingIcon size={22} /></span>
             <div className="min-w-0">
@@ -131,21 +132,12 @@ export function ExplanationCard({ detail, loading }: { detail: MatchDetail | nul
             </div>
           </div>
           <div data-big-score className="flex flex-col items-center justify-center px-2">
-            <span className={cn("text-[34px] font-extrabold leading-none tabular-nums", TEXT_TONE[scoreTone(detail.row.score) === "green" ? "green" : "amber"])}>{detail.row.score}%</span>
-            <span className="mt-1 text-[12px] text-muted">Match Score</span>
+            <span className={cn("text-[34px] font-extrabold leading-none tabular-nums", isScored(detail.row.score) ? TEXT_TONE[scoreTone(detail.row.score) === "green" ? "green" : "amber"] : "text-muted")}>{scoreText(detail.row.score)}</span>
+            <span className="mt-1 text-[12px] text-muted">Match score</span>
           </div>
-          <Ticks detail={detail} title="Why this is a great match" />
+          <Ticks detail={detail} title="Why this fits" />
         </div>
       )}
-    </section>
-  );
-}
-
-export function InsightsCard({ detail, loading }: { detail: MatchDetail | null; loading: boolean }) {
-  return (
-    <section data-match-card="insights" aria-label="Match Insights" className={CARD}>
-      <Head icon={BarChartIcon} title="Match Insights" tint="blue" />
-      {loading && !detail ? <CardSkeleton rows={3} /> : !detail ? <Empty>Insights show up once a match is selected.</Empty> : <Bars insights={detail.insights} />}
     </section>
   );
 }
@@ -258,7 +250,7 @@ export function CompareDrawer({
             {d.ticks.map((t) => <li key={t.key} className={cn("text-[12px]", t.ok ? "text-ink-soft" : "text-muted")}>{t.ok ? "✓ " : "- "}{t.text}</li>)}
           </ul>
           <p className="text-[12px] text-ink-soft"><AvailabilityDot fit={d.row.availability} /></p>
-          <p className="text-[12px] text-ink-soft">Resume: {d.row.resumeUpdate.needed ? "Update" : "Not Required"}</p>
+          <p className="text-[12px] text-ink-soft">Resume: {d.row.resumeUpdate.needed ? "Update" : "Not required"}</p>
         </div>
       ) : (
         <CardSkeleton rows={4} />
@@ -277,7 +269,7 @@ export function CompareDrawer({
               aria-label="Compare with"
               value={bId === null ? "" : String(bId)}
               onChange={(v) => setPicked(Number(v))}
-              options={options.map((o) => ({ value: String(o.id), label: `${o.consultantName} - ${o.jobTitle} (${o.score}%)` }))}
+              options={options.map((o) => ({ value: String(o.id), label: `${o.consultantName} - ${o.jobTitle} (${scoreText(o.score)})` }))}
             />
           </label>
           {ready?.kind === "failed" ? <ErrorState what="the comparison" description="The two matches didn't load." variant="inline" /> : null}

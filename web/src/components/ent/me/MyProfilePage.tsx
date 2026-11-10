@@ -9,7 +9,7 @@ import TimeZoneField from "@/components/app-v3/settings/TimeZoneField";
 import { SettingsCard } from "@/components/app-v3/settings/panels";
 import PageHeader from "@/components/ent/shell/ShellContext";
 import { passwordProblem } from "@/components/ent/login/ForcedPasswordChange";
-import type { NotificationPrefsView } from "@/lib/notification-preferences";
+import { tenantPrefsView, type NotificationPrefsView } from "@/lib/notification-preferences";
 import { DEMO_READ_ONLY_MESSAGE } from "@/lib/demo";
 
 /**
@@ -99,7 +99,7 @@ export default function MyProfilePage(p: MyProfileProps) {
   );
 
   return (
-    <NotificationPrefsProvider initial={p.notificationPrefs} demo={p.demo}>
+    <NotificationPrefsProvider initial={p.notificationPrefs ? tenantPrefsView(p.notificationPrefs) : null} demo={p.demo}>
       <div data-my-profile className="mx-auto flex w-full max-w-3xl flex-col gap-4 sm:gap-5">
         <PageHeader title="My profile" subtitle={`Your details at ${p.orgName}. Everything saves as you go.`} />
         <nav aria-label="My profile sections" className="flex flex-wrap gap-2 text-[13.5px] font-semibold">

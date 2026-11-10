@@ -33,7 +33,7 @@ test.describe("desktop 1440", () => {
       spacer.style.height = "4000px";
       document.querySelector("[data-shell-main]")!.appendChild(spacer);
       const nav = document.querySelector("[data-shell-scroll]") as HTMLElement;
-      nav.style.maxHeight = "300px"; // a short window: the 26-item menu overflows
+      nav.style.maxHeight = "300px"; // a short window: the 17-item menu overflows
     });
     const scroller = page.locator("[data-shell-scroll]");
     const before = await scroller.evaluate((el) => el.scrollTop);
@@ -56,7 +56,7 @@ test.describe("desktop 1440", () => {
     for (const href of new Set(hrefs.map((h) => h.split("#")[0]))) {
       const res = await page.goto(`${base}${href}`);
       expect(res?.status(), href).toBe(200);
-      await expect(page.locator("[data-coming-soon], [data-ent-page], [data-branding-page], [data-invitations-page], [data-dashboard], [data-employees-page], [data-roles-page], [data-consultants-page], [data-resumes-page], [data-marketing-assignments-page], [data-jobs-page], [data-applications-page], [data-interviews-page], [data-clients-page], [data-placements-page], [data-org-settings], [data-audit-page], [data-reports], [data-policies-page]").or(page.locator("[data-page-header]").filter({ hasText: /Settings|Audit Logs|Policies/ })).first(), href).toBeVisible(); // Settings, Audit Logs and Policies are real-API only: on the mock they frame their own "couldn't load" state under the page header
+      await expect(page.locator("[data-coming-soon], [data-ent-page], [data-branding-page], [data-invitations-page], [data-dashboard], [data-employees-page], [data-roles-page], [data-consultants-page], [data-resumes-page], [data-marketing-assignments-page], [data-jobs-page], [data-applications-page], [data-interviews-page], [data-clients-page], [data-placements-page], [data-org-settings], [data-audit-page], [data-reports], [data-policies-page]").or(page.locator("[data-page-header]").filter({ hasText: /Settings|Audit Log/ })).first(), href).toBeVisible(); // Settings (with its Policies tab) and Audit Log are real-API only: on the mock they frame their own "couldn't load" state under the page header
     }
   });
 
@@ -83,11 +83,11 @@ test.describe("desktop 1440", () => {
     await expect(page.locator("[data-not-your-role]")).toBeVisible();
   });
 
-  test("Organization Branding opens inside the shell", async ({ page }) => {
+  test("Branding opens inside the shell", async ({ page }) => {
     await signIn(page, "owner@acme.com");
     await page.goto(`${base}/w/admin/branding`);
     await expect(page.locator("[data-branding-page]")).toBeVisible();
-    await expect(page.locator("[data-shell-sidebar] [aria-current=page]")).toContainText("Organization Branding");
+    await expect(page.locator("[data-shell-sidebar] [aria-current=page]")).toContainText("Branding");
   });
 });
 
@@ -104,6 +104,6 @@ test.describe("phone 390", () => {
     await expect(page.locator("[data-shell-tabs]")).toContainText("More");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.getByLabel("Open menu").click();
-    await expect(page.getByRole("dialog")).toContainText("Organization Branding");
+    await expect(page.getByRole("dialog")).toContainText("Branding");
   });
 });

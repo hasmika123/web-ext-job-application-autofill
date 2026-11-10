@@ -191,7 +191,10 @@ export function parseHome(body: unknown): HomeView | null {
 export type Tone = "green" | "amber" | "blue" | "red" | "violet" | "slate";
 
 /** The match pill: 90+ green, 75-89 amber-green, below that amber (the board shows 92/88/85 green and 78/76 amber). */
-export const matchTone = (score: number): Tone => (score >= 80 ? "green" : "amber");
+export const matchTone = (score: number): Tone => (score >= 80 ? "green" : score > 0 ? "amber" : "slate");
+
+/** A match score as text: "86%", or "Not scored" when it was never computed (the data stays 0 or null; only the words change). */
+export const scoreText = (score: number | null | undefined): string => (typeof score === "number" && score > 0 ? `${score}%` : "Not scored");
 
 export const OPPORTUNITY_LABELS: Record<OpportunityStatus, { label: string; tone: Tone }> = {
   REVIEW_NEEDED: { label: "Review Needed", tone: "amber" },

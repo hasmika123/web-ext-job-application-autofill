@@ -76,39 +76,35 @@ afterEach(() => {
 });
 
 describe("ActivitiesPage board", () => {
-  it("draws the five KPI tiles in the inline layout with value, delta and 'vs last week'", async () => {
+  it("has no tiles", async () => {
     await loaded();
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(5);
-    const t = (id: string) => document.querySelector(`[data-stat-tile="${id}"]`) as HTMLElement;
-    for (const [id, title, value, delta] of [["total", "Total Activities", "148", "22%"], ["resume", "Resume Updates", "28", "33%"], ["submission", "New Submissions", "36", "20%"], ["followup", "Client Follow-ups", "42", "14%"], ["interview", "Interviews Coordinated", "18", "38%"]]) {
-      expect(within(t(id)).getByText(title)).toBeTruthy();
-      expect(within(t(id)).getByText(value)).toBeTruthy();
-      expect(t(id).textContent).toContain(delta);
-      expect(t(id).textContent).toContain("vs last week");
-    }
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
+    expect(document.querySelector("[data-activity-tiles]")).toBeNull();
   });
 
   it("draws the filter row with the board's labels, the range and the All options", async () => {
     await loaded();
     const f = document.querySelector("[data-activity-filters]") as HTMLElement;
-    for (const l of ["Date Range", "Consultant", "Activity Type", "Status", "Client", "Owner"]) expect(within(f).getByText(l)).toBeTruthy();
+    for (const l of ["Date range", "Consultant", "Activity type", "Status", "Client"]) expect(within(f).getByText(l)).toBeTruthy();
+    expect(within(f).queryByText("Owner")).toBeNull();
     expect(within(f).getByRole("button", { name: "Date range: Oct 1, 2024 - Oct 31, 2024" })).toBeTruthy();
-    for (const [label, all] of [["Consultant", "All Consultants"], ["Activity Type", "All Types"], ["Status", "All Statuses"], ["Client", "All Clients"], ["Owner", "All Owners"]]) {
+    for (const [label, all] of [["Consultant", "All consultants"], ["Activity type", "All types"], ["Status", "All statuses"], ["Client", "All clients"]]) {
       expect(within(f).getByRole("button", { name: label }).textContent).toContain(all);
     }
   });
 
-  it("titles the feed with its total, the sort select and the Log Activity button", async () => {
+  it("titles the feed with its total, the sort select and the Log activity button", async () => {
     await loaded();
-    expect(screen.getByRole("heading", { name: /Recent Activities\s*\(148\)/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sort" }).textContent).toContain("Most Recent");
-    expect(screen.getByRole("button", { name: /Log Activity/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Activity\s*\(148\)/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sort" }).textContent).toContain("Most recent");
+    expect(screen.getByRole("button", { name: /Log activity/ })).toBeTruthy();
   });
 
   it("draws the board's columns and row cells (date and time, icon title and subtitle, people, client logo, two chips, status)", async () => {
     await loaded();
     const table = document.querySelector("[data-activity-table]") as HTMLElement;
-    for (const h of ["Date & Time", "Activity", "Actor", "Consultant", "Related To", "Client", "Tags", "Status"]) expect(within(table).getByRole("columnheader", { name: h })).toBeTruthy();
+    for (const h of ["Date and time", "Activity", "Actor", "Consultant", "Related to", "Type", "Status"]) expect(within(table).getByRole("columnheader", { name: h })).toBeTruthy();
+    expect(within(table).queryByRole("columnheader", { name: "Tags" })).toBeNull();
     const r = table.querySelector('[data-activity-row="RESUME:1"]') as HTMLElement;
     expect(within(r).getByText("Oct 18, 2024")).toBeTruthy();
     expect(within(r).getByText("4:32 PM")).toBeTruthy();
@@ -119,37 +115,19 @@ describe("ActivitiesPage board", () => {
     expect(within(r).getByText("TechCorp")).toBeTruthy();
     expect(r.querySelector('img[src="/ent/marketer/activity/logo-techcorp.png"]')).toBeTruthy();
     expect(within(r).getByText("Resume")).toBeTruthy();
-    expect(within(r).getByText("Profile")).toBeTruthy();
+    expect(within(r).queryByText("Profile")).toBeNull(); // the Tags chip is gone
     expect(within(r).getByText("Completed")).toBeTruthy();
     expect(within(r).getByRole("button", { name: "More for Resume Updated" })).toBeTruthy();
     expect(table.querySelectorAll("[data-activity-row]")).toHaveLength(10);
-    expect(within(table.querySelector('[data-activity-row="PLACEMENT:10"]') as HTMLElement).getByText("Closed")).toBeTruthy();
-    expect(within(table.querySelector('[data-activity-row="INTERVIEW:7"]') as HTMLElement).getByText("Feedback")).toBeTruthy();
-    expect(within(table.querySelector('[data-activity-row="INTERVIEW:7"]') as HTMLElement).getByText("Positive")).toBeTruthy();
   });
 
-  it("draws the right column: bee help card, summary rows with counts and percents, upcoming rows with their day", async () => {
+  it("has no right column: no bee help card, Activity summary by type or Upcoming activities", async () => {
     await loaded();
-    expect(screen.getByText("Keep your marketing momentum going")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ask a question/ })).toBeTruthy();
-    const sum = document.querySelector('[data-activity-card="summary"]') as HTMLElement;
-    expect(within(sum).getByRole("heading", { name: "Activity Summary by Type" })).toBeTruthy();
-    expect(within(sum).getByRole("button", { name: "Summary range" }).textContent).toContain("This Month");
-    const resume = sum.querySelector('[data-summary-row="RESUME"]') as HTMLElement;
-    expect(resume.textContent).toContain("Resume Updates");
-    expect(resume.textContent).toContain("28");
-    expect(resume.textContent).toContain("19%");
-    expect(sum.querySelectorAll("[data-summary-row]")).toHaveLength(7);
-    expect(within(sum).getByText("Placements")).toBeTruthy();
-    const up = document.querySelector('[data-activity-card="upcoming"]') as HTMLElement;
-    expect(within(up).getByRole("heading", { name: "Upcoming Activities" })).toBeTruthy();
-    expect(up.querySelectorAll("[data-upcoming-row]")).toHaveLength(5);
-    expect(within(up).getByText("Client follow-up: TechCorp")).toBeTruthy();
-    expect(within(up).getByText("Alex Morgan")).toBeTruthy();
-    expect(within(up).getByText("Today, 10:00 AM")).toBeTruthy();
-    expect(within(up).getByText("Tomorrow, 9:00 AM")).toBeTruthy();
-    fireEvent.click(within(up).getByRole("button", { name: "View all" }));
-    expect(up.querySelectorAll("[data-upcoming-row]")).toHaveLength(6);
+    expect(screen.queryByText("Keep your marketing momentum going")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ask a question/ })).toBeNull();
+    for (const c of ["summary", "upcoming", "help"]) expect(document.querySelector(`[data-activity-card="${c}"]`), c).toBeNull();
+    expect(screen.queryByText("Activity Summary by Type")).toBeNull();
+    expect(screen.queryByText("Upcoming Activities")).toBeNull();
   });
 
   it("pages through the feed with Previous / Next", async () => {
@@ -172,15 +150,8 @@ describe("filters", () => {
   it("changing the sort asks for the oldest first", async () => {
     await loaded();
     fireEvent.click(screen.getByRole("button", { name: "Sort" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Oldest First" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Oldest first" }));
     await waitFor(() => expect(calls(fetchMock).some(([u]) => u.includes("sort=oldest"))).toBe(true));
-  });
-
-  it("the summary range select has its own range", async () => {
-    await loaded();
-    fireEvent.click(screen.getByRole("button", { name: "Summary range" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Last Month" }));
-    await waitFor(() => expect(calls(fetchMock).some(([u]) => u.includes("summaryRange=LAST_MONTH"))).toBe(true));
   });
 
   it("a date preset reloads with from and to", async () => {
@@ -192,14 +163,13 @@ describe("filters", () => {
 });
 
 describe("states", () => {
-  it("an empty org shows the empty copy and honest nothing-yet tiles", async () => {
+  it("an empty org shows the empty copy", async () => {
     fetchMock.mockImplementation(async () =>
       reply(200, view({ kpis: ACTIVITY_ZERO(), activities: { items: [], total: 0, page: 0, size: 10 }, summary: { range: "THIS_MONTH", from: "2024-10-01", to: "2024-10-31", total: 0, rows: [] }, upcoming: [], upcomingTotal: 0 })),
     );
     mount();
-    expect((await screen.findAllByText("No activity yet")).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("Nothing scheduled in the next two weeks.")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /Recent Activities\s*\(0\)/ })).toBeTruthy();
+    expect(await screen.findByText("No activity yet")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Activity\s*\(0\)/ })).toBeTruthy();
     expect(document.querySelector("[data-activity-table]")).toBeNull();
   });
 
@@ -218,10 +188,10 @@ describe("states", () => {
     expect(await screen.findByText(/isn't part of your role/)).toBeTruthy();
   });
 
-  it("a caller who may only read sees no Log Activity button", async () => {
+  it("a caller who may only read sees no Log activity button", async () => {
     fetchMock.mockImplementation(async () => reply(200, view({ canLog: false })));
     await loaded();
-    expect(screen.queryByRole("button", { name: /Log Activity/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Log activity/ })).toBeNull();
   });
 });
 
@@ -230,9 +200,9 @@ function ACTIVITY_ZERO() {
 }
 
 describe("record-only writes", () => {
-  it("Log Activity records through the activity BFF route and nothing else, then reloads", async () => {
+  it("Log activity records through the activity BFF route and nothing else, then reloads", async () => {
     await loaded();
-    fireEvent.click(screen.getByRole("button", { name: /Log Activity/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Log activity/ }));
     const dlg = await screen.findByRole("dialog");
     expect(within(dlg).getByText(/nothing is sent to the client or the consultant, and nothing is submitted/i)).toBeTruthy();
     const submit = within(dlg).getByRole("button", { name: "Log activity" }) as HTMLButtonElement;
@@ -254,7 +224,7 @@ describe("record-only writes", () => {
   it("a rejected log keeps the dialog open with the API's message", async () => {
     fetchMock.mockImplementation(async (_u: string, init?: RequestInit) => (init?.method ? reply(422, { error: "title: contains a sensitive identifier" }) : reply(200, view())));
     await loaded();
-    fireEvent.click(screen.getByRole("button", { name: /Log Activity/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Log activity/ }));
     const dlg = await screen.findByRole("dialog");
     fireEvent.click(within(dlg).getByRole("button", { name: "Consultant" }));
     fireEvent.click(await screen.findByRole("option", { name: "Alex Morgan" }));

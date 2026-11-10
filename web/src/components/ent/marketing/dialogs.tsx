@@ -382,7 +382,7 @@ function AddInner({ onClose, orgId, inviteHref, onAdded }: { onClose: () => void
             </label>
             <label className="text-[12.5px] font-semibold text-ink-soft">
               Title (optional)
-              <Input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="Marketing Consultant" className="mt-1" />
+              <Input value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="Marketing Specialist" className="mt-1" />
             </label>
           </div>
           {!capOk && <p className="mt-1 text-[12px] text-danger-text">Capacity is a whole number from 1 to 200.</p>}

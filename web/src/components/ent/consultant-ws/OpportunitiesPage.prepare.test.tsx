@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/opportunities" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/opportunities", useSearchParams: () => new URLSearchParams("") }));
 
 let compact = false;
 vi.mock("./useCompact", () => ({ useCompact: () => compact }));
@@ -116,12 +116,12 @@ describe("Prepare selected openings on Assigned Opportunities", () => {
     expect(document.querySelector("[data-prepare-off-note]")!.textContent).toBe("Your organization hasn't turned on preparing applications.");
   });
 
-  it("when the licence lacks the add-on: no checkboxes, no bar, a calm line about the licence", async () => {
+  it("when the license lacks the add-on: no checkboxes, no bar, a calm line about the license", async () => {
     status = statusOff("NO_LICENSE");
     await mount();
     expect(document.querySelector("[data-prepare-bar]")).toBeNull();
     expect(document.querySelector("[data-prepare-check]")).toBeNull();
-    expect(document.querySelector("[data-prepare-off-note]")!.textContent).toBe("Your organization's licence doesn't include preparing applications.");
+    expect(document.querySelector("[data-prepare-off-note]")!.textContent).toBe("Your organization's license doesn't include preparing applications.");
   });
 
   it("the page's own call stays first; the status is read after it", async () => {

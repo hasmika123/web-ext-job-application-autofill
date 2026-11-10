@@ -80,9 +80,14 @@ class WorkspaceServiceTest {
         WorkspaceService.Result all = compute(ALL_ON, "OWNER");
         assertThat(slugs(all)).containsExactly("admin");
         assertThat(navKeys(all, "admin")).containsExactly(
-            "home", "employees", "invitations", "teams", "departments", "roles", "consultants", "resumes", "assignments", "jobs", "applications", "interviews", "clients",
-            "placements", "subscription", "licenses", "billing", "usage", "hr", "finance", "reports", "branding", "domains", "integrations", "audit", "settings", "policies"
+            "home", "employees", "teams", "roles", "consultants", "assignments", "resumes", "jobs", "applications", "interviews", "clients", "placements",
+            "reports", "audit", "branding", "settings", "billing"
         );
+        // the menu's groups travel with it (display only): People, Talent, Pipeline, Organization; Home stands alone
+        MeTenantDTO.Workspace admin = all.workspaces().get(0);
+        assertThat(admin.groups()).extracting(MeTenantDTO.NavGroup::key).containsExactly("people", "talent", "pipeline", "organization");
+        assertThat(admin.nav().get(0).group()).isNull();
+        assertThat(admin.nav().stream().filter(n -> n.key().equals("employees")).findFirst().orElseThrow().group()).isEqualTo("people");
         assertThat(all.landingKey()).isEqualTo("ADMIN");
         assertThat(all.landingHome()).isEqualTo("/w/admin");
     }
@@ -91,12 +96,11 @@ class WorkspaceServiceTest {
     void withTheModulesOffTheAdminMenuLosesExactlyTheModulePages() {
         WorkspaceService.Result off = compute(ALL_OFF, "ORG_ADMIN");
         assertThat(navKeys(off, "admin")).containsExactly(
-            "home", "employees", "invitations", "teams", "departments", "assignments", "applications", "interviews", "placements", "reports", "branding", "audit", "settings", "policies"
+            "home", "employees", "teams", "assignments", "applications", "interviews", "placements", "reports", "audit", "branding", "settings"
         );
-        Map<String, Boolean> rolesAndDomains = new LinkedHashMap<>(ALL_OFF);
-        rolesAndDomains.put("roles", true);
-        rolesAndDomains.put("domains", true);
-        assertThat(navKeys(compute(rolesAndDomains, "ORG_ADMIN"), "admin")).contains("roles", "domains").doesNotContain("billing", "consultants");
+        Map<String, Boolean> rolesOnly = new LinkedHashMap<>(ALL_OFF);
+        rolesOnly.put("roles", true);
+        assertThat(navKeys(compute(rolesOnly, "ORG_ADMIN"), "admin")).contains("roles").doesNotContain("billing", "consultants");
     }
 
     @Test
@@ -104,7 +108,7 @@ class WorkspaceServiceTest {
         WorkspaceService.Result r = compute(ALL_ON, "MARKETING_SPECIALIST");
         assertThat(slugs(r)).containsExactly("marketing");
         assertThat(navKeys(r, "marketing")).containsExactly(
-            "home", "talent", "resumes", "jobs", "matches", "opportunities", "streams", "submissions", "applications", "interviews", "followups", "tasks", "activity", "performance"
+            "home", "talent", "resumes", "jobs", "opportunities", "submissions", "applications", "interviews", "tasks", "activity", "performance"
         );
         assertThat(r.landingHome()).isEqualTo("/w/marketing");
         // the module is part of the home page: with marketing off she has no workspace at all, and nothing leaks in instead
@@ -119,8 +123,8 @@ class WorkspaceServiceTest {
         WorkspaceService.Result r = compute(ALL_ON, "CONSULTANT");
         assertThat(slugs(r)).containsExactly("consultant");
         assertThat(navKeys(r, "consultant")).containsExactly(
-            "home", "profile", "resumes", "marketer", "job-discovery", "matches", "opportunities", "applications", "submissions", "interviews", "interview-prep", "offers", "placements",
-            "availability", "tasks", "activity-timeline", "inbox", "features", "notifications", "settings"
+            "home", "profile", "resumes", "availability", "opportunities", "submissions", "applications", "interviews", "offers", "placements",
+            "tasks", "activity", "inbox", "marketer", "settings"
         );
         assertThat(r.landingHome()).isEqualTo("/w/consultant");
     }
@@ -179,17 +183,17 @@ class WorkspaceServiceTest {
 
     @Test
     void organizationNavPreferencesHideAndReorderButNeverAddOrHideHome() {
-        NavPrefs prefs = SERVICE.parsePrefs("{\"hidden\":[\"reports\",\"home\",\"finance\",\"nonsense\"],\"order\":[\"settings\",\"admin.audit\",\"payments\"],\"greeting\":false}");
-        assertThat(prefs.hidden()).containsExactlyInAnyOrder("reports", "home", "finance");
+        NavPrefs prefs = SERVICE.parsePrefs("{\"hidden\":[\"reports\",\"home\",\"clients\",\"nonsense\"],\"order\":[\"settings\",\"admin.audit\",\"payments\"],\"greeting\":false}");
+        assertThat(prefs.hidden()).containsExactlyInAnyOrder("reports", "home", "clients");
         assertThat(prefs.order()).containsExactly("settings", "admin.audit", "payments");
         assertThat(prefs.greeting()).isFalse();
         List<String> keys = navKeys(compute(ALL_ON, prefs, null, "ORG_ADMIN"), "admin");
         assertThat(keys.get(0)).isEqualTo("home");
         assertThat(keys.subList(1, 3)).containsExactly("settings", "audit");
-        assertThat(keys).doesNotContain("reports", "finance").contains("hr", "billing");
+        assertThat(keys).doesNotContain("reports", "clients").contains("roles", "billing");
         // a page the member may not open is not added by a preference
         assertThat(navKeys(compute(ALL_ON, SERVICE.parsePrefs("{\"order\":[\"billing\"]}"), null, "EXECUTIVE_VIEWER"), "exec")).containsExactly("home", "reports");
-        // "finance" in the admin workspace is hidden, in the finance workspace it is not even a page: qualified keys name one workspace
+        // "billing" in the admin workspace is hidden, in the finance workspace it stays: qualified keys name one workspace
         assertThat(navKeys(compute(ALL_ON, SERVICE.parsePrefs("{\"hidden\":[\"admin.billing\"]}"), null, "ORG_ADMIN", "FINANCE_SPECIALIST"), "finance")).contains("billing");
     }
 
@@ -206,9 +210,9 @@ class WorkspaceServiceTest {
     @Test
     void theBottomTabsAreTheDocumentedOnesThatSurvivedFiltering() {
         MeTenantDTO.Workspace admin = compute(ALL_ON, "ORG_ADMIN").workspaces().get(0);
-        assertThat(admin.bottomTabs()).containsExactly("home", "employees", "consultants", "billing");
-        MeTenantDTO.Workspace noBilling = compute(ALL_OFF, "ORG_ADMIN").workspaces().get(0);
-        assertThat(noBilling.bottomTabs()).containsExactly("home", "employees");
+        assertThat(admin.bottomTabs()).containsExactly("home", "employees", "consultants", "applications");
+        MeTenantDTO.Workspace noMarketing = compute(ALL_OFF, "ORG_ADMIN").workspaces().get(0);
+        assertThat(noMarketing.bottomTabs()).containsExactly("home", "employees", "applications");
     }
 
     @Test

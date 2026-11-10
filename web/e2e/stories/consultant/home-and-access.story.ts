@@ -2,27 +2,22 @@ import { test, expect, narrate } from "../_support/story";
 import { PORT } from "../_support/personas";
 import { ROOTS, bff, noSidewaysScroll, openPage, orgIdOf, pageTitle } from "./_helpers";
 
-/** The 20 sidebar items in the boards' order (web/e2e/journeys/consultant-pages.spec.ts pins the same list). */
+/** The 15 sidebar items in menu order (UI refresh Phase 1, docs/enterprise-v2/ui-refresh/PHASE1-STRUCTURE-AND-CONTENT.md s6.1). */
 const SIDEBAR = [
   ["", "Home"],
-  ["profile", "My Career Profile"],
+  ["profile", "My Profile"],
   ["resumes", "My Resumes"],
-  ["marketer", "My Marketer"],
-  ["job-discovery", "Job Discovery"],
-  ["matches", "Job Matches"],
-  ["opportunities", "Assigned Opportunities"],
+  ["availability", "Availability"],
+  ["opportunities", "Opportunities"],
+  ["submissions", "Submissions"],
   ["applications", "My Applications"],
-  ["submissions", "Submissions & Approvals"],
   ["interviews", "Interviews"],
-  ["interview-prep", "Interview Prep"],
   ["offers", "Offers"],
   ["placements", "My Placement"],
-  ["availability", "Availability"],
-  ["tasks", "Tasks & Follow-ups"],
-  ["activity-timeline", "Activity Timeline"],
-  ["inbox", "Inbox"],
-  ["features", "My Features"],
-  ["notifications", "Notifications"],
+  ["tasks", "Tasks"],
+  ["activity", "Activity"],
+  ["inbox", "Email Tracking"],
+  ["marketer", "My Marketer"],
   ["settings", "Settings"],
 ] as const;
 
@@ -33,34 +28,25 @@ test("CON-01 Anika opens her consultant Home and sees her own pipeline at a glan
   await expect(page).toHaveURL(/\/w\/consultant$/);
   await expect(pageTitle(page)).toHaveText("Home");
 
-  await narrate(page, "Six key numbers summarise matches, opportunities, applications, interviews, approvals and placement");
-  for (const key of ["jobMatches", "assignedOpportunities", "activeApplications", "upcomingInterviews", "submissionsPending", "activePlacement"]) {
+  await narrate(page, "Four key numbers name what needs her: opportunities awaiting a response, applications, interviews and approvals");
+  for (const key of ["assignedOpportunities", "activeApplications", "upcomingInterviews", "submissionsPending"]) {
     await expect(page.locator(`[data-stat-tile=${key}] [data-tile-value]`)).toBeVisible();
   }
   // The demo seed gives Anika three upcoming interviews (ConsultantWsDemoSeeder.pipeline()).
   await expect(page.locator("[data-stat-tile=upcomingInterviews] [data-tile-value]")).toHaveText("3");
 
-  await narrate(page, "Every card on Home is her own data: matches, assigned jobs, applications, interviews, resume, tasks");
-  for (const id of ["home-matches", "home-assigned", "home-applications", "home-interviews", "home-resume", "home-tasks", "home-focus", "home-quick", "home-messages", "help"]) {
+  await narrate(page, "Every card on Home is her own data: today, opportunities needing a response, interviews, applications");
+  for (const id of ["home-focus", "home-assigned", "home-interviews", "home-applications"]) {
     await expect(page.locator(`[data-home-card=${id}]`)).toBeVisible();
   }
-  await expect(page.locator("[data-interview]")).toHaveCount(3);
-  await expect(page.locator("[data-home-card=home-tasks] [data-task]").first()).toBeVisible();
-  await expect(page.locator("[data-home-card=home-matches] [data-match]").first()).toBeVisible();
-
-  // D12 (audit fixes): Home invents nothing for the marketer side any more. There is no message channel yet, so the card says so honestly instead of
-  // showing Sample messages.
-  await narrate(page, "There is no message channel with the marketer yet, so the Marketer Messages card is honest about being empty");
-  const messages = page.locator("[data-home-card=home-messages]");
-  await expect(messages).toContainText("No messages yet");
-  await expect(messages.locator("[data-sample]")).toHaveCount(0);
+  await expect(page.locator("[data-home-card=home-interviews] [data-interview]")).toHaveCount(3);
 });
 
-test("CON-02 Anika jumps from Home into her work with Quick Actions and View All links", async ({ as }) => {
+test("CON-02 Anika jumps from Home into her work with View All links", async ({ as }) => {
   const { page, go } = await as("anika");
   await openPage(page, go, "");
 
-  await narrate(page, "Today's Focus items can be ticked off");
+  await narrate(page, "Today's items can be ticked off");
   const focus = page.locator("[data-home-card=home-focus]");
   const firstBox = focus.getByRole("checkbox").first();
   if (await firstBox.count()) {
@@ -68,30 +54,17 @@ test("CON-02 Anika jumps from Home into her work with Quick Actions and View All
     await expect(firstBox).toBeChecked();
   }
 
-  await narrate(page, "Quick Action: Practice Interview opens Interview Prep");
-  await page.locator("[data-quick=practice-interview]").click();
-  await expect(page).toHaveURL(/\/w\/consultant\/interview-prep/);
-  await expect(page.locator(`${ROOTS["interview-prep"]}[data-status=ready]`)).toBeVisible();
-
-  await narrate(page, "Back on Home, View All on My Applications opens the full list");
-  await go("/w/consultant");
-  await expect(page.locator("[data-consultant-home][data-status=ready]")).toBeVisible();
+  await narrate(page, "View All on My applications opens the full list");
   await page.locator("[data-home-card=home-applications]").getByRole("link", { name: "View All" }).click();
   await expect(page).toHaveURL(/\/w\/consultant\/applications/);
   await expect(page.locator(`${ROOTS.applications}[data-status=ready]`)).toBeVisible();
-
-  await narrate(page, "Update Resume leads to My Resumes");
-  await go("/w/consultant");
-  await page.locator("[data-quick=update-resume]").click();
-  await expect(page).toHaveURL(/\/w\/consultant\/resumes/);
-  await expect(page.locator(`${ROOTS.resumes}[data-status=ready]`)).toBeVisible();
 });
 
-test("CON-03 Anika walks the 20-item consultant sidebar and every page opens with its data", async ({ as }) => {
+test("CON-03 Anika walks the 15-item consultant sidebar and every page opens with its data", async ({ as }) => {
   const { page, go } = await as("anika");
   await openPage(page, go, "");
   const items = page.locator('[data-shell-sidebar] nav[aria-label="Main"] a[href^="/w/consultant"]'); // the menu only (the brand link above it also points at the Home)
-  await expect(items.filter({ hasText: /\S/ })).toHaveCount(20);
+  await expect(items.filter({ hasText: /\S/ })).toHaveCount(15);
   const labels = (await items.allInnerTexts()).map((x) => x.trim()).filter(Boolean);
   expect(labels).toEqual(SIDEBAR.map(([, l]) => l));
 
@@ -141,7 +114,7 @@ test("CON-05 Another tenant's host cannot read Acme's consultant workspace", asy
 test("CON-06 On a phone the consultant pages fit the screen (no sideways scroll)", async ({ as }) => {
   const { page, go } = await as("anika");
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const slug of ["", "job-discovery", "matches", "applications", "tasks", "availability"]) {
+  for (const slug of ["", "opportunities?tab=browse", "opportunities?tab=matches", "applications", "tasks", "availability"]) {
     await narrate(page, `Checking ${slug || "home"} at 390px`, 400);
     await openPage(page, go, slug);
     await noSidewaysScroll(page);

@@ -250,7 +250,7 @@ export function timeOf(iso: string | null): string {
   return d && !Number.isNaN(d.getTime()) ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "";
 }
 
-export const verdictOf = (pct: number): string => (pct >= 75 ? "Your resume is looking good!" : pct >= 50 ? "Your resume is getting there." : "Your resume needs attention.");
+export const verdictOf = (pct: number): string => (pct >= 75 ? "Your resume is in good shape." : pct >= 50 ? "Your resume is getting there." : "Your resume needs attention.");
 
 /* ── printable output (no stored file: built from the structured fields) ──────────── */
 

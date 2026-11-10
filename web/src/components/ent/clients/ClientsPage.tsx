@@ -33,7 +33,6 @@ import AddClientDialog from "./AddClientDialog";
 import ClientDrawer, { UNDO_MS, type ClientDrawerHrefs } from "./ClientDrawer";
 import { ClientsGrid, ClientsTable, Pagination } from "./ClientsTable";
 import ContactDialog from "./ContactDialog";
-import HelpBeeCard from "./HelpBeeCard";
 import KpiTiles from "./KpiTiles";
 import { ActivityView, ContactsView, RequirementsView } from "./TabViews";
 
@@ -41,15 +40,13 @@ const WIDE_QUERY = "(min-width: 1400px)"; // config-literal-ok: the width at whi
 
 export interface ClientsPageProps {
   orgId: number;
-  orgName: string;
   hrefs: ClientDrawerHrefs;
-  supportEmail?: string | null;
 }
 
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: ClientRow[]; total: number };
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: "activity,desc", label: "Last Activity" },
+  { value: "activity,desc", label: "Last activity" },
   { value: "activity,asc", label: "Last Activity (oldest)" },
   { value: "name,asc", label: "Company A to Z" },
   { value: "industry,asc", label: "Industry A to Z" },
@@ -69,7 +66,7 @@ const TAB_PLACEHOLDER: Record<MainTab, string> = {
   activity: "",
 };
 
-export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: ClientsPageProps) {
+export default function ClientsPage({ orgId, hrefs }: ClientsPageProps) {
   const toast = useToast();
   const narrow = useNarrow();
   const wide = useMediaQuery(WIDE_QUERY, false);
@@ -321,8 +318,8 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
 
   const filterSelects = useMemo(
     () => [
-      { name: "industry" as FilterKey, label: "Industry", all: "All Industries", options: (f?.industries ?? []).map(withCount) },
-      { name: "health" as FilterKey, label: "Health", all: "All Health Statuses", options: (f?.health ?? []).map((x) => labelled(x, { HEALTHY: "Healthy", AT_RISK: "At Risk", NEUTRAL: "Neutral" })) },
+      { name: "industry" as FilterKey, label: "Industry", all: "All industries", options: (f?.industries ?? []).map(withCount) },
+      { name: "health" as FilterKey, label: "Health", all: "All health statuses", options: (f?.health ?? []).map((x) => labelled(x, { HEALTHY: "Healthy", AT_RISK: "At Risk", NEUTRAL: "Neutral" })) },
     ],
     [f],
   );
@@ -352,7 +349,7 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <Tabs value={query.tab} onValueChange={(t) => setTab(t as MainTab)} variant="underline" className="min-w-0 flex-1">
           <TabList aria-label="Clients views">
-            <Tab value="directory"><span className="inline-flex items-center gap-2"><BuildingIcon size={17} aria-hidden /> Client Directory</span></Tab>
+            <Tab value="directory"><span className="inline-flex items-center gap-2"><BuildingIcon size={17} aria-hidden /> Client directory</span></Tab>
             <Tab value="contacts"><span className="inline-flex items-center gap-2"><UsersIcon size={17} aria-hidden /> Contacts</span></Tab>
             <Tab value="requirements"><span className="inline-flex items-center gap-2"><FileTextIcon size={17} aria-hidden /> Requirements</span></Tab>
             <Tab value="activity"><span className="inline-flex items-center gap-2"><ClockIcon size={17} aria-hidden /> Activity</span></Tab>
@@ -360,7 +357,7 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
         </Tabs>
         {canManage && (
           <Button type="button" variant="accent" className="min-h-10 !rounded-[10px] !px-5 !text-[13.5px]" onClick={() => setAddOpen(true)} data-add-client>
-            <PlusIcon size={16} aria-hidden /> Add Client
+            <PlusIcon size={16} aria-hidden /> Add client
           </Button>
         )}
       </div>
@@ -376,7 +373,7 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
                 </div>
               ))}
               <Button type="button" variant="ghost" size="sm" className="min-h-9 flex-none !rounded-[10px] !border !border-[var(--ent-control-border)] bg-white !px-3.5 !text-[12.5px] !font-medium" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
-                <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
+                <FilterIcon size={15} aria-hidden /> More filters{moreCount > 0 ? ` (${moreCount})` : ""}
               </Button>
               {filtersOn && (
                 <Button type="button" variant="ghost" size="sm" onClick={clearAll} data-clear-filters>
@@ -529,16 +526,9 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
 
   return (
     <div ref={root} data-clients-page>
-      <PageHeader title="Clients" subtitle="Manage client companies, contacts, and open requirements across your organization." />
+      <PageHeader title="Clients" subtitle="The companies you place consultants with." />
       <div className="space-y-4">
-        <div className="flex flex-col gap-3.5 md:flex-row md:items-stretch" data-top-row>
-          <div className="min-w-0 flex-1">
-            <KpiTiles summary={summary.data} loading={summary.status === "loading"} error={summary.status === "error"} />
-          </div>
-          <div className="hidden w-[268px] flex-none md:block lg:w-[268px]">
-            <HelpBeeCard orgName={orgName} supportEmail={supportEmail} />
-          </div>
-        </div>
+        <KpiTiles summary={summary.data} loading={summary.status === "loading"} error={summary.status === "error"} />
 
         <div className={`flex items-start ${docked ? "gap-[22px]" : ""}`} data-main-row>
           {mainColumn}

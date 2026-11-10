@@ -1,13 +1,13 @@
 "use client";
 
-import { ArrowsUpDownIcon, MemberAvatar, SourceLogo, Tooltip, ConsentChip, cn } from "@kiwiply/ui";
-import { dueDate, logoFor, shortDate, type Row, type StageKey } from "@/lib/ent/marketer-ws/applications";
+import { ArrowsUpDownIcon, MemberAvatar, SourceLogo, Tooltip, cn } from "@kiwiply/ui";
+import { STAGE_LABELS, dueDate, logoFor, shortDate, type Row, type StageKey } from "@/lib/ent/marketer-ws/applications";
 import { rowActorLine } from "@/lib/actors";
 import { RelationTag, RelTime } from "@/components/app-v3/applications/UpdatedBy";
 import { seatViewer } from "@/components/ent/applications/changeAudit";
 import RowActions from "./RowActions";
 
-/** The Application Tracker table (board columns, in board order). A detail the consultant has not shared is a dotted "Not shared" with a tooltip. */
+/** The applications table (board columns, in board order). A consultant who shares only a summary gets one "Summary only" chip where the role, client, source and date would be. */
 
 const STAGE_CHIP: Record<StageKey, { chip: string; dot: string }> = {
   applied: { chip: "bg-accent-soft text-accent-deep", dot: "bg-blue-500" },
@@ -19,11 +19,11 @@ const STAGE_CHIP: Record<StageKey, { chip: string; dot: string }> = {
 };
 const TH = "px-2 py-2.5 text-left text-[12.5px] font-semibold text-ink-soft";
 
-function NotShared({ who }: { who: string }) {
+function SummaryOnly({ who }: { who: string }) {
   return (
-    <Tooltip content={`${who} has not shared this`}>
-      <span tabIndex={0} data-not-shared className="cursor-help border-b border-dotted border-muted text-[12.5px] text-muted">
-        Not shared
+    <Tooltip content={`${who} shares the stage only`}>
+      <span tabIndex={0} data-summary-only className="inline-flex min-h-6 cursor-help items-center rounded-full bg-brown-soft px-2.5 text-[12px] font-semibold text-brown-deep">
+        Summary only
       </span>
     </Tooltip>
   );
@@ -55,18 +55,18 @@ export default function TrackerTable({
               <input type="checkbox" aria-label="Select all applications" checked={allSelected} onChange={(e) => onToggleAll(e.target.checked)} className="h-4 w-4 rounded border-line" />
             </th>
             <th className={TH}>Consultant</th>
-            <th className={TH}>Applied Role</th>
+            <th className={TH}>Applied role</th>
             <th className={TH}>Client</th>
             <th className={TH}>Source</th>
             <th className={TH} aria-sort={sortAsc ? "ascending" : "descending"}>
               <button type="button" onClick={onSort} aria-label="Sort by application date" className="inline-flex items-center gap-1 font-semibold text-ink-soft hover:text-ink">
-                Application Date <ArrowsUpDownIcon size={13} aria-hidden />
+                Application date <ArrowsUpDownIcon size={13} aria-hidden />
               </button>
             </th>
             <th className={TH}>Stage</th>
             <th className={TH}>Updated</th>
             <th className={TH}>Owner</th>
-            <th className={TH}>Next Action</th>
+            <th className={TH}>Next action</th>
             <th className="w-9 rounded-r-lg" />
           </tr>
         </thead>
@@ -83,31 +83,32 @@ export default function TrackerTable({
                 <td className="px-2">
                   <span className="flex items-center gap-2.5 font-bold text-ink">
                     <MemberAvatar name={r.consultant.name} src={r.consultant.avatarUrl} size={34} />
-                    <span className="flex flex-col items-start gap-0.5">
-                      {r.consultant.name}
-                      {!full ? <ConsentChip level="SUMMARY" who={r.consultant.name} className="min-h-5 px-2 text-[11px]" /> : null}
-                    </span>
+                    {r.consultant.name}
                   </span>
                 </td>
-                <td className="px-2 text-ink-soft">{full ? r.role : <NotShared who={who} />}</td>
-                <td className="px-2 text-ink-soft">{full ? r.client : <NotShared who={who} />}</td>
-                <td className="px-2">
-                  {full ? (
-                    r.source ? (
-                      <span className="flex items-center gap-2 text-ink-soft">
-                        <SourceLogo source={r.source} src={logoFor(r.source)} size={24} />
-                        {r.source}
-                      </span>
-                    ) : null
-                  ) : (
-                    <NotShared who={who} />
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-2 text-ink-soft">{full ? shortDate(r.appliedOn) : <NotShared who={who} />}</td>
+                {full ? (
+                  <>
+                    <td className="px-2 text-ink-soft">{r.role}</td>
+                    <td className="px-2 text-ink-soft">{r.client}</td>
+                    <td className="px-2">
+                      {r.source ? (
+                        <span className="flex items-center gap-2 text-ink-soft">
+                          <SourceLogo source={r.source} src={logoFor(r.source)} size={24} />
+                          {r.source}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="whitespace-nowrap px-2 text-ink-soft">{shortDate(r.appliedOn)}</td>
+                  </>
+                ) : (
+                  <td colSpan={4} className="px-2">
+                    <SummaryOnly who={who} />
+                  </td>
+                )}
                 <td className="px-2">
                   <span data-stage={r.stage.key} className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[12.5px] font-semibold", chip.chip)}>
                     <span aria-hidden className={cn("h-2 w-2 rounded-full", chip.dot)} />
-                    {r.stage.label}
+                    {STAGE_LABELS[r.stage.key] ?? r.stage.label}
                   </span>
                 </td>
                 <td className="px-2" data-updated-cell>
@@ -121,7 +122,7 @@ export default function TrackerTable({
                       ) : null}
                     </span>
                   ) : (
-                    <span className="text-muted">-</span>
+                    <span className="text-muted">—</span>
                   )}
                 </td>
                 <td className="px-2">
@@ -140,10 +141,10 @@ export default function TrackerTable({
                         {r.nextActionDue ? <span className="text-[12.5px] font-semibold text-danger-text">{dueDate(r.nextActionDue)}</span> : null}
                       </span>
                     ) : (
-                      <span className="text-muted">-</span>
+                      <span className="text-muted">—</span>
                     )
                   ) : (
-                    <NotShared who={who} />
+                    <span className="text-muted">—</span>
                   )}
                 </td>
                 <td className="px-1">

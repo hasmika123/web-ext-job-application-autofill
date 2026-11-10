@@ -7,8 +7,8 @@ import { bff, orgIdOf, openRowMenu } from "../../stories/admin/_helpers";
 
 /**
  * V3 VIDEO 04: Assign consultants to marketers (Sarah Chen, Org Admin and Marketing Manager at Acme Staffing).
- * The Marketing Assignments board: load per marketer, assigning unassigned consultants, a backup marketer, the Reassign sheet (now, with a preview of the open
- * work that moves; and on a future date), temporary cover with an end date, Undo, and where the history is kept (Audit Logs).
+ * The Assignments board: load per marketer, assigning unassigned consultants, a backup marketer, the Reassign sheet (now, with a preview of the open
+ * work that moves; and on a future date), temporary cover with an end date, Undo, and where the history is kept (Audit Log).
  * Stories shown: ADM-48 and the marketing-assignments journey (reassign, schedules, cover).
  * Whatever the video changes is put back afterwards through the same API the page uses (a snapshot of the board is taken first), so it can be recorded again.
  */
@@ -88,9 +88,9 @@ test("V3-04 Marketing assignments: assign, backup, reassign now and later, tempo
   await f.go("/w/admin/marketing-assignments");
   await expect(page.locator("[data-marketing-assignments-page]")).toBeVisible({ timeout: 60_000 });
   await expect(page.locator("[data-marketer]").first()).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "I'm Sarah, the org admin at Acme Staffing, and this is the Marketing Assignments board. A marketer prepares everything for the consultants they look after, so who looks after whom matters.");
-  await narrate(page, "The four tiles give the picture: how many consultants are assigned, how many marketers there are, how many consultants have nobody yet, and how many marketers are overloaded.", undefined, page.locator("[data-kpi=assigned]"));
-  await narrate(page, "On the left, each marketer has a workload bar against their own capacity. Michael Park is at twenty-nine of thirty, nearly full. Three marketers are over ninety percent.", undefined, page.locator("[data-marketers-panel]"));
+  await narrate(page, "I'm Sarah, the org admin at Acme Staffing, and this is the Assignments board. A marketer prepares everything for the consultants they look after, so who looks after whom matters.");
+  await narrate(page, "The two tiles flag what needs attention: how many consultants have nobody yet, and how many marketers are overloaded.", undefined, page.locator("[data-kpi-row]"));
+  await narrate(page, "On the left, the marketers list says how many marketers there are and how many consultants they carry, and each marketer has a workload bar against their own capacity. Michael Park is at twenty-nine of thirty, nearly full. Three marketers are over ninety percent.", undefined, page.locator("[data-marketers-panel]"));
   await card("Michael Park").getByRole("button", { name: /Show their consultants/ }).click();
   await expect(page.locator("[data-consultants-subtitle]")).toContainText("Michael Park", { timeout: 20_000 });
   await narrate(page, "Pick a marketer, and the table on the right lists their consultants, with their backup marketer, status, priority and active applications.", undefined, table);
@@ -100,7 +100,7 @@ test("V3-04 Marketing assignments: assign, backup, reassign now and later, tempo
   await card("David Kim").getByRole("button", { name: /Show their consultants/ }).click();
   await expect(page.locator("[data-consultants-subtitle]")).toContainText("David Kim", { timeout: 20_000 });
   const loadBefore = await card("David Kim").locator("[data-load]").innerText();
-  await page.getByRole("button", { name: "Assign Consultants" }).first().click();
+  await page.getByRole("button", { name: "Assign consultants" }).first().click();
   const dlg = page.getByRole("dialog", { name: /Assign consultants to David Kim/ });
   const boxes = dlg.getByRole("checkbox");
   await expect(boxes.first()).toBeVisible({ timeout: 20_000 });
@@ -124,7 +124,7 @@ test("V3-04 Marketing assignments: assign, backup, reassign now and later, tempo
     await expect(box).toBeVisible({ timeout: 20_000 });
     await box.check();
   }
-  const bulk = page.getByRole("button", { name: /Bulk Actions/ });
+  const bulk = page.getByRole("button", { name: /Bulk actions/ });
   await expect(async () => {
     if (!(await page.getByRole("menuitem", { name: /Set backup marketer/ }).isVisible().catch(() => false))) {
       await bulk.scrollIntoViewIfNeeded();
@@ -146,7 +146,7 @@ test("V3-04 Marketing assignments: assign, backup, reassign now and later, tempo
   await narrate(page, "What if someone is full? Let me try giving Michael Park two more.");
   await card("Michael Park").getByRole("button", { name: /Show their consultants/ }).click();
   await expect(page.locator("[data-consultants-subtitle]")).toContainText("Michael Park", { timeout: 20_000 });
-  await page.getByRole("button", { name: "Assign Consultants" }).first().click();
+  await page.getByRole("button", { name: "Assign consultants" }).first().click();
   const over = page.getByRole("dialog", { name: /Assign consultants to Michael Park/ });
   const ob = over.getByRole("checkbox");
   await expect(ob.first()).toBeVisible({ timeout: 20_000 });
@@ -234,9 +234,9 @@ test("V3-04 Marketing assignments: assign, backup, reassign now and later, tempo
   await narrate(page, "Undone. No cover, no note, and no one has to ask an engineer to fix it.");
 
   // ---- history
-  await narrate(page, "Where's the history? Every assignment, handover and cover is written to the Audit Logs, with who did it, when, and for which consultant.");
+  await narrate(page, "Where's the history? Every assignment, handover and cover is written to the Audit Log, with who did it, when, and for which consultant.");
   await f.go("/w/admin/audit");
-  await expect(page.getByRole("heading", { name: "Audit Logs", level: 1 }).first()).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByRole("heading", { name: "Audit Log", level: 1, exact: true }).first()).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole("row").nth(1)).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(1500);
   await narrate(page, "Here are the changes I just made, newest first, each with who did it, when, and which consultant it was about. So a question like who moved this consultant, and why, always has an answer.", undefined, page.getByRole("table").first());

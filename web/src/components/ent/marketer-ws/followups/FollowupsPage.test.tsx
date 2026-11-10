@@ -56,37 +56,37 @@ afterEach(() => {
 });
 
 describe("FollowupsPage board", () => {
-  it("draws the four KPI tiles in the inline layout with value, delta and 'vs last week'", async () => {
+  it("has no tiles; a chip row (Today, Overdue, Upcoming, Done) with counts picks the one table shown", async () => {
     await loaded();
-    const tiles = document.querySelectorAll("[data-stat-tile]");
-    expect(tiles).toHaveLength(4);
-    const t = (id: string) => document.querySelector(`[data-stat-tile="${id}"]`) as HTMLElement;
-    expect(within(t("dueToday")).getByText("Due Today")).toBeTruthy();
-    expect(within(t("dueToday")).getByText("12")).toBeTruthy();
-    expect(t("dueToday").textContent).toContain("33%");
-    expect(t("dueToday").textContent).toContain("vs last week");
-    expect(within(t("overdue")).getByText("Overdue")).toBeTruthy();
-    expect(within(t("completedToday")).getByText("Completed Today")).toBeTruthy();
-    expect(within(t("completedToday")).getByText("18")).toBeTruthy();
-    expect(within(t("waiting")).getByText("Waiting on Response")).toBeTruthy();
-    expect(within(t("waiting")).getByText("14")).toBeTruthy();
-    expect(t("waiting").textContent).not.toContain("vs last week"); // no previous value: no chip
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
+    const chips = document.querySelector("[data-followups-chips]") as HTMLElement;
+    expect(within(chips).getByRole("button", { name: "Today (12)" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(chips).getByRole("button", { name: "Overdue (6)" })).toBeTruthy();
+    expect(within(chips).getByRole("button", { name: "Upcoming (14)" })).toBeTruthy();
+    expect(within(chips).getByRole("button", { name: "Done (0)" })).toBeTruthy();
+    expect(document.querySelectorAll("[data-followup-table]")).toHaveLength(1);
+    expect(document.querySelector('[data-followup-table="today"]')).toBeTruthy();
+    fireEvent.click(within(chips).getByRole("button", { name: "Overdue (6)" }));
+    expect(document.querySelector('[data-followup-table="overdue"]')).toBeTruthy();
+    expect(document.querySelector('[data-followup-table="today"]')).toBeNull();
   });
 
-  it("titles every card with its total and the Today toolbar", async () => {
+  it("Send reminder, Log call and Update status are row actions (no toolbar); Done lists the completed rows already loaded", async () => {
+    const done = row(41, "Wrap-up call", "Ava Patel", "TechCorp", "PHONE", at(0, 8), "LOW", "COMPLETED");
+    fetchMock.mockImplementation(async () => reply(200, view({ today: { items: [...TODAY, done], total: 13 } })));
     await loaded();
-    expect(screen.getByRole("heading", { name: /Today's Follow-ups\s*\(12\)/ })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /Overdue Follow-ups\s*\(6\)/ })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /Upcoming Follow-ups\s*\(14\)/ })).toBeTruthy();
-    const today = document.querySelector('[data-followups-card="today"]') as HTMLElement;
-    for (const b of ["Send Reminder", "Log Call", "Update Status"]) expect(within(today).getByRole("button", { name: b })).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /View all|Show less/ })).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: "Send Reminder" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "More for Interview feedback call" }));
+    for (const m of ["Log call", "Send reminder", "Update status", "Mark complete"]) expect(screen.getByRole("menuitem", { name: m })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Done (1)" }));
+    expect(document.querySelectorAll("[data-followup-row]")).toHaveLength(1);
+    expect(screen.getByText("Wrap-up call")).toBeTruthy();
   });
 
   it("draws the board's columns and row cells", async () => {
     await loaded();
     const table = document.querySelector('[data-followup-table="today"]') as HTMLElement;
-    for (const h of ["Follow-up Item", "Consultant", "Client / Recruiter", "Channel", "Due Time", "Priority", "Status"]) expect(within(table).getByText(h)).toBeTruthy();
+    for (const h of ["Follow-up", "Consultant", "Client / recruiter", "Channel", "Due time", "Priority", "Status"]) expect(within(table).getByText(h)).toBeTruthy();
     const r = table.querySelector('[data-followup-row="1"]') as HTMLElement;
     expect(within(r).getByText("Interview feedback call")).toBeTruthy();
     expect(within(r).getByText("Alex Morgan")).toBeTruthy();
@@ -101,28 +101,27 @@ describe("FollowupsPage board", () => {
     expect(within(t5).getByText("Teams")).toBeTruthy();
     expect(within(t5).getByText("Scheduled")).toBeTruthy();
     expect(within(t5).getByText("CloudScale")).toBeTruthy();
-    expect(within(table.querySelector('[data-followup-row="2"]') as HTMLElement).getByText("In Progress")).toBeTruthy();
+    expect(within(table.querySelector('[data-followup-row="2"]') as HTMLElement).getByText("In progress")).toBeTruthy();
     expect(within(table.querySelector('[data-followup-row="2"]') as HTMLElement).getByText("Email")).toBeTruthy();
   });
 
-  it("shows dates on overdue rows with the Overdue chip, and Not Started upcoming rows", async () => {
+  it("shows dates on overdue rows with the Overdue chip, and Not started upcoming rows", async () => {
     await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "Overdue (6)" }));
     const over = document.querySelector('[data-followup-table="overdue"]') as HTMLElement;
     expect(within(over).getByText("Oct 14, 9:00 AM")).toBeTruthy();
     expect(within(over).getAllByText("Overdue")).toHaveLength(2);
     expect(within(over).getByText("FinTech Solutions")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Upcoming (14)" }));
     const up = document.querySelector('[data-followup-table="upcoming"]') as HTMLElement;
-    expect(within(up).getByText("Not Started")).toBeTruthy();
+    expect(within(up).getByText("Not started")).toBeTruthy();
     expect(within(up).getByText("Oct 17, 10:00 AM")).toBeTruthy();
   });
 
-  it("shows six of the Today rows and 'View all' reveals the rest", async () => {
+  it("shows every Today row in the one table (there is no six-row cut and no View all)", async () => {
     await loaded();
-    const today = document.querySelector('[data-followups-card="today"]') as HTMLElement;
-    expect(today.querySelectorAll("[data-followup-row]")).toHaveLength(6);
-    fireEvent.click(within(today).getByRole("button", { name: "View all" }));
-    expect(today.querySelectorAll("[data-followup-row]")).toHaveLength(8);
-    expect(within(today).getByRole("button", { name: "Show less" })).toBeTruthy();
+    expect(document.querySelectorAll('[data-followup-table="today"] [data-followup-row]')).toHaveLength(8);
+    expect(screen.queryByRole("button", { name: "View all" })).toBeNull();
   });
 
   it("sorts Today by Due Time when the header is clicked", async () => {
@@ -130,37 +129,23 @@ describe("FollowupsPage board", () => {
     const table = document.querySelector('[data-followup-table="today"]') as HTMLElement;
     const ids = () => [...table.querySelectorAll("[data-followup-row]")].map((e) => e.getAttribute("data-followup-row"));
     expect(ids()[0]).toBe("1");
-    fireEvent.click(within(table).getByRole("button", { name: /Due Time/ }));
+    fireEvent.click(within(table).getByRole("button", { name: /Due time/ }));
     expect(ids()[0]).toBe("8");
   });
 
-  it("draws the right column: bee help card, Quick Actions with descriptions, Insights", async () => {
+  it("has no right column: no bee help card, Quick Actions or Follow-up insights", async () => {
     await loaded();
-    expect(screen.getByText("Keep your follow-ups on track")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ask a question/ })).toBeTruthy();
-    const quick = document.querySelector('[data-followups-card="quick-actions"]') as HTMLElement;
-    expect(within(quick).getByText("Quick Actions")).toBeTruthy();
-    expect(within(quick).getByText("Record call notes and outcomes")).toBeTruthy();
-    expect(within(quick).getByText("Mark follow-up as complete or update")).toBeTruthy();
-    expect(within(quick).getByText("Send Reminder")).toBeTruthy();
-    const ins = document.querySelector('[data-followups-card="insights"]') as HTMLElement;
-    expect(within(ins).getByText("Follow-up Insights")).toBeTruthy();
-    expect(within(ins).getByRole("button", { name: "Insights window" }).textContent).toContain("This Week");
-    expect(within(ins).getByText("Response Rate")).toBeTruthy();
-    expect(within(ins).getByText("68%")).toBeTruthy();
-    expect(within(ins).getByText("Avg. Response Time")).toBeTruthy();
-    expect(within(ins).getByText("1.8 days")).toBeTruthy();
-    expect(within(ins).getByText("Follow-up Completed")).toBeTruthy();
-    expect(within(ins).getByText("32")).toBeTruthy();
-    expect(within(ins).getByText("Still Waiting")).toBeTruthy();
-    expect(within(ins).getByText("14")).toBeTruthy();
+    expect(screen.queryByText("Keep your follow-ups on track")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ask a question/ })).toBeNull();
+    expect(screen.queryByText("Quick Actions")).toBeNull();
+    expect(screen.queryByText("Follow-up Insights")).toBeNull();
+    expect(screen.queryByText("Response Rate")).toBeNull();
+    expect(urls(fetchMock).every((u) => !u.includes("window=LAST_WEEK"))).toBe(true);
   });
 
-  it("reloads the insights for another window", async () => {
+  it("draws no header of its own when it is a tab of Tasks", async () => {
     await loaded();
-    fireEvent.click(screen.getByRole("button", { name: "Insights window" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Last Week" }));
-    await waitFor(() => expect(urls(fetchMock).some((u) => u.includes("window=LAST_WEEK"))).toBe(true));
+    expect(document.querySelector("[data-page-header]")).toBeNull();
   });
 });
 
@@ -169,10 +154,13 @@ describe("FollowupsPage states", () => {
     fetchMock.mockImplementation(async () => reply(200, view({ today: { items: [], total: 0 }, overdue: { items: [], total: 0 }, upcoming: { items: [], total: 0 }, kpis: [kpi("dueToday", 0, null), kpi("overdue", 0, null), kpi("completedToday", 0, null), kpi("waiting", 0, null)], insights: { window: "THIS_WEEK", responseRatePct: null, avgResponseHours: null, completed: 0, waiting: 0 } })));
     mount();
     expect(await screen.findByText("You're all caught up.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Overdue/ }));
     expect(screen.getByText("Nothing is overdue.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Upcoming/ }));
     expect(screen.getByText("No upcoming follow-ups.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Done/ }));
+    expect(screen.getByText("Nothing completed yet.")).toBeTruthy();
     expect(document.querySelectorAll("[data-followup-row]")).toHaveLength(0);
-    expect(screen.getByText("No follow-up activity in this window yet.")).toBeTruthy();
   });
 
   it("a failed load shows a retry that loads again", async () => {
@@ -194,18 +182,15 @@ describe("FollowupsPage states", () => {
 describe("FollowupsPage actions (E1: they only record)", () => {
   const writes = () => fetchMock.mock.calls.filter((c) => (c as unknown as [string, RequestInit?])[1]?.method).map((c) => c as unknown as [string, RequestInit]);
 
-  it("asks for a selection before any action", async () => {
+  it("a selection offers Send reminder, Log call and Update status; Send reminder records a request for the checked rows and says nothing was emailed", async () => {
     await loaded();
-    fireEvent.click(screen.getByRole("button", { name: "Log Call" }));
-    expect(screen.getByText("Select at least one follow-up first.")).toBeTruthy();
-    expect(writes()).toHaveLength(0);
-  });
-
-  it("Send Reminder records a reminder request for the checked rows and says nothing was emailed", async () => {
-    await loaded();
+    expect(document.querySelector("[data-followups-selection]")).toBeNull();
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Interview feedback call" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Confirm next interview" }));
-    fireEvent.click(within(document.querySelector('[data-followups-card="today"]') as HTMLElement).getByRole("button", { name: "Send Reminder" }));
+    const bar = document.querySelector("[data-followups-selection]") as HTMLElement;
+    expect(bar.textContent).toContain("2 selected");
+    for (const b of ["Send reminder", "Log call", "Update status"]) expect(within(bar).getByRole("button", { name: b })).toBeTruthy();
+    fireEvent.click(within(bar).getByRole("button", { name: "Send reminder" }));
     const dialog = await screen.findByRole("dialog");
     expect(dialog.textContent).toContain("Nothing is emailed");
     fireEvent.click(within(dialog).getByRole("button", { name: "Record reminder" }));
@@ -244,7 +229,7 @@ describe("FollowupsPage actions (E1: they only record)", () => {
     fetchMock.mockImplementation(async (u: string, init?: RequestInit) => (init?.method ? reply(422, { error: "note: contains a sensitive number" }) : reply(200, view())));
     await loaded();
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Interview feedback call" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Update Status" })[0]);
+    fireEvent.click(within(document.querySelector("[data-followups-selection]") as HTMLElement).getByRole("button", { name: "Update status" }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Update status" }));
     expect((await within(dialog).findByRole("alert")).textContent).toContain("sensitive number");
@@ -253,7 +238,7 @@ describe("FollowupsPage actions (E1: they only record)", () => {
   it("never calls anything that submits for a consultant or sends mail", async () => {
     await loaded();
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Interview feedback call" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Send Reminder" })[0]);
+    fireEvent.click(within(document.querySelector("[data-followups-selection]") as HTMLElement).getByRole("button", { name: "Send reminder" }));
     fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Record reminder" }));
     await waitFor(() => expect(writes()).toHaveLength(1));
     for (const u of urls(fetchMock)) {

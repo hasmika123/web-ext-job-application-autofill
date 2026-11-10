@@ -152,14 +152,14 @@ export function ApplicationsTable(p: TableProps) {
             <th scope="col" className="w-[34px]">
               <Check checked={allOn} indeterminate={someOn} onChange={p.onTogglePage} label="Select all applications on this page" />
             </th>
-            <SortHead label="Job Title" k="job" sort={p.sort} onSort={p.onSort} />
+            <SortHead label="Job title" k="job" sort={p.sort} onSort={p.onSort} />
             <SortHead label="Consultant" k="consultant" sort={p.sort} onSort={p.onSort} />
             <SortHead label="Client / Company" k="client" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden xl:table-cell" : "hidden lg:table-cell"} />
-            <SortHead label="Applied Date" k="applied" sort={p.sort} onSort={p.onSort} className="hidden md:table-cell" />
+            <SortHead label="Applied date" k="applied" sort={p.sort} onSort={p.onSort} className="hidden md:table-cell" />
             <SortHead label="Stage" k="stage" sort={p.sort} onSort={p.onSort} />
             <SortHead label="Updated" k="updated" sort={p.sort} onSort={p.onSort} className="hidden lg:table-cell" />
             <th scope="col" className={`${HEAD} hidden xl:table-cell`}>Marketer</th>
-            <SortHead label="Next Action" k="nextAction" sort={p.sort} onSort={p.onSort} className="hidden xl:table-cell" />
+            <SortHead label="Next action" k="nextAction" sort={p.sort} onSort={p.onSort} className="hidden xl:table-cell" />
             <th scope="col" className="w-[40px]">
               <span className="sr-only">Actions</span>
             </th>

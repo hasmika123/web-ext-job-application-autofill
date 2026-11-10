@@ -3,13 +3,10 @@
 import Link from "next/link";
 import { useCallback, useState, type ComponentType, type FormEvent } from "react";
 import {
-  BookmarkIcon,
   BriefcaseIcon,
   CalendarCheckIcon,
   CheckCircleIcon,
-  ChevronRightIcon,
   ClockIcon,
-  DonutChart,
   ErrorState,
   FileTextIcon,
   GearIcon,
@@ -19,19 +16,16 @@ import {
   Select,
   ShieldCheckIcon,
   Skeleton,
-  SparklesIcon,
   TargetIcon,
   TrophyIcon,
   UserIcon,
-  ZapIcon,
   Button,
   Input,
   cn,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot, openHelpPanel } from "@/components/ent/shell/ShellContext";
-import { EnterpriseMascot } from "@/lib/ent/mascot";
+import PageHeader from "@/components/ent/shell/ShellContext";
 import { PREFERRED_CONTACTS, TIME_ZONES, checkPhone, preferredLabel, timeZoneLabel } from "@/lib/ent/contact-fields";
 import { BASE, Card, CompanyMark, Empty, useWorkspaceData } from "./parts";
 import { CertificationForm, ChipList, EDIT_LINK, TextEditor } from "./ProfileEditors";
@@ -45,6 +39,7 @@ import {
   addCertification,
   addPref,
   addSkill,
+  completenessLine,
   fetchProfile,
   initialsOf,
   monthYear,
@@ -57,7 +52,6 @@ import {
   saveEmploymentTypes,
   saveSummary,
   saveWorkAuthorization,
-  strengthVerdict,
   yearsRange,
   yearsText,
   type AvailabilityStatus,
@@ -141,6 +135,9 @@ function TopCard({ view, save, jump }: { view: ProfileView; save: Save; jump: (k
             {m.jobTitle ? <span aria-hidden className="h-4 w-px bg-line" /> : null}
             <span>Consultant</span>
           </p>
+          <p data-completeness className="mt-1 text-[13px] text-muted">
+            {completenessLine(view.strength.percent, view.strength.missing)}
+          </p>
           <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
             {years ? (
               <p className="flex items-center gap-2.5" data-years>
@@ -168,22 +165,10 @@ function TopCard({ view, save, jump }: { view: ProfileView; save: Save; jump: (k
           </div>
         </div>
       </div>
-      <div className="grid flex-none grid-cols-2 gap-2.5 lg:w-[250px] lg:grid-cols-1 lg:border-l lg:border-line lg:pl-6">
+      <div className="flex-none lg:w-[200px] lg:border-l lg:border-line lg:pl-6">
         <button type="button" onClick={() => jump("summary")} className={cn(TOP_BUTTON, "border-accent bg-accent text-on-accent hover:bg-accent-deep hover:text-paper")}>
           <PencilIcon size={15} />
-          Edit Profile
-        </button>
-        <button type="button" onClick={() => jump("skills")} className={cn(TOP_BUTTON, "border-accent bg-paper text-accent-deep hover:bg-accent-soft")}>
-          <GearIcon size={15} />
-          Update Skills
-        </button>
-        <button type="button" onClick={() => jump("certifications")} className={cn(TOP_BUTTON, "border-accent bg-paper text-accent-deep hover:bg-accent-soft")}>
-          <TrophyIcon size={15} />
-          Add Certification
-        </button>
-        <button type="button" onClick={() => jump("roles")} className={cn(TOP_BUTTON, "border-accent bg-paper text-accent-deep hover:bg-accent-soft")}>
-          <BookmarkIcon size={15} />
-          Save Preferences
+          Edit profile
         </button>
       </div>
     </section>
@@ -197,7 +182,7 @@ function SummaryCard({ view, orgId, save, req }: CardProps) {
   useOpenOn(req, "summary", () => setEditing(true));
   const s = view.summary;
   return (
-    <Card id="profile-summary" title="Professional Summary" icon={FileTextIcon} extra={editing ? null : <EditLink label="Edit professional summary" onClick={() => setEditing(true)} />}>
+    <Card id="profile-summary" title="Professional summary" icon={FileTextIcon} extra={editing ? null : <EditLink label="Edit professional summary" onClick={() => setEditing(true)} />}>
       {editing ? (
         <TextEditor idBase="summary" label="Professional summary" initial={s.text ?? ""} max={2000} rows={7} onSave={(t) => save(() => saveSummary(orgId, t), "Summary saved")} onClose={() => setEditing(false)} />
       ) : s.text ? (
@@ -238,7 +223,7 @@ function ContactCard({ view, orgId, save }: CardProps) {
     setEditing(true);
   };
   return (
-    <Card id="profile-contact" title="Contact Details" icon={UserIcon} extra={editing ? null : <EditLink label="Edit contact details" onClick={open} />}>
+    <Card id="profile-contact" title="Contact details" icon={UserIcon} extra={editing ? null : <EditLink label="Edit contact details" onClick={open} />}>
       {editing ? (
         <form onSubmit={submit} aria-label="Edit contact details" className="space-y-2.5">
           <div>
@@ -315,14 +300,14 @@ function SkillsCard({ view, orgId, save, req }: CardProps) {
   const [adding, setAdding] = useState(false);
   useOpenOn(req, "skills", () => setAdding(true));
   return (
-    <Card id="profile-skills" title="Primary Skills" icon={GearIcon} extra={<EditLink label="Edit skills" active={editing} onClick={() => setEditing((v) => !v)} />}>
+    <Card id="profile-skills" title="Primary skills" icon={GearIcon} extra={<EditLink label="Edit skills" active={editing} onClick={() => setEditing((v) => !v)} />}>
       <ChipList
         idBase="skill"
         items={view.skills.map((s) => ({ id: s.id, label: s.skill }))}
         editing={editing}
         adding={adding}
         setAdding={setAdding}
-        addLabel="Add Skills"
+        addLabel="Add skills"
         noun="Skill"
         placeholder="e.g. Kubernetes"
         maxLength={60}
@@ -366,7 +351,7 @@ function CertificationsCard({ view, orgId, save, req }: CardProps) {
       ) : (
         <button type="button" onClick={() => setAdding(true)} className="mt-2 inline-flex min-h-8 items-center gap-1 self-start text-[13.5px] font-semibold text-accent-deep hover:underline">
           <PlusIcon size={14} />
-          Add Certification
+          Add certification
         </button>
       )}
     </Card>
@@ -378,7 +363,7 @@ function ExperienceCard({ view }: CardProps) {
   return (
     <Card
       id="profile-experience"
-      title="Work Experience Highlights"
+      title="Work experience highlights"
       icon={BriefcaseIcon}
       extra={
         <Link href={`${BASE}/resumes`} aria-label="Edit work experience on My Resumes" className={EDIT_LINK}>
@@ -405,7 +390,7 @@ function ExperienceCard({ view }: CardProps) {
       )}
       <Link href={`${BASE}/resumes`} className="mt-3 inline-flex min-h-8 items-center gap-1 self-start text-[13.5px] font-semibold text-accent-deep hover:underline">
         <PlusIcon size={14} />
-        {items.length === 0 ? "Add work experience on My Resumes" : "Add Work Experience on My Resumes"}
+        Edit work experience in My Resumes
       </Link>
     </Card>
   );
@@ -441,7 +426,7 @@ function WorkAuthorizationCard({ view, orgId, save, req }: CardProps) {
   const a = view.workAuthorization;
   const pick = (v: WorkAuthorization | null) => void save(() => saveWorkAuthorization(orgId, v), "Work authorization saved");
   return (
-    <Card id="profile-authorization" title="Work Authorization" icon={ShieldCheckIcon} className="p-3.5 sm:p-4" extra={<EditLink label="Edit work authorization" active={editing} onClick={() => setEditing((v) => !v)} />}>
+    <Card id="profile-authorization" title="Work authorization" icon={ShieldCheckIcon} className="p-3.5 sm:p-4" extra={<EditLink label="Edit work authorization" active={editing} onClick={() => setEditing((v) => !v)} />}>
       {editing ? (
         <fieldset>
           <legend className="sr-only">Work authorization</legend>
@@ -485,7 +470,7 @@ function EmploymentCard({ view, orgId, save }: CardProps) {
     void save(() => saveEmploymentTypes(orgId, [...next]), "Employment preferences saved");
   };
   return (
-    <Card id="profile-employment" title="Employment Type Preferences" icon={BriefcaseIcon} className="p-3.5 sm:p-4">
+    <Card id="profile-employment" title="Employment type preferences" icon={BriefcaseIcon} className="p-3.5 sm:p-4">
       <fieldset>
         <legend className="sr-only">Employment types you are open to</legend>
         <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
@@ -505,7 +490,7 @@ function AvailabilityCard({ view, save }: CardProps) {
   const a = view.availability;
   const l = AVAILABILITY_LABELS[a.status];
   return (
-    <Card id="profile-availability" title="Current Availability" icon={ClockIcon} className="p-3.5 sm:p-4">
+    <Card id="profile-availability" title="Current availability" icon={ClockIcon} className="p-3.5 sm:p-4">
       <div className="flex items-start gap-2.5">
         <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-lg bg-v2-green-soft text-v2-green-ink">
           <CalendarCheckIcon size={20} />
@@ -530,7 +515,7 @@ function CareerGoalsCard({ view, orgId, save, req }: CardProps) {
   const [editing, setEditing] = useState(false);
   useOpenOn(req, "goals", () => setEditing(true));
   return (
-    <Card id="profile-goals" title="Career Goals" icon={TargetIcon} className="p-3.5 sm:p-4" extra={editing ? null : <EditLink label="Edit career goals" onClick={() => setEditing(true)} />}>
+    <Card id="profile-goals" title="Career goals" icon={TargetIcon} className="p-3.5 sm:p-4" extra={editing ? null : <EditLink label="Edit career goals" onClick={() => setEditing(true)} />}>
       {editing ? (
         <TextEditor idBase="goals" label="Career goals" initial={view.careerGoals ?? ""} max={1000} rows={5} onSave={(t) => save(() => saveCareerGoals(orgId, t), "Career goals saved")} onClose={() => setEditing(false)} />
       ) : view.careerGoals ? (
@@ -544,146 +529,8 @@ function CareerGoalsCard({ view, orgId, save, req }: CardProps) {
   );
 }
 
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
 function jumpTo(id: string) {
   document.getElementById(id)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-}
-
-function StrengthCard({ view }: { view: ProfileView }) {
-  const pct = view.strength.percent;
-  return (
-    <Card
-      id="profile-strength"
-      title="Profile Strength"
-      icon={BriefcaseIcon}
-      extra={
-        <button type="button" onClick={() => jumpTo("profile-missing")} className="flex-none text-[13px] font-semibold text-accent-deep hover:underline">
-          View Details
-        </button>
-      }
-    >
-      <div className="grid items-center gap-4 sm:grid-cols-[auto_minmax(0,1fr)] xl:grid-cols-1 xl:justify-items-center 2xl:grid-cols-[auto_minmax(0,1fr)]">
-        <div className="mx-auto">
-          <DonutChart
-            label={`Profile strength ${pct}%`}
-            size={132}
-            legend={false}
-            total={pct}
-            totalSuffix="%"
-            slices={[
-              { key: "done", label: "Complete", value: pct, color: "var(--color-v2-green-ink)" },
-              { key: "left", label: "Remaining", value: 100 - pct, color: "transparent" },
-            ]}
-          />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[14.5px] font-bold text-ink">{strengthVerdict(pct)}</p>
-          <p className="mt-1 text-[12.5px] leading-snug text-muted">Add a few more details to stand out to recruiters and get more relevant opportunities.</p>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function BeeTips({ first }: { first: string }) {
-  return (
-    <section aria-label="Help" data-home-card="help" className="flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper">
-      <div className="flex justify-center bg-accent-soft pt-3">
-        <EnterpriseMascot pose="greet" size="lg" />
-      </div>
-      <div className="p-4 sm:p-5">
-        <h2 className="text-[17px] font-extrabold leading-tight text-ink">Your career companion, here to help!</h2>
-        <p className="mt-1.5 text-[13px] leading-snug text-muted">A complete profile helps you get discovered by the right opportunities, {first}. I can suggest improvements to make your profile stronger.</p>
-        <button type="button" onClick={openHelpPanel} className="mt-4 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft/70">
-          <SparklesIcon size={17} className="flex-none" />
-          <span className="min-w-0 flex-1 truncate">Get Profile Tips</span>
-          <ChevronRightIcon size={16} className="flex-none" />
-        </button>
-      </div>
-    </section>
-  );
-}
-
-const MISSING_ICON: Record<string, ComponentType<IconProps>> = {
-  summary: FileTextIcon,
-  skills: GearIcon,
-  certifications: TrophyIcon,
-  experience: BriefcaseIcon,
-  roles: BriefcaseIcon,
-  locations: MapPinIcon,
-  employment: BriefcaseIcon,
-  authorization: ShieldCheckIcon,
-  goals: TargetIcon,
-};
-
-function MissingCard({ view, jump }: { view: ProfileView; jump: (key: string) => void }) {
-  const n = view.strength.missing.length;
-  return (
-    <Card id="profile-missing" title="Missing Details" icon={UserIcon} extra={<span className={cn("flex-none text-[13px] font-bold", n > 0 ? "text-v2-coral-ink" : "text-v2-green-ink")}>{n > 0 ? `${n} item${n === 1 ? "" : "s"}` : "All set"}</span>}>
-      {n === 0 ? (
-        <Empty>Nothing missing. Your profile is complete.</Empty>
-      ) : (
-        <ul className="divide-y divide-line">
-          {view.strength.missing.map((m) => {
-            const Icon = MISSING_ICON[m.key] ?? UserIcon;
-            const inner = (
-              <>
-                <span aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-lg bg-v2-coral-soft text-v2-coral-ink">
-                  <Icon size={16} />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">{m.label}</span>
-                <ChevronRightIcon size={16} className="flex-none text-muted" />
-              </>
-            );
-            const cls = "flex min-h-11 w-full items-center gap-3 py-1.5 text-left hover:bg-paper-2/50";
-            return (
-              <li key={m.key} data-missing={m.key}>
-                {m.key === "experience" ? (
-                  <Link href={`${BASE}/resumes`} className={cls}>
-                    {inner}
-                  </Link>
-                ) : (
-                  <button type="button" onClick={() => jump(m.section)} className={cls}>
-                    {inner}
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-function QuickActions({ jump }: { jump: (key: string) => void }) {
-  const items: { key: string; label: string; hint: string; icon: ComponentType<IconProps>; section: string }[] = [
-    { key: "edit", label: "Edit Profile", hint: "Update your personal info", icon: PencilIcon, section: "summary" },
-    { key: "skills", label: "Update Skills", hint: "Manage your skill set", icon: GearIcon, section: "skills" },
-    { key: "cert", label: "Add Certification", hint: "Showcase your credentials", icon: TrophyIcon, section: "certifications" },
-    { key: "prefs", label: "Save Preferences", hint: "Set your career preferences", icon: BookmarkIcon, section: "roles" },
-  ];
-  return (
-    <Card id="profile-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-2 gap-2.5">
-        {items.map((q) => {
-          const Icon = q.icon;
-          return (
-            <li key={q.key}>
-              <button type="button" data-quick={q.key} onClick={() => jump(q.section)} className="flex h-full min-h-[68px] w-full flex-col gap-1 rounded-xl border border-line bg-paper p-2.5 text-left hover:bg-paper-2/60">
-                <span className="flex items-center gap-1.5 text-[13px] font-bold leading-tight text-ink">
-                  <Icon size={16} className="flex-none text-accent-deep" />
-                  {q.label}
-                </span>
-                <span className="text-[11.5px] leading-snug text-muted">{q.hint}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
-  );
 }
 
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
@@ -693,9 +540,7 @@ export interface ProfilePageProps {
   firstName: string;
 }
 
-const firstOf = (name: string): string => name.trim().split(/\s+/)[0] || "there";
-
-export default function ConsultantProfilePage({ orgId, firstName: first }: ProfilePageProps) {
+export default function ConsultantProfilePage({ orgId }: ProfilePageProps) {
   const { view, status, reload, setView } = useWorkspaceData(useCallback(() => fetchProfile(orgId).then((r) => (r.kind === "OK" ? { kind: "OK" as const, view: r.view } : r.kind === "DENIED" ? { kind: "DENIED" as const } : { kind: "FAILED" as const })), [orgId]));
   const [note, setNote] = useState<{ text: string; bad: boolean } | null>(null);
   const [req, setReq] = useState<Req>(null);
@@ -723,7 +568,6 @@ export default function ConsultantProfilePage({ orgId, firstName: first }: Profi
   const jump = useCallback((key: string) => {
     jumpTo(`profile-${key}`);
     setReq((r) => ({ key, n: (r?.n ?? 0) + 1 }));
-    if (key === "roles") setNote({ text: "Preferences save as you change them.", bad: false });
   }, []);
 
   if (status === "denied") return <ErrorState what="your workspace" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
@@ -732,9 +576,7 @@ export default function ConsultantProfilePage({ orgId, firstName: first }: Profi
 
   return (
     <div data-consultant-profile data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="My Career Profile" subtitle="Manage your professional profile, showcase your skills and experience, and help us find the best opportunities for you." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="My Profile" subtitle="What your marketer uses to match and submit you." />
       <p role="status" aria-live="polite" data-save-note className={cn("min-h-5 text-[13px] font-medium", note?.bad ? "text-v2-coral-ink" : "text-v2-green-ink")}>
         {note?.text ?? ""}
       </p>
@@ -749,7 +591,7 @@ export default function ConsultantProfilePage({ orgId, firstName: first }: Profi
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.42fr)]">
+        <div className="grid gap-4 sm:gap-5">
           <div className="grid min-w-0 content-start gap-4 sm:gap-5">
             <TopCard view={view} save={save} jump={jump} />
             <div className="grid min-w-0 gap-4 sm:gap-5 md:grid-cols-2">
@@ -758,8 +600,8 @@ export default function ConsultantProfilePage({ orgId, firstName: first }: Profi
               <SkillsCard {...cardProps} />
               <CertificationsCard {...cardProps} />
               <ExperienceCard {...cardProps} />
-              <PrefListCard {...cardProps} cardKey="roles" title="Preferred Roles" icon={BriefcaseIcon} kind="ROLE" items={view.preferences.roles} addLabel="Add Role" noun="Role" placeholder="e.g. Backend Developer" empty="No preferred roles yet." />
-              <PrefListCard {...cardProps} cardKey="locations" title="Preferred Locations" icon={MapPinIcon} kind="LOCATION" items={view.preferences.locations} addLabel="Add Location" noun="Location" placeholder="e.g. Austin, TX or Remote" empty="No preferred locations yet." />
+              <PrefListCard {...cardProps} cardKey="roles" title="Preferred roles" icon={BriefcaseIcon} kind="ROLE" items={view.preferences.roles} addLabel="Add role" noun="Role" placeholder="e.g. Backend Developer" empty="No preferred roles yet." />
+              <PrefListCard {...cardProps} cardKey="locations" title="Preferred locations" icon={MapPinIcon} kind="LOCATION" items={view.preferences.locations} addLabel="Add location" noun="Location" placeholder="e.g. Austin, TX or Remote" empty="No preferred locations yet." />
             </div>
             <div className="grid min-w-0 gap-4 sm:gap-5 sm:grid-cols-2 2xl:grid-cols-4">
               <WorkAuthorizationCard {...cardProps} />
@@ -767,12 +609,6 @@ export default function ConsultantProfilePage({ orgId, firstName: first }: Profi
               <AvailabilityCard {...cardProps} />
               <CareerGoalsCard {...cardProps} />
             </div>
-          </div>
-          <div className="grid min-w-0 content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-1">
-            <StrengthCard view={view} />
-            <BeeTips first={firstOf(first)} />
-            <MissingCard view={view} jump={jump} />
-            <QuickActions jump={jump} />
           </div>
         </div>
       )}

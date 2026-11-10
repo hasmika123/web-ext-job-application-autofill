@@ -38,17 +38,17 @@ test.describe("MKT job pipeline", () => {
     await expect(row).toContainText(String(body.company));
     await expect(row.locator("[data-opp-interest=NO_RESPONSE]")).toBeVisible();
 
-    await narrate(omar.page, "Job Discovery lists the same job, with its captured facts");
+    await narrate(omar.page, "Jobs › Openings lists the same job, with its captured facts");
     await omar.go("/w/marketing/jobs");
     await ready(omar.page, "[data-jobs-page]").waitFor();
-    await omar.page.getByPlaceholder(/Search job title, skills, client/).fill(String(stamp));
+    await omar.page.getByPlaceholder(/Search title, skills, client/).fill(String(stamp));
     await omar.page.keyboard.press("Enter");
     const jobRow = omar.page.locator("[data-job-row]").filter({ hasText: String(body.title) });
     await expect(jobRow).toHaveCount(1, { timeout: 20_000 });
     await expect(jobRow).toContainText(String(body.company));
   });
 
-  // The consultant side below is the LIVE Assigned Opportunities page (components/ent/consultant-ws/OpportunitiesPage.tsx: rows [data-opp], a detail side
+  // The consultant side below is the LIVE Opportunities › Assigned tab (components/ent/consultant-ws/OpportunitiesPage.tsx: rows [data-opp], a detail side
   // sheet, a row menu with Express Interest / Need More Info / Decline). It answers for the consultant only on the consultant's own press, and never applies.
 
   /**
@@ -75,7 +75,7 @@ test.describe("MKT job pipeline", () => {
     const ben = await as("ben");
     await mockPostingSite(ben);
     await ben.go("/w/consultant/opportunities");
-    await narrate(ben.page, "Ben opens Assigned Opportunities");
+    await narrate(ben.page, "Ben opens Opportunities › Assigned");
     await ready(ben.page, "[data-consultant-opportunities]").waitFor();
     const row = conRow(ben.page, title);
     await expect(row).toHaveCount(1);
@@ -110,7 +110,6 @@ test.describe("MKT job pipeline", () => {
     await omar.go("/w/marketing/opportunities");
     const mrow = await boardRow(omar.page, title);
     await expect(mrow.locator("[data-opp-interest=INTERESTED]")).toBeVisible();
-    await expect(omar.page.locator("[data-opp-card=activity]")).toContainText(/is interested/);
   });
 
   test("MKT-22 Ben asks a question about the job and is told it was sent to his marketer", async ({ as }) => {
@@ -134,11 +133,14 @@ test.describe("MKT job pipeline", () => {
     await ready(bena.page, "[data-consultant-opportunities]").waitFor();
     await menuAction(bena.page, conRow(bena.page, title).getByRole("button", { name: `More actions for ${title}` }), "Need More Info");
     const ask = bena.page.getByRole("dialog", { name: `Need more info: ${title}` });
-    await ask.getByLabel("What would you like to know?").fill(`Is this role fully remote? (${Date.now()})`);
+    const question = `Is this role fully remote? (${Date.now()})`;
+    await ask.getByLabel("What would you like to know?").fill(question);
     await ask.getByRole("button", { name: "Send question" }).click();
+    await expect(bena.page.getByText("Question sent to your marketer")).toBeVisible();
     await omar.go("/w/marketing/opportunities");
     const row = await boardRow(omar.page, title);
-    await expect(omar.page.locator("[data-opp-card=activity]")).toContainText(/asked a question/);
+    await menuAction(omar.page, row.getByRole("button", { name: /^More for Ben Okafor/ }), "Open details");
+    await expect(omar.page.locator("[data-opp-dialog] [data-opp-info]")).toContainText(question);
     const matchId = Number(await row.getAttribute("data-opp-row"));
     const answer = "Yes, fully remote within the US. Hours overlap Central time.";
     const res = await api(omar, "omar", "POST", `/api/orgs/${orgId}/mkt/opportunities/${matchId}/answer-info`, { body: { answer } });

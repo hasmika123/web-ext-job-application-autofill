@@ -8,7 +8,7 @@ import { getTenantSession } from "@/lib/ent/tenant-session";
  * `/w/consultant/opportunities/{matchId}`: the same Assigned Opportunities page with that job's details open. The id is the opportunity's match id
  * (the one every row of the page and of the marketer's board carries). A job that is not this consultant's is the API's generic 404, shown as "isn't available".
  */
-export const metadata: Metadata = { title: "Assigned Opportunities", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Opportunities", robots: { index: false, follow: false } };
 
 export default async function ConsultantOpportunityDetailRoute({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

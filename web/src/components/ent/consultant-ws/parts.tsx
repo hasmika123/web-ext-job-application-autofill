@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
-import { ChevronRightIcon, MoreVerticalIcon, SparklesIcon, cn } from "@kiwiply/ui";
+import { MoreVerticalIcon, cn } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import { CARD, CardHead, type IconTone } from "@/components/ent/dashboard/parts";
-import { openHelpPanel } from "@/components/ent/shell/ShellContext";
-import { EnterpriseMascot } from "@/lib/ent/mascot";
 import { initialsOf, type Tone } from "@/lib/ent/consultant-ws/home";
 
 /**
  * The Consultant workspace's shared page pieces (extracted from the Home page so every consultant page looks the same):
- * pills, the "Sample" marker, cards, empty text, company marks, table pieces, the bee help card and the data hook.
+ * pills, the "Sample" marker, cards, empty text, company marks, table pieces and the data hook.
  * Add to this file only by ADDING exports; do not change what a page already relies on.
  */
 
@@ -159,27 +157,3 @@ export function TableHead({ cols }: { cols: string[] }) {
 
 export const TD = "px-2 py-2.5 align-middle text-[13px] text-ink";
 export const TABLE = "w-full border-collapse";
-
-export function BeeCard({ name, title = "Your career companion, here to help!", body }: { name: string; title?: string; body?: string }) {
-  return (
-    <section aria-label="Help" data-home-card="help" className="flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper">
-      <div className="flex justify-center bg-accent-soft pt-3">
-        <EnterpriseMascot pose="greet" size="lg" />
-      </div>
-      <div className="p-4 sm:p-5">
-        <h2 className="text-[17px] font-extrabold leading-tight text-ink">{title}</h2>
-        <p className="mt-1.5 text-[13px] leading-snug text-muted">{body ?? `Get personalized job matches, prepare for interviews, track your progress and more, ${name}. I'm here whenever you need support on your journey.`}</p>
-        <button
-          type="button"
-          onClick={openHelpPanel}
-          className="mt-4 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft/70"
-        >
-          <SparklesIcon size={17} className="flex-none" />
-          <span className="min-w-0 flex-1 truncate">Ask a question</span>
-          <ChevronRightIcon size={16} className="flex-none" />
-        </button>
-      </div>
-    </section>
-  );
-}
-

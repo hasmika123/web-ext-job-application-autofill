@@ -3,11 +3,11 @@ import { ADMIN_LOGIN, ADMIN_PASSWORD, PLATFORM, loadOrg, makeBrandImages, shellR
 
 /**
  * V3 VIDEO 02: Enterprise setup. The owner of Brightline Talent Group (made in video 01) sets the organization up: settings (general and security),
- * branding (logo, favicon, colours with the contrast guard, welcome copy, live preview, phone preview, publish diff), the privacy policy (template,
- * draft, review by Kiwiply), what the modules and licences look like today, and where licence status shows (Acme's Consultants page).
+ * branding (logo, favicon, colors with the contrast guard, welcome copy, live preview, phone preview, publish diff), the privacy policy (template,
+ * draft, review by Kiwiply), what the modules and licenses look like today, and where license status shows (Acme's Consultants page).
  * Stories shown: ADM-05/06 settings, ADM-70 branding, policies (X5), PLT-14 on-the-way pages.
  */
-test("V3-02 Enterprise setup: settings, branding, policies, modules and licences", async ({ flow, browser }) => {
+test("V3-02 Enterprise setup: settings, branding, policies, modules and licenses", async ({ flow, browser }) => {
   const org = loadOrg();
   const host = tenantHost(org.label);
   const images = makeBrandImages();
@@ -18,7 +18,7 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
   const p0 = await prep.newPage();
   await p0.goto(`${host}/login`);
   await tenantSignIn(p0, host, org.ownerEmail, org.ownerPassword);
-  await p0.goto(`${host}/w/admin/policies`);
+  await p0.goto(`${host}/w/admin/settings?tab=policies`);
   await expect(p0.locator("[data-policies-page]")).toBeVisible({ timeout: 45_000 });
   for (const kind of [POLICY]) {
     await p0.getByRole("navigation", { name: "Policies" }).getByRole("button", { name: new RegExp(kind) }).click();
@@ -37,12 +37,12 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
   await f.titleCard({
     title: "Setting up the organization",
     roles: "Organization owner  |  Brightline Talent Group",
-    intro: "Hi! In this video the owner of Brightline finishes setting up the organization: settings, branding, policies, and what the modules and licences look like today.",
+    intro: "Hi! In this video the owner of Brightline finishes setting up the organization: settings, branding, policies, and what the modules and licenses look like today.",
     minMs: 3500,
   });
 
   // ---- sign in as the owner
-  await openPage(page, `${host}/login`, () => expect(page.getByLabel("User Name")).toBeVisible({ timeout: 45_000 }));
+  await openPage(page, `${host}/login`, () => expect(page.getByLabel("Email", { exact: true })).toBeVisible({ timeout: 45_000 }));
   await narrate(page, "We're back at Brightline's own address. Maya, the owner, signs in with the password she chose in the last video.");
   await tenantSignIn(page, host, org.ownerEmail, org.ownerPassword);
   await shellReady(page);
@@ -53,11 +53,12 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
 
   // ---- settings: general
   if (!skip("settings")) {
-  await narrate(page, "First, Settings, at the bottom of the menu. This is where the organization's defaults live.");
+  await narrate(page, "First, Settings, under Organization in the menu. This is where the organization's defaults live, one tab per topic.");
   await page.getByRole("link", { name: "Settings", exact: true }).first().click();
   await page.waitForURL(/\/w\/admin\/settings/, { timeout: 30_000 });
-  await expect(page.locator("[data-org-settings]")).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator("[data-org-settings-page]")).toBeVisible({ timeout: 45_000 });
   const general = page.locator("[data-org-general]");
+  await expect(general).toBeVisible({ timeout: 45_000 }); // the General tab opens first
   await narrate(page, "The legal name is fixed, because it's the name on the agreement. Only Kiwiply support can change that. Everything else here is ours.", undefined, general);
   const displayName = general.getByLabel("Display name");
   await narrateDo(page, "The display name is what people see on the sign-in page and in emails. I'll make it a little friendlier.", async () => {
@@ -67,16 +68,17 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
   await page.getByRole("button", { name: "Time zone" }).click();
   await page.getByRole("option", { name: "America/New_York", exact: true }).click();
   await narrateDo(page, "And a shared contact email, shown on the support page, so people know where to write.", async () => {
-    await general.getByLabel("Contact e-mail").fill("support@brightline.example");
+    await general.getByLabel("Contact email").fill("support@brightline.example");
   });
   await page.locator("[data-save-general]").click();
   await expect(page.locator("[data-save-general]")).toBeDisabled({ timeout: 20_000 });
   await narrate(page, "Saved. The page remembers it, and the audit log records who changed what.");
 
   // ---- settings: security
+  await page.getByRole("tab", { name: "Security", exact: true }).click();
   const security = page.locator("[data-org-security]");
-  await security.scrollIntoViewIfNeeded();
-  await narrate(page, "Below that is Security. Brightline wants stronger passwords than the platform default, so I'll set the minimum length to twelve.", undefined, security);
+  await expect(security).toBeVisible({ timeout: 30_000 });
+  await narrate(page, "Next to it is the Security tab. Brightline wants stronger passwords than the platform default, so I'll set the minimum length to twelve.", undefined, security);
   await security.getByLabel("Minimum password length").fill("12");
   await security.getByLabel(/Reason for the change/).fill("Client contracts require longer passwords");
   await narrate(page, "Changes to security always need a reason of at least ten characters. It goes into the audit log, and it's shown before anything is saved.");
@@ -91,8 +93,8 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
 
   // ---- branding
   if (!skip("branding")) {
-  await narrate(page, "Now the part everyone notices: branding. Organization Branding is in the menu.");
-  await page.getByRole("link", { name: "Organization Branding", exact: true }).first().click();
+  await narrate(page, "Now the part everyone notices: branding. Branding is in the menu.");
+  await page.getByRole("link", { name: "Branding", exact: true }).first().click();
   await page.waitForURL(/\/w\/admin\/branding/, { timeout: 30_000 });
   await expect(page.locator("[data-branding-page]")).toBeVisible({ timeout: 45_000 });
   await expect(page.locator("[data-draft-badge]")).toBeVisible({ timeout: 30_000 });
@@ -107,13 +109,13 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
     await page.locator('[data-asset-input="favicon"]').setInputFiles(images.favicon);
   });
   await page.waitForTimeout(1500);
-  const secondary = page.getByLabel("Secondary colour", { exact: true });
+  const secondary = page.getByLabel("Secondary color", { exact: true });
   await secondary.scrollIntoViewIfNeeded();
-  await narrateDo(page, "Colours next. The primary teal is already in. For the secondary colour, let me try a bright amber.", async () => {
+  await narrateDo(page, "Colors next. The primary teal is already in. For the secondary color, let me try a bright amber.", async () => {
     await secondary.fill("#f59e0b");
   });
   await expect(page.locator("[data-colour-field=secondary]")).toContainText("too light for white text");
-  await narrate(page, "Kiwiply won't take it. White text on that amber would be hard to read, so it suggests a darker amber instead. That keeps every button readable, whatever colours a customer picks.", undefined, page.locator("[data-colour-field=secondary]"));
+  await narrate(page, "Kiwiply won't take it. White text on that amber would be hard to read, so it suggests a darker amber instead. That keeps every button readable, whatever colors a customer picks.", undefined, page.locator("[data-colour-field=secondary]"));
   await page.getByRole("button", { name: /^Use #/ }).click();
   await page.waitForTimeout(1500);
   const title = page.getByLabel(/Welcome title/);
@@ -145,9 +147,11 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
   }
 
   // ---- policies
-  await narrate(page, "Next, Policies. Every organization publishes its own privacy policy, terms and support page on its own address.");
-  await page.getByRole("link", { name: "Policies", exact: true }).first().click();
-  await page.waitForURL(/\/w\/admin\/policies/, { timeout: 30_000 });
+  await narrate(page, "Next, Policies, a tab of Settings. Every organization publishes its own privacy policy, terms and support page on its own address.");
+  await page.getByRole("link", { name: "Settings", exact: true }).first().click();
+  await page.waitForURL(/\/w\/admin\/settings/, { timeout: 30_000 });
+  await page.getByRole("tab", { name: "Policies", exact: true }).click();
+  await page.waitForURL(/\/w\/admin\/settings\?tab=policies/, { timeout: 30_000 });
   await expect(page.locator("[data-policies-page]")).toBeVisible({ timeout: 45_000 });
   await narrate(page, "There are four: the privacy policy, terms of use, the acceptable use policy, and the support and contact page. Right now each one shows a standard template.");
   await page.getByRole("navigation", { name: "Policies" }).getByRole("button", { name: new RegExp(POLICY) }).click();
@@ -193,34 +197,34 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
   await page.waitForTimeout(1200);
   await page.mouse.wheel(0, -900);
 
-  // ---- modules and licences
+  // ---- modules and licenses
   await page.goto(`${host}/w/admin`);
   await shellReady(page);
-  await narrate(page, "Finally, modules and licences. The menu on the left only shows the modules Kiwiply switched on for Brightline in the first video: roles and permissions, talent marketing and consultant jobs.");
-  await narrate(page, "Subscription, Consultant Licenses, Billing, Feature Usage and HR are marked Soon. Let me open Consultant Licenses to show what that looks like today.", undefined, page.locator("[data-shell-sidebar]"));
-  await page.getByRole("link", { name: /Consultant Licenses/ }).first().click();
+  await narrate(page, "Finally, modules and licenses. The menu on the left only shows the modules Kiwiply switched on for Brightline in the first video: roles and permissions, talent marketing and consultant jobs.");
+  await narrate(page, "One row is marked Soon: Plan & Billing. Let me open it to show what that looks like today.", undefined, page.locator("[data-shell-sidebar]"));
+  await page.getByRole("link", { name: /Plan & Billing/ }).first().click();
   await expect(page.locator("[data-coming-soon]")).toBeVisible({ timeout: 30_000 });
-  await narrate(page, "It says, plainly, that the page is on the way. Licences and billing are managed with Kiwiply for now, and this is where they will live.", undefined, page.locator("[data-coming-soon]"));
-  await narrate(page, "What does exist today is licence status on each consultant. Brightline has no consultants yet, so let me show how it looks in Acme Staffing, a bigger organization, as its admin Sarah.");
+  await narrate(page, "It says, plainly, that the page is on the way. Licenses and billing are managed with Kiwiply for now, and this is where they will live.", undefined, page.locator("[data-coming-soon]"));
+  await narrate(page, "What does exist today is license status on each consultant. Brightline has no consultants yet, so let me show how it looks in Acme Staffing, a bigger organization, as its admin Sarah.");
   await f.switchTo("sarah", "Switching over to Sarah at Acme Staffing.", "/w/admin/consultants");
   await expect(page.getByRole("heading", { name: "Consultants", exact: true }).first()).toBeVisible({ timeout: 45_000 });
   await expect(page.locator("tbody tr").first()).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "The Consultants directory has a License column, with Active, Expiring or Needs Review for every consultant, and a filter for it.", undefined, page.getByRole("columnheader", { name: "License" }));
-  await page.getByRole("button", { name: /License Status/ }).first().click();
+  await narrate(page, "The Consultants directory has a License column, with Active, Expiring or Needs review for every consultant, and a filter for it.", undefined, page.getByRole("columnheader", { name: "License" }));
+  await page.getByRole("button", { name: /License status/ }).first().click();
   const options = page.getByRole("option");
   await expect(options.first()).toBeVisible({ timeout: 10_000 });
   await page.waitForTimeout(1200);
   await options.filter({ hasText: /Expiring/ }).first().click();
   await page.waitForTimeout(2500);
-  await narrate(page, "Filtering by Expiring gives an admin a short list to act on before a licence runs out.");
+  await narrate(page, "Filtering by Expiring gives an admin a short list to act on before a license runs out.");
   await page.locator("tbody tr").first().click();
-  const licence = page.getByRole("region", { name: "License Status" });
+  const licence = page.getByRole("region", { name: "License status" });
   await expect(licence).toBeVisible({ timeout: 30_000 });
-  await narrate(page, "Opening a consultant shows a License Status card with the date it is valid until.", undefined, licence);
-  await licence.getByRole("button", { name: "Manage License" }).click();
-  const manage = page.getByRole("dialog", { name: "Manage License" });
+  await narrate(page, "Opening a consultant shows a License status card with the date it is valid until.", undefined, licence);
+  await licence.getByRole("button", { name: "Manage license" }).click();
+  const manage = page.getByRole("dialog", { name: "Manage license" });
   await expect(manage).toBeVisible({ timeout: 15_000 });
-  await narrate(page, "Manage License records the status and the valid-until date. It says so right here: billing for licences will live on the Consultant Licenses page, once that opens.", undefined, manage);
+  await narrate(page, "Manage license records the status and the valid-until date. Billing for licenses stays with Kiwiply until Plan & Billing opens.", undefined, manage);
   await manage.getByRole("button", { name: "Cancel" }).click();
-  await narrate(page, "So that's setup: settings, branding, policies, and where modules and licences stand today. In the next video, Maya invites the team. Thanks for watching!", 1500);
+  await narrate(page, "So that's setup: settings, branding, policies, and where modules and licenses stand today. In the next video, Maya invites the team. Thanks for watching!", 1500);
 });

@@ -83,21 +83,21 @@ test("VIDEO-04 Who changed what: Updated ... by ... on an application, as admin,
 
   // ---- the marketer sees it
   await f.switchTo("omar", "Next, Omar, the marketer. Remember the application I changed for one of his consultants? Let's see what he sees.", "/w/marketing/applications");
-  const find = page.getByPlaceholder(/Search applications by consultant/);
+  const find = page.getByLabel("Search applications");
   await expect(find).toBeVisible({ timeout: 45_000 });
   await narrate(page, "Omar's Applications page has the same Updated column.");
-  await find.fill("APP-2026-119");
-  await expect(page.locator("tr", { hasText: "APP-2026-119" }).filter({ hasText: "Sarah Chen" }).first()).toBeVisible({ timeout: 30_000 });
+  await find.fill("APP-2026-119"); // the search matches the application's code; the row itself shows the consultant, role and client
+  await expect(page.locator("tr[data-app-row]").filter({ has: page.locator("[data-updated-cell]", { hasText: "Sarah Chen" }) }).first()).toBeVisible({ timeout: 30_000 });
   await narrate(page, "There it is. This application was updated just now, by Sarah Chen. The marketer never has to ask who changed something.");
   await page.waitForTimeout(2200);
   // ---- the same for a resume (Gamma): the marketer edits for the consultant, the consultant and the admin read who changed it
   await f.switchTo("marco", "Resumes keep the same kind of record. Let's move to Gamma Consulting, where Marco, a marketer, is improving a resume for his consultant Cora.", "/w/marketing/resumes");
   await expect(page.getByRole("heading", { name: "Resumes", exact: true }).first()).toBeVisible({ timeout: 45_000 });
-  const resumeRow = page.locator("tbody tr", { hasText: "Cora Lindahl, Data Engineer" }).first();
+  const resumeRow = page.locator("tr[data-resume-row]", { hasText: "Cora Lindahl, Data Engineer" }).first();
   await expect(resumeRow).toBeVisible({ timeout: 30_000 });
-  await resumeRow.click();
-  await narrate(page, "The board shows each resume with its last modified date and who changed it. I'll open this one, and choose Edit in the resume builder.");
-  await page.locator("[data-edit-in-builder]").click();
+  await narrate(page, "The board shows each resume with its last modified date. I'll open this one in the resume builder.");
+  // the Marketing Resumes board has no "Edit in builder" button: the builder lives at /w/marketing/resumes/<row id> (the "Edit it" toast after a create goes there too)
+  await f.go(`/w/marketing/resumes/${await resumeRow.getAttribute("data-resume-row")}`);
   await page.waitForURL(/\/w\/marketing\/resumes\/\d+$/, { timeout: 60_000 });
   await expect(page.locator("[data-builder-frame]")).toBeVisible({ timeout: 45_000 });
   const headline = page.getByRole("textbox", { name: "Headline" });

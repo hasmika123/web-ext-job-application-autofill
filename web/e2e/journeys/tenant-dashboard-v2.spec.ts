@@ -54,16 +54,15 @@ test.describe("Sarah on Acme (1440)", () => {
     await expect(page.locator("[data-dashboard]")).toBeVisible();
     await loaded(page);
     await expect(page.locator("[data-page-header] h1")).toHaveText("Organization Dashboard");
-    await expect(page.locator("[data-page-header]")).toContainText(/Welcome back! Here's what's happening at .+ today\./);
+    await expect(page.locator("[data-page-header]")).toContainText(/Here's where .+ stands today\./);
 
     const w = await api(page);
-    for (const key of ["consultants.total", "employees.active", "applications.active", "interviews.upcoming", "placements", "finance.summary"]) {
+    for (const key of ["consultants.total", "applications.active", "interviews.upcoming", "placements"]) {
       expect(w[key].state, key).toBe("ok");
       await expect(tile(page, key).locator("[data-tile-value]"), key).toHaveText(shown(w[key]));
     }
-    // the seeded demo tenant tells the full story: 153 consultants, a rising history, money as a compact amount
+    // the seeded demo tenant tells the full story: 153 consultants and a rising history (month over month: the one page that keeps deltas)
     expect(w["consultants.total"].data!.value).toBeGreaterThan(100);
-    await expect(tile(page, "finance.summary").locator("[data-tile-value]")).toHaveText(/^\$\d+K$/);
     await expect(tile(page, "placements").locator("[data-delta=up]")).toBeVisible();
     await expect(tile(page, "interviews.upcoming")).toContainText("vs last week");
 
@@ -86,34 +85,6 @@ test.describe("Sarah on Acme (1440)", () => {
     expect(await rows.count()).toBeGreaterThan(0);
     await expect(rows.first().locator("time")).toContainText(/ago|just now/);
     await expect(page.locator('[data-dash-card="activity.recent"] [data-activity^="application-"]').first()).toBeVisible();
-
-    // one mascot in the viewport: the board's help card
-    await expect(page.locator('img[src*="/ent/bee/"]:visible')).toHaveCount(1);
-    await expect(page.getByRole("heading", { name: "Need help, Sarah?" })).toBeVisible();
-  });
-
-  test("a quick action navigates to its page", async ({ page }) => {
-    await signInAs(page, acme!, "Sarah Chen");
-    await loaded(page);
-    await expect(page.locator("[data-quick-action=invite-employee]")).toHaveAttribute("href", /\/w\/admin\/employees/);
-    await expect(page.locator("[data-quick-action=review-applications]")).toHaveAttribute("href", "/w/admin/applications");
-    await page.locator("[data-quick-action=review-applications]").click();
-    await expect(page).toHaveURL(/\/w\/admin\/applications$/);
-  });
-
-  test("the help card is dismissible and stays dismissed", async ({ page }) => {
-    await signInAs(page, acme!, "Sarah Chen");
-    await loaded(page);
-    await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("kiwiply.dashboard.help")).forEach((k) => localStorage.removeItem(k)));
-    await page.reload();
-    await loaded(page);
-    await expect(page.locator('[data-dash-card="help"]')).toBeVisible();
-    await page.getByRole("button", { name: "Dismiss the help card" }).click();
-    await expect(page.locator('[data-dash-card="help"]')).toHaveCount(0);
-    await page.reload();
-    await loaded(page);
-    await expect(page.locator('[data-dash-card="activity.recent"]')).toBeVisible();
-    await expect(page.locator('[data-dash-card="help"]')).toHaveCount(0);
   });
 
   test("alerts: the real conditions, Undo restores one, dismissing another saves it", async ({ page }) => {
@@ -137,17 +108,11 @@ test.describe("Sarah on Acme (1440)", () => {
     await expect(page.locator(`[data-alert="${key}"]`)).toHaveCount(0);
   });
 
-  test("keyboard: Tab reaches the refresh control; Ask a question opens the help panel", async ({ page }) => {
+  test("keyboard: the refresh control takes focus", async ({ page }) => {
     await signInAs(page, acme!, "Sarah Chen");
     await loaded(page);
     await page.getByRole("button", { name: "Refresh dashboard" }).focus();
     await expect(page.getByRole("button", { name: "Refresh dashboard" })).toBeFocused();
-    await page.keyboard.press("Tab");
-    const ask = page.getByRole("button", { name: /Ask a question/ });
-    if (await ask.count()) {
-      await ask.click();
-      await expect(page.getByRole("dialog", { name: "Need help?" })).toBeVisible();
-    }
   });
 
   test("screenshots", async ({ page }) => {
@@ -155,7 +120,6 @@ test.describe("Sarah on Acme (1440)", () => {
     const out = path.resolve(__dirname, "../../../design/enterprise-talent/built");
     mkdirSync(out, { recursive: true });
     await signInAs(page, acme!, "Sarah Chen");
-    await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("kiwiply.dashboard.help")).forEach((k) => localStorage.removeItem(k)));
     for (const [w, h] of [[1672, 941], [768, 1024], [390, 844]] as const) {
       await page.setViewportSize({ width: w, height: h });
       await page.goto(`${acme}/w/admin`);
@@ -195,7 +159,7 @@ test.describe("tenant wall", () => {
     await expect(page.locator("[data-dashboard]")).toBeVisible();
     await loaded(page);
     const b = await api(page);
-    for (const key of ["consultants.total", "applications.active", "placements", "finance.summary"]) {
+    for (const key of ["consultants.total", "applications.active", "placements"]) {
       expect(b[key].state, key).toBe("ok");
       expect(b[key].data!.value, `${key}: Beta differs from Acme`).not.toBe(a[key].data!.value);
       await expect(tile(page, key).locator("[data-tile-value]")).toHaveText(shown(b[key]));

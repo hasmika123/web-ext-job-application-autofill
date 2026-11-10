@@ -3,7 +3,8 @@
  * Enterprise demo page crawl (development only): signs in as each demo persona through the "Demo accounts" tab, opens every page of that role's
  * menu at desktop width, and reports what a viewer would trip over: a console error, a failed API call (4xx/5xx), a "on the way" placeholder, a
  * page that never settles, a horizontal overflow, or the word "Kiwiply" anywhere a person can see it (the organization's site is white-label:
- * page text, tab title, image and button labels, meta tags). The signed-out pages (sign-in, policies, support) are checked first. Screenshots go to CRAWL_OUT (default C:/work_bench_claude/crawl).
+ * page text, tab title, image and button labels, meta tags). The signed-out pages (sign-in, policies, support) are checked first; each persona also
+ * opens My profile (/me) and the tabs that replaced menu rows (UI refresh Phase 1). Screenshots go to CRAWL_OUT (default C:/work_bench_claude/crawl).
  *
  *   node web/scripts/demo-crawl.mjs                 # all three personas
  *   PERSONAS=anika node web/scripts/demo-crawl.mjs  # one
@@ -17,6 +18,18 @@ const WEB = process.env.DEMO_WEB || "http://aaruna.localhost:3200";
 const OUT = process.env.CRAWL_OUT || "C:/work_bench_claude/crawl";
 const PERSONAS = (process.env.PERSONAS || "sarah,omar,anika").split(",");
 const NAMES = { sarah: "Priya Sharma", omar: "Rahul Mehta", anika: "Anika Rao", ben: "Vikram Iyer" };
+/** The tabs that replaced menu rows in the UI refresh (Phase 1): not links in the menu, so listed here per workspace home. */
+const TABS = {
+  "/w/admin": ["/w/admin/employees?tab=invitations", "/w/admin/teams?tab=departments", "/w/admin/settings?tab=policies"],
+  "/w/marketing": ["/w/marketing/jobs?tab=matches", "/w/marketing/jobs?tab=sources", "/w/marketing/tasks?tab=followups"],
+  "/w/consultant": [
+    "/w/consultant/opportunities?tab=matches",
+    "/w/consultant/opportunities?tab=browse",
+    "/w/consultant/interviews?tab=prepare",
+    "/w/consultant/activity?tab=timeline",
+    "/w/consultant/settings?tab=features",
+  ],
+};
 mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || "chrome", headless: !process.env.HEADED });
@@ -81,14 +94,14 @@ for (const who of PERSONAS) {
   await page.waitForSelector("[data-enterprise-shell]", { timeout: 60_000 });
   const home = new URL(page.url()).pathname;
   const links = await page.$$eval("[data-enterprise-shell] a[href^='/w/']", (as) => [...new Set(as.map((a) => a.getAttribute("href")))]);
-  const routes = [home, ...links.filter((l) => l !== home)];
+  const routes = [home, ...links.filter((l) => l !== home), ...(TABS[home] ?? []).filter((l) => !links.includes(l)), "/me"];
   console.log(`\n== ${who}: ${routes.length} pages`);
   for (const route of routes) {
     current = route;
     const before = problems.length;
     try {
       await page.goto(`${WEB}${route}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
-      await page.waitForSelector("[data-enterprise-shell] main", { timeout: 30_000 });
+      await page.waitForSelector(route === "/me" ? "main" : "[data-enterprise-shell] main", { timeout: 30_000 });
       await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
       await page.waitForTimeout(1200);
       const text = (await page.locator("main").innerText().catch(() => "")).replace(/\s+/g, " ");

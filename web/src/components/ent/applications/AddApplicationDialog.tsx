@@ -104,7 +104,7 @@ function SearchPicker({
 }
 
 /**
- * Add Application: records that a consultant is being put forward for a job. It adds a row; it does not apply anywhere. The marketer
+ * Add application: records that a consultant is being put forward for a job. It adds a row; it does not apply anywhere. The marketer
  * defaults to the consultant's assigned marketer; ticking "already submitted" records the consultant's own submission as the first stage.
  */
 export default function AddApplicationDialog({
@@ -185,7 +185,7 @@ export default function AddApplicationDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Add Application"
+      title="Add application"
       description="Record that a consultant is being put forward for a job. This adds it to your pipeline; it doesn't apply anywhere."
       footer={
         <>

@@ -1,34 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarIcon, CheckCircleIcon, ClockIcon, ErrorState, RefreshIcon } from "@kiwiply/ui";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
+import { ErrorState } from "@kiwiply/ui";
+import PageHeader from "@/components/ent/shell/ShellContext";
 import {
-  KPI_KEYS, KPI_TITLES, addDays, confirmSlot, fetchInterviews, proposeReschedule, recordFeedback, requestReminder, tickPrepItem, weekRange, ymd,
-  type InterviewRow, type InterviewsView, type KpiKey,
+  addDays, confirmSlot, fetchInterviews, proposeReschedule, recordFeedback, requestReminder, weekRange, ymd,
+  type InterviewRow, type InterviewsView,
 } from "@/lib/ent/marketer-ws/interviews";
-import { HelpBannerCard, KpiTile, type MktPageProps, type TintName } from "../parts";
-import { ChecklistCard, PendingFeedbackCard, RemindersCard, UpcomingCard } from "./Cards";
+import type { MktPageProps } from "../parts";
+import { PendingFeedbackCard } from "./Cards";
 import { FeedbackDialog, RescheduleDialog } from "./Dialogs";
 import ScheduleCard, { type Mode } from "./ScheduleCard";
 import type { RowAction } from "./bits";
 
 /**
- * Interviews (Marketing workspace; design: Interviews). One call draws the whole board; the date range, status, client and sort are query
+ * Interviews (Marketing workspace). One call draws the whole board (the schedule and Pending feedback); the date range, status, client and sort are query
  * parameters of that call. Permission `interviews.coordinate`, ASSIGNED scope (the API filters).
  * E1: the kebab menus PROPOSE a reschedule, RECORD a confirmed slot or feedback, and REQUEST a reminder. Nothing here submits for a consultant.
  */
 
-const KPI_STYLE: Record<KpiKey, { icon: typeof CalendarIcon; tint: TintName; spark: number }> = {
-  interviewsThisWeek: { icon: CalendarIcon, tint: "blue", spark: 1 },
-  confirmedInterviews: { icon: CheckCircleIcon, tint: "green", spark: 3 },
-  pendingFeedback: { icon: ClockIcon, tint: "amber", spark: 2 },
-  reschedules: { icon: RefreshIcon, tint: "pink", spark: 5 },
-};
-
 type Dialog = { kind: "reschedule"; row: InterviewRow } | { kind: "feedback"; row: { id: number; consultant: string; client: string; round: string } };
 
-export default function InterviewsPage({ orgId, orgName }: MktPageProps) {
+export default function InterviewsPage({ orgId }: MktPageProps) {
   const [from, setFrom] = useState(() => weekRange().from);
   const [to, setTo] = useState(() => weekRange().to);
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -61,13 +54,7 @@ export default function InterviewsPage({ orgId, orgName }: MktPageProps) {
 
   if (status === "denied") return <ErrorState what="Interviews" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
   const loading = status === "loading";
-  const header = (
-    <>
-      <PageHeader title="Interviews" subtitle="Manage consultant interview schedules and feedback to keep your hiring process on track." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-    </>
-  );
+  const header = <PageHeader title="Interviews" subtitle="Your consultants' interviews, and the feedback still owed." />;
   if (status === "failed")
     return (
       <div data-interviews data-status="failed">
@@ -90,17 +77,7 @@ export default function InterviewsPage({ orgId, orgName }: MktPageProps) {
     } else say("error", refused(r));
   };
 
-  /** The "View all" buttons of the cards under the table move the schedule to the matching slice. */
-  const showUpcoming = () => {
-    const today = new Date();
-    setFrom(ymd(today));
-    setTo(ymd(addDays(today, 30)));
-    setStatusFilter("ALL");
-    setClientFilter("ALL");
-    setMode("list");
-    setPage(0);
-    setDir("asc");
-  };
+  /** The "View all" button of Pending feedback moves the schedule to the matching slice. */
   const showPending = () => {
     const today = new Date();
     setFrom(ymd(addDays(today, -365)));
@@ -112,66 +89,32 @@ export default function InterviewsPage({ orgId, orgName }: MktPageProps) {
     setDir("desc");
   };
 
-  const tick = async (itemId: number, done: boolean) => {
-    const before = view;
-    const c = view?.checklist;
-    if (!c) return;
-    setView({ ...view, checklist: { ...c, items: c.items.map((i) => (i.id === itemId ? { ...i, done } : i)) } });
-    const r = await tickPrepItem(orgId, c.interviewId, itemId, done);
-    if (r.kind !== "OK") {
-      setView(before);
-      say("error", refused(r));
-    }
-  };
-
   return (
     <div data-interviews data-status={status} className="flex flex-col gap-4 sm:gap-5">
       {header}
 
-      <section aria-label="Key numbers" data-interviews-tiles className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        {KPI_KEYS.map((key) => {
-          const k = view?.kpis.find((x) => x.key === key);
-          const s = KPI_STYLE[key];
-          return (
-            <KpiTile key={key} id={key} title={KPI_TITLES[key]} icon={s.icon} tint={s.tint} value={k ? k.value : null} deltaPct={k?.deltaPct} versus="vs last week" sparkline={k?.sparkline} sparkIndex={s.spark} loading={loading} />
-          );
-        })}
-      </section>
-
-      <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,310px)]">
-        <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
-          <ScheduleCard
-            schedule={view?.schedule ?? null}
-            loading={loading}
-            from={from}
-            to={to}
-            onRange={(f, t) => { setFrom(f); setTo(t); setPage(0); }}
-            status={statusFilter}
-            onStatus={(v) => { setStatusFilter(v); setPage(0); }}
-            clientId={clientFilter}
-            onClient={(v) => { setClientFilter(v); setPage(0); }}
-            clients={view?.clients ?? []}
-            mode={mode}
-            onMode={setMode}
-            dir={dir}
-            onSort={() => { setDir((d) => (d === "asc" ? "desc" : "asc")); setPage(0); }}
-            onPage={setPage}
-            onAction={(row, a) => void act(row, a)}
-            notice={notice}
-          />
-          <div className="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.1fr)_minmax(0,0.95fr)]">
-            <UpcomingCard rows={view?.upcoming ?? []} loading={loading} onViewAll={showUpcoming} />
-            <PendingFeedbackCard rows={view?.pendingFeedback ?? []} loading={loading} onViewAll={showPending} onRecord={(r) => setDialog({ kind: "feedback", row: { id: r.id, consultant: r.consultant, client: r.client, round: r.round } })} />
-            <ChecklistCard checklist={view?.checklist ?? null} loading={loading} onViewAll={showUpcoming} onTick={(id, done) => void tick(id, done)} />
-          </div>
-        </div>
-        <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
-          <HelpBannerCard
-            title={`Get ready for your interviews with ${orgName} AI`}
-            body="I can help you find interview details, past feedback, and preparation tips for your upcoming interviews."
-          />
-          <RemindersCard reminders={view?.reminders ?? []} rows={view?.upcoming ?? []} loading={loading} onViewAll={showUpcoming} onAction={(row, a) => void act(row, a)} />
-        </div>
+      <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
+        <ScheduleCard
+          schedule={view?.schedule ?? null}
+          thisWeek={view?.kpis.find((k) => k.key === "interviewsThisWeek")?.value ?? null}
+          loading={loading}
+          from={from}
+          to={to}
+          onRange={(f, t) => { setFrom(f); setTo(t); setPage(0); }}
+          status={statusFilter}
+          onStatus={(v) => { setStatusFilter(v); setPage(0); }}
+          clientId={clientFilter}
+          onClient={(v) => { setClientFilter(v); setPage(0); }}
+          clients={view?.clients ?? []}
+          mode={mode}
+          onMode={setMode}
+          dir={dir}
+          onSort={() => { setDir((d) => (d === "asc" ? "desc" : "asc")); setPage(0); }}
+          onPage={setPage}
+          onAction={(row, a) => void act(row, a)}
+          notice={notice}
+        />
+        <PendingFeedbackCard rows={view?.pendingFeedback ?? []} loading={loading} onViewAll={showPending} onRecord={(r) => setDialog({ kind: "feedback", row: { id: r.id, consultant: r.consultant, client: r.client, round: r.round } })} />
       </div>
 
       {dialog?.kind === "reschedule" ? (
