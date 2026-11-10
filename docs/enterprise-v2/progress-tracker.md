@@ -98,7 +98,7 @@
 | X5.13 Admin Catalog page (admin page kit): products/prices/versions tabs, price editor with… | Not Started | Sonnet (Web) | — | deps X5.1, X5.3 — split (Session E) |
 | X5.5 PricingEngine (list → contract → one discount → volume tier → effective, half-even per… | Not Started | Sonnet (API) | — | deps X5.3; 22 §9 G1–G14; before X5.4 |
 | X5.15 Contracts and discounts: org_contract / org_contract_price (version_from/version_to) /… | Not Started | Sonnet (API) | — | deps X5.5, X1.11 — split (Session E) |
-| X5.4 consultant_license + license_feature + license_quote + license_change tables and… | Not Started | Sonnet (API) | — | deps X5.5, X1.7, X1.8, X5.15; LocalBillingApplier |
+| X5.4 consultant_license + license_feature + license_quote + license_change tables and… | Partial (2026-11-10: licences without money, `LICENCES-BUILD.md`; quotes, pricing and Stripe still to do) | Sonnet (API) | — | deps X5.5, X1.7, X1.8, X5.15; LocalBillingApplier |
 | X5.14 License lifecycle: LicenseLifecycleJob (PENDING promotion on invite accept, period-end… | Not Started | Sonnet (API) | — | deps X5.4 — split (Session E) |
 | X5.7 usage_event ledger + usage_counter: reserve/commit/release with idempotency keys, TTL… | Not Started | Sonnet (API) | — | deps X5.4 |
 | X5.6 EntitlementService.check/require with EntitlementContext (PERSONAL | ORG) and the… | Not Started | Sonnet (API) | — | deps X5.7, X1.7, X4.7; needs X4.7 for step 9 |
@@ -263,6 +263,7 @@
 | X4.1 | Permission Sets (board tab/KPI) has no concept in 05: shown as a read-only grouping of the registry by the five categories; "Permission Sets 23" counts permission FAMILIES (groups of related keys), the donut counts KEYS per category. Honest numbers only: no sparklines or "vs last month" (no history exists). | as built | `OrgRoleWriteService.overview`, `RolesPage` |
 
 ## Log
+- 2026-11-10 — **Real consultant licences without money** on `ent-licences` (user decision: nothing billed yet). One licence reader (`OrgLicenseGate`) behind the inbox, Prepare, AI budget, builder AI/tailoring and My Features; licence admin API `/api/orgs/{orgId}/licenses`; Consultant Licenses page `/w/admin/licenses`; offboarding step 500 ends a leaving consultant's licence. `docs/enterprise-v2/LICENCES-BUILD.md`.
 - 2026-10-12 — Phase 0 complete on `enterprise-v2` (Fable). Roadmap area `ent` registered, 109 stories, 0 dangling ids.
 - 2026-10-12 — Session B (Fable, branch `ev2-design-b`): docs 10–16, stories X2.1–X2.14 / X3.1–X3.8 / X4.1–X4.6 / X4.9 fully specified (112 stories, 0 dangling), escalations B1–B8, E1/E2/E3/E5 recorded as answered.
 - 2026-10-12 — Session C (Fable, `ev2-design-c`): docs 20–29, stories X5.1–X5.12 and X6.1–X6.12 fully specified (+X5.11, X5.12, X6.12 new), escalations C1–C10, E1/E2/E3/E5 recorded as answered; 112 stories, 0 dangling ids.

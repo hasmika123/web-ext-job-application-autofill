@@ -80,7 +80,7 @@ class WorkspaceServiceTest {
         WorkspaceService.Result all = compute(ALL_ON, "OWNER");
         assertThat(slugs(all)).containsExactly("admin");
         assertThat(navKeys(all, "admin")).containsExactly(
-            "home", "employees", "teams", "roles", "consultants", "assignments", "resumes", "jobs", "applications", "interviews", "clients", "placements",
+            "home", "employees", "teams", "roles", "consultants", "licenses", "assignments", "resumes", "jobs", "applications", "interviews", "clients", "placements",
             "reports", "audit", "branding", "settings", "billing"
         );
         // the menu's groups travel with it (display only): People, Talent, Pipeline, Organization; Home stands alone
@@ -96,7 +96,7 @@ class WorkspaceServiceTest {
     void withTheModulesOffTheAdminMenuLosesExactlyTheModulePages() {
         WorkspaceService.Result off = compute(ALL_OFF, "ORG_ADMIN");
         assertThat(navKeys(off, "admin")).containsExactly(
-            "home", "employees", "teams", "assignments", "applications", "interviews", "placements", "reports", "audit", "branding", "settings"
+            "home", "employees", "teams", "licenses", "assignments", "applications", "interviews", "placements", "reports", "audit", "branding", "settings"
         );
         Map<String, Boolean> rolesOnly = new LinkedHashMap<>(ALL_OFF);
         rolesOnly.put("roles", true);

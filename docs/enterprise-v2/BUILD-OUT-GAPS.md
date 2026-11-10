@@ -6,6 +6,8 @@
 
 ## The one thing to know first
 
+> **Update 2026-11-10: B1 and B2 are built** (branch `ent-licences`, `LICENCES-BUILD.md`). Licences now work without money. The paragraph below describes the state before that.
+
 **Licences are not real yet.** The database has licence tables, but only the demo seeders write to them. There is no page or API that gives a consultant a licence. The demo seeders also supplied the data behind AI help, the Gmail inbox and Autopilot Prepare. **A brand-new organization would get none of the three.** This is the root blocker, so it is item **B1** below.
 
 ---
@@ -59,8 +61,8 @@
 
 | # | Item | Status | Size |
 |---|---|---|---|
-| **B1** | **Licence administration**: give, change and remove a consultant's licence and add-ons (Pro AI, inbox, Autopilot). Includes the **Consultant Licenses** page. | Not built. Today's "License" dialog only edits a status label. | M |
-| **B2** | **One licence-aware gate** for AI, inbox, Prepare and builder AI/tailoring in the tenant web app | Inbox and Prepare read licences. AI and the builder ignore them (402 for every enterprise account). | M |
+| **B1** ✅ | **Licence administration**: give, change and remove a consultant's licence and add-ons (Pro AI, inbox, Autopilot). Includes the **Consultant Licenses** page. | Not built. Today's "License" dialog only edits a status label. | M |
+| **B2** ✅ | **One licence-aware gate** for AI, inbox, Prepare and builder AI/tailoring in the tenant web app | Inbox and Prepare read licences. AI and the builder ignore them (402 for every enterprise account). | M |
 | B3 | Subscription Overview, Billing & Invoices, Feature Usage pages | Placeholders ("Soon"). Tables exist; nothing reads them. | M each |
 | B4 | **Stripe per organization**: setup fee, licence items, quotes, webhooks, reconciler, failed payments | Not built | L |
 | B5 | Catalog prices published | Yours (after the margin-guard review) | yours |

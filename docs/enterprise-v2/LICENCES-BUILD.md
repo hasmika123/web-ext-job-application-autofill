@@ -21,5 +21,20 @@
 | L4 | **Consultant Licenses page** `/w/admin/licenses` | Table (consultant, marketer, add-on chips, status, price or "not set"), Configure sheet (toggle add-ons, suspend, end), empty state. Removes `licenses` from `ADMIN_NOT_BUILT`. The Consultants drawer's License dialog links here. | vitest page + sheet; mock fixture |
 | L5 | **Loose ends** | A member who leaves or is removed has the licence ended now (offboarding hook). The consultant's My Features shows their real add-ons (on or off). The demo seeders write through the service. | offboarding test; features page test |
 
+## Status (2026-11-10, branch `ent-licences`)
+
+| Slice | State |
+|---|---|
+| L1 | done: `OrgLicenseGate`; the inbox and Prepare gates read through it |
+| L2 | done: `EnterpriseLicenseAccess`; the AI budget of an enterprise account is its licence's AI add-ons, an admin override still outranks it; builder AI and tailoring and the builder config follow the licence |
+| L3 | done: `OrgLicenseService` + `OrgLicenseResource` (`/api/orgs/{orgId}/licenses`), keyed by consultant id; registered in `OrgIsolationIT` |
+| L4 | done: `/w/admin/licenses` (`LicensesPage`, Configure sheet), BFF, menu item for `licenses.view` without the billing module |
+| L5 | done: `LicenseOffboardingHook` (step 500, end reason `MEMBER_LEFT`); My Features shows each card on or "Not in your plan" from the licence, and never shows uncounted credits. **Not done:** the demo seeders still write licence rows directly (they still work, because the gate reads the same rows) |
+
+**What a new organization needs now:** an Org Admin opens Licenses, gives each consultant a licence, and switches on the add-ons. AI help
+(`ai.resume_tailoring`, `resume.optimization`, `ai.job_matching`, `interview.ai_prep` and the other AI add-ons add their `ai_budget_cents` to
+the consultant's monthly AI budget), the inbox (`inbox.monitoring`) and Autopilot prepare (`automation.approved_apply`, plus the org opt-in)
+work at once. The demo's per-consultant admin AI-quota override is no longer needed.
+
 ## Not in this build
 Price quotes, confirm and idempotency keys, Stripe, invoices, period rollover, bulk/CSV licence changes, org modules (marketer seat), the usage ledger and allowances.

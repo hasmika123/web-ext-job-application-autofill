@@ -435,6 +435,7 @@ public class OrgLicenseService {
     private static String reason(String reason) {
         String r = reason == null ? "" : reason.trim();
         if (r.length() < 3) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Say why (at least 3 characters).");
+        com.dossier.api.service.privacy.SensitiveContent.check("reason", "reason", r); // free text: never an SSN, bank or ID number (CLAUDE.md)
         return r.length() > 200 ? r.substring(0, 200) : r;
     }
 
