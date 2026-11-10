@@ -44,22 +44,24 @@ public class ResumeAiResource {
     public record ApplyVM(@Size(max = 40) List<@Size(max = 40) String> keep, @Size(max = 40) Map<@Size(max = 40) String, Integer> alternatives) {}
 
     private final ResumeAiService service;
+    private final com.dossier.api.service.ent.resumes.OrgResumePolicy orgPolicy;
 
-    public ResumeAiResource(ResumeAiService service) {
+    public ResumeAiResource(ResumeAiService service, com.dossier.api.service.ent.resumes.OrgResumePolicy orgPolicy) {
         this.service = service;
+        this.orgPolicy = orgPolicy;
     }
 
     @Operation(summary = "Rewrite resume lines with AI", description = "Pro. Up to resume.ai.rewriteMaxRefs lines by ref, in a mode (stronger, shorter, formal, plain, grammar). The answer is a checked proposal; nothing changes until it is applied.")
     @PostMapping("/resumes/{id}/ai/rewrite")
     public ResponseEntity<?> rewrite(@PathVariable("id") Long id, @Valid @RequestBody RewriteVM vm) {
-        com.dossier.api.service.ent.resumes.OrgResumePolicy.requireAiLicensed();
+        orgPolicy.requireAiLicensed(com.dossier.api.service.ent.resumes.OrgResumePolicy.BUILDER_AI_FEATURES);
         return respond(service.rewrite(id, vm.refs(), vm.mode(), vm.consent()));
     }
 
     @Operation(summary = "Generate a summary with AI", description = "Pro. Up to three variants in a tone (concise, confident, plain), as one proposal with ref 'summary'.")
     @PostMapping("/resumes/{id}/ai/summary")
     public ResponseEntity<?> summary(@PathVariable("id") Long id, @Valid @RequestBody SummaryVM vm) {
-        com.dossier.api.service.ent.resumes.OrgResumePolicy.requireAiLicensed();
+        orgPolicy.requireAiLicensed(com.dossier.api.service.ent.resumes.OrgResumePolicy.BUILDER_AI_FEATURES);
         return respond(service.summary(id, vm.tone(), vm.consent()));
     }
 
@@ -69,7 +71,7 @@ public class ResumeAiResource {
     )
     @PostMapping("/resumes/{id}/ai/suggestions")
     public ResponseEntity<?> suggest(@PathVariable("id") Long id, @Valid @RequestBody SuggestVM vm) {
-        com.dossier.api.service.ent.resumes.OrgResumePolicy.requireAiLicensed();
+        orgPolicy.requireAiLicensed(com.dossier.api.service.ent.resumes.OrgResumePolicy.BUILDER_AI_FEATURES);
         return respond(service.suggest(id, vm.consent(), vm.refresh()));
     }
 

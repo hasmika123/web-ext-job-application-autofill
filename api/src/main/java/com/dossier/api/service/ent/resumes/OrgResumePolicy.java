@@ -27,7 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
  *   <tr><td>delete / archive</td><td>yes</td><td>no (409 MANAGED_BY_ORGANIZATION: the organization's list owns the directory row)</td><td>no (404)</td></tr>
  *   <tr><td>set primary</td><td>yes</td><td>no (409; the My Resumes page sets the organization's primary)</td><td>no (404)</td></tr>
  *   <tr><td>rename, duplicate, checkpoints, restore a version</td><td>yes</td><td>yes</td><td>no (404)</td></tr>
- *   <tr><td>AI rewrite, summary, suggestions, tailor</td><td>by plan</td><td>no (402 FEATURE_NOT_LICENSED until the license catalog grants them)</td><td>no (404)</td></tr>
+ *   <tr><td>AI rewrite, summary, suggestions, tailor</td><td>by plan</td><td>by licence: rewrite, summary and suggestions need {@code resume.optimization} or {@code ai.resume_tailoring}, tailoring needs {@code ai.resume_tailoring} (402 FEATURE_NOT_LICENSED otherwise)</td><td>no (404)</td></tr>
  *   <tr><td>original uploaded file</td><td>yes</td><td>yes</td><td>no (404)</td></tr>
  *   <tr><td>the resume cap</td><td>by plan</td><td>the organization license's</td><td>the consultant's, the license's</td></tr>
  *   <tr><td>submit / apply</td><td colspan="3">never: the builder has no such action in any mode</td></tr>
@@ -107,13 +107,35 @@ public class OrgResumePolicy {
      * setting for this request ({@link #consultantShareLinksForThisRequest()}); it only ever turns share links ON for a consultant, never for act-for.
      */
     public static ResumeBuilderConfigDTO.BuilderCapabilities capabilities(boolean consultantShareLinks) {
+        return capabilities(consultantShareLinks, false, false);
+    }
+
+    /**
+     * The same, with the consultant's licence deciding the AI tools ({@code ai}: rewrite, summary, suggestions; {@code tailor}: tailoring); they only
+     * ever turn ON for a consultant (LICENCES-BUILD.md L2), never for act-for.
+     */
+    public static ResumeBuilderConfigDTO.BuilderCapabilities capabilities(boolean consultantShareLinks, boolean licensedAi, boolean licensedTailor) {
         return switch (mode()) {
             case PERSONAL -> new ResumeBuilderConfigDTO.BuilderCapabilities(Mode.PERSONAL.wire(), true, true, true, true, true, true, true, true, true, true, null);
-            case CONSULTANT -> new ResumeBuilderConfigDTO.BuilderCapabilities(Mode.CONSULTANT.wire(), consultantShareLinks, false, false, false, true, true, true, true, false, false, null);
+            case CONSULTANT -> new ResumeBuilderConfigDTO.BuilderCapabilities(Mode.CONSULTANT.wire(), consultantShareLinks, false, false, false, true, true, true, true, licensedAi, licensedTailor, null);
             case MARKETER_ACT_FOR -> new ResumeBuilderConfigDTO.BuilderCapabilities(
                 Mode.MARKETER_ACT_FOR.wire(), false, false, false, false, false, false, false, false, false, false, "Pending consultant approval"
             );
         };
+    }
+
+    /** The capabilities for this request: the organization's share-link setting and, for a consultant, what their licence carries. */
+    public ResumeBuilderConfigDTO.BuilderCapabilities capabilitiesForThisRequest() {
+        boolean ai = false;
+        boolean tailor = false;
+        if (mode() == Mode.CONSULTANT && licenses != null) {
+            String login = com.dossier.api.security.SecurityUtils.getCurrentUserLogin().orElse(null);
+            if (login != null) {
+                ai = licenses.hasAny(login, BUILDER_AI_FEATURES);
+                tailor = licenses.hasAny(login, TAILORING_FEATURES);
+            }
+        }
+        return capabilities(consultantShareLinksForThisRequest(), ai, tailor);
     }
 
     /** Delete, archive or make primary a resume the organization directory links to: refused inside an organization workspace. */
@@ -137,10 +159,36 @@ public class OrgResumePolicy {
         refuseSharingInOrganization(mode() == Mode.CONSULTANT && consultantShareLinksForThisRequest());
     }
 
-    /** Builder AI inside an organization: not part of any license until the catalog grants it (doc 24 feature ai.resume_tailoring), so 402. */
-    public static void requireAiLicensed() {
-        if (mode() != Mode.PERSONAL) {
-            throw new ResumeDocException(402, CODE_NOT_LICENSED, "AI tools are not included in your organization's license.", Map.of("featureKey", "ai.resume_tailoring", "canSelfServe", false));
+    /** The licence add-ons that open the builder's AI (rewrite, summary, suggestions) inside an organization. */
+    public static final java.util.Set<String> BUILDER_AI_FEATURES = java.util.Set.of(
+        com.dossier.api.service.entitlement.FeatureKeys.RESUME_OPTIMIZATION,
+        com.dossier.api.service.entitlement.FeatureKeys.AI_RESUME_TAILORING
+    );
+
+    /** The licence add-on that opens resume tailoring inside an organization. */
+    public static final java.util.Set<String> TAILORING_FEATURES = java.util.Set.of(com.dossier.api.service.entitlement.FeatureKeys.AI_RESUME_TAILORING);
+
+    private com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess licenses;
+
+    /** Optional: the enterprise licence reader. Without it every organization request is refused, as before licences were real. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setLicenses(com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess licenses) {
+        this.licenses = licenses;
+    }
+
+    /**
+     * Builder AI and tailoring inside an organization (LICENCES-BUILD.md L2): allowed when the consultant's own live licence carries one of
+     * {@code anyOf}, else 402 {@code FEATURE_NOT_LICENSED} ("ask your admin"). A personal request is never refused here (its plan decides later), and a
+     * marketer acting for a consultant is always refused (act-for AI is a later story).
+     */
+    public void requireAiLicensed(java.util.Set<String> anyOf) {
+        Mode mode = mode();
+        if (mode == Mode.PERSONAL) return;
+        if (mode == Mode.CONSULTANT && licenses != null) {
+            String login = com.dossier.api.security.SecurityUtils.getCurrentUserLogin().orElse(null);
+            if (login != null && licenses.hasAny(login, anyOf)) return;
         }
+        String first = anyOf.contains(com.dossier.api.service.entitlement.FeatureKeys.AI_RESUME_TAILORING) ? com.dossier.api.service.entitlement.FeatureKeys.AI_RESUME_TAILORING : anyOf.iterator().next();
+        throw new ResumeDocException(402, CODE_NOT_LICENSED, "AI tools are not included in your organization's license.", Map.of("featureKey", first, "canSelfServe", false));
     }
 }
