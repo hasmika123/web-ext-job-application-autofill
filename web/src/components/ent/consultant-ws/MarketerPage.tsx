@@ -1,18 +1,13 @@
 "use client";
 
-import { useCallback, useState, type ComponentType } from "react";
+import { useCallback, type ComponentType } from "react";
 import {
   BriefcaseIcon,
-  CalendarCheckIcon,
-  CalendarIcon,
   CheckCircleIcon,
-  ChevronRightIcon,
-  Dialog,
   ErrorState,
   FileTextIcon,
   LightbulbIcon,
   MailIcon,
-  MapPinIcon,
   MessageIcon,
   PhoneIcon,
   Skeleton,
@@ -20,42 +15,24 @@ import {
   TargetIcon,
   TrendingUpIcon,
   UsersIcon,
-  ZapIcon,
   cn,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import { TONES } from "@/components/ent/dashboard/parts";
-import PageHeader, {
-  ClaimsHelpCard,
-  ClaimsMascot,
-} from "@/components/ent/shell/ShellContext";
+import PageHeader from "@/components/ent/shell/ShellContext";
 import {
   BASE,
-  BeeCard,
   Card,
-  CompanyMark,
   Empty,
   MoreButton,
   Pill,
   SampleMark,
-  TABLE,
-  TD,
-  TableHead,
-  ViewButton,
   useWorkspaceData,
 } from "./parts";
-import { firstName, placeLabel, shortDate } from "@/lib/ent/consultant-ws/home";
+import { shortDate } from "@/lib/ent/consultant-ws/home";
 import {
-  PLAN_STATUS,
-  PRIORITY_LABEL,
-  dateBlock,
   fetchMarketer,
-  focusStage,
-  followupStatus,
-  followupType,
-  nextStepText,
   personInitials,
-  planLine,
   relativeTime,
   type MarketerView,
 } from "@/lib/ent/consultant-ws/marketer";
@@ -82,10 +59,9 @@ function YourMarketer({ view }: { view: MarketerView }) {
   const actions: { label: string; icon: ComponentType<IconProps> }[] = [
     { label: "Send Message", icon: MailIcon },
     { label: "Schedule Call", icon: PhoneIcon },
-    { label: "View Calendar", icon: CalendarIcon },
   ];
   return (
-    <Card id="marketer-card" title="Your Marketer" icon={UsersIcon}>
+    <Card id="marketer-card" title="Your marketer" icon={UsersIcon}>
       {!m ? (
         <Empty>
           No marketer assigned yet. When your organization assigns one, they
@@ -168,162 +144,6 @@ function YourMarketer({ view }: { view: MarketerView }) {
   );
 }
 
-function ActionPlan({ view }: { view: MarketerView }) {
-  const p = view.actionPlan;
-  return (
-    <Card
-      id="marketer-plan"
-      title="Shared Action Plan"
-      icon={TargetIcon}
-      viewAll={`${BASE}/tasks`}
-      extra={p.sample && p.items.length > 0 ? <SampleMark /> : null}
-    >
-      {p.items.length === 0 ? (
-        <Empty>
-          {view.marketer
-            ? "No shared plan yet."
-            : "Your shared plan appears once a marketer is assigned."}
-        </Empty>
-      ) : (
-        <ul className="space-y-2.5">
-          {p.items.map((i) => {
-            const done = i.status === "DONE";
-            const s = PLAN_STATUS[i.status] ?? PLAN_STATUS.NOT_STARTED;
-            return (
-              <li
-                key={i.title}
-                data-plan-item
-                data-done={done}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-paper px-3 py-2.5"
-              >
-                {done ? (
-                  <CheckCircleIcon
-                    size={20}
-                    className="flex-none text-v2-green-ink"
-                  />
-                ) : (
-                  <span
-                    aria-hidden
-                    className="h-5 w-5 flex-none rounded-full border-2 border-line"
-                  />
-                )}
-                <span className="min-w-0 flex-1 basis-40 text-[13.5px] font-medium text-ink">
-                  {i.title}
-                </span>
-                <span
-                  className={cn(
-                    "text-[12px]",
-                    s.tone === "green" ? "text-v2-green-ink" : "text-muted",
-                  )}
-                >
-                  {planLine(i)}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-function FocusOpportunities({ view }: { view: MarketerView }) {
-  const rows = view.focusOpportunities;
-  return (
-    <Card
-      id="marketer-focus-opps"
-      title="Current Focus Opportunities"
-      icon={TargetIcon}
-      viewAll={`${BASE}/opportunities`}
-    >
-      {rows.length === 0 ? (
-        <Empty>
-          No opportunities in play right now. Roles your marketer lines up for
-          you appear here.
-        </Empty>
-      ) : (
-        <div className="relative overflow-x-auto">
-          <table className={TABLE}>
-            <TableHead
-              cols={[
-                "Job Title",
-                "Company",
-                "Location",
-                "Stage",
-                "Priority",
-                "Next Step",
-                "Actions",
-              ]}
-            />
-            <tbody className="divide-y divide-line">
-              {rows.map((r) => {
-                const st = focusStage(r.stage);
-                const pr = PRIORITY_LABEL[r.priority];
-                const next = nextStepText(r);
-                return (
-                  <tr
-                    key={r.requirementId}
-                    data-focus-opportunity={r.requirementId}
-                  >
-                    <td className={cn(TD, "min-w-[120px] font-semibold")}>
-                      {r.title}
-                    </td>
-                    <td className={TD}>
-                      <span className="flex items-center gap-1.5">
-                        <CompanyMark name={r.company} />
-                        <span className="truncate">{r.company ?? "-"}</span>
-                      </span>
-                    </td>
-                    <td className={TD}>
-                      <span className="flex items-center gap-1 whitespace-nowrap text-ink-soft">
-                        <MapPinIcon
-                          size={13}
-                          className="flex-none text-muted"
-                        />
-                        {placeLabel(r.location, r.workMode)}
-                      </span>
-                    </td>
-                    <td className={TD}>
-                      <Pill tone={st.tone}>{st.label}</Pill>
-                    </td>
-                    <td className={TD}>
-                      <Pill tone={pr.tone}>{pr.label}</Pill>
-                    </td>
-                    <td
-                      className={cn(
-                        TD,
-                        "min-w-[120px] text-[12.5px] leading-snug",
-                      )}
-                    >
-                      {next.line1 ? (
-                        <>
-                          <span className="block text-ink">{next.line1}</span>
-                          <span className="block text-muted">{next.line2}</span>
-                        </>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
-                    </td>
-                    <td className={TD}>
-                      <span className="flex items-center gap-1">
-                        <ViewButton
-                          href={`${BASE}/opportunities`}
-                          label={`View ${r.title}`}
-                        />
-                        <MoreButton label={`More actions for ${r.title}`} />
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Card>
-  );
-}
-
 function RecentMessages({ view }: { view: MarketerView }) {
   const m = view.messages;
   const generated = Date.parse(view.generatedAt);
@@ -331,7 +151,7 @@ function RecentMessages({ view }: { view: MarketerView }) {
   return (
     <Card
       id="marketer-messages"
-      title="Recent Messages"
+      title="Recent messages"
       icon={MessageIcon}
       viewAll={`${BASE}/marketer`}
       extra={m.sample && m.items.length > 0 ? <SampleMark /> : null}
@@ -386,107 +206,12 @@ function RecentMessages({ view }: { view: MarketerView }) {
   );
 }
 
-function Followups({ view }: { view: MarketerView }) {
-  const rows = view.followups;
-  return (
-    <Card
-      id="marketer-followups"
-      title="Upcoming Follow-ups"
-      icon={CalendarCheckIcon}
-      tone="accent"
-      viewAll={`${BASE}/tasks`}
-    >
-      {rows.length === 0 ? (
-        <Empty>
-          All caught up. Follow-ups on your applications and tasks appear here.
-        </Empty>
-      ) : (
-        <div className="relative overflow-x-auto">
-          <table className={TABLE}>
-            <TableHead
-              cols={[
-                "Date",
-                "Type",
-                "Related Opportunity",
-                "Description",
-                "Status",
-                "Actions",
-              ]}
-            />
-            <tbody className="divide-y divide-line">
-              {rows.map((f) => {
-                const b = dateBlock(f.dueOn);
-                const s = followupStatus(f.status);
-                return (
-                  <tr key={f.key} data-followup={f.key}>
-                    <td className={TD}>
-                      <span className="flex items-center gap-2.5">
-                        <span className="grid w-11 flex-none place-items-center rounded-lg border border-line bg-paper py-1 text-center leading-none">
-                          <span className="text-[10px] font-bold text-v2-coral-ink">
-                            {b.month}
-                          </span>
-                          <span className="text-[17px] font-extrabold text-ink">
-                            {b.day}
-                          </span>
-                        </span>
-                        <span className="text-[12px] text-muted">All Day</span>
-                      </span>
-                    </td>
-                    <td className={cn(TD, "whitespace-nowrap")}>
-                      {followupType(f.kind)}
-                    </td>
-                    <td className={cn(TD, "min-w-[120px]")}>
-                      {f.relatedTitle ? (
-                        <>
-                          <span className="block truncate font-semibold">
-                            {f.relatedTitle}
-                          </span>
-                          <span className="block truncate text-[12px] text-muted">
-                            {f.relatedCompany}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
-                    </td>
-                    <td className={cn(TD, "min-w-[140px] text-ink-soft")}>
-                      {f.description}
-                    </td>
-                    <td className={TD}>
-                      <Pill tone={s.tone}>{s.label}</Pill>
-                    </td>
-                    <td className={TD}>
-                      <span className="flex items-center gap-1">
-                        <ViewButton
-                          href={
-                            f.kind === "TASK"
-                              ? `${BASE}/tasks`
-                              : `${BASE}/applications`
-                          }
-                          label={`View ${f.description}`}
-                        />
-                        <MoreButton
-                          label={`More actions for ${f.description}`}
-                        />
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Card>
-  );
-}
-
 function CollaborationNotes({ view }: { view: MarketerView }) {
   const n = view.notes;
   return (
     <Card
       id="marketer-notes"
-      title="Collaboration Notes"
+      title="Collaboration notes"
       icon={FileTextIcon}
       viewAll={`${BASE}/marketer`}
       extra={n.sample && n.items.length > 0 ? <SampleMark /> : null}
@@ -525,43 +250,6 @@ function CollaborationNotes({ view }: { view: MarketerView }) {
   );
 }
 
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-function QuickActions() {
-  const items: { label: string; icon: ComponentType<IconProps> }[] = [
-    { label: "Message Marketer", icon: MailIcon },
-    { label: "Request Resume Update", icon: FileTextIcon },
-    { label: "Ask About Opportunity", icon: MessageIcon },
-    { label: "Schedule Call", icon: CalendarIcon },
-  ];
-  return (
-    <Card id="marketer-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid gap-2.5">
-        {items.map((q) => {
-          const Icon = q.icon;
-          return (
-            <li key={q.label}>
-              <button
-                type="button"
-                data-marketer-quick={q.label}
-                disabled
-                title={NOT_AVAILABLE}
-                className={cn(ACTION_BTN, "justify-between disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-paper")}
-              >
-                <span className="flex min-w-0 items-center gap-3">
-                  <Icon size={18} className="flex-none" />
-                  <span className="truncate">{q.label}</span>
-                </span>
-                <ChevronRightIcon size={16} className="flex-none text-muted" />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
-  );
-}
-
 const FOCUS_ICON: Record<
   string,
   { icon: ComponentType<IconProps>; tone: keyof typeof TONES }
@@ -576,7 +264,7 @@ function MarketerFocus({ view }: { view: MarketerView }) {
   return (
     <Card
       id="marketer-focus"
-      title="Marketer's Focus for You"
+      title="Marketer's focus for you"
       icon={SparklesIcon}
     >
       {view.marketerFocus.length === 0 ? (
@@ -626,13 +314,10 @@ function MarketerFocus({ view }: { view: MarketerView }) {
 
 export interface MarketerPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
 }
 
-export default function MarketerPage({
-  orgId,
-  firstName: first,
-}: MarketerPageProps) {
+export default function MarketerPage({ orgId }: MarketerPageProps) {
   const { view, status, reload } = useWorkspaceData(
     useCallback(() => fetchMarketer(orgId), [orgId]),
   );
@@ -653,12 +338,7 @@ export default function MarketerPage({
       data-status={status}
       className="flex flex-col gap-4 sm:gap-5"
     >
-      <PageHeader
-        title="My Marketer"
-        subtitle="Your dedicated talent marketing specialist is here to help you find, promote, and secure the right opportunities."
-      />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="My Marketer" subtitle={view?.marketer ? `${view.marketer.name} finds and prepares openings for you. Reach them here.` : "Your marketer finds and prepares openings for you."} />
 
       {status === "failed" ? (
         <ErrorState
@@ -669,21 +349,13 @@ export default function MarketerPage({
           className="rounded-[var(--radius-lg)] border border-line bg-paper"
         />
       ) : view ? (
-        <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.62fr)]">
-          <div className="grid min-w-0 content-start gap-4 sm:gap-5 xl:col-span-2 2xl:grid-cols-2">
+        <div className="grid min-w-0 content-start gap-4 sm:gap-5 lg:grid-cols-2">
+          <div className="lg:col-span-2">
             <YourMarketer view={view} />
-            <ActionPlan view={view} />
-            <FocusOpportunities view={view} />
-            <RecentMessages view={view} />
-            <Followups view={view} />
-            <CollaborationNotes view={view} />
           </div>
-          <div className="grid min-w-0 content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-1">
-            <BeeCard
-              name={firstName(first)}
-              body="Get personalized collaboration tips, draft questions for your marketer, and stay aligned on your goals. I'm here whenever you need support on your journey."
-            />
-            <QuickActions />
+          <RecentMessages view={view} />
+          <CollaborationNotes view={view} />
+          <div className="lg:col-span-2">
             <MarketerFocus view={view} />
           </div>
         </div>

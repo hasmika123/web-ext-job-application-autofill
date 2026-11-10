@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
-import PoliciesPage from "@/components/ent/policy/PoliciesPage";
-import PageHeader from "@/components/ent/shell/ShellContext";
+import { redirect } from "next/navigation";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
-import { ErrorState } from "@kiwiply/ui";
 import { getTenantSession } from "@/lib/ent/tenant-session";
 import { catchAllPage } from "@/lib/ent/shell";
-import { can } from "@/lib/ent/workspaces";
 
 /**
- * Policies at `/w/admin/policies` (docs/enterprise-v2/62), inside the EnterpriseShell: the workspace layout draws the frame, this page takes the
- * organization and the permission (`org.settings.manage`, the same as Settings and Branding) from the tenant session. A member who types the URL
- * anyway gets "This isn't part of your role" (the API refuses the calls regardless).
+ * `/w/admin/policies` (docs/enterprise-v2/62) became the Policies tab of Settings in the UI refresh (Phase 1,
+ * docs/enterprise-v2/ui-refresh/PHASE1-STRUCTURE-AND-CONTENT.md s4): the old address keeps working and opens that tab, which checks
+ * `org.settings.manage` like Settings itself. Another workspace's `/policies` keeps its "on the way" / not-your-role answer.
  */
 export const metadata: Metadata = { title: "Policies", robots: { index: false, follow: false } };
 
@@ -23,12 +20,5 @@ export default async function WorkspacePoliciesRoute({ params }: { params: Promi
     const hit = catchAllPage(me, workspace, ["policies"]);
     return hit.kind === "page" ? <ComingSoon title={hit.title} /> : <NotYourRole />;
   }
-  if (!can(me, "org.settings.manage")) return <NotYourRole />;
-  if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
-  return (
-    <>
-      <PageHeader title="Policies" subtitle="Your privacy policy, terms and support page, shown on your own address." />
-      <PoliciesPage orgId={me.org.id} />
-    </>
-  );
+  redirect("/w/admin/settings?tab=policies");
 }

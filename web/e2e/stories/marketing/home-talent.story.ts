@@ -1,58 +1,69 @@
+import type { Page } from "@playwright/test";
 import { test, expect, narrate } from "../_support/story";
 import { api, bff, orgIdOf, ready, sidebar, tileValue } from "./_mkt";
 
-/** Marketing Home, the sidebar tour and My Assigned Talent, plus the denied variants. Personas: omar (Marketing Specialist, ASSIGNED scope), sarah (Org Admin + Marketing Manager). */
+/** Marketing Home, the sidebar tour and My Talent, plus the denied variants. Personas: omar (Marketing Specialist, ASSIGNED scope), sarah (Org Admin + Marketing Manager). */
 
-const HOME_TILES = ["assigned", "profilesReady", "newMatches", "pendingSubmissions", "upcomingInterviews", "overdueFollowups"];
-const HOME_CARDS = ["My Assigned Talent", "Job Stream Monitor", "Top Openings for My Talent", "Submission Pipeline", "Today's Follow-ups & Tasks", "Upcoming Interviews", "Recent Activity"];
+const HOME_TILES = ["assigned", "newMatches", "pendingSubmissions", "overdueFollowups"];
+const HOME_CARDS = ["Today", "Top openings for my talent", "My talent", "Recent activity"];
+
+/** The count in a My Talent status chip ("All (25)"): the page has no tiles any more, the chip row carries the counts. */
+async function chipCount(page: Page, chip: string): Promise<number> {
+  const el = page.locator(`[data-status-chip="${chip}"]`);
+  await expect(el).toHaveText(/\(\d+\)/);
+  return Number(/\((\d+)\)/.exec(await el.innerText())![1]);
+}
 
 test.describe("MKT home and talent", () => {
-  test("MKT-01 Omar starts his day on the Talent Marketing Dashboard", async ({ as }) => {
+  test("MKT-01 Omar starts his day on the Marketing Home", async ({ as }) => {
     const { page, go } = await as("omar");
     await go("/w/marketing");
-    await narrate(page, "Omar lands on the Talent Marketing Dashboard");
-    await expect(page.getByRole("heading", { name: "Talent Marketing Dashboard" })).toBeVisible();
+    await narrate(page, "Omar lands on his Marketing Home");
+    await expect(page.locator('[data-page-header][data-home="true"] [data-welcome]')).toBeVisible();
     await ready(page, "[data-marketing-home]").waitFor();
 
-    await narrate(page, "Six numbers, all counted from his own assigned consultants");
+    await narrate(page, "Four numbers, all counted from his own assigned consultants");
     for (const id of HOME_TILES) await expect(page.locator(`[data-stat-tile="${id}"]`)).toBeVisible();
     const assigned = await tileValue(page, "assigned");
     expect(assigned).toBeGreaterThan(0); // seeded: Omar is the primary marketer of Ben plus a seeded book
-    await expect(page.locator('[data-stat-tile="assigned"]')).toContainText("Assigned Consultants");
+    await expect(page.locator('[data-stat-tile="assigned"]')).toContainText("Assigned consultants");
 
-    await narrate(page, "Below them: talent, streams, openings, pipeline, follow-ups, interviews and activity");
-    for (const name of HOME_CARDS) await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+    await narrate(page, "Below them: today, top openings, his talent and recent activity");
+    for (const name of HOME_CARDS) await expect(page.getByRole("heading", { name, exact: true }).first()).toBeVisible();
     await expect(page.locator("[data-talent-row]").first()).toBeVisible();
     expect(await page.locator("[data-talent-row]").count()).toBeLessThanOrEqual(5);
-    await expect(page.locator('[data-home-card="help"]')).toBeVisible();
   });
 
   test("MKT-02 Omar tours every Marketing page from the sidebar", async ({ as }) => {
     const { page, go } = await as("omar");
     await go("/w/marketing");
     await ready(page, "[data-marketing-home]").waitFor();
-    const tour: [string, string, string, string][] = [
-      ["My Assigned Talent", "/talent", "[data-marketing-talent]", "My Assigned Talent"],
-      ["Resumes", "/resumes", "[data-mkt-resumes]", "Resumes"],
-      ["Job Discovery", "/jobs", "[data-jobs-page]", "Job Discovery"],
-      ["Job Matches", "/matches", "[data-job-matches]", "Job Matches"],
-      ["Opportunities", "/opportunities", "[data-opportunities]", "Opportunities"],
-      ["Job Streams", "/streams", "[data-job-streams]", "Job Streams"],
-      ["Submissions", "/submissions", "[data-submissions-page]", "Submissions"],
-      ["Applications", "/applications", "[data-applications]", "Applications"],
-      ["Interviews", "/interviews", "[data-interviews]", "Interviews"],
-      ["Follow-ups", "/followups", "[data-followups-page]", "Follow-ups"],
-      ["Tasks", "/tasks", "[data-tasks-page]", "Tasks"],
-      ["Activities", "/activity", "[data-activity-page]", "Activities"],
-      ["Performance", "/performance", "[data-performance]", "Performance"],
+    // [menu label, path end, page root, page title, tabs merged into the page: [tab label, ?tab= value, tab root]]
+    const tour: [string, string, string, string, [string, string, string][]][] = [
+      ["My Talent", "/talent", "[data-marketing-talent]", "My Talent", []],
+      ["Resumes", "/resumes", "[data-mkt-resumes]", "Resumes", []],
+      ["Jobs", "/jobs", "[data-jobs-page]", "Jobs", [["Matches", "matches", "[data-job-matches]"], ["Sources", "sources", "[data-job-streams]"]]],
+      ["Opportunities", "/opportunities", "[data-opportunities]", "Opportunities", []],
+      ["Submissions", "/submissions", "[data-submissions-page]", "Submissions", []],
+      ["Applications", "/applications", "[data-applications]", "Applications", []],
+      ["Interviews", "/interviews", "[data-interviews]", "Interviews", []],
+      ["Tasks", "/tasks", "[data-tasks-page]", "Tasks", [["Follow-ups", "followups", "[data-followups-page]"]]],
+      ["Activity", "/activity", "[data-activity-page]", "Activity", []],
+      ["Performance", "/performance", "[data-performance]", "Performance", []],
     ];
-    for (const [label, end, root, heading] of tour) {
+    for (const [label, end, root, heading, tabs] of tour) {
       await narrate(page, `Omar opens ${label}`, 500);
       await sidebar(page, label, end);
       await ready(page, root).waitFor();
       await expect(page.getByRole("heading", { name: heading, exact: true }).first()).toBeVisible();
       await expect(page.locator("body")).not.toContainText("This page is on the way");
       await expect(page.locator("body")).not.toContainText("This isn't part of your role");
+      for (const [tab, key, tabRoot] of tabs) {
+        await narrate(page, `${label} › ${tab}`, 400);
+        await page.getByRole("tab", { name: tab, exact: true }).click();
+        await page.waitForURL((u) => u.searchParams.get("tab") === key);
+        await ready(page, tabRoot).waitFor();
+      }
     }
   });
 
@@ -64,7 +75,7 @@ test.describe("MKT home and talent", () => {
     await go("/w/marketing");
     await narrate(page, "Sarah switches to the Marketing workspace");
     await ready(page, "[data-marketing-home]").waitFor();
-    await expect(page.getByRole("heading", { name: "Talent Marketing Dashboard" })).toBeVisible();
+    await expect(page.locator('[data-page-header][data-home="true"] [data-welcome]')).toBeVisible();
     const assigned = await tileValue(page, "assigned");
     expect(assigned).toBeGreaterThan(0);
     await narrate(page, "Her talent list opens too, and Anika Rao (her primary consultant) can be found");
@@ -87,16 +98,15 @@ test.describe("MKT home and talent", () => {
     const { page, go } = await as("omar");
     await go("/w/marketing/talent");
     await ready(page, "[data-marketing-talent]").waitFor();
-    await narrate(page, "Five tiles describe his assigned consultants");
-    for (const id of ["assigned", "availableNow", "needUpdates", "activeInterviews", "pendingApprovals"]) await expect(page.locator(`[data-stat-tile="${id}"]`)).toBeVisible();
-    const total = await tileValue(page, "assigned");
+    await narrate(page, "The status chips count his assigned consultants");
+    const total = await chipCount(page, "ALL");
 
     await narrate(page, "He searches for Ben");
     await page.getByPlaceholder("Search by name, skill, or location...").fill("Ben");
     const bens = page.locator("[data-talent-row]").filter({ hasText: "Ben Okafor" });
     await expect(bens).toHaveCount(1);
 
-    await narrate(page, "Clearing the search and choosing the Available Now chip narrows the list");
+    await narrate(page, "Clearing the search and choosing the Available now chip narrows the list");
     await page.getByPlaceholder("Search by name, skill, or location...").fill("");
     await page.locator('[data-status-chip="AVAILABLE_NOW"]').click();
     await expect(page.locator('[data-status-chip="AVAILABLE_NOW"]')).toHaveAttribute("aria-pressed", "true");
@@ -104,13 +114,13 @@ test.describe("MKT home and talent", () => {
     expect(filtered).toBeLessThanOrEqual(total);
     await page.locator('[data-status-chip="ALL"]').click();
 
-    await narrate(page, "View Profile opens a summary-only drawer");
+    await narrate(page, "View profile opens the consultant's drawer");
     await page.getByPlaceholder("Search by name, skill, or location...").fill("Ben");
-    await bens.getByRole("button", { name: "View Profile" }).click();
+    await bens.getByRole("button", { name: "View profile" }).click();
     const drawer = page.locator("[data-talent-drawer]");
     await expect(drawer).toBeVisible();
     await expect(drawer).toContainText("Ben Okafor");
-    await expect(drawer).toContainText("Summary only. Contact details stay with the consultant.");
+    await expect(drawer).toContainText(/Summary only\.|Shown to you because this consultant is assigned to you\./);
     for (const h of ["Skills", "Resumes", "Active applications", "Upcoming interviews", "Assigned jobs"]) await expect(drawer.getByText(h, { exact: true }).first()).toBeVisible();
   });
 

@@ -95,16 +95,17 @@ function stubFetch() {
 const searches = () => calls.filter((c) => c.url.includes("/search?")).map((c) => new URLSearchParams(c.url.split("?")[1]));
 
 async function mount() {
-  render(<JobDiscoveryPage orgId={2} firstName="Anika Rao" />);
+  render(<JobDiscoveryPage orgId={2} />);
   await screen.findByRole("heading", { name: /^Showing/ });
 }
 
-/** A right-rail card loads after the list (its own request): wait for it rather than reading it the moment the list heading shows. */
-const rail = (name: string) => waitFor(() => {
-  const el = document.querySelector(`[data-home-card='${name}']`) as HTMLElement | null;
-  if (!el) throw new Error(`rail card ${name} is not there yet`);
-  return el;
-});
+/** The saved-search chips load after the list (the overview is its own request): wait for them. */
+const savedChip = (id: number) =>
+  waitFor(() => {
+    const el = document.querySelector(`[data-saved-chips] [data-saved-search='${id}']`) as HTMLElement | null;
+    if (!el) throw new Error(`saved search ${id} is not there yet`);
+    return el;
+  });
 
 beforeEach(() => {
   jobs = [
@@ -169,7 +170,7 @@ describe("Job Discovery", () => {
     expect(searches()[searches().length - 1].has("skill")).toBe(false);
     fireEvent.click(document.querySelector("[data-chip='workMode:REMOTE']") as HTMLElement);
     await waitFor(() => expect(searches().some((p) => p.get("workMode") === "REMOTE")).toBe(true));
-    fireEvent.click(screen.getByRole("button", { name: "Clear All" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
     await waitFor(() => expect(searches()[searches().length - 1].has("workMode")).toBe(false));
   });
 
@@ -209,7 +210,7 @@ describe("Job Discovery", () => {
 
   it("each card leads with the marketer's quick info, the Sample mark and an Open job link that opens a new tab safely; no Apply button exists", async () => {
     await mount();
-    expect(document.querySelector("[data-apply-helper]")?.textContent).toMatch(/Apply on the source site with the Kiwiply extension/);
+    expect(document.querySelector("[data-apply-helper]")?.textContent).toMatch(/Apply on the source site with the browser extension/);
     expect(document.querySelector("[data-apply-helper]")?.textContent).toMatch(/My Applications/);
     const card = document.querySelector("[data-job='1']") as HTMLElement;
     expect(within(card).getByText("Marketer's quick info")).toBeTruthy();
@@ -238,52 +239,41 @@ describe("Job Discovery", () => {
     expect(second.querySelector("[data-job-link-missing]")).not.toBeNull();
   });
 
-  it("right rail: saved searches with new counts, trending skills with real demand text, recent searches", async () => {
+  it("saved searches are a chip row with their new counts; there is no rail, trending skills, recent searches or help card", async () => {
     await mount();
-    const saved = await rail("jd-saved");
-    expect(within(saved).getByText("Data Engineer - Remote")).toBeTruthy();
-    expect(within(saved).getByText("4 new results")).toBeTruthy();
-    const trending = await rail("jd-trending");
-    expect(within(trending).getByText("↗ +40% demand")).toBeTruthy();
-    expect(within(trending).getByText("30 open jobs")).toBeTruthy(); // no comparison when the earlier window was too small
-    expect(within(trending).getByText("steady demand")).toBeTruthy();
-    const recent = await rail("jd-recent");
-    expect(within(recent).getByText("AWS, Contract")).toBeTruthy();
-    expect(within(recent).getByText("2 hours ago")).toBeTruthy();
-    fireEvent.click(within(recent).getByRole("button", { name: "Search again: AWS, Contract" }));
-    await waitFor(() => expect(searches().some((p) => p.get("skill") === "AWS" && p.get("jobType") === "CONTRACT")).toBe(true));
+    const chip = await savedChip(11);
+    expect(within(chip).getByText("Data Engineer - Remote")).toBeTruthy();
+    expect(within(chip).getByText("4 new")).toBeTruthy();
+    for (const id of ["jd-saved", "jd-trending", "jd-recent", "help"]) expect(document.querySelector(`[data-home-card='${id}']`)).toBeNull();
+    expect(screen.queryByText(/Ask a question|Trending Skills|Recent Searches/)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/full job search arrives/);
+    expect(screen.queryByRole("tab")).toBeNull();
   });
 
-  it("running a saved search sends its filters and restarts its counter", async () => {
+  it("running a saved search chip sends its filters and restarts its counter", async () => {
     await mount();
-    const saved = await rail("jd-saved");
-    fireEvent.click(within(saved).getByRole("button", { name: "Run saved search Data Engineer - Remote" }));
+    const chip = await savedChip(11);
+    fireEvent.click(within(chip).getByRole("button", { name: "Run saved search Data Engineer - Remote" }));
     await waitFor(() => expect(searches().some((p) => p.get("q") === "data engineer" && p.get("workMode") === "REMOTE")).toBe(true));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/saved-searches/11/viewed"))).toBe(true));
   });
 
-  it("the Saved Searches tab lists them and deleting calls the API", async () => {
+  it("deleting a saved search chip calls the API", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("tab", { name: /Saved Searches/ }));
-    const row = await waitFor(() => {
-      const el = document.querySelector("[data-saved-search='11']");
-      if (!el) throw new Error("not yet");
-      return el as HTMLElement;
-    });
-    expect(within(row).getByText("data engineer, Remote")).toBeTruthy();
-    fireEvent.click(within(row).getByRole("button", { name: "Delete saved search Data Engineer - Remote" }));
+    const chip = await savedChip(11);
+    fireEvent.click(within(chip).getByRole("button", { name: "Delete saved search Data Engineer - Remote" }));
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/saved-searches/11"))).toBe(true));
   });
 
-  it("Recommended for You asks for a minimum score and sorted by match", async () => {
+  it("the Recommended for you chip asks for a minimum score and sorted by match", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("tab", { name: /Recommended for You/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Recommended for you/ }));
     await waitFor(() => expect(searches().some((p) => p.get("minScore") === "60" && p.get("sort") === "match")).toBe(true));
   });
 
-  it("More Filters saves the search under a name and shows the API's refusal sentence", async () => {
+  it("More filters saves the search under a name and shows the API's refusal sentence", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: /More Filters/ }));
+    fireEvent.click(screen.getByRole("button", { name: /More filters/ }));
     fireEvent.change(screen.getByPlaceholderText(/Job title, skill/), { target: { value: "java" } });
     fireEvent.change(screen.getByPlaceholderText(/^Name, e.g./), { target: { value: "Java roles" } });
     fireEvent.click(screen.getByRole("button", { name: "Save search" }));
@@ -315,15 +305,12 @@ describe("Job Discovery", () => {
     await mount();
     expect(screen.getByRole("heading", { name: "Showing 0 opportunities" })).toBeTruthy();
     expect(screen.getByText(/No jobs match these filters/)).toBeTruthy();
-    expect(screen.getByText(/Not enough open jobs yet/)).toBeTruthy();
-    expect(screen.getByText(/No saved searches yet/)).toBeTruthy();
-    expect(screen.getByText(/Your last searches will show up here/)).toBeTruthy();
     expect(document.querySelector("[data-chip]")).toBeNull();
   });
 
   it("a 404 from the API (not a consultant) shows the role message", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: "NOT_FOUND" }), { status: 404 })));
-    render(<JobDiscoveryPage orgId={2} firstName="Sarah" />);
+    render(<JobDiscoveryPage orgId={2} />);
     await screen.findByText(/isn't part of your role/);
     expect(document.querySelector("[data-job]")).toBeNull();
   });

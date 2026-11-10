@@ -8,14 +8,14 @@
 export type ResumeKpiKey = "total" | "profilesReady" | "needUpdates" | "approvalsPending";
 export const RESUME_KPI_KEYS: ResumeKpiKey[] = ["total", "profilesReady", "needUpdates", "approvalsPending"];
 export const RESUME_KPI_TITLES: Record<ResumeKpiKey, string> = {
-  total: "Total Resumes",
-  profilesReady: "Profiles Ready",
-  needUpdates: "Resumes Need Updates",
-  approvalsPending: "Approvals Pending",
+  total: "Total resumes",
+  profilesReady: "Profiles ready",
+  needUpdates: "Resumes need updates",
+  approvalsPending: "Approvals pending",
 };
 
 export type Approval = "APPROVED" | "PENDING" | "NEEDS_UPDATE";
-export const APPROVAL_LABELS: Record<Approval, string> = { APPROVED: "Approved", PENDING: "Pending Review", NEEDS_UPDATE: "Needs Update" };
+export const APPROVAL_LABELS: Record<Approval, string> = { APPROVED: "Approved", PENDING: "Pending review", NEEDS_UPDATE: "Needs update" };
 
 export interface ResumeKpi {
   key: ResumeKpiKey;
@@ -101,23 +101,23 @@ export function parseResumeDetail(raw: unknown): ResumeDetail | null {
 export interface ResumeFilters { q: string; skill: string; status: string; updated: string; availability: string; sort: string; page: number; size: number }
 export const DEFAULT_FILTERS: ResumeFilters = { q: "", skill: "", status: "", updated: "3m", availability: "", sort: "modified,desc", page: 0, size: 10 };
 export const UPDATED_OPTIONS = [
-  { value: "7d", label: "Last 7 Days" },
-  { value: "30d", label: "Last 30 Days" },
-  { value: "3m", label: "Last 3 Months" },
-  { value: "6m", label: "Last 6 Months" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "3m", label: "Last 3 months" },
+  { value: "6m", label: "Last 6 months" },
   { value: "all", label: "Any time" },
 ];
 export const STATUS_OPTIONS = [
-  { value: "", label: "All Statuses" },
+  { value: "", label: "All statuses" },
   { value: "APPROVED", label: "Approved" },
-  { value: "PENDING", label: "Pending Review" },
-  { value: "NEEDS_UPDATE", label: "Needs Update" },
+  { value: "PENDING", label: "Pending review" },
+  { value: "NEEDS_UPDATE", label: "Needs update" },
 ];
 export const AVAILABILITY_OPTIONS = [
   { value: "", label: "All" },
   { value: "AVAILABLE", label: "Available" },
-  { value: "ON_PROJECT", label: "On Project" },
-  { value: "NOTICE", label: "On Notice" },
+  { value: "ON_PROJECT", label: "On project" },
+  { value: "NOTICE", label: "On notice" },
   { value: "UNAVAILABLE", label: "Unavailable" },
 ];
 export const PAGE_SIZES = [10, 25, 50];

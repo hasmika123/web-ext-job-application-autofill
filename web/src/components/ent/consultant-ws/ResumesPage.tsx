@@ -2,22 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Button,
   CheckCircleIcon,
   ChevronRightIcon,
-  ClockIcon,
   CopyIcon,
-  DonutChart,
   DownloadIcon,
   Dialog,
   ErrorState,
-  EyeIcon,
   FileTextIcon,
   Input,
   LayoutGridIcon,
-  LightbulbIcon,
   Menu,
   MoreVerticalIcon,
   PencilIcon,
@@ -26,33 +22,26 @@ import {
   Select,
   ShareNodesIcon,
   Skeleton,
-  Sparkline,
   StarIcon,
-  TargetIcon,
-  UploadIcon,
-  ZapIcon,
-  chartColor,
   cn,
   useToast,
 } from "@kiwiply/ui";
-import type { IconProps } from "@kiwiply/ui";
-import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
+
+import PageHeader from "@/components/ent/shell/ShellContext";
 import NewResumeSheet from "@/components/app-v3/resume-builder/NewResumeSheet";
 import { BuilderEnvProvider, consultantEnv, useBuilderEnv } from "@/components/app-v3/resume-builder/builderEnv";
 import CapDialog from "@/components/app-v3/resume-builder/list/CapDialog";
 import { EMPTY_PROFILE, capNotice, type CapNotice, type ProfileSummary, type ResumeChoice, type SourceId } from "@/components/app-v3/resume-builder/new-resume/model";
 import { createBuilt } from "@/lib/resume-doc";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, Empty, Pill, TABLE, TD, TableHead, useWorkspaceData } from "./parts";
+
+import { BASE, Card, Empty, Pill, TABLE, TD, TableHead, useWorkspaceData } from "./parts";
 import { EditSheet, PreviewSheet } from "./ResumesSheets";
-import { firstName } from "@/lib/ent/consultant-ws/home";
+
 import {
-  ACTIVITY_LABELS,
   approveResume,
   requestResumeChanges,
   SORT_OPTIONS,
   VISIBILITY_LABELS,
-  changeText,
   dateOf,
   duplicateResume,
   fetchPreview,
@@ -67,10 +56,8 @@ import {
   sortResumes,
   timeOf,
   verdictOf,
-  type ActivityKind,
   type ResumePreview,
   type ResumeRow,
-  type ResumeTile,
   type ResumesView,
   type SortKey,
 } from "@/lib/ent/consultant-ws/resumes";
@@ -83,84 +70,6 @@ import {
  */
 
 const PROFILE = `${BASE}/profile`;
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: "totalResumes" | "primary" | "totalViews" | "totalDownloads" | "timesShared";
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "totalResumes", title: "Total Resumes", icon: FileTextIcon, tone: "accent" },
-  { key: "primary", title: "Primary Resume", icon: StarIcon, tone: "amber" },
-  { key: "totalViews", title: "Total Views", icon: EyeIcon, tone: "accent" },
-  { key: "totalDownloads", title: "Total Downloads", icon: DownloadIcon, tone: "violet" },
-  { key: "timesShared", title: "Times Shared", icon: ShareNodesIcon, tone: "coral" },
-];
-
-function Tile({ spec, view, index }: { spec: TileSpec; view: ResumesView | null; index: number }) {
-  const Icon = spec.icon;
-  const frame = (body: ReactNode, state: string) => (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={state} className={cn("flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border p-3.5 sm:p-4", spec.key === "primary" ? "border-line bg-v2-amber-soft/40" : "border-line bg-paper")}>
-      <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-[12px]", TONES[spec.tone])}>
-        <Icon size={22} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[13.5px] font-semibold leading-tight text-ink-soft">{spec.title}</h3>
-        {body}
-      </div>
-    </section>
-  );
-  if (!view)
-    return frame(
-      <>
-        <Skeleton className="mt-2 h-8 w-16" />
-        <Skeleton className="mt-2 h-4 w-24" />
-      </>,
-      "loading",
-    );
-  if (spec.key === "primary") {
-    const p = view.tiles.primary;
-    return frame(
-      <>
-        <p data-tile-value className="mt-1 text-[28px] font-extrabold leading-none tabular-nums text-ink">
-          {p.value}
-        </p>
-        <p className="mt-2 truncate text-[12.5px] font-medium text-muted" title={p.title ?? undefined}>
-          {p.value > 0 ? "Actively used in applications" : "No primary resume yet"}
-        </p>
-      </>,
-      "ok",
-    );
-  }
-  const t: ResumeTile = view.tiles[spec.key];
-  const d = changeText(t, spec.key === "totalResumes" ? "abs" : "pct");
-  return frame(
-    <>
-      <div className="mt-1 flex items-end justify-between gap-2">
-        <p data-tile-value className="text-[28px] font-extrabold leading-none tabular-nums text-ink">
-          {t.value}
-        </p>
-        {t.sparkline.length > 1 ? (
-          <div className="mb-0.5 w-[46%] max-w-[80px] flex-none">
-            <Sparkline values={t.sparkline} color={chartColor(index)} />
-          </div>
-        ) : null}
-      </div>
-      <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted">
-        {d ? (
-          <>
-            <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>{d.text}</span>
-            <span>vs last month</span>
-          </>
-        ) : null}
-      </p>
-    </>,
-    "ok",
-  );
-}
 
 /* ── browser-side outputs ───────────────────────────────────────────────────────────── */
 
@@ -326,148 +235,25 @@ function ResumeStrength({ view }: { view: ResumesView }) {
   const r = view.resumeStrength;
   const pct = r.percent;
   return (
-    <Card id="resumes-strength" title="Resume Strength" icon={LayoutGridIcon}>
-      <div className="grid items-center gap-4 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="mx-auto">
-          <DonutChart label={`Resume strength ${pct}%`} size={132} legend={false} total={pct} totalSuffix="%" slices={[{ key: "done", label: "Complete", value: pct, color: "var(--color-v2-green-ink)" }, { key: "left", label: "Remaining", value: 100 - pct, color: "transparent" }]} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[14px] font-bold text-ink">{r.hasResume ? verdictOf(pct) : "Add a resume to get started."}</p>
-          <p className="mt-1 text-[12.5px] leading-snug text-muted">Add a few more details to stand out to recruiters and get more views.</p>
-          <Link href={PROFILE} className="mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-accent px-4 text-[14px] font-semibold text-paper hover:bg-accent-deep">
-            Improve Resume
-          </Link>
-        </div>
-        <ul className="min-w-0 space-y-2" aria-label="Resume checklist">
-          {r.checks.map((c) => (
-            <li key={c.key} data-check={c.key} data-done={c.done} className="text-[13px] text-ink">
-              {c.done ? (
-                <span className="flex items-center gap-2">
-                  <CheckCircleIcon size={18} className="flex-none text-v2-green-ink" />
-                  <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                </span>
-              ) : (
-                <Link href={PROFILE} className="flex items-center gap-2 hover:text-accent-deep">
-                  <span aria-hidden className="h-[18px] w-[18px] flex-none rounded-full border-2 border-line" />
-                  <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                  <ChevronRightIcon size={15} className="flex-none text-muted" />
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </Card>
-  );
-}
-
-const IMPROVE_TONES: IconTone[] = ["violet", "amber", "accent", "coral"];
-
-function Improvements({ view, busy, onPrimary }: { view: ResumesView; busy: boolean; onPrimary: (id: number) => void }) {
-  return (
-    <Card id="resumes-improvements" title="Suggested Improvements" icon={LightbulbIcon}>
-      {view.improvements.length === 0 ? (
-        <Empty>Nothing to suggest right now. Your resume covers the basics.</Empty>
-      ) : (
-        <ul className="space-y-3">
-          {view.improvements.map((i, n) => (
-            <li key={i.key} data-improvement={i.key} className="flex items-center gap-3">
-              <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES[IMPROVE_TONES[n % IMPROVE_TONES.length]])}>
-                <FileTextIcon size={17} />
+    <Card id="resumes-strength" title="Resume strength" icon={LayoutGridIcon} extra={<span className="flex-none text-[13px] font-bold text-ink">{pct}%</span>}>
+      <p className="text-[13.5px] font-semibold text-ink">{r.hasResume ? verdictOf(pct) : "Add a resume to get started."}</p>
+      <ul className="mt-3 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3" aria-label="Resume checklist">
+        {r.checks.map((c) => (
+          <li key={c.key} data-check={c.key} data-done={c.done} className="text-[13px] text-ink">
+            {c.done ? (
+              <span className="flex items-center gap-2">
+                <CheckCircleIcon size={18} className="flex-none text-v2-green-ink" />
+                <span className="min-w-0 flex-1 truncate">{c.label}</span>
               </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] font-semibold leading-tight text-ink">{i.title}</span>
-                <span className="block text-[12px] leading-snug text-muted">{i.hint}</span>
-              </span>
-              {i.action === "set-primary" && i.resumeId !== null ? (
-                <button type="button" className={TEXT_BTN} aria-label={`Apply: ${i.title}`} disabled={busy} onClick={() => onPrimary(i.resumeId as number)}>
-                  Apply
-                </button>
-              ) : (
-                <Link href={i.href ?? PROFILE} className={TEXT_BTN} aria-label={`Apply: ${i.title}`}>
-                  Apply
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-const ACTIVITY_ICONS: Record<ActivityKind, ComponentType<IconProps>> = { VIEWED: EyeIcon, DOWNLOADED: DownloadIcon, SHARED: ShareNodesIcon, UPDATED: PencilIcon };
-
-function RecentActivity({ view }: { view: ResumesView }) {
-  return (
-    <Card id="resumes-activity" title="Recent Activity" icon={ClockIcon}>
-      {view.recentActivity.length === 0 ? (
-        <Empty>No activity yet. Views, downloads and shares show up here.</Empty>
-      ) : (
-        <ul className="space-y-3">
-          {view.recentActivity.map((a, i) => {
-            const Icon = ACTIVITY_ICONS[a.kind];
-            return (
-              <li key={`${a.kind}-${a.resumeId}-${a.at}-${i}`} data-activity={a.kind} className="flex items-center gap-3">
-                <span aria-hidden className="grid h-9 w-9 flex-none place-items-center rounded-full bg-accent-soft text-accent-deep">
-                  <Icon size={16} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13.5px] font-semibold leading-tight text-ink">{ACTIVITY_LABELS[a.kind]}</span>
-                  <span className="block truncate text-[12px] text-muted">{a.kind === "UPDATED" ? `${a.resumeTitle} (v${a.versionNo})` : a.resumeTitle}</span>
-                </span>
-                <span className="flex-none text-right text-[12px] leading-tight text-muted">
-                  <span className="block">{dateOf(a.at)}</span>
-                  <span className="block">{timeOf(a.at)}</span>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-const QUICK_CLASS = "flex h-full min-h-[68px] w-full flex-col gap-1 rounded-xl border border-line bg-paper p-2.5 text-left hover:bg-paper-2/60";
-
-function QuickActions({ onNew }: { onNew: (source?: SourceId) => void }) {
-  const items: { key: string; label: string; hint: string; icon: ComponentType<IconProps>; href?: string; source?: SourceId | "any" }[] = [
-    { key: "create", label: "Create New Resume", hint: "Start from scratch", icon: FileTextIcon, source: "scratch" },
-    { key: "template", label: "Use a Template", hint: "Professional templates", icon: LayoutGridIcon, source: "any" },
-    { key: "import", label: "Import Resume", hint: "Upload from your device", icon: UploadIcon, source: "upload" },
-    { key: "tailor", label: "Tailor for a Job", hint: "Customize for opportunity", icon: TargetIcon, href: `${BASE}/matches` },
-  ];
-  return (
-    <Card id="resumes-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-2 gap-2.5">
-        {items.map((q) => {
-          const Icon = q.icon;
-          const body = (
-            <>
-              <span className="flex items-center gap-1.5 text-[13px] font-bold leading-tight text-ink">
-                <Icon size={16} className="flex-none text-accent-deep" />
-                {q.label}
-              </span>
-              <span className="text-[11.5px] leading-snug text-muted">{q.hint}</span>
-            </>
-          );
-          return (
-            <li key={q.key}>
-              {q.href ? (
-                <Link href={q.href} data-quick={q.key} className={QUICK_CLASS}>
-                  {body}
-                </Link>
-              ) : (
-                <button type="button" data-quick={q.key} className={QUICK_CLASS} onClick={() => onNew(q.source === "any" ? undefined : q.source)}>
-                  {body}
-                </button>
-              )}
-            </li>
-          );
-        })}
+            ) : (
+              <Link href={PROFILE} className="flex items-center gap-2 hover:text-accent-deep">
+                <span aria-hidden className="h-[18px] w-[18px] flex-none rounded-full border-2 border-line" />
+                <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                <ChevronRightIcon size={15} className="flex-none text-muted" />
+              </Link>
+            )}
+          </li>
+        ))}
       </ul>
     </Card>
   );
@@ -501,7 +287,7 @@ export default function ConsultantResumesPage(props: ResumesPageProps) {
   );
 }
 
-function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: ResumesPageProps) {
+function ResumesPageBody({ orgId, builder = NO_BUILDER }: ResumesPageProps) {
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchResumes(orgId), [orgId]));
   const toast = useToast();
   const router = useRouter();
@@ -517,7 +303,7 @@ function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: Resu
   const [previewState, setPreviewState] = useState<"loading" | "ready" | "failed">("loading");
   const [preview, setPreview] = useState<ResumePreview | null>(null);
   const [editFor, setEditFor] = useState<ResumeRow | null>(null);
-  const loading = status === "loading";
+
 
   /** "New resume": the license's cap is checked BEFORE the chooser opens (a stale count is still caught by the server's 402). */
   const openNew = (source?: SourceId) => {
@@ -708,9 +494,7 @@ function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: Resu
 
   return (
     <div data-consultant-resumes data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="My Resumes" subtitle="Manage your professional resumes, customize for different opportunities, and keep them up to date." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="My Resumes" subtitle="Your resumes, and the ones your marketer prepared for your approval." />
 
       {status === "failed" ? (
         <ErrorState what="your resumes" description="Your resumes didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
@@ -719,40 +503,24 @@ function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: Resu
           <div className="flex justify-end">
             <Button variant="accent" className="w-full sm:w-auto" onClick={() => openNew()} data-create-resume>
               <PlusIcon size={16} className="mr-1.5" />
-              Create New Resume
+              Create new resume
             </Button>
           </div>
 
-          <section aria-label="Key numbers" data-resumes-tiles className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
-            {TILE_SPECS.map((s, i) => (
-              <Tile key={s.key} spec={s} view={loading ? null : view} index={i} />
-            ))}
-          </section>
-
           {view ? (
-            <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.36fr)]">
+            <div className="grid gap-4 sm:gap-5">
               <div className="grid min-w-0 content-start gap-4 sm:gap-5">
                 <Card
                   id="resumes-table"
-                  title="My Resumes"
+                  title="My resumes"
                   icon={FileTextIcon}
                   extra={
                     <Select variant="pill" value={sort} onChange={(v) => setSort(v as SortKey)} options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} aria-label="Sort resumes by" leadingIcon={<span className="text-muted">Sort by:</span>} />
                   }
                 >
-                  {view.resumes.length === 0 ? <Empty>You don&apos;t have a resume yet. Resumes you or your organization add for you will be listed here.</Empty> : <ResumeTable rows={sortResumes(view.resumes, sort)} actions={actions} />}
+                  {view.resumes.length === 0 ? <Empty>You don&apos;t have a resume yet. Resumes you or your marketer add will be listed here.</Empty> : <ResumeTable rows={sortResumes(view.resumes, sort)} actions={actions} />}
                 </Card>
-                <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 2xl:grid-cols-[1.15fr_1fr_1fr]">
-                  <ResumeStrength view={view} />
-                  <Improvements view={view} busy={busy !== null} onPrimary={(id) => void makePrimary(id)} />
-                  <div className="lg:col-span-2 2xl:col-span-1">
-                    <RecentActivity view={view} />
-                  </div>
-                </div>
-              </div>
-              <div className="grid min-w-0 content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-1">
-                <BeeCard name={firstName(first)} body="Create, tailor, and optimize your resumes for every opportunity. Get expert tips, improve your content, and make your resume stand out." />
-                <QuickActions onNew={openNew} />
+                <ResumeStrength view={view} />
               </div>
             </div>
           ) : (

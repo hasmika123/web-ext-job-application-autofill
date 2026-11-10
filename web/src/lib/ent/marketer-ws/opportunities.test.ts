@@ -21,8 +21,8 @@ describe("parseOpportunities", () => {
   });
 
   it("keeps only known KPI keys and drops a non-numeric delta", () => {
-    const v = parseOpportunities({ kpis: [{ key: "open", value: 86, deltaPct: "x", sparkline: [1, "a", 3] }, { key: "bogus", value: 1 }] })!;
-    expect(v.kpis).toEqual([{ key: "open", value: 86, deltaPct: null, sparkline: [1, 3] }]);
+    const v = parseOpportunities({ kpis: [{ key: "awaiting", value: 86, deltaPct: "x", sparkline: [1, "a", 3] }, { key: "bogus", value: 1 }] })!;
+    expect(v.kpis).toEqual([{ key: "awaiting", value: 86, deltaPct: null, sparkline: [1, 3] }]);
   });
 
   it("falls back to safe values for an unknown interest, action, resume state and status", () => {

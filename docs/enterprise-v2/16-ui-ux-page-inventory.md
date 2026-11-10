@@ -128,10 +128,10 @@ the platform groups' layouts; `(tenant)/%5Ft/layout.tsx` mounts none of it.
 
 | `workspace_key` | Label | URL prefix | Home | Primary for templates | Bottom tabs (phone) |
 |---|---|---|---|---|---|
-| `ADMIN` | Administration | `/w/admin` | Org Admin Dashboard (14) | OWNER, ORG_ADMIN | Home · Employees · Consultants · Billing · More |
+| `ADMIN` | Administration | `/w/admin` | Org Admin Dashboard (14) | OWNER, ORG_ADMIN | Home · Employees · Consultants · Applications · More |
 | `MARKETING` | Marketing | `/w/marketing` | Marketer Home (§6.3) | MARKETING_SPECIALIST | Home · My talent · Jobs · Tasks · More |
 | `MARKETING_MGMT` | Marketing management | `/w/marketing-mgmt` | Manager Home | MARKETING_MANAGER | Home · Team · Approvals · Pipeline · More |
-| `CONSULTANT` | My workspace | `/w/consultant` | Consultant Home (§6.2) | CONSULTANT | Home · Matches · Applications · Interviews · More |
+| `CONSULTANT` | My workspace | `/w/consultant` | Consultant Home (§6.2) | CONSULTANT | Home · Opportunities · Applications · Interviews · More |
 | `HR` | People | `/w/hr` | HR Home | HR_SPECIALIST, TALENT_ACQUISITION | Home · Employees · Onboarding · Compliance · More |
 | `FINANCE` | Finance | `/w/finance` | Finance Home | FINANCE_SPECIALIST | Home · Subscriptions · Invoices · Timesheets · More |
 | `ACCOUNTS` | Clients | `/w/accounts` | Account Manager Home | ACCOUNT_MANAGER | Home · Clients · Requirements · Submissions · More |
@@ -177,55 +177,57 @@ Columns: **Page** (nav label → URL) · **Component** (shared page module under
 the API re-checks with scope) · **Entitlement / module** · **Empty state** · **Story**.
 "Scope" says which rows the same component shows in this workspace.
 
+**UI refresh Phase 1 (2026-10-19, `ui-refresh/PHASE1-STRUCTURE-AND-CONTENT.md`):** the ADMIN, MARKETING and CONSULTANT menus
+are drawn in labelled groups (`groups` + each item's `group` in `workspaces.json`), and pages that were one job split in
+several rows became tabs of one page. The old addresses redirect to the tab (listed under each table); pages that left the
+Administration menu entirely (Subscription Overview, Consultant Licenses, Feature Usage, HR, Finance, Domains, Integrations)
+are no longer nav data. Plan & Billing is the one "Soon" row.
+
 ### 5.1 ADMIN — Organization Admin
 | Page | Component | Data source | Permission | Module | Empty state | Story |
 |---|---|---|---|---|---|---|
 | Home → `/w/admin` | `OrgAdminDashboard` | `GET /api/orgs/{id}/dashboard` (14 §2) | `dashboard.view_org` | — | checklist | X2.4 |
-| Employees → `/w/admin/employees` | `EmployeesPage` (15 §3) | `GET …/members` | `member.view_summary`, `members.invite` | — | "It's just you so far" | X4.3, X4.4, X4.6 |
-| Invitations → `/w/admin/invitations` | `InvitationsPage` (its own board, design/enterprise-admin/invitations.png: counters, table, invite panel, activity; `badge: attention` with the INVITED count) | `GET …/invitations`, `…/counts`, `…/activity` | `members.invite` | — | "No invitations yet" → [Invite your first teammate] | X4.12 |
-| Teams → `/w/admin/teams` | `TeamsPage` (15 §6; departments + teams on one page; §25's two items become one page with two sections — the Departments nav item deep-links `#departments`) | `GET …/groups` | `groups.manage` | — | "Group people into departments and teams" | X4.5 |
-| Departments → `/w/admin/departments` | same | | | | | |
-| Roles & Permissions → `/w/admin/roles` | `RolesPage` | `GET …/roles`, `GET …/roles/{id}` | `roles.manage` (view: `member.view_summary`) | `flag.enterprise.roles` | "Start from a template" | X4.1 |
+| Employees → `/w/admin/employees` | `EmployeesPage` (15 §3), tabs Employees · Invitations (`?tab=invitations`: the invitations table; `badge: attention` moved here) | `GET …/members`, `GET …/invitations`, `…/counts` | `member.view_summary`, `members.invite` | — | "It's just you so far" / "No invitations yet" | X4.3, X4.4, X4.6, X4.12 |
+| Teams & Departments → `/w/admin/teams` | `TeamsPage` + `DepartmentsPage` as tabs Teams · Departments (`?tab=departments`) | `GET …/groups` | `groups.manage` | — | "Group people into departments and teams" | X4.5 |
+| Roles → `/w/admin/roles` | `RolesPage` | `GET …/roles`, `GET …/roles/{id}` | `roles.manage` (view: `member.view_summary`) | `flag.enterprise.roles` | "Start from a template" | X4.1 |
 | Consultants → `/w/admin/consultants` | `ConsultantDirectory` (D, X7.1) scope ORG | `GET …/consultants` | `consultants.view` | marketing (directory itself is Phase 7) | "No consultants yet" → [Invite consultants] | X7.1 (D) |
+| Assignments → `/w/admin/marketing-assignments` | `MarketingAssignmentsPage` (live, ent-marketing) | `GET …/marketing-assignments/*` | `assignments.manage`, `workload.view` | — | "Pair consultants with marketers" | X4.7 (D) |
 | Resumes → `/w/admin/resumes` | `OrgResumesPage` (D, X7.3) scope ORG | `GET …/resumes` | `resumes.view_for` | marketing | "No resumes shared with Acme yet" (explains consent) | X7.3 (D) |
-| Marketing Assignments → `/w/admin/marketing-assignments` | `MarketingAssignmentsPage` (live, ent-marketing) | `GET …/marketing-assignments/*` | `assignments.manage`, `workload.view` | — | "Pair consultants with marketers" | X4.7 (D) |
 | Jobs → `/w/admin/jobs` | `OrgJobsPage` (D, X8.2 job banks) scope ORG | `GET …/jobs` | `pipeline.view` | marketing | "No curated jobs yet" | X8.2 (D) |
 | Applications → `/w/admin/applications` | `OrgApplicationsPage` (D, X9.4) scope ORG, consent-projected | `GET …/applications` | `member.view_summary` | — (Phase 2 shows the consent-based list from 18f2123's overview; full page Phase 9) | "Nobody is sharing progress yet" | X9.4 (D) |
 | Interviews → `/w/admin/interviews` | `OrgInterviewsPage` (D, X9.6) | `GET …/interviews` | `member.view_summary` | — | "No interviews scheduled" | X9.6 (D) |
 | Clients → `/w/admin/clients` | `ClientsPage` (D, X10.1) scope ORG | `GET …/clients` | `clients.view` | marketing | "Add your first client" | X10.1 (D) |
 | Placements → `/w/admin/placements` | `PlacementsPage` (live, ent-placements) | `GET …/placements/*` (list, counts, filters, pickers, detail, actions) | `placements.view` or `placements.manage` | — | "No placements yet" | X10.4 |
-| Subscription Overview → `/w/admin/subscription` | `SubscriptionOverview` (C, X6.1) | `GET …/billing/overview` | `billing.view` | billing | status card | X6.1 (C) |
-| Consultant Licenses → `/w/admin/licenses` | `LicensesPage` (C, X6.2) | `GET …/licenses` | `licenses.view` | billing | "Assign the first license" | X6.2 (C) |
-| Billing → `/w/admin/billing` | `BillingPage` (C, X6.4) | `GET …/billing` | `billing.view` | billing | "Billing isn't connected" (dev) | X6.4 (C) |
-| Feature Usage → `/w/admin/usage` | `UsagePage` (C, X6.5) | `GET …/usage` | `usage.view` | billing | "No usage yet" | X6.5 (C) |
-| HR → `/w/admin/hr` | link tile page to the HR workspace (admins who also hold HR see it in the switcher; admins without HR see a read-only summary from `hr.view`) | `GET …/hr/summary` | `hr.view` | hr_finance | "HR arrives with Phase 11" | X11.3 (D) |
-| Finance → `/w/admin/finance` | as HR, `finance.view` | `GET …/finance/summary` | `finance.view` | hr_finance | — | X11.4 (D) |
 | Reports → `/w/admin/reports` | `ReportsPage` (Phase 12; Phase 2 ships the audited CSV exports hub) | `GET …/reports` | `reports.view` | — | "Exports appear here" | X12.7 (E) / X4.9 (exports hub) |
-| Organization Branding → `/w/admin/branding` | `BrandingPage` (11 §1) | `GET/PATCH …/branding/draft`, `POST …/publish` | `branding.manage` | — | — (always has defaults) | X2.5 |
-| Domains → `/w/admin/domains` | `DomainsPage` (10) | `GET …/hostnames` | `domains.manage` | `flag.enterprise.domains` | "Your workspace is at acme.kiwiply.com. Add your own domain." | X3.1–X3.5 |
-| Integrations → `/w/admin/integrations` | `IntegrationsPage` (Phase 12) — hidden until the module | — | `integrations.manage` | integrations | — | X12.3 (E) |
-| Audit Logs → `/w/admin/audit` | `AuditLogPage` | `GET …/audit` | `audit.view` | — | "No activity yet" | X4.9 |
-| Settings → `/w/admin/settings` | `OrgSettingsPage` (14 §4) | `GET/PATCH /api/orgs/{id}`, `…/settings` | `org.settings.manage` | — | — | X2.9 |
-| Policies → `/w/admin/policies` | `PoliciesPage` (62): one editor per policy kind, preview, Start from template, Save draft, Submit for review / Withdraw, reviewer comment, history | `GET …/policies[/{kind}]`, `PUT …/{kind}/draft`, `POST …/{kind}/template\|submit\|withdraw` | `org.settings.manage` | `enterprise.policies.kinds` | "Template shown" until a policy is published | 62 (ADM-120..122) |
+| Audit Log → `/w/admin/audit` | `AuditLogPage` | `GET …/audit` | `audit.view` | — | "No activity yet" | X4.9 |
+| Branding → `/w/admin/branding` | `BrandingPage` (11 §1) | `GET/PATCH …/branding/draft`, `POST …/publish` | `branding.manage` | — | — (always has defaults) | X2.5 |
+| Settings → `/w/admin/settings` | `OrgSettingsPage` (14 §4), tabs General · Security · Autopilot · Resumes · Policies (`?tab=policies`: `PoliciesPage` (62), one editor per policy kind) | `GET/PATCH /api/orgs/{id}`, `…/settings`, `GET …/policies[/{kind}]` | `org.settings.manage` | — | — | X2.9, 62 |
+| Plan & Billing → `/w/admin/billing` | "Soon" (the on-the-way page) until `BillingPage` (C, X6.4) | `GET …/billing` | `billing.view` | billing | "Billing isn't connected" (dev) | X6.4 (C) |
 | My Profile | avatar menu → `/me` (13) — **not** a nav item | | | | | X2.7 |
+
+Redirects (Phase 1 refresh): `/w/admin/invitations` → `/w/admin/employees?tab=invitations`; `/w/admin/departments` →
+`/w/admin/teams?tab=departments`; `/w/admin/policies` → `/w/admin/settings?tab=policies`. Groups: People (Employees,
+Teams & Departments, Roles) · Talent (Consultants, Assignments, Resumes) · Pipeline (Jobs, Applications, Interviews,
+Clients, Placements) · Organization (Reports, Audit Log, Branding, Settings, Plan & Billing).
 
 ### 5.2 MARKETING — Talent Marketing Specialist (D owns the pages; B owns the nav/shell contract)
 | Page | Component (scope ASSIGNED) | Data source | Permission | Module | Empty state | Story |
 |---|---|---|---|---|---|---|
 | Home → `/w/marketing` | `MarketerHome` (§6.3) | `GET …/me/marketing/home` | `consultants.view` (ASSIGNED) | marketing | "No consultants assigned to you yet" (mascot peek) | X8.1 (D) |
-| My Assigned Talent → `/w/marketing/talent` | `ConsultantDirectory` scope ASSIGNED | `GET …/consultants?assigned=me` | `consultants.view` | marketing | same | X8.1 (D) |
+| My Talent → `/w/marketing/talent` | `ConsultantDirectory` scope ASSIGNED | `GET …/consultants?assigned=me` | `consultants.view` | marketing | same | X8.1 (D) |
 | Resumes → `/w/marketing/resumes` | `OrgResumesPage` scope ASSIGNED | `GET …/resumes?assigned=me` | `resumes.view_for` | marketing | "Ask your consultants to share a resume" | X7.3 (D) |
-| Job Discovery → `/w/marketing/jobs` | `JobDiscoveryPage` (beneficiary picker) | `GET …/jobs/search?for=…` | `matches.run` | marketing + `ai.job_matching` (beneficiary) for AI ranking | "Pick a consultant to search for" | X8.2 (D) |
-| Job Matches → `/w/marketing/matches` | `MatchesPage` | `GET …/matches?assigned=me` | `matches.run` | marketing + entitlement | "Run a match to see suggestions" | X8.3 (D) |
+| Jobs → `/w/marketing/jobs` | tabs Openings (`JobDiscoveryPage`, beneficiary picker) · Matches (`?tab=matches`, `JobMatchesPage`) · Sources (`?tab=sources`, `JobStreamsPage`: job-source feeds, sync health) | `GET …/jobs/search?for=…`, `GET …/matches?assigned=me`, `GET …/mkt/streams` | `matches.run` | marketing + `ai.job_matching` (beneficiary) for AI ranking | "Pick a consultant to search for" | X8.2, X8.3 (D) |
 | Opportunities → `/w/marketing/opportunities` | `OpportunitiesPage` | `GET …/opportunities?mine` | `opportunities.manage` | marketing | "Assign the first opportunity" | X8.4 (D) |
-| Job Streams → `/w/marketing/streams` | `JobStreamsPage` (job-source feeds, sync health) | `GET …/mkt/streams` | `matches.run` | marketing | "Connect your first job source" | X8.2 (D) |
 | Submissions → `/w/marketing/submissions` | `SubmissionsPage` (records only, ADR-010; E1 answered 2026-10-12: consultants submit) | `GET …/submissions?mine` | `submissions.record` | marketing | "Nothing recorded yet" | X10.3 (D) |
 | Applications → `/w/marketing/applications` | `OrgApplicationsPage` scope ASSIGNED | `GET …/applications?assigned=me` | `member.view_summary` (ASSIGNED) | — | consent copy | X9.4 (D) |
 | Interviews → `/w/marketing/interviews` | `OrgInterviewsPage` scope ASSIGNED | `GET …/interviews?assigned=me` | `interviews.coordinate` | marketing | "No interviews yet" | X9.5/X9.6 (D) |
-| Follow-ups → `/w/marketing/followups` | `FollowupsPage` | `GET …/followups?mine` | `followups.manage` | marketing | "You're all caught up" (mascot celebrate, once) | X8.6 (D) |
-| Tasks → `/w/marketing/tasks` | same component, tab | same | same | marketing | same | X8.6 (D) |
-| Activities → `/w/marketing/activity` | `ActivityFeed` (pipeline_event, mine) | `GET …/activity?mine` | `pipeline.view` | marketing | "No activity yet" | X8.6 (D) |
+| Tasks → `/w/marketing/tasks` | tabs Tasks · Follow-ups (`?tab=followups`, `FollowupsPage`) | `GET …/followups?mine` | `followups.manage` | marketing | "You're all caught up" | X8.6 (D) |
+| Activity → `/w/marketing/activity` | `ActivityFeed` (pipeline_event, mine) | `GET …/activity?mine` | `pipeline.view` | marketing | "No activity yet" | X8.6 (D) |
 | Performance → `/w/marketing/performance` | `MarketerPerformance` | `GET …/me/marketing/performance` | `reports.view` (ASSIGNED) | marketing | "Numbers appear after your first week" | X8.7 (D) |
+
+Redirects (Phase 1 refresh): `/w/marketing/matches` → `/w/marketing/jobs?tab=matches`; `/w/marketing/streams` →
+`/w/marketing/jobs?tab=sources`; `/w/marketing/followups` → `/w/marketing/tasks?tab=followups`. Groups: Talent (My Talent,
+Resumes) · Pipeline (Jobs, Opportunities, Submissions, Applications, Interviews) · My work (Tasks, Activity, Performance).
 
 ### 5.3 MARKETING_MGMT — Marketing Manager
 | Page | Component (scope TEAM) | Data source | Permission | Module | Empty state | Story |
@@ -243,25 +245,27 @@ the API re-checks with scope) · **Entitlement / module** · **Empty state** · 
 | Page | Component | Data source | Permission | Entitlement | Empty state | Story |
 |---|---|---|---|---|---|---|
 | Home → `/w/consultant` | `ConsultantHome` (§6.2) | `GET …/me/consultant/home` | `self.*` | — | first-run checklist | X9.1 (D) |
-| My Career Profile → `/w/consultant/profile` | existing career profile editor (`profiles`) + org overlay tab (D, X7.2) | `/api/profile`, `GET/PATCH …/me/consultant-profile` | `self.*` | — | setup flow | X7.2 (D) |
+| My Profile → `/w/consultant/profile` | existing career profile editor (`profiles`) + org overlay tab (D, X7.2) | `/api/profile`, `GET/PATCH …/me/consultant-profile` | `self.*` | — | setup flow | X7.2 (D) |
 | My Resumes → `/w/consultant/resumes` | existing `ResumesWorkspace` + "Shared with Acme" chips and approval requests (D, X7.3/7.4) | `/api/resumes`, `…/me/org-resumes` | `resumes.manage` (OWN) | — | existing upload empty state | X7.4 (D) |
-| My Marketer → `/w/consultant/marketer` | `MyMarketer` (your marketer, focus opportunities, follow-ups; messages, action plan and notes are marked SAMPLE until the marketing workspace is connected) | `GET …/me-workspace/marketer` | `opportunities.respond` | — | "No marketer assigned yet" | consultant workspace |
-| Job Discovery → `/w/consultant/job-discovery` | `JobDiscovery` (jobs the marketer loaded: quick info + source link `cws_job_source`, **Open job link** then apply with the extension; a full in-app job search is a later phase) | `GET …/me-workspace/job-discovery/…` | `opportunities.respond` | — | "No jobs loaded yet" | consultant workspace |
-| Job Matches → `/w/consultant/matches` | existing matches page scoped to org matches (`opportunity_match` for me) + personal matches are **not** shown here (ADR-018) | `GET …/me/matches` | `opportunities.respond` | `ai.job_matching` via Acme (the page says "Provided by Acme") | "No matches yet — your marketer is on it" | X9.1 (D) |
-| Assigned Opportunities → `/w/consultant/opportunities` | `MyOpportunities` (accept / decline / authorize) | `GET …/me/opportunities` | `opportunities.respond`, `submissions.authorize` | — | "Nothing assigned yet" | X8.5/X9.2 (D) |
+| Availability → `/w/consultant/availability` | `MyAvailability` (calendar, blocked dates, history; work preferences live on My Profile) | `GET/PUT …/me-workspace/availability` | `self.*` | — | "No blocked dates" | consultant workspace |
+| Opportunities → `/w/consultant/opportunities` | tabs Assigned (`MyOpportunities`: accept / decline / authorize, Prepare selected) · Matches (`?tab=matches`: org matches, `opportunity_match` for me; personal matches are **not** shown, ADR-018) · Browse (`?tab=browse`: jobs the marketer loaded, quick info + source link `cws_job_source`, **Open job link** then apply with the extension) | `GET …/me/opportunities`, `GET …/me/matches`, `GET …/me-workspace/job-discovery/…` | `opportunities.respond`, `submissions.authorize` | `ai.job_matching` via Acme for Matches | "Nothing assigned yet" | X8.5/X9.1/X9.2 (D) |
 | My Applications → `/w/consultant/applications` | existing tracker list, filtered to org-linked applications + "link an application" | `/api/applications`, `…/me/application-links` | `applications.manage` (OWN) | — | existing | X9.2 (D) |
-| Submissions & Approvals → `/w/consultant/submissions` | `MySubmissions` (approve or decline what the marketer prepared; Kiwiply never submits) | `GET …/me-workspace/submissions`, `POST …/{id}/approve|decline` | `submissions.authorize` | — | "Nothing waiting for your approval" | consultant workspace |
-| Interviews → `/w/consultant/interviews` | existing interviews + proposed slots to confirm | `/api/interviews`, `…/me/interview-slots` | `interviews.manage` (OWN) | — | existing | X9.5 (D) |
-| Interview Prep → `/w/consultant/interview-prep` | existing interview-prep gated by entitlement (402 card when not licensed) | `/api/interview-prep` with workspace context | `self.*` | `interview.ai_prep` | "Not included in your license" | X9.7 (D) |
+| Submissions → `/w/consultant/submissions` | `MySubmissions` (approve or decline what the marketer prepared; Kiwiply never submits) | `GET …/me-workspace/submissions`, `POST …/{id}/approve|decline` | `submissions.authorize` | — | "Nothing waiting for your approval" | consultant workspace |
+| Interviews → `/w/consultant/interviews` | tabs Schedule (existing interviews + proposed slots to confirm) · Prepare (`?tab=prepare`: interview prep gated by entitlement, 402 card when not licensed) | `/api/interviews`, `…/me/interview-slots`, `/api/interview-prep` with workspace context | `interviews.manage` (OWN) | `interview.ai_prep` for Prepare | existing | X9.5, X9.7 (D) |
 | Offers → `/w/consultant/offers` | `MyOffers` | `GET …/me/offers` | `offers.respond` | — | "No offers yet" | X9.8 (D) |
 | My Placement → `/w/consultant/placements` | `MyPlacements` (+ declare) | `GET …/me/placements` | `self.*` | — | — | X10.6 (D) |
-| Availability → `/w/consultant/availability` | `MyAvailability` (calendar, blocked dates, work preferences, history) | `GET/PUT …/me-workspace/availability` | `self.*` | — | "No blocked dates" | consultant workspace |
-| Tasks & Follow-ups → `/w/consultant/tasks` | `MyTasks` (own tasks and follow-ups) | `GET/POST/PUT/DELETE …/me-workspace/tasks` | `applications.manage` (OWN) | — | "All caught up" | consultant workspace |
-| Activity Timeline → `/w/consultant/activity-timeline` | `ActivityTimeline` (read-only merge of your own events) | `GET …/me-workspace/activity-timeline` | `self.*` | — | "No activity yet" | consultant workspace |
-| Inbox → `/w/consultant/inbox` | `ConsultantInbox` (your own Gmail: guided connect, status, what the mail suggests and the applications it moved; the organization sees only the resulting stage) | `GET/POST/DELETE …/me-workspace/inbox` (+ `/notify`, `/suggestions`, `/updates`) | `applications.manage` (SELF) + license feature `inbox.monitoring` | `FEATURE_NOT_LICENSED` card | "Your organization's license doesn't include inbox tracking" | ent-inbox (18-consultant-inbox.md) |
-| My Features → `/w/consultant/features` | `MyFeatures` (base + features, allowances, "Provided by Acme", consent per feature) | `GET …/me/entitlements` | `features.view` | — | "Your organization hasn't assigned a license yet" | X6.3 (C) / X7.6 (D consent) |
-| Notifications → `/w/consultant/notifications` | existing notifications page | `/api/notifications` | — | — | existing | X9.1 (D) |
-| Settings → `/w/consultant/settings` | consent scope + leave org (from `/me#memberships`, 13) and notification prefs — **not** personal billing/plan (that stays on kiwiply.com) | `/api/me/orgs/{id}/share` | `self.share_scope.set` | — | — | X2.7 |
+| Tasks → `/w/consultant/tasks` | `MyTasks` (own tasks and follow-ups) | `GET/POST/PUT/DELETE …/me-workspace/tasks` | `applications.manage` (OWN) | — | "All caught up" | consultant workspace |
+| Activity → `/w/consultant/activity` | tabs Needs attention (notifications) · Timeline (`?tab=timeline`: `ActivityTimeline`, read-only merge of your own events) | `/api/notifications`, `GET …/me-workspace/activity-timeline` | — | — | "No activity yet" | X9.1 (D), consultant workspace |
+| Email Tracking → `/w/consultant/inbox` | `ConsultantInbox` (your own Gmail: guided connect, status, what the mail suggests and the applications it moved; the organization sees only the resulting stage) | `GET/POST/DELETE …/me-workspace/inbox` (+ `/notify`, `/suggestions`, `/updates`) | `applications.manage` (SELF) + license feature `inbox.monitoring` | `FEATURE_NOT_LICENSED` card | "Your organization's license doesn't include inbox tracking" | ent-inbox (18-consultant-inbox.md) |
+| My Marketer → `/w/consultant/marketer` | `MyMarketer` (your marketer; messages and notes are marked SAMPLE until the marketing workspace is connected) | `GET …/me-workspace/marketer` | `opportunities.respond` | — | "No marketer assigned yet" | consultant workspace |
+| Settings → `/w/consultant/settings` | tabs Privacy · Appearance · Plan & features (`?tab=features`: `MyFeatures`, base + features, allowances, shown with `features.view`) — **not** personal billing/plan (that stays on kiwiply.com) | `/api/me/orgs/{id}/share`, `GET …/me/entitlements` | `self.share_scope.set` | — | — | X2.7, X6.3 (C) |
+
+Redirects (Phase 1 refresh): `/w/consultant/job-discovery` → `/w/consultant/opportunities?tab=browse`; `/w/consultant/matches`
+→ `?tab=matches`; `/w/consultant/interview-prep` → `/w/consultant/interviews?tab=prepare`; `/w/consultant/activity-timeline` →
+`/w/consultant/activity?tab=timeline`; `/w/consultant/notifications` → `/w/consultant/activity?tab=attention`;
+`/w/consultant/features` → `/w/consultant/settings?tab=features`. Groups: Me (My Profile, My Resumes, Availability) · Work
+(Opportunities, Submissions, My Applications, Interviews, Offers, My Placement) · Keep up (Tasks, Activity, Email Tracking,
+My Marketer); Settings stands alone at the end.
 
 ### 5.5 HR — HR Specialist / Talent Acquisition (D owns pages, Phase 11)
 | Page | Component | Data source | Permission | Module | Story |

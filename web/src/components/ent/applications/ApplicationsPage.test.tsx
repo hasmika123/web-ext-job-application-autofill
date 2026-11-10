@@ -176,7 +176,7 @@ const PERMS = { "pipeline.view": "ORG", "submissions.prepare": "ORG", "submissio
 async function mount(over: { permissions?: Record<string, string> } = {}) {
   const out = render(
     <ToastProvider>
-      <ApplicationsPage orgId={2} orgName="Acme Corp" workspace="admin" permissions={over.permissions ?? PERMS} jobsHref="/w/admin/jobs" consultantsHref="/w/admin/consultants" supportEmail={null} />
+      <ApplicationsPage orgId={2} orgName="Acme Corp" workspace="admin" permissions={over.permissions ?? PERMS} jobsHref="/w/admin/jobs" consultantsHref="/w/admin/consultants" />
     </ToastProvider>,
   );
   await settle(0);
@@ -212,25 +212,19 @@ afterEach(() => {
 });
 
 describe("Applications: the list", () => {
-  it("shows the four tiles, the table and the range like the board", async () => {
+  it("shows the four plain tiles, the table and the range, and no help card", async () => {
     await mount();
     expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["total", "inReview", "interviewing", "offers"]);
     expect(document.querySelector("[data-kpi=total] [data-kpi-value]")?.textContent).toBe("3");
     expect(rows().map((r) => r.getAttribute("data-row-id"))).toEqual(["1", "2", "3"]);
     expect(screen.getByText("1-3 of 3 applications")).toBeTruthy();
-    expect(document.querySelector("[data-help-bee]")).toBeTruthy();
+    expect(document.querySelector("[data-help-bee]")).toBeNull();
+    expect(screen.queryByText("Streamline your hiring pipeline")).toBeNull();
+    expect(document.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(document.querySelector("[data-kpi] [data-sparkline]")).toBeNull();
     const first = listCalls()[0];
     expect(first.params.get("sort")).toBe("applied,desc");
     expect(first.params.get("size")).toBe("10");
-  });
-
-  it("draws a delta and a sparkline from the API only; a tile with no history shows neither a delta nor an invented one", async () => {
-    await mount();
-    const total = document.querySelector("[data-kpi=total]")!;
-    expect(total.querySelector("[data-kpi-delta]")?.textContent).toContain("vs last month");
-    expect(total.querySelector("svg[data-sparkline]")).toBeTruthy();
-    expect(document.querySelector("[data-kpi=inReview] [data-kpi-delta]")).toBeNull();
-    expect(document.querySelector("[data-kpi=offers] [data-kpi-delta]")).toBeNull();
   });
 
   it("closed applications read N/A for their next action and stages show as pills", async () => {
@@ -277,7 +271,7 @@ describe("Applications: the list", () => {
     fireEvent.click(screen.getByTitle("Sort by job title"));
     await settle();
     expect(listCalls().at(-1)!.params.get("sort")).toBe("job,asc");
-    expect(document.querySelector("th[aria-sort=ascending]")?.textContent).toContain("Job Title");
+    expect(document.querySelector("th[aria-sort=ascending]")?.textContent).toContain("Job title");
     expect(url.get().get("sort")).toBe("job,asc");
   });
 
@@ -317,7 +311,7 @@ describe("Applications: the drawer", () => {
     await mount();
     fireEvent.click(rows()[0]);
     await settle();
-    expect(screen.getByText(/never submits an application/i)).toBeTruthy();
+    expect(screen.getByText(/Applications are never submitted from here/i)).toBeTruthy();
     fireEvent.click(document.querySelector("[data-move-trigger]")!);
     fireEvent.click(screen.getByRole("menuitem", { name: "Record as Submitted" }));
     await settle();
@@ -374,7 +368,7 @@ describe("Applications: the drawer", () => {
 describe("Applications: the other tabs", () => {
   it("builds the pipeline from the same rows, one column per stage", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("tab", { name: /Pipeline View/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /Pipeline/ }));
     await settle();
     expect(url.get().get("tab")).toBe("pipeline");
     expect(document.querySelectorAll("[data-kanban-column]")).toHaveLength(6);
@@ -404,7 +398,7 @@ describe("Applications: adding", () => {
     await mount();
     fireEvent.click(document.querySelector("[data-add-application]")!);
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Add Application" });
+    const dialog = screen.getByRole("dialog", { name: "Add application" });
     expect(dialog.textContent).toContain("doesn't apply anywhere");
     const submit = dialog.querySelector<HTMLButtonElement>("[data-add-submit]")!;
     expect(submit.disabled).toBe(true);
@@ -433,7 +427,7 @@ describe("Applications: the duplicate and cap guards (Sprint 2 / B1)", () => {
     await mount();
     fireEvent.click(document.querySelector("[data-add-application]")!);
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Add Application" });
+    const dialog = screen.getByRole("dialog", { name: "Add application" });
     fireEvent.focus(screen.getByLabelText("Consultant"));
     await settle(400);
     fireEvent.click(within(dialog).getByRole("button", { name: /Sky Spare/ }));

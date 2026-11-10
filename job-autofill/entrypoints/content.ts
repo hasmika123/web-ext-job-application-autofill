@@ -20,6 +20,7 @@ import "../src/content/adapters/ashby.js";
 import "../src/content/adapters/workable.js";
 import "../src/content/adapters/workday.js";
 import "../src/content/adapters/indeed.js";
+import "../src/content/adapters/smartrecruiters.js";
 import "../src/lib/job-capture.js";
 import "../src/lib/app-tracking.js";
 import "../src/content/submit-detect.js";
@@ -50,6 +51,10 @@ export default defineContentScript({
     "https://*.bamboohr.com/*",
     "https://*.jobvite.com/*",
     "https://smartapply.indeed.com/*",
+    // Dev builds only: local stand-in ATS pages (WXT_DEV_ATS_ORIGINS, see wxt.config.ts). Never in a store build.
+    ...(import.meta.env.MODE === "production" || !import.meta.env.WXT_DEV_ATS_ORIGINS
+      ? []
+      : import.meta.env.WXT_DEV_ATS_ORIGINS.split(",").map((o: string) => o.trim().replace(/\/+$/, "") + "/*").filter((o: string) => o !== "/*")),
   ],
   allFrames: true,
   runAt: "document_idle",

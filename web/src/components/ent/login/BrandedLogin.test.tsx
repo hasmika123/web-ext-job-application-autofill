@@ -38,7 +38,7 @@ beforeEach(() => push.mockReset());
 afterEach(cleanup);
 
 describe("BrandedLogin: everything comes from the host's published branding", () => {
-  it("acme: its logo in the slot beside Sign In, the default heading, Microsoft only, its CSS variables", () => {
+  it("acme: its logo in the card's slot, the default heading, Microsoft only, its CSS variables", () => {
     const { container } = render(<Page t={acme} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome Back");
     expect(screen.getByText("Sign in to access your workspace, tasks, and updates.")).toBeTruthy();
@@ -46,20 +46,20 @@ describe("BrandedLogin: everything comes from the host's published branding", ()
     expect(slot?.getAttribute("data-logo-slot")).toBe("logo");
     expect(slot?.querySelector('[data-tenant-logo="image"] img')?.getAttribute("src")).toContain("/tenant-assets/logo");
     expect(container.querySelectorAll("[data-tenant-logo]").length).toBe(1); // the logo appears nowhere else on the page
-    expect(screen.getByText("Contact IT Support").getAttribute("href")).toBe("mailto:it@acme.com");
+    expect(screen.getByText("Contact IT support").getAttribute("href")).toBe("/support");
     expect(screen.getByText("Continue with Microsoft")).toBeTruthy();
     expect(screen.queryByText("Continue with Google")).toBeNull();
-    expect(screen.getByText("Secure access protected by industry standards.")).toBeTruthy();
+    expect(screen.queryByText("Secure access protected by industry standards.")).toBeNull();
     expect(container.querySelector("style")?.textContent).toContain("--brand-600:#0f5fc4");
     expect(container.querySelector("style")?.textContent).toContain("--brand-2-600:#0b7a8a");
   });
 
-  it("S9 (O4): the sign-in says the account belongs to the organization and is separate from a personal Kiwiply account", () => {
+  it("S9 (O4): the sign-in says the account is separate from a personal job-search account, without repeating the organization's name", () => {
     render(<Page t={acme} />);
-    expect(screen.getByText(`Sign in to your ${acme.displayName} account.`)).toBeTruthy();
+    expect(screen.queryByText(`Sign in to your ${acme.displayName} account.`)).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Sign In" })).toBeNull();
     const note = document.querySelector("[data-account-note]")!.textContent!;
-    expect(note).toContain(`Your ${acme.displayName} account belongs to ${acme.displayName}`);
-    expect(note).toContain("separate from any personal Kiwiply account");
+    expect(note).toBe("This account is separate from any personal job-search account.");
   });
 
   it("beta: a wordmark in the slot, its own heading and subtitle, Google only, plain-text help line", () => {
@@ -70,7 +70,7 @@ describe("BrandedLogin: everything comes from the host's published branding", ()
     expect(container.querySelector("img[src*='tenant-assets']")).toBeNull();
     expect(screen.getByText("Continue with Google")).toBeTruthy();
     expect(screen.queryByText("Continue with Microsoft")).toBeNull();
-    expect(screen.getByText("Contact IT Support").tagName).toBe("SPAN");
+    expect(screen.getByText("Contact IT support").getAttribute("href")).toBe("/support");
     expect(container.querySelector("style")?.textContent).toContain("--brand-600:#b4531a");
     expect(container.querySelector("style")?.textContent).toContain("--brand-2-600:#2f6f4e");
   });
@@ -159,9 +159,9 @@ describe("TenantLogo: no tofu, ever", () => {
 
 describe("the sign-in states", () => {
   const fill = async () => {
-    fireEvent.change(screen.getByLabelText("User Name"), { target: { value: "x@acme.com" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "x@acme.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pw" } });
-    fireEvent.click(screen.getByRole("button", { name: /Sign In/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Sign in/ }));
   };
   const answer = (status: number, body: unknown) => vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(body), { status })));
   afterEach(() => vi.unstubAllGlobals());
@@ -178,7 +178,7 @@ describe("the sign-in states", () => {
     await fill();
     await waitFor(() => expect(screen.getByText("You're not a member of Acme")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Use a different account" }));
-    await waitFor(() => expect(screen.getByLabelText("User Name")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("Email")).toBeTruthy());
     cleanup();
 
     answer(502, { error: "down" });

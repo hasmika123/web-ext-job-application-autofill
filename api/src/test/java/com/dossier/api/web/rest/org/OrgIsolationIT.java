@@ -385,6 +385,7 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox", Case.consultantWrite("{\"address\":\"hijack.jobs@gmail.com\",\"appPassword\":\"abcdefghijklmnop\"}", 402)),
         Map.entry("DELETE /api/orgs/{orgId}/me-workspace/inbox", Case.consultantWrite(null, 200)),
         Map.entry("PUT /api/orgs/{orgId}/me-workspace/inbox/notify", Case.consultantWrite("{\"email\":false}", 409)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/check-now", Case.consultantWrite(null, 409)), // no inbox connected in this world
         Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/suggestions", Case.consultantRead()),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/accept", Case.consultantWrite("{\"company\":\"Hijack Co\",\"roleTitle\":\"Hijacked\"}", 404)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/dismiss", Case.consultantWrite(null, 404)),

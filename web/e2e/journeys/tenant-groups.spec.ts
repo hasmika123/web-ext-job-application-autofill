@@ -37,6 +37,8 @@ async function api(page: Page, method: string, path: string, body?: unknown, hea
   );
 }
 const getJson = async (page: Page, path: string) => (await api(page, "GET", path)).json;
+/** A team's row in the Teams tab's directory table (the card grid above it is gone since the UI refresh). */
+const teamRowOf = (page: Page, name: string) => page.getByRole("table", { name: "Team directory" }).getByRole("row").filter({ hasText: name });
 
 async function shot(page: Page, name: string) {
   mkdirSync(SHOTS, { recursive: true });
@@ -58,21 +60,22 @@ test.describe("departments and teams on the real stack", () => {
     const me = await getJson(page, "/api/me/tenant");
     orgId = me.org.id;
 
+    // the old Departments address opens the Departments tab of Teams & Departments
     await page.goto(`${ACME}/w/admin/departments`);
-    const cards = page.getByRole("list", { name: "Departments", exact: true });
-    await expect(cards.getByText("Consulting", { exact: true })).toBeVisible({ timeout: 30_000 });
-    for (const d of ["Marketing", "HR", "Finance", "Operations"]) await expect(cards.getByText(d, { exact: true })).toBeVisible();
-    // the counts on the page are the API's counts
+    await expect(page).toHaveURL(/\/w\/admin\/teams\?tab=departments$/);
+    const directory = page.getByRole("table", { name: "Department directory" });
+    await expect(directory.getByText("Consulting", { exact: true })).toBeVisible({ timeout: 30_000 });
+    for (const d of ["Marketing", "HR", "Finance", "Operations"]) await expect(directory.getByText(d, { exact: true })).toBeVisible();
+    // the counts on the page are the API's counts: the line under the tabs and the Structure tree
     const api = await getJson(page, `/api/orgs/${orgId}/groups/structure`);
     const consulting = api.departments.find((n: { group: { name: string } }) => n.group.name === "Consulting");
-    await expect(page.getByRole("button", { name: new RegExp(`Consulting\\s+${consulting.group.activeCount} employee`) })).toBeVisible();
-    await expect(page.getByText("Total Departments")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Structure" }).getByRole("button", { name: new RegExp(`Consulting\\s+${consulting.group.activeCount} (person|people)`) })).toBeVisible();
+    await expect(page.locator("[data-group-counts]")).toHaveText(/^\d+ departments? · \d+ (person|people)$/);
     await expect(page.getByText(/open positions/i)).toHaveCount(0); // no recruiting data: no tile
     await shot(page, "departments-1440");
 
     await page.goto(`${ACME}/w/admin/teams`);
-    await expect(page.getByRole("list", { name: "Teams", exact: true }).getByText("Bench East")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/Nothing measures team performance yet/)).toBeVisible();
+    await expect(page.getByRole("table", { name: "Team directory" }).getByText("Bench East")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/workload/i)).toHaveCount(0);
     await shot(page, "teams-1440");
   });
@@ -81,21 +84,21 @@ test.describe("departments and teams on the real stack", () => {
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInAs(page, ACME, "Sarah Chen");
-    await page.goto(`${ACME}/w/admin/departments`);
-    await page.getByRole("button", { name: "Create Department", exact: true }).first().click();
-    const sheet = page.getByRole("dialog", { name: "Create Department" });
+    await page.goto(`${ACME}/w/admin/teams?tab=departments`);
+    await page.getByRole("button", { name: "Create department", exact: true }).first().click();
+    const sheet = page.getByRole("dialog", { name: "Create department" });
     await sheet.getByLabel(/Department name/).fill(dept);
     await sheet.getByRole("combobox", { name: "Department lead" }).fill("Hana");
     await sheet.getByRole("option", { name: /Hana Petrov/ }).getByRole("button").click();
     await sheet.getByRole("button", { name: "shield" }).click();
     await sheet.getByRole("button", { name: "Amber" }).click();
     await shot(page, "departments-create-1440");
-    await sheet.getByRole("button", { name: "Create Department", exact: true }).click();
-    await expect(page.getByRole("list", { name: "Departments", exact: true }).getByText(dept)).toBeVisible({ timeout: 30_000 });
+    await sheet.getByRole("button", { name: "Create department", exact: true }).click();
+    await expect(page.getByRole("table", { name: "Department directory" }).getByText(dept)).toBeVisible({ timeout: 30_000 });
 
     await page.goto(`${ACME}/w/admin/teams`);
-    await page.getByRole("button", { name: "Create Team", exact: true }).first().click();
-    const tsheet = page.getByRole("dialog", { name: "Create Team" });
+    await page.getByRole("button", { name: "Create team", exact: true }).first().click();
+    const tsheet = page.getByRole("dialog", { name: "Create team" });
     await tsheet.getByLabel(/Team name/).fill(team);
     await tsheet.getByRole("button", { name: "Department" }).click();
     await page.getByRole("option", { name: dept }).click();
@@ -103,11 +106,11 @@ test.describe("departments and teams on the real stack", () => {
     await tsheet.getByRole("option", { name: /Omar Haddad/ }).getByRole("button").click();
     await tsheet.getByRole("combobox", { name: "Add people to the team" }).fill("Ben");
     await tsheet.getByRole("option", { name: /Ben Okafor/ }).getByRole("button").click();
-    await tsheet.getByRole("button", { name: "Create Team", exact: true }).click();
-    const teamCard = page.locator(`[data-team-card="${team}"]`);
-    await expect(teamCard).toBeVisible({ timeout: 30_000 });
-    await expect(teamCard.getByText("1 member")).toBeVisible();
-    await expect(teamCard.getByText(dept)).toBeVisible();
+    await tsheet.getByRole("button", { name: "Create team", exact: true }).click();
+    const teamRow = teamRowOf(page, team);
+    await expect(teamRow).toBeVisible({ timeout: 30_000 });
+    await expect(teamRow).toContainText(dept);
+    await expect(teamRow).toContainText("Omar Haddad");
     // the API agrees: Ben carries both links
     const dir = await getJson(page, `/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`);
     expect(dir.items[0].parentName).toBe(dept);
@@ -119,7 +122,7 @@ test.describe("departments and teams on the real stack", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInAs(page, ACME, "Sarah Chen");
     await page.goto(`${ACME}/w/admin/teams`);
-    await page.locator(`[data-team-card="${team}"] button`).first().click();
+    await teamRowOf(page, team).getByText(team, { exact: true }).click();
     const sheet = page.getByRole("dialog", { name: team });
     await expect(sheet.getByRole("list", { name: "People in this group" }).getByText("Ben Okafor")).toBeVisible({ timeout: 30_000 });
 
@@ -147,7 +150,7 @@ test.describe("departments and teams on the real stack", () => {
     await shot(page, "teams-detail-1440");
     await sheet.getByRole("button", { name: "Delete" }).click();
     await page.getByRole("button", { name: "Delete team" }).click();
-    await expect(page.locator(`[data-team-card="${team}"]`)).toHaveCount(0, { timeout: 30_000 });
+    await expect(teamRowOf(page, team)).toHaveCount(0, { timeout: 30_000 });
     d = await getJson(page, `/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`);
     expect(d.total).toBe(0);
   });
@@ -161,7 +164,7 @@ test.describe("departments and teams on the real stack", () => {
     ]) {
       await page.setViewportSize({ width: w, height: h });
       for (const p of ["departments", "teams"]) {
-        await page.goto(`${ACME}/w/admin/${p}`);
+        await page.goto(`${ACME}/w/admin/teams${p === "departments" ? "?tab=departments" : ""}`);
         await page.waitForSelector(`[data-page="${p}"]`, { timeout: 30_000 });
         await shot(page, `${p}-${w}`);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -190,7 +193,7 @@ test.describe("departments and teams on the real stack", () => {
     expect(own.departments).toHaveLength(0);
     const write = await api(bp, "POST", `/api/orgs/${orgId}/groups`, { name: "Planted", kind: "DEPARTMENT" });
     expect(write.status).toBe(404);
-    await bp.goto(`${BETA}/w/admin/departments`);
+    await bp.goto(`${BETA}/w/admin/teams?tab=departments`);
     await expect(bp.getByText("Group people into departments and teams")).toBeVisible({ timeout: 30_000 });
     await betaCtx.close();
 

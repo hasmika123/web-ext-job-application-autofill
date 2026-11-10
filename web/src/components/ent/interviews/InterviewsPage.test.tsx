@@ -179,7 +179,7 @@ function answer(c: Call): { status: number; body?: unknown } {
 function mount(permissions: Record<string, string> = { "pipeline.view": "ORG", "interviews.coordinate": "ORG" }) {
   return render(
     <ToastProvider>
-      <InterviewsPage orgId={2} orgName="Acme Staffing" workspace="admin" permissions={permissions} />
+      <InterviewsPage orgId={2} workspace="admin" permissions={permissions} />
     </ToastProvider>,
   );
 }
@@ -195,17 +195,17 @@ afterEach(() => {
 });
 
 describe("the Interviews page", () => {
-  it("draws the four tiles with their figures and honest deltas", async () => {
+  it("draws the four plain tiles with their figures: no delta, no trend line, no help card", async () => {
     mount();
     await screen.findByText("Senior Frontend Developer");
     const tiles = document.querySelector("[data-kpi-tiles]") as HTMLElement;
-    expect(within(tiles).getByText("Total Interviews")).toBeTruthy();
+    expect(within(tiles).getByText("Total interviews")).toBeTruthy();
     expect(tiles.querySelector('[data-kpi="total"] [data-kpi-value]')?.textContent).toBe("124");
-    expect(tiles.querySelector('[data-kpi="total"] [data-kpi-delta]')?.textContent).toContain("+18%");
-    expect(tiles.querySelector('[data-kpi="scheduledThisWeek"] [data-kpi-delta]')?.textContent).toContain("vs last week");
-    // no history 30 days ago: the figure stands alone, no invented delta
     expect(tiles.querySelector('[data-kpi="inProgress"] [data-kpi-value]')?.textContent).toBe("16");
-    expect(tiles.querySelector('[data-kpi="inProgress"] [data-kpi-delta]')).toBeNull();
+    expect(tiles.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(tiles.querySelector("[data-sparkline]")).toBeNull();
+    expect(document.querySelector("[data-help-bee]")).toBeNull();
+    expect(screen.queryByText(/Ask a question/)).toBeNull();
   });
 
   it("lists the interviews with role, code, consultant, status pill and a +N for extra interviewers", async () => {
@@ -232,11 +232,11 @@ describe("the Interviews page", () => {
     mount();
     fireEvent.click(await screen.findByText("Senior Frontend Developer"));
     await waitFor(() => expect(url.get().get("iv")).toBe("1"));
-    const body = await screen.findByText("Interview Progress");
+    const body = await screen.findByText("Interview progress");
     expect(body).toBeTruthy();
     expect(screen.getByText("Technical Interview", { selector: "span" })).toBeTruthy();
     expect(screen.getAllByText("Not scheduled").length).toBeGreaterThan(0);
-    expect(screen.getByText("Meeting Details")).toBeTruthy();
+    expect(screen.getByText("Meeting details")).toBeTruthy();
     expect(screen.getByText("Primary")).toBeTruthy();
     expect(document.querySelector('[data-action="reschedule"]')).toBeTruthy();
     expect(document.querySelector('[data-action="remind"]')).toBeTruthy();
@@ -245,7 +245,7 @@ describe("the Interviews page", () => {
   it("records a status change and offers Undo", async () => {
     mount();
     fireEvent.click(await screen.findByText("Senior Frontend Developer"));
-    await screen.findByText("Interview Progress");
+    await screen.findByText("Interview progress");
     fireEvent.click(document.querySelector("[data-status-trigger]") as HTMLElement);
     fireEvent.click(await screen.findByText("Record as Completed"));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path === "/1/status" && c.body?.status === "COMPLETED")).toBe(true));
@@ -261,14 +261,14 @@ describe("the Interviews page", () => {
     await screen.findByText("Senior Frontend Developer");
     fireEvent.click(document.querySelector("[data-schedule-interview]") as HTMLElement);
     const dialog = await screen.findByRole("dialog");
-    expect((within(dialog).getByText("Schedule interview") as HTMLButtonElement).closest("button")?.disabled).toBe(true);
+    expect((within(dialog).getByRole("button", { name: "Schedule interview" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.focus(within(dialog).getByLabelText("Consultant"));
     fireEvent.click(await within(dialog).findByText("Jessica Davis"));
     fireEvent.focus(await within(dialog).findByLabelText("Application"));
     fireEvent.click(await within(dialog).findByText("Senior Frontend Developer"));
     fireEvent.change(dialog.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: "2026-11-03" } });
     await act(async () => {
-      fireEvent.click(within(dialog).getByText("Schedule interview"));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Schedule interview" }));
     });
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.path === "/")).toBe(true));
     const post = calls.find((c) => c.method === "POST" && c.path === "/")!;
@@ -280,7 +280,7 @@ describe("the Interviews page", () => {
     overrides.push((c) => (/^\/1$/.test(c.path) && c.method === "GET" ? { status: 200, body: detailOf(rowsDb[0], false) } : undefined));
     mount({ "pipeline.view": "ORG" });
     fireEvent.click(await screen.findByText("Senior Frontend Developer"));
-    await screen.findByText("Interview Progress");
+    await screen.findByText("Interview progress");
     expect(document.querySelector("[data-schedule-interview]")).toBeNull();
     expect(document.querySelector('[data-action="reschedule"]')).toBeNull();
     expect(document.querySelector("[data-status-trigger]")).toBeNull();

@@ -26,7 +26,7 @@ for (const { width, height, split } of [
       const submit = (await page.locator('button[type="submit"]').boundingBox())!;
       expect(box.y + box.height, "the username field is above the fold").toBeLessThanOrEqual(height);
       if (split) {
-        expect(submit.y, "the Sign In button starts above the fold").toBeLessThan(height);
+        expect(submit.y, "the Sign in button starts above the fold").toBeLessThan(height);
         expect(box.x, "the form sits on the right half").toBeGreaterThan(width * 0.4);
       }
       // the Demo accounts tab (a dev aid on the mock) stays usable at this width

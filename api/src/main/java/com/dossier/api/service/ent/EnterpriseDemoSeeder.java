@@ -116,7 +116,7 @@ public class EnterpriseDemoSeeder {
 
     public static final String ACME_SLUG = "demo-acme";
     public static final String BETA_SLUG = "demo-beta";
-    public static final String ACME_HOST = "acme.localhost";
+    public static final String ACME_HOST = DemoRoster.HOST;
     public static final String BETA_HOST = "beta.localhost";
 
     /** One seeded person. {@code roles} are template keys, the first is the primary one. {@code status} ACTIVE, SUSPENDED or INVITED. */
@@ -126,7 +126,8 @@ public class EnterpriseDemoSeeder {
         }
 
         public String email(String orgKey) {
-            return first.toLowerCase() + "." + last.toLowerCase() + "@" + orgKey + ".example.com";
+            String domain = "acme".equals(orgKey) ? DemoRoster.DOMAIN : orgKey + ".example.com";
+            return first.toLowerCase() + "." + last.toLowerCase() + "@" + domain;
         }
     }
 
@@ -142,29 +143,34 @@ public class EnterpriseDemoSeeder {
         return new Person(key, first, last, List.of(roles), status);
     }
 
+    /** An Acme person, under the active roster (DemoRoster: same key and roles, the India roster's names when it is on). */
+    private static Person ap(String key, String first, String last, OrgMemberStatus status, String... roles) {
+        return new Person(key, DemoRoster.first(key, first), DemoRoster.last(key, last), List.of(roles), status);
+    }
+
     public static final Tenant ACME = new Tenant(
         "acme",
         ACME_SLUG,
-        "Acme Staffing",
+        DemoRoster.COMPANY,
         OrgType.CONSULTANCY,
         ACME_HOST,
         "#1d5bd8",
         "#f59e0b",
-        "Welcome to Acme Staffing",
+        "Welcome to " + DemoRoster.COMPANY,
         "Sign in to your consultant bench, placements and team workspace.",
-        "support@acme.example.com",
+        "support@" + DemoRoster.DOMAIN,
         List.of(
-            p("sarah", "Sarah", "Chen", OrgMemberStatus.ACTIVE, RoleTemplates.ORG_ADMIN, RoleTemplates.MARKETING_MANAGER),
-            p("omar", "Omar", "Haddad", OrgMemberStatus.ACTIVE, RoleTemplates.MARKETING_SPECIALIST),
-            p("anika", "Anika", "Rao", OrgMemberStatus.ACTIVE, RoleTemplates.CONSULTANT),
-            p("ben", "Ben", "Okafor", OrgMemberStatus.ACTIVE, RoleTemplates.CONSULTANT),
-            p("hana", "Hana", "Petrov", OrgMemberStatus.ACTIVE, RoleTemplates.HR_SPECIALIST),
-            p("felix", "Felix", "Ng", OrgMemberStatus.ACTIVE, RoleTemplates.FINANCE_SPECIALIST),
-            p("amara", "Amara", "Silva", OrgMemberStatus.ACTIVE, RoleTemplates.ACCOUNT_MANAGER),
-            p("tomas", "Tomas", "Berg", OrgMemberStatus.ACTIVE, RoleTemplates.TALENT_ACQUISITION),
-            p("eve", "Eve", "Lindqvist", OrgMemberStatus.ACTIVE, RoleTemplates.EXECUTIVE_VIEWER),
-            p("sam", "Sam", "Whitfield", OrgMemberStatus.SUSPENDED, RoleTemplates.CONSULTANT),
-            p("nina", "Nina", "Vogel", OrgMemberStatus.INVITED, RoleTemplates.CONSULTANT)
+            ap("sarah", "Sarah", "Chen", OrgMemberStatus.ACTIVE, RoleTemplates.ORG_ADMIN, RoleTemplates.MARKETING_MANAGER),
+            ap("omar", "Omar", "Haddad", OrgMemberStatus.ACTIVE, RoleTemplates.MARKETING_SPECIALIST),
+            ap("anika", "Anika", "Rao", OrgMemberStatus.ACTIVE, RoleTemplates.CONSULTANT),
+            ap("ben", "Ben", "Okafor", OrgMemberStatus.ACTIVE, RoleTemplates.CONSULTANT),
+            ap("hana", "Hana", "Petrov", OrgMemberStatus.ACTIVE, RoleTemplates.HR_SPECIALIST),
+            ap("felix", "Felix", "Ng", OrgMemberStatus.ACTIVE, RoleTemplates.FINANCE_SPECIALIST),
+            ap("amara", "Amara", "Silva", OrgMemberStatus.ACTIVE, RoleTemplates.ACCOUNT_MANAGER),
+            ap("tomas", "Tomas", "Berg", OrgMemberStatus.ACTIVE, RoleTemplates.TALENT_ACQUISITION),
+            ap("eve", "Eve", "Lindqvist", OrgMemberStatus.ACTIVE, RoleTemplates.EXECUTIVE_VIEWER),
+            ap("sam", "Sam", "Whitfield", OrgMemberStatus.SUSPENDED, RoleTemplates.CONSULTANT),
+            ap("nina", "Nina", "Vogel", OrgMemberStatus.INVITED, RoleTemplates.CONSULTANT)
         )
     );
 
@@ -379,7 +385,9 @@ public class EnterpriseDemoSeeder {
             seedAuditTrail(org, t, now);
         }
 
-        assign(seatsByOrg.get("acme"), "sarah", "anika", AssignmentKind.PRIMARY, now, counts);
+        // Omar (the Marketing Specialist) looks after both demo consultants: the marketer flows of the demo run as him, and Sarah's second
+        // workspace (Marketing Management) is not built yet, so a consultant assigned to Sarah had no marketer anyone could act as.
+        assign(seatsByOrg.get("acme"), "omar", "anika", AssignmentKind.PRIMARY, now, counts);
         assign(seatsByOrg.get("acme"), "omar", "ben", AssignmentKind.PRIMARY, now, counts);
         if (orgByKey.containsKey("acme") && seatsByOrg.containsKey("acme")) seedStructure(orgByKey.get("acme"), seatsByOrg.get("acme"));
 
@@ -618,8 +626,8 @@ public class EnterpriseDemoSeeder {
             { 33, 2, sarah, "ADMIN", "GROUP_MOVE", "GROUP", null, "LOW", "moved=3 to=East coast team" },
             { 31, 5, sarah, "ADMIN", "GROUP_LEAD", "GROUP", omar, "MEDIUM", "{\"group\":\"East coast team\"}" },
             { 29, 3, sarah, "ADMIN", "ROLE_ASSIGN", "ROLE", omar, "MEDIUM", "{\"role\":\"Senior recruiter\"}" },
-            { 27, 1, sarah, "ADMIN", "ASSIGNMENT_CREATE", "MEMBER", anika, "LOW", "{\"marketer\":\"Omar Haddad\",\"kind\":\"PRIMARY\"}" },
-            { 26, 2, sarah, "ADMIN", "ASSIGNMENT_CREATE", "MEMBER", ben, "LOW", "{\"marketer\":\"Omar Haddad\",\"kind\":\"PRIMARY\"}" },
+            { 27, 1, sarah, "ADMIN", "ASSIGNMENT_CREATE", "MEMBER", anika, "LOW", "{\"marketer\":\"" + DemoRoster.full("omar", "Omar", "Haddad") + "\",\"kind\":\"PRIMARY\"}" },
+            { 26, 2, sarah, "ADMIN", "ASSIGNMENT_CREATE", "MEMBER", ben, "LOW", "{\"marketer\":\"" + DemoRoster.full("omar", "Omar", "Haddad") + "\",\"kind\":\"PRIMARY\"}" },
             { 24, 6, felix, "FINANCE", "BILLING_VIEW", "REPORT", null, "LOW", null },
             { 22, 3, sarah, "ADMIN", "BRANDING_ASSET", "BRANDING", null, "LOW", "{\"asset\":\"logo\",\"action\":\"replaced\"}" },
             { 22, 2, sarah, "ADMIN", "BRANDING_PUBLISH", "BRANDING", null, "LOW", null },

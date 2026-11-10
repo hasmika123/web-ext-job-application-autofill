@@ -83,6 +83,18 @@
     return { month, year };
   }
 
+  // A role's (or a school's) dates: startDate/endDate when the resume keeps them apart, else the single "dates" line resumes on the
+  // web carry ("Mar 2022 - Present", "Jun 2019 – Feb 2022", "2015 to 2017").
+  function expSpan(x) {
+    x = x || {};
+    if (x.startDate || x.endDate) return { start: x.startDate || "", end: x.endDate || "", current: !!x.current || /present|current|now/i.test(x.endDate || "") };
+    const d = String(x.dates || x.period || x.duration || "").trim();
+    if (!d) return { start: "", end: "", current: !!x.current };
+    const parts = d.split(/\s+(?:-|–|—|to|until)\s+|\s*[–—]\s*/i).map((p) => p.trim()).filter(Boolean);
+    const end = parts.length > 1 ? parts[parts.length - 1] : "";
+    return { start: parts[0] || "", end, current: !!x.current || /present|current|now/i.test(end) };
+  }
+
   function blockOf(anchor, siblings) {
     let blk = anchor.parentElement, hops = 0;
     while (blk && hops < 6) {
@@ -123,7 +135,15 @@
         seen.add(el);
         items.push({ el, field, value, label: label || field, kind: kind || kindOf(el), alts: alts || [] });
       };
-      const addIn = (blk, rule, value, label) => { const el = findField(rule, blk); add(el, label, value, label); };
+      // A control nested deeper than autoChain looks (a multiselect prompt's search box sits ~7 levels under its
+      // formField-<name> wrapper) is found through that wrapper instead.
+      const viaWrapper = (blk, rule) => {
+        const w = Array.from((blk || document).querySelectorAll('[data-automation-id^="formField-"]'))
+          .find((x) => M((x.getAttribute("data-automation-id") || "").toLowerCase(), rule));
+        if (!w) return null;
+        return Array.from(w.querySelectorAll('input:not([type="hidden"]), textarea, button[aria-haspopup]')).find((e) => B.isVisible(e)) || null;
+      };
+      const addIn = (blk, rule, value, label) => { const el = findField(rule, blk) || viaWrapper(blk, rule); add(el, label, value, label); };
       const addQuestion = (field, qrule, label) => {
         if (!qrule) return;
         const val = values[field];
@@ -167,6 +187,12 @@
         const sEl = findField(r.fields.state, null, pickDrop);
         if (sEl) add(sEl, f.state, sc[0], "State / Province", kindOf(sEl), sc.slice(1));
       }
+      // ---- How did you hear about us (a multiselect prompt) ----
+      {
+        const srcEl = Array.from(document.querySelectorAll('[data-automation-id="formField-source"] input')).find((e) => B.isVisible(e));
+        if (srcEl && values[f.referralSource]) add(srcEl, f.referralSource, values[f.referralSource], "How did you hear about us", "combo", referralAlts(values[f.referralSource]));
+      }
+
       // ---- Work eligibility & EEO ----
       addQuestion(f.authorizedToWork, r.questions.authorizedToWork, "Authorized to work");
       addQuestion(f.requireSponsorship, r.questions.requireSponsorship, "Needs sponsorship");
@@ -175,6 +201,24 @@
       addQuestion(f.race, r.questions.race, "Race");
       addQuestion(f.veteranStatus, r.questions.veteranStatus, "Veteran status");
       addQuestion(f.disabilityStatus, r.questions.disabilityStatus, "Disability status");
+
+      // ---- Preference questions asked as Workday dropdowns (relocation, work arrangement, how you heard) ----
+      // The generic label keywords (rules.generic) decide which question it is; the profile's answer is picked from the
+      // dropdown's own list (Yes/No questions take the Y/N forms too).
+      {
+        const gen = (JAF.rules.getActive && JAF.rules.getActive().generic) || [];
+        const asks = (e, g) => {
+          const t = ((B.labelText(e) || "") + " " + promptText(e)).toLowerCase();
+          return (g.any || []).some((k) => t.includes(k)) && !(g.neg || []).some((k) => t.includes(k));
+        };
+        for (const [field, label] of [[f.willingToRelocate, "Willing to relocate"], [f.workPreference, "Work preference"], [f.referralSource, "How did you hear about us"]]) {
+          const g = gen.find((x) => x.field === field);
+          const val = values[field];
+          if (!g || val === undefined || val === "") continue;
+          const el = fieldEls().find((e) => !seen.has(e) && (B.isCustomDropdown(e) || e.tagName === "SELECT") && !inPrompt(e) && asks(e, g));
+          if (el) add(el, field, val, label, el.tagName === "SELECT" ? "select" : "combo", field === f.referralSource ? referralAlts(val) : yesNoAlts(val));
+        }
+      }
 
       // ---- Self-Identification of Disability (CC-305) ----
       // A standalone form with its own Name / Date / Language fields and a
@@ -220,15 +264,16 @@
         addIn(blk, r.exp.location, exp.location, `Exp ${n} · Location`);
         const desc = Array.isArray(exp.bullets) && exp.bullets.length ? exp.bullets.map((b) => "• " + b).join("\n") : (exp.description || "");
         addIn(blk, r.exp.description, desc, `Exp ${n} · Description`);
+        const span = expSpan(exp);
         const cur = Array.from(blk.querySelectorAll('input[type="checkbox"]'))
           .find((el) => (r.exp.currentText || ["current"]).some((k) => autoChain(el).includes(k) || (B.labelText(el) || "").toLowerCase().includes(k)));
-        if (cur && exp.current) add(cur, `Exp ${n} · Current role`, "yes", `Exp ${n} · Current role`, "boolean");
-        const s = parseMonthYear(exp.startDate), e = parseMonthYear(exp.endDate);
+        if (cur && span.current) add(cur, `Exp ${n} · Current role`, "yes", `Exp ${n} · Current role`, "boolean");
+        const s = parseMonthYear(span.start), e = parseMonthYear(span.end);
         const months = allInputsChain("month", blk), years = allInputsChain("year", blk);
         if (s.month && months[0]) add(months[0], `Exp ${n} · Start month`, String(s.month), `Exp ${n} · Start month`, "text");
         if (s.year && years[0]) add(years[0], `Exp ${n} · Start year`, s.year, `Exp ${n} · Start year`, "text");
-        if (!exp.current && e.month && months[1]) add(months[1], `Exp ${n} · End month`, String(e.month), `Exp ${n} · End month`, "text");
-        if (!exp.current && e.year && years[1]) add(years[1], `Exp ${n} · End year`, e.year, `Exp ${n} · End year`, "text");
+        if (!span.current && e.month && months[1]) add(months[1], `Exp ${n} · End month`, String(e.month), `Exp ${n} · End month`, "text");
+        if (!span.current && e.year && years[1]) add(years[1], `Exp ${n} · End year`, e.year, `Exp ${n} · End year`, "text");
       }
       addMoreNote(items, exps.length, expBlocks.length, "Work Experience", r.sections.experience);
 
@@ -247,7 +292,8 @@
         const degEl = findField(r.edu.degree, blk);
         if (degEl) add(degEl, `Edu ${n} · Degree`, degVal, `Edu ${n} · Degree`, kindOf(degEl), degreeAlts(degVal));
         addIn(blk, r.edu.field, fieldVal, `Edu ${n} · Field of study`);
-        const es = parseMonthYear(ed.startDate || ""), ee = parseMonthYear(ed.endDate || ed.gradDate || "");
+        const espan = expSpan(ed);
+        const es = parseMonthYear(espan.start), ee = parseMonthYear(espan.end || ed.gradDate || ed.year || "");
         const eMonths = allInputsChain("month", blk), eYears = allInputsChain("year", blk);
         if (es.month && eMonths[0]) add(eMonths[0], `Edu ${n} · Start month`, String(es.month), `Edu ${n} · Start month`, "text");
         if (ee.month && eMonths[1]) add(eMonths[1], `Edu ${n} · End month`, String(ee.month), `Edu ${n} · End month`, "text");
@@ -286,6 +332,9 @@
       const skillsEl = findField(r.fields.skills, null, (e) => B.isCustomDropdown(e) || e.tagName === "INPUT");
       if (skillsEl && skillsArr.length) add(skillsEl, "Skills", skillsArr.slice(0, 20), "Skills", "combo-multi");
 
+      for (const it of items) {
+        if (it.el && it.el.tagName === "INPUT" && (it.kind === "text" || !it.kind) && inPrompt(it.el)) it.kind = "combo";
+      }
       return items;
     },
 
@@ -325,10 +374,14 @@
 
     nextButton() {
       const r = R().next;
+      // The Review step's Submit button carries the same automation id as Next ("pageFooterNextButton"), so the
+      // button's own words decide: a Submit is never a next button.
+      const words = (b) => (b.innerText || b.textContent || b.getAttribute("aria-label") || "").trim();
       const node = Array.from(document.querySelectorAll('[data-automation-id]')).find((n) => {
         const id = (n.getAttribute("data-automation-id") || "").toLowerCase();
-        const isBtn = n.matches('button,[role="button"]') || n.querySelector("button");
-        if (!isBtn || !B.isVisible(n)) return false;
+        const btn = n.matches('button,[role="button"]') ? n : n.querySelector("button");
+        if (!btn || !B.isVisible(n)) return false;
+        if (/\b(submit|apply|finish|send)\b/i.test(words(btn))) return false;
         return M(id, r);
       });
       if (node) return node.matches('button,[role="button"]') ? node : node.querySelector("button");
@@ -336,6 +389,23 @@
     },
   };
 
+  // Inside a Workday multiselect prompt (its search input)?
+  function inPrompt(el) {
+    return !!(el.closest && el.closest('[data-automation-id="multiselectInputContainer"],[data-automation-id="multiSelectContainer"],[data-uxi-widget-type="multiselect"]')) ||
+      el.getAttribute("data-uxi-widget-type") === "selectinput";
+  }
+  // The profile's "how did you hear about us" answer in the words Workday source lists use.
+  function referralAlts(v) {
+    const t = String(v || "").toLowerCase();
+    const out = [];
+    if (/linked\s*in/.test(t)) out.push("LinkedIn", "LinkedIn Jobs", "Job Board");
+    if (/indeed/.test(t)) out.push("Indeed", "Job Board");
+    if (/glassdoor/.test(t)) out.push("Glassdoor", "Job Board");
+    if (/referr|friend|employee/.test(t)) out.push("Employee Referral", "Referral");
+    if (/career|company|website|site/.test(t)) out.push("Company Website", "Careers Website");
+    if (/recruit/.test(t)) out.push("Recruiter Outreach", "Recruiter");
+    return out;
+  }
   function yesNoAlts(v) {
     const t = String(v).trim().toLowerCase();
     if (/^y(es)?$/.test(t)) return ["Yes", "Y"];
@@ -359,7 +429,11 @@
     if (/\bmaster/.test(t)) push("Masters of Science (MS)", "Masters of Arts (MA)", "Master");
     if (/\b(bs|bsc|bachelor.* of science)\b/.test(t)) push("Bachelor of Science (BS)", "Bachelor of Science");
     if (/\b(ba|bachelor.* of arts)\b/.test(t)) push("Bachelor of Arts (BA)", "Bachelor of Arts");
+    if (/\b(btech|b tech|bachelor.* of technology)\b/.test(t)) push("Bachelor of Technology (BTech)", "Bachelor of Technology", "Bachelor of Engineering (BE)", "Bachelor's Degree");
+    if (/\b(be|beng|bachelor.* of engineering)\b/.test(t)) push("Bachelor of Engineering (BE)", "Bachelor of Engineering", "Bachelor's Degree");
     if (/\bbachelor/.test(t)) push("Bachelor of Science (BS)", "Bachelor of Arts (BA)", "Bachelor");
+    if (/\b(bs|bsc|ba|btech|be|beng|bachelor)/.test(t)) push("Bachelor's Degree");
+    if (/\b(ms|msc|ma|mba|master)/.test(t)) push("Master's Degree");
     if (/\b(aa|associate.* of arts)\b/.test(t)) push("Associate of Arts (AA)");
     if (/\b(as|associate.* of science)\b/.test(t)) push("Associate of Science (AS)");
     if (/\bassociate/.test(t)) push("Associate of Science (AS)", "Associate of Arts (AA)");

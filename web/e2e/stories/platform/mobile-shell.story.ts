@@ -23,7 +23,7 @@ test("PLT-40 At 390px the sidebar becomes a top bar, quick tabs and a menu sheet
   await page.getByLabel("Open menu").click();
   const sheet = page.getByRole("dialog");
   await expect(sheet).toContainText("Employees");
-  await expect(sheet).toContainText("Organization Branding");
+  await expect(sheet).toContainText("Branding");
   await expect(sheet).toContainText("Sign out");
   await narrate(page, "Choosing a page closes the sheet and opens it");
   await sheet.getByRole("link", { name: "Employees" }).click();
@@ -80,7 +80,7 @@ test("PLT-44 Signing in from a phone: the Demo accounts tab opens as a drawer an
   await page.goto(`${ACME}/login`);
   await narrate(page, "The branded sign-in on a 390px screen");
   await expectNoSideScroll(page);
-  await expect(page.getByRole("button", { name: /^Sign In/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Sign in/ })).toBeVisible();
   await page.getByRole("button", { name: /Demo accounts/ }).first().click();
   await expect(page.locator("[data-tenant-demo-panel]")).toBeVisible();
   await page.getByRole("button", { name: "Sign in as Anika Rao" }).click();

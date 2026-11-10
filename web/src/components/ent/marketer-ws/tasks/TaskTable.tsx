@@ -114,10 +114,10 @@ export default function TaskTable({ rows, selected, onToggle, onToggleAll, onAct
               <input type="checkbox" aria-label="Select all tasks" checked={all} onChange={(e) => onToggleAll(ids, e.target.checked)} className="h-[18px] w-[18px] accent-[var(--color-accent)]" />
             </th>
             <th className={cn(TH, "py-3 text-[13px] font-bold text-ink")}>Task</th>
-            <th className={cn(TH, "py-3 text-[13px] font-bold text-ink")}>Related To</th>
+            <th className={cn(TH, "py-3 text-[13px] font-bold text-ink")}>Related to</th>
             <th className={cn(TH, "py-3 text-[13px] font-bold text-ink")}>Type</th>
             <th className={cn(TH, "py-3 text-[13px] font-bold text-ink")}>Priority</th>
-            <th className={cn(TH, "py-3 text-[13px] font-bold text-ink")}>Due Date</th>
+            <th className={cn(TH, "py-3 text-[13px] font-bold text-ink")}>Due date</th>
             <th className={cn(TH, "py-3 text-[13px] font-bold text-ink")}>Status</th>
             <th className={cn(TH, "py-3 text-[13px] font-bold text-ink")}>Owner</th>
             <th className="w-12 rounded-r-lg px-2 text-muted">

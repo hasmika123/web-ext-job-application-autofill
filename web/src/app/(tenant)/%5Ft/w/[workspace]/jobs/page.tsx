@@ -28,5 +28,5 @@ export default async function WorkspaceJobsRoute({ params }: { params: Promise<{
   if (workspace !== "admin") return <ComingSoon title="Job Discovery" />;
   if (!can(me, "pipeline.view") && !can(me, "clients.view")) return <NotYourRole />;
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
-  return <JobsPage orgId={me.org.id} orgName={me.org.displayName} supportEmail={null} />;
+  return <JobsPage orgId={me.org.id} />;
 }

@@ -62,27 +62,21 @@ const flush = () => act(async () => void (await new Promise((res) => setTimeout(
 async function mount() {
   render(
     <ToastProvider>
-      <NotificationsPage orgId={2} firstName="Anika Rao" />
+      <NotificationsPage orgId={2} />
     </ToastProvider>,
   );
   await flush();
 }
-const tileOf = (k: string) => document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement;
 const rowOf = (id: number) => document.querySelector(`li[data-notification="${id}"]`) as HTMLElement;
 const gets = () => calls.filter((c) => c.method === "GET").map((c) => new URLSearchParams(c.url.split("?")[1] ?? ""));
 const writes = () => calls.filter((c) => c.method !== "GET");
 
 describe("Notifications from real data", () => {
-  it("draws the tiles, tabs, rows, categories and rail from the API's answer", async () => {
+  it("draws the tabs and rows from the API's answer, with no tiles, categories, preferences card, Quick Actions or help card", async () => {
     await mount();
     expect(document.querySelector("[data-consultant-notifications]")!.getAttribute("data-status")).toBe("ready");
     expect(calls[0].url).toMatch(/^\/api\/orgs\/2\/me-workspace\/notifications\?/);
-    expect(within(tileOf("unread")).getByText("12")).toBeTruthy();
-    expect(within(tileOf("unread")).getByText("+3")).toBeTruthy();
-    expect(within(tileOf("unread")).getByText("since last week")).toBeTruthy();
-    expect(within(tileOf("today")).getByText("from yesterday")).toBeTruthy();
-    expect(within(tileOf("upcomingReminders")).getByText("Next 7 days")).toBeTruthy();
-    expect(within(tileOf("resolvedThisWeek")).getByText(/40%/)).toBeTruthy();
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
     expect(screen.getByRole("tab", { name: "All (12)" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Job Matches (3)" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Reminders (1)" })).toBeTruthy();
@@ -95,22 +89,20 @@ describe("Notifications from real data", () => {
     expect(within(rowOf(3)).getByRole("button", { name: /Snooze: Follow-up/ })).toBeTruthy();
     expect(rowOf(1).getAttribute("data-status")).toBe("UNREAD");
     expect(screen.getByText("Showing 1 to 4 of 12")).toBeTruthy();
-    // by category
-    expect(document.querySelectorAll("[data-category-tile]")).toHaveLength(7);
-    expect(within(document.querySelector('[data-category-tile="JOB_MATCH"]') as HTMLElement).getByText("New this period")).toBeTruthy();
-    expect(within(document.querySelector('[data-category-tile="APPLICATION"]') as HTMLElement).getByText(/50%/)).toBeTruthy();
-    // rail
-    expect(screen.getByRole("button", { name: /Mark All as Read/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Mute Notifications/ })).toBeTruthy();
-    expect(document.querySelectorAll("[data-pref]")).toHaveLength(7);
-    expect(within(document.querySelector('[data-pref="JOB_MATCH"]') as HTMLElement).getByText("Email, In-app")).toBeTruthy();
+    expect(document.querySelector("[data-category-tile]")).toBeNull();
+    expect(document.querySelector("[data-pref]")).toBeNull();
+    expect(document.querySelector("[data-quick]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question|Notifications by Category|Notification Preferences/)).toBeNull();
+    // the two actions that are not reachable elsewhere, and the link to the preferences on My profile
+    expect(screen.getByRole("button", { name: "Mark all as read" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Mute non-critical" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Notification preferences" }).getAttribute("href")).toBe("/me#notifications");
   });
 
-  it("claims no delta when the API gave no percentage and says so when there is nothing to show", async () => {
+  it("says so when there is nothing to show", async () => {
     const v = view();
-    current = { ...v, tiles: { ...v.tiles, resolvedThisWeek: tile(0, 0, null) }, tabs: { ALL: 0 }, notifications: { items: [], page: 0, size: 8, total: 0, totalPages: 0 } };
+    current = { ...v, tabs: { ALL: 0 }, notifications: { items: [], page: 0, size: 8, total: 0, totalPages: 0 } };
     await mount();
-    expect(within(tileOf("resolvedThisWeek")).queryByText(/%/)).toBeNull();
     expect(screen.getByText(/You're all caught up/)).toBeTruthy();
   });
 
@@ -125,9 +117,6 @@ describe("Notifications from real data", () => {
     fireEvent.change(screen.getByLabelText("Status"), { target: { value: "UNREAD" } });
     await flush();
     expect(gets().at(-1)!.get("status")).toBe("UNREAD");
-    fireEvent.change(screen.getByLabelText("Period"), { target: { value: "MONTH" } });
-    await flush();
-    expect(gets().at(-1)!.get("period")).toBe("MONTH");
     fireEvent.change(screen.getByLabelText("Search notifications"), { target: { value: "cloud" } });
     await act(async () => void (await new Promise((res) => setTimeout(res, 400))));
     await flush();
@@ -138,9 +127,9 @@ describe("Notifications from real data", () => {
     expect(gets().at(-1)!.get("page")).toBe("1");
   });
 
-  it("View Archived shows the resolved list", async () => {
+  it("the Status filter shows the resolved list", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: /View Archived/ }));
+    fireEvent.change(screen.getByLabelText("Status"), { target: { value: "RESOLVED" } });
     await flush();
     expect(gets().at(-1)!.get("status")).toBe("RESOLVED");
   });
@@ -216,7 +205,7 @@ describe("Notifications from real data", () => {
 
   it("Mark All as Read writes, and a refusal is shown without changing the page", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: /Mark All as Read/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark all as read" }));
     await flush();
     expect(writes().at(-1)).toMatchObject({ method: "POST", url: "/api/orgs/2/me-workspace/notifications/mark-all-read" });
 
@@ -230,7 +219,7 @@ describe("Notifications from real data", () => {
   it("Mute writes and Undo puts the previous preferences back", async () => {
     await mount();
     writeBody = { previous: CATS.map((c) => pref(c)), prefs: CATS.map((c) => pref(c, { enabled: ["INTERVIEW", "APPROVAL", "OFFER"].includes(c) })), muted: true };
-    fireEvent.click(screen.getByRole("button", { name: /Mute Notifications/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Mute non-critical" }));
     await flush();
     expect(writes().at(-1)).toMatchObject({ method: "POST", url: "/api/orgs/2/me-workspace/notifications/mute-non-critical" });
     fireEvent.click(await screen.findByText("Undo"));
@@ -244,32 +233,7 @@ describe("Notifications from real data", () => {
   it("an already muted account cannot be muted again", async () => {
     current = { ...view(), muted: true };
     await mount();
-    expect((screen.getByRole("button", { name: /Mute Notifications/ }) as HTMLButtonElement).disabled).toBe(true);
-  });
-
-  it("preferences: the switch writes enabled, the channels are written one by one and SMS stays off and disabled", async () => {
-    await mount();
-    fireEvent.click(screen.getByRole("switch", { name: "Job Matches notifications" }));
-    await flush();
-    expect(writes().at(-1)).toMatchObject({ method: "PUT", url: "/api/orgs/2/me-workspace/notifications/preferences/JOB_MATCH", body: { enabled: false } });
-
-    fireEvent.click(screen.getByRole("button", { name: "Interviews channels" }));
-    const sms = screen.getByLabelText(/^SMS/) as HTMLInputElement;
-    expect(sms.disabled).toBe(true);
-    expect(sms.checked).toBe(false);
-    expect(screen.getAllByText("SMS isn't available yet").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByLabelText("Email"));
-    await flush();
-    expect(writes().at(-1)).toMatchObject({ url: "/api/orgs/2/me-workspace/notifications/preferences/INTERVIEW", body: { email: false } });
-    expect(writes().every((w) => JSON.stringify(w.body ?? {}).indexOf("sms") === -1)).toBe(true);
-  });
-
-  it("Manage Preferences scrolls to the preferences card", async () => {
-    const scroll = vi.fn();
-    Element.prototype.scrollIntoView = scroll;
-    await mount();
-    fireEvent.click(screen.getByRole("button", { name: /Manage Preferences/ }));
-    expect(scroll).toHaveBeenCalled();
+    expect((screen.getByRole("button", { name: "Mute non-critical" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("shows an error panel with retry when the page fails to load", async () => {

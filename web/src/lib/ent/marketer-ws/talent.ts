@@ -8,11 +8,11 @@
 export type KpiKey = "assigned" | "availableNow" | "needUpdates" | "activeInterviews" | "pendingApprovals";
 export const KPI_KEYS: KpiKey[] = ["assigned", "availableNow", "needUpdates", "activeInterviews", "pendingApprovals"];
 export const KPI_TITLES: Record<KpiKey, string> = {
-  assigned: "Total Assigned Consultants",
-  availableNow: "Available Now",
-  needUpdates: "Profiles Need Updates",
-  activeInterviews: "Active Interviews",
-  pendingApprovals: "Pending Approvals",
+  assigned: "Total assigned consultants",
+  availableNow: "Available now",
+  needUpdates: "Profiles need updates",
+  activeInterviews: "Active interviews",
+  pendingApprovals: "Pending approvals",
 };
 
 export interface Kpi { key: KpiKey; value: number; deltaPct: number | null; sparkline: number[] }
@@ -60,8 +60,8 @@ export const EXPERIENCE_OPTIONS = [
   { value: "9+", label: "9+ yrs" },
 ];
 export const AVAILABILITY_OPTIONS: { value: AvailabilityCode; label: string }[] = [
-  { value: "AVAILABLE_NOW", label: "Available Now" },
-  { value: "IN_INTERVIEW", label: "In Interview" },
+  { value: "AVAILABLE_NOW", label: "Available now" },
+  { value: "IN_INTERVIEW", label: "In interview" },
   { value: "SOON", label: "Within a month" },
   { value: "LATER", label: "Later" },
   { value: "ON_PROJECT", label: "On project" },
@@ -86,7 +86,7 @@ export function parseRow(r: Record<string, unknown>): TalentRow {
     id: num(r.id), name: str(r.name), avatarUrl: typeof r.avatarUrl === "string" ? r.avatarUrl : null, title: str(r.title), primarySkill: str(r.primarySkill),
     yearsExperience: typeof r.yearsExperience === "number" && Number.isFinite(r.yearsExperience) ? r.yearsExperience : null, location: str(r.location),
     availability: { code, label: str(a.label), tone: tone(a.tone) },
-    resume: { state, label: str(s.label, state === "NEEDS_UPDATE" ? "Needs Update" : state === "PENDING_APPROVAL" ? "Pending Approval" : "Up to date") },
+    resume: { state, label: str(s.label, state === "NEEDS_UPDATE" ? "Needs update" : state === "PENDING_APPROVAL" ? "Pending approval" : "Up to date") },
     activeApps: num(r.activeApps), assignedJobs: num(r.assignedJobs),
   };
 }

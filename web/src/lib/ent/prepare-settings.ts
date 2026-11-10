@@ -111,5 +111,5 @@ export async function savePrepareSettings(orgId: number | string, body: PrepareC
 
 /** The wording of the section, kept in one place (and tested): the consultant always reviews and submits; Kiwiply never submits. */
 export const PREPARE_EXPLAINER =
-  "When a consultant selects assigned openings, the Kiwiply browser extension opens each job in its own tab and fills it from the consultant's profile. The consultant always reviews, completes anything missing and presses Submit on the real site. Kiwiply never submits an application.";
-export const PREPARE_UNAVAILABLE = "Not available on your plan yet. Contact Kiwiply.";
+  "When a consultant selects assigned openings, the browser extension opens each one in its own tab and fills it from their profile. They review and press Submit themselves. Nothing is ever submitted for them.";
+export const PREPARE_UNAVAILABLE = "Not available on your plan yet. Contact support.";

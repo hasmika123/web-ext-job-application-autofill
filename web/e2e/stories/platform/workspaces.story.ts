@@ -93,25 +93,27 @@ test("PLT-13 Asking for a workspace you do not hold shows the denied state insid
 test("PLT-14 Menu entries that are not built open an honest 'on the way' page, never a 404", async ({ as }) => {
   const { page, go } = await as("sarah");
   await go("/w/admin");
-  await narrate(page, "Sarah's full menu lists pages that are still being built");
-  for (const key of ["subscription", "licenses", "billing", "usage", "reports"]) {
+  await narrate(page, "Sarah's menu has one page still being built: Plan & Billing, marked Soon");
+  // Subscription, Licenses and Usage left the menu in the Phase 1 refresh, and Reports is a real page now
+  for (const key of ["billing"]) {
     const item = page.locator(`[data-shell-sidebar] [data-nav-item=${key}]`);
+    await expect(item).toHaveAttribute("data-nav-soon", "true");
     await item.scrollIntoViewIfNeeded();
     await item.click();
     await page.waitForURL(`**/w/admin/${key}`);
     await expectOnTheWay(page);
     await narrate(page, `${key}: "This page is on the way"`, 500);
   }
-  // Audit Logs was on this list until the audit page was built (P0 audit fixes): it is a real page now, never "on the way"
+  // Audit Log was on this list until the audit page was built (P0 audit fixes): it is a real page now, never "on the way"
   await page.locator("[data-shell-sidebar] [data-nav-item=audit]").click();
   await page.waitForURL("**/w/admin/audit");
-  await expect(page.getByRole("heading", { name: "Audit Logs", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Audit Log", level: 1, exact: true })).toBeVisible();
   await expect(page.locator("[data-coming-soon]")).toHaveCount(0);
 });
 
 const MENUS: { who: PersonaKey; present: string[]; absent: string[] }[] = [
   { who: "omar", present: ["home", "talent", "jobs", "tasks"], absent: ["employees", "roles", "billing", "invitations"] },
-  { who: "anika", present: ["home", "matches", "applications", "interviews", "profile"], absent: ["employees", "talent", "roles"] },
+  { who: "anika", present: ["home", "opportunities", "applications", "interviews", "profile"], absent: ["employees", "talent", "roles"] },
   { who: "hana", present: ["home", "employees"], absent: ["billing", "talent", "roles", "clients"] },
   { who: "felix", present: ["home"], absent: ["employees", "talent", "roles"] },
   { who: "amara", present: ["home", "clients"], absent: ["employees", "roles", "talent"] },

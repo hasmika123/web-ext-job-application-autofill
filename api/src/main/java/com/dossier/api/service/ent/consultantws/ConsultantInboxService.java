@@ -25,6 +25,7 @@ import com.dossier.api.service.inbox.ImapGateway;
 import com.dossier.api.service.inbox.InboxEntitlement;
 import com.dossier.api.service.inbox.InboxMailService;
 import com.dossier.api.service.inbox.InboxReviewService;
+import com.dossier.api.service.inbox.InboxPoller;
 import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.service.inbox.MailClassifier;
 import com.dossier.api.service.org.OrgMembership;
@@ -72,6 +73,11 @@ public class ConsultantInboxService {
     private final DemoGuard demoGuard;
     private final InboxReviewService review;
     private final InterviewRepository interviewRows;
+    private final InboxPoller poller;
+    /** The last manual "check now" per account (this JVM): one a minute is plenty, and it keeps a stuck button from hammering Gmail. */
+    private final java.util.concurrent.ConcurrentHashMap<Long, Instant> manualChecks = new java.util.concurrent.ConcurrentHashMap<>();
+    static final java.time.Duration CHECK_NOW_GAP = java.time.Duration.ofSeconds(60);
+
     public ConsultantInboxService(
         ConsultantHomeService gate,
         AuthorizationService authorization,
@@ -83,8 +89,10 @@ public class ConsultantInboxService {
         ImapGateway imap,
         DemoGuard demoGuard,
         InboxReviewService review,
-        InterviewRepository interviewRows
+        InterviewRepository interviewRows,
+        InboxPoller poller
     ) {
+        this.poller = poller;
         this.interviewRows = interviewRows;
         this.review = review;
         this.gate = gate;
@@ -144,6 +152,28 @@ public class ConsultantInboxService {
             return ResponseEntity.status(r.refusal().status()).body(Map.of("code", r.refusal().code(), "message", r.refusal().message()));
         }
         return ResponseEntity.ok(viewOf(me));
+    }
+
+    /**
+     * "Check now": the consultant's own mailbox is read straight away, in the background (the same read the poller does every 15 minutes), so an
+     * employer's mail that just arrived shows without the wait. 202 with the connection view; 409 when nothing usable is connected; 429 within a
+     * minute of the last manual check. Reads only; nothing is sent, moved or deleted.
+     */
+    public ResponseEntity<?> checkNow(OrgMembership me) {
+        requireSelf(me);
+        View v = viewOf(me);
+        if (!v.connected() || !v.entitled() || InboxConnection.NEEDS_RECONNECT.equals(v.status())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No inbox is connected");
+        }
+        Instant now = Instant.now();
+        Instant last = manualChecks.get(me.userId());
+        if (last != null && last.plus(CHECK_NOW_GAP).isAfter(now)) {
+            long wait = Math.max(1, java.time.Duration.between(now, last.plus(CHECK_NOW_GAP)).toSeconds());
+            return ResponseEntity.status(429).header("Retry-After", Long.toString(wait)).body(Map.of("code", "TOO_SOON", "message", "Checked a moment ago. Try again in " + wait + " seconds."));
+        }
+        manualChecks.put(me.userId(), now);
+        poller.checkNow(me.userId());
+        return ResponseEntity.accepted().body(v);
     }
 
     public void disconnect(OrgMembership me) {

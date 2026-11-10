@@ -23,7 +23,9 @@
       const usedEls = new Set(items.map((i) => i.el));
       const extra = safe(() => JAF.genericAdapter.plan(values)) || [];
       for (const e of extra) {
-        if (!covered.has(e.field) && !usedEls.has(e.el)) { items.push(e); covered.add(e.field); usedEls.add(e.el); }
+        // desired pay may be asked twice (base AND total compensation): the generic scan returns both, and both take the answer
+        const again = e.field === "desiredSalary" && e.confidence === "high";
+        if ((!covered.has(e.field) || again) && !usedEls.has(e.el)) { items.push(e); covered.add(e.field); usedEls.add(e.el); }
       }
     }
     // de-dupe: one item per element
@@ -103,7 +105,7 @@
         </div>
         <footer>
           <button class="ghost" id="cancel">Cancel</button>
-          <button class="primary" id="fill" ${fillable.length || file ? "" : "disabled"}>Fill selected</button>
+          <button class="primary" id="fill" ${fillable.length || file || (opts.batch && opts.autoFill) ? "" : "disabled"}>Fill selected</button>
         </footer>
         <div class="note">${autoAdvance
           ? `Auto-advance is <b>on</b>: after filling, Kiwiply clicks the step's <b>Next / Continue</b> button. It never clicks Submit.`
@@ -115,11 +117,15 @@
     root.querySelector("#cancel").onclick = close;
     root.querySelector(".backdrop").onclick = close;
 
-    root.querySelector("#fill").onclick = async () => {
+    // The fill itself. Pressed by the person ("Fill selected"), or started at once on a prepare-batch tab
+    // (the consultant pressed "Prepare" on the web: the tab opens already filled and shows the review).
+    const doFill = async () => {
       const fillBtn = root.querySelector("#fill");
+      if (!fillBtn || fillBtn.disabled) return;
       fillBtn.disabled = true;
       fillBtn.textContent = "Filling…";
       const checks = Array.from(root.querySelectorAll('.rows input[type="checkbox"][data-i]'));
+      const outcomes = []; // per planned row, for the batch review: { item, status: ok | failed | skipped }
       // Phase 10.1: one count-only telemetry event per fill, plus a signal the first time the
       // user changes each field we filled. The id is random and names this fill, not the user.
       const T = JAF.fillTelemetry;
@@ -130,9 +136,10 @@
       let failedCount = 0;
       const failed = [];
       for (const c of checks) {
-        if (!c.checked) continue;
         const item = fillable[Number(c.dataset.i)];
+        if (!c.checked) { outcomes.push({ item, status: "skipped" }); continue; }
         const ok = await B.applyItemAsync(item);
+        outcomes.push({ item, status: ok ? "ok" : "failed" });
         // Learn from any later user correction to this field (local cache) — and, for a field we
         // actually filled, count that correction against this fill.
         try {
@@ -148,13 +155,15 @@
         }
       }
       let fileMsg = "";
+      let fileStatus = ""; // "" (no file offered) | ok | failed | nofield
       const fchk = root.querySelector("#filechk");
       if (file && fchk && fchk.checked) {
         const input = adapter.fileInput && adapter.fileInput();
         if (input) {
           const ok = await B.attachFile(input, b64ToBlob(file.base64, file.type), file.name);
           fileMsg = ok ? " · résumé attached" : " · résumé attach failed (upload manually)";
-        } else fileMsg = " · no file field found";
+          fileStatus = ok ? "ok" : "failed";
+        } else { fileMsg = " · no file field found"; fileStatus = "nofield"; }
       }
       // Phase 10.3d: from here on, answers the user gives to PROFILE questions on this page are
       // reported as suggested profile values (the server keeps them as suggestions; the user
@@ -173,15 +182,19 @@
       // Auto-log this fill as a DRAFT application (best-effort; never blocks the fill)
       // and arm submission detection so a confirmation flips the entry to APPLIED. The
       // service worker owns the network and survives the post-submit navigation.
+      // Three independent best-effort steps: a page the capture cannot read (an unknown site) must still
+      // be logged (the log falls back to the page's host) and must still have its submit watched.
+      const canMessage = typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage;
+      let capture = null;
+      try { capture = JAF.jobCapture ? JAF.jobCapture.captureJob() : null; } catch (e) { capture = null; }
       try {
-        if (JAF.jobCapture && typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
-          const capture = JAF.jobCapture.captureJob();
-          // `opportunity` ({orgId,id}) is set by the drawer only when the consultant is filling the
-          // assigned job this page matched; the service worker links it after the confirmed submit.
-          chrome.runtime.sendMessage({ type: "JAF_LOG_FILL", capture, resume: opts.resume || null, opportunity: opts.opportunity || null });
-          // A prepare batch tab can sit for a long while before the consultant submits, so its watch is longer.
-          if (JAF.submitDetect) JAF.submitDetect.arm(opts.batch ? { windowMs: 30 * 60 * 1000 } : undefined);
-        }
+        // `opportunity` ({orgId,id}) is set by the drawer only when the consultant is filling the
+        // assigned job this page matched; the service worker links it after the confirmed submit.
+        if (canMessage) chrome.runtime.sendMessage({ type: "JAF_LOG_FILL", capture, resume: opts.resume || null, opportunity: opts.opportunity || null });
+      } catch (e) {}
+      try {
+        // A prepare batch tab can sit for a long while before the consultant submits, so its watch is longer.
+        if (canMessage && JAF.submitDetect) JAF.submitDetect.arm(opts.batch ? { windowMs: 30 * 60 * 1000 } : undefined);
       } catch (e) {}
 
       // What did the fill leave undone? (10.1 counts it; 10.2 shows it.) A beat first so the page's
@@ -193,10 +206,31 @@
           gaps = JAF.requiredAudit.findRequiredEmpty(document);
         } catch (e) { gaps = []; }
       }
+      // Prepare batch on a form split into steps: what earlier steps filled (opts.carry) is added to this step's, and
+      // opts.onStep (batch-prepare.js) decides whether to go on to the next step. It answers true when the site moved on
+      // (the next step gets its own fill and this panel closes), "stuck" when the site kept this step, false otherwise.
+      const carry = opts.batch ? opts.carry || null : null;
+      const allOutcomes = carry ? carry.outcomes.concat(outcomes) : outcomes;
+      const allFileStatus = !carry || fileStatus === "ok" ? fileStatus : carry.fileStatus || fileStatus;
+      const shownFile = file || (carry && carry.file) || null;
+      const allFilled = filled + (carry ? carry.filled || 0 : 0);
+      const allFailed = failedCount + (carry ? carry.failed || 0 : 0);
+      let stepResult = false;
+      if (opts.batch && typeof opts.onStep === "function") {
+        try {
+          stepResult = await opts.onStep({
+            outcomes: allOutcomes, fileStatus: allFileStatus, file: shownFile, filled: allFilled, failed: allFailed, gaps,
+            say: (m) => flash(root, m),
+          });
+        } catch (e) { stepResult = false; }
+        if (stepResult === true) { close(); return; }
+        // The site kept this step (its own check refused it): count again what it still wants.
+        if (stepResult === "stuck" && JAF.requiredAudit) { try { gaps = JAF.requiredAudit.findRequiredEmpty(document); } catch (e) { /* keep */ } }
+      }
       // Prepare batch (X12.9): tell the batch how many required fields still need the consultant.
       // Counts only; the banner on the page lists the field names locally.
       try {
-        if (opts.batch && JAF.batchPrepare) JAF.batchPrepare.filled(opts.batch, { filled, failed: failedCount, gaps: gaps.length });
+        if (opts.batch && JAF.batchPrepare) JAF.batchPrepare.filled(opts.batch, { filled: allFilled, failed: allFailed, gaps: gaps.length });
       } catch (e) {}
       if (T && fillId) {
         try {
@@ -216,6 +250,13 @@
       }
 
       const failMsg = failed.length ? ` · couldn't auto-pick ${failed.length} dropdown${failed.length === 1 ? "" : "s"} (${truncate(failed.join(", "), 40)}) — set those by hand` : "";
+      // Prepare batch: the tab stays on a review of what was filled and what is still the consultant's
+      // (the panel turns non-modal, so the page can be checked and completed beside it).
+      if (opts.batch) {
+        const stuckMsg = stepResult === "stuck" ? " · the site did not move on to its next step: check the fields it marks, then press its Next yourself" : "";
+        showReview(host, root, { outcomes: allOutcomes, file: shownFile, fileStatus: allFileStatus, gaps, filled: allFilled, failMsg: failMsg + stuckMsg, steps: carry ? carry.steps + 1 : 1, close });
+        return;
+      }
       // Phase 10.2: required fields are still empty. Don't auto-advance — the page would refuse
       // the step anyway, and the user would be left guessing why — and hand them a short list that
       // takes them to each one, instead of a toast that vanishes in two seconds.
@@ -240,6 +281,10 @@
       flash(root, `Filled ${filled} field${filled === 1 ? "" : "s"}${fileMsg}${failMsg}${advanceMsg}. Review before submitting.`);
       setTimeout(close, 2400);
     };
+    root.querySelector("#fill").onclick = doFill;
+    // A prepare-batch tab fills as soon as the plan is on screen (one beat so the panel has painted).
+    // The person's own "Scan & fill" from the drawer keeps the look-then-press step.
+    if (opts.batch && opts.autoFill) setTimeout(() => { if (host.isConnected) doFill(); }, 80);
 
     // Regenerate an AI draft/pick in place — re-asks the service worker for that
     // question (a pick re-resolves against the page's own option list).
@@ -340,6 +385,79 @@
     el.style.outline = "3px solid #94BD37";
     el.style.outlineOffset = "2px";
     setTimeout(() => { el.style.outline = prev; el.style.outlineOffset = prevOffset; }, 2200);
+  }
+
+  // Prepare batch: after the automatic fill the panel becomes the review — what was written, what
+  // could not be, what is still the consultant's — and stops being modal, so the page can be read and
+  // completed beside it. The list of required fields still empty follows their own edits. Nothing here
+  // clicks or submits; "Go" only scrolls to and focuses a field.
+  // A readable name for a planned row: the canonical label for a canonical field (adapters set `label`
+  // to the field key), else the page's label without the asterisk, a repeated phrase, or a trailing
+  // numeric field id ("Country* Country* country" -> "Country").
+  function rowName(item) {
+    const L = JAF.schema.LABELS;
+    // An AI row's label is "AI draft · <question cut short>"; the full question reads better (the badge says AI).
+    let s = item.assisted && item.question ? String(item.question) : item.label && item.label !== item.field ? String(item.label) : "";
+    if (!s) return L[item.field] || item.field;
+    s = s.replace(/\s+/g, " ").replace(/\*/g, "").replace(/^AI (draft|pick)\s*·\s*/i, "").trim();
+    s = s.replace(/\s*(question\s*)?\d{6,}\s*$/i, "").trim();
+    const rep = /^(.{3,}?)\s+\1(?:\s|$)/i.exec(s);
+    if (rep) s = rep[1].trim();
+    return s.length > 72 ? s.slice(0, 71) + "…" : s;
+  }
+
+  function showReview(host, root, r) {
+    const A = JAF.requiredAudit;
+    root.querySelectorAll(".backdrop, .flash").forEach((n) => n.remove());
+    host.style.cssText = "position:fixed;top:0;right:0;width:400px;max-width:100vw;height:100vh;z-index:2147483647;";
+    const gaps = (r.gaps || []).map((el) => ({ el, name: A ? A.describe(el) : "Required field", done: false }));
+    const rows = r.outcomes || [];
+    const written = rows.filter((o) => o.status === "ok").length;
+    const mark = (s) => s === "ok" ? '<span class="mark ok" aria-label="filled">✓</span>'
+      : s === "failed" ? '<span class="mark bad" aria-label="could not fill">✗</span>'
+      : '<span class="mark skip" aria-label="left for you">–</span>';
+    const fileShown = r.file ? r.file.name + (r.file.label ? " · " + r.file.label : "") : "";
+    // the resume's own name on a line of its own (it wraps): which resume went in, e.g. one tailored for this job
+    const fileLabel = r.file && r.file.label ? `<span style="display:block;white-space:normal;overflow-wrap:anywhere;font-size:11.5px;opacity:.8">${esc(r.file.label)}</span>` : "";
+    const fileLine = !r.file ? "" : r.fileStatus === "ok" ? `<div class="row done">${mark("ok")}<span class="field">Résumé file</span><span class="val" data-resume-file title="${esc(fileShown)}">${esc(r.file.name)}${fileLabel}</span></div>`
+      : r.fileStatus === "nofield" ? `<div class="row done">${mark("skipped")}<span class="field">Résumé file</span><span class="val">no upload field on this step</span></div>`
+      : `<div class="row done">${mark("failed")}<span class="field">Résumé file</span><span class="val">attach it yourself</span></div>`;
+    const sub = root.querySelector("header .sub");
+    if (sub) sub.textContent = `Filled ${written} of ${rows.length} field${rows.length === 1 ? "" : "s"}${r.steps > 1 ? ` across ${r.steps} steps` : ""}${r.fileStatus === "ok" ? " · résumé attached" : ""}`;
+    const body = root.querySelector(".body");
+    body.innerHTML = `
+      <div class="status" id="rvstatus" aria-live="polite"></div>
+      ${gaps.length ? `<div class="group-title warn">Still needs you</div>
+        <ul class="glist">${gaps.map((g, i) => `<li><button type="button" class="gjump" data-g="${i}"><span class="gdot"></span><span class="gname">${esc(g.name)}</span><span class="ggo">Go →</span></button></li>`).join("")}</ul>` : ""}
+      <div class="group-title">Filled for you</div>
+      <div class="rows">${rows.map((o) => `<div class="row done${o.status === "skipped" ? " low" : ""}">${mark(o.status)}<span class="field">${esc(rowName(o.item))}${o.item.assisted ? '<span class="badges"><span class="aibadge">AI</span></span>' : ""}</span><span class="val" title="${esc(String(o.item.value))}">${esc(truncate(String(o.item.value), 60))}</span></div>`).join("")}${fileLine}</div>
+      ${r.failMsg ? `<div class="infonote">${esc(r.failMsg.replace(/^\s*·\s*/, ""))}</div>` : ""}`;
+    const footer = root.querySelector("footer");
+    footer.innerHTML = `<button class="primary" id="done">Done</button>`;
+    const note = root.querySelector(".note");
+    if (note) note.innerHTML = `Nothing is submitted. Check every answer on the page, then press the site's own button yourself.`;
+    const status = body.querySelector("#rvstatus");
+    const render = () => {
+      const left = gaps.filter((g) => !g.done).length;
+      status.textContent = left
+        ? `${left} required field${left === 1 ? "" : "s"} still need${left === 1 ? "s" : ""} you.`
+        : (gaps.length ? "All required fields are filled. Review the page, then submit it yourself." : "Required fields are filled. Review the page, then submit it yourself.");
+      status.classList.toggle("warn", left > 0);
+      gaps.forEach((g, i) => { const li = body.querySelector(`[data-g="${i}"]`); if (li) li.parentElement.classList.toggle("done", g.done); });
+    };
+    const recheck = () => {
+      let changed = false;
+      for (const g of gaps) if (!g.done && A && !A.isStillEmpty(g.el)) { g.done = true; changed = true; }
+      if (changed) render();
+    };
+    document.addEventListener("input", recheck, true);
+    document.addEventListener("change", recheck, true);
+    const done = () => { document.removeEventListener("input", recheck, true); document.removeEventListener("change", recheck, true); r.close(); };
+    footer.querySelector("#done").onclick = done;
+    const x = root.querySelector(".x");
+    if (x) x.onclick = done;
+    body.querySelectorAll(".gjump").forEach((b) => { b.onclick = () => jumpTo(gaps[Number(b.dataset.g)].el); });
+    render();
   }
 
   function flash(root, msg) {
@@ -477,6 +595,17 @@
     .glist li.done .gname { text-decoration: line-through; color: var(--muted); }
     .glist li.done .ggo { visibility: hidden; }
     .gnote { margin: 8px 0 0; font-size: 11px; color: var(--muted); }
+    /* Prepare batch — the review state of the panel (non-modal; the page is usable beside it). */
+    .status { font-size: 13px; font-weight: 600; color: var(--accent-deep); background: var(--accent-soft);
+      border-radius: 10px; padding: 9px 11px; margin: 4px 0 6px; line-height: 1.4; }
+    .status.warn { color: var(--warn); background: var(--brown-soft); }
+    .row.done { cursor: default; }
+    .row.done:hover { background: transparent; }
+    .mark { font-size: 13px; font-weight: 800; text-align: center; line-height: 1; }
+    .mark.ok { color: var(--accent-deep); }
+    .mark.bad { color: var(--warn); }
+    .mark.skip { color: var(--muted); }
+    .body .glist { margin-bottom: 6px; }
   `;
 
   JAF.filler = { start, buildPlan };

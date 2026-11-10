@@ -10,7 +10,7 @@ import { getTenantSession } from "@/lib/ent/tenant-session";
  * anyone who is not a consultant of this organization); a member whose menu does not list the workspace gets "This isn't part of
  * your role".
  */
-export const metadata: Metadata = { title: "My Career Profile", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "My Profile", robots: { index: false, follow: false } };
 
 export default async function ConsultantProfileRoute() {
   const session = await getTenantSession();

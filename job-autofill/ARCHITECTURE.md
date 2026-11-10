@@ -4,7 +4,7 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: 0.68.0 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
+> Current version: 0.69.1 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -92,6 +92,13 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   (`#location-fields-*-input`); the "Continue" button's testid is randomized so the
   shared filler matches it by text. Screening questions fall through to the generic
   scanner. Selectors captured from a real session (see `test/indeed.test.js`).
+- `src/content/adapters/smartrecruiters.js` — **capture-only job reader** for
+  `jobs.smartrecruiters.com` postings. Registers on `JAF.jobReaders`, NOT `JAF.adapters`, so
+  Fill there stays on the generic scanner; `job-capture.js` consults readers only when no fill
+  adapter matches. Reads the page's schema.org JobPosting microdata (title, hiringOrganization,
+  address, description). The Greenhouse and Lever adapters' `captureJob({doc,loc})` likewise
+  read role/company/location/description from the page (those pages carry no usable JSON-LD);
+  fixtures are trimmed real pages in `test/fixtures/job-capture/` (`test/job_capture_ats.test.js`).
 - `src/content/adapters/workday.js` — main adapter. `promptText/questionContext`,
   `addQuestion`, `addButtonFor` (heading-association before container),
   country/state fill, exp/edu blocks, `ensureRows`, **Self-Identify (CC-305) block**
@@ -120,7 +127,11 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   validation, the ACK receiver, the batch controller (paced tab opening, per-tab state, event outbox) and the
   per-tab preparer. Pure of chrome.* and fetch; the service worker (`src/background/service-worker.js`, section
   "Prepare selected openings") wires it to `chrome.tabs`/storage. `src/content/batch-prepare.js` is the page
-  side (sign-in/CAPTCHA classification, the "Prepared by Kiwiply" banner, `JAF_BATCH_FILL`).
+  side (sign-in/CAPTCHA classification, the "Prepared by Kiwiply" banner, `JAF_BATCH_FILL`). On a form split
+  into steps (Workday) `fillSteps` fills a step, presses the site's own Next only when no required field is left
+  and no submit-like button is on the page, and fills the next step, up to the last step before submission; its
+  `next.click()` is the only click in the file (pinned by `test/no_submit.test.js`). A Workday job link opens its
+  application (`applicationUrl`, `/apply/applyManually`).
   `entrypoints/panel/PrepareBatch.tsx` is the drawer's batch overview. See **Prepare batch** below.
 - `src/lib/storage.js` — chrome.storage (profiles) + IndexedDB (resume files).
 - `src/lib/field-cache.js` — `JAF.fieldCache`. Local, per-profile memory of the
@@ -422,7 +433,9 @@ consultant is on it; a submitted or closed tab frees its slot, and the next queu
 (drawer) opens the next queued job when below the cap. Each loaded tab is prepared at most 3 times (one per page load,
 at least 5 s apart): the content bundle is injected on the manifest's host list only, the page is classified read-only
 (`captcha` / `signin` / `form` / `none`), and the normal fill is requested with `autoAdvance` forced **off**. The usual
-review overlay opens: the consultant presses **Fill selected** (nothing is written to the page before that). States:
+fill runs at once with the consultant's profile and resume file (their click was **Prepare** on the web; the service
+worker fetches a web-created resume's PDF once, `sync.ensureResumeFile`), and the panel becomes the **review**: what was
+written, what could not be, the required fields still theirs (Go scrolls and focuses), non-modal beside the page. States:
 `OPENED` (waiting), `PREFILLED` (filled, no required field left), `NEEDS_INPUT` (a sign-in wall, a CAPTCHA, an
 unsupported site, no form yet, an empty profile, or required fields still empty after the fill), `SUBMIT_DETECTED`,
 `CLOSED`, `FAILED`. A banner on the tab says **"Prepared by Kiwiply: review every field. Nothing is submitted for you."**

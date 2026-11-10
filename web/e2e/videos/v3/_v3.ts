@@ -44,9 +44,9 @@ export const randomPassword = () => `Own-${randomBytes(6).toString("hex")}!`;
 
 /** The tenant sign-in form (e-mail + password), typed on screen. Lands on the workspace (or on the choose-a-password page for a temporary one). */
 export async function tenantSignIn(page: Page, host: string, email: string, password: string, expectPath: RegExp | ((u: URL) => boolean) = (u) => u.pathname.startsWith("/w/")) {
-  await page.getByLabel("User Name").fill(email);
+  await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: /^Sign In/ }).click();
+  await page.getByRole("button", { name: /^Sign in/ }).click();
   await page.waitForURL(typeof expectPath === "function" ? expectPath : (u) => expectPath.test(u.pathname), { timeout: 45_000 });
   void host;
 }

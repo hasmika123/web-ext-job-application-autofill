@@ -69,8 +69,8 @@ describe("autofillCoverage rules", () => {
 });
 
 describe("the key list", () => {
-  it("is 31 keys with no duplicates, and every counted key is one of them", () => {
-    expect(AUTOFILL_FIELD_KEYS).toHaveLength(31);
-    expect(new Set(AUTOFILL_FIELD_KEYS).size).toBe(31);
+  it("is 32 keys with no duplicates, and every counted key is one of them", () => {
+    expect(AUTOFILL_FIELD_KEYS).toHaveLength(32);
+    expect(new Set(AUTOFILL_FIELD_KEYS).size).toBe(32);
   });
 });

@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/interviews" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/interviews", useSearchParams: () => new URLSearchParams("") }));
 
 import InterviewsPage from "./InterviewsPage";
 
@@ -71,10 +71,14 @@ async function mount() {
 const rowOf = (id: number) => document.querySelector(`tr[data-interview="${id}"]`) as HTMLElement;
 
 describe("Interviews page", () => {
-  it("draws the tiles from the API's numbers", async () => {
+  it("is one page with Schedule and Prepare tabs and no tiles, Quick Actions, preparation rail or help card", async () => {
     await mount();
-    expect(within(document.querySelector('[data-stat-tile="upcoming"]') as HTMLElement).getByText("2")).toBeTruthy();
-    expect(document.querySelector('[data-stat-tile="completed"]')!.textContent).toContain("vs last week");
+    expect(screen.getAllByRole("tab").map((x) => x.textContent)).toEqual(["Schedule", "Prepare"]);
+    expect(screen.getByRole("tab", { name: "Schedule" }).getAttribute("aria-selected")).toBe("true");
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(document.querySelector("[data-quick]")).toBeNull();
+    expect(document.querySelector("[data-home-card='interviews-prep']")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question|Interview preparation/)).toBeNull();
   });
 
   it("lists upcoming interviews soonest first, with Join only where a link is saved", async () => {
@@ -153,7 +157,6 @@ describe("Interviews page", () => {
     await mount();
     expect(screen.getByText(/No upcoming interviews/)).toBeTruthy();
     expect(screen.getByText(/No feedback recorded yet/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Join Meeting/ }).getAttribute("aria-disabled")).toBe("true");
   });
 
   it("navigates the calendar by month and by keyboard, highlighting today", async () => {
@@ -174,13 +177,6 @@ describe("Interviews page", () => {
     await mount();
     fireEvent.click(document.querySelector("[data-today]") as HTMLElement);
     expect(within(document.querySelector("[data-day-list]") as HTMLElement).getByText("Done Role")).toBeTruthy();
-  });
-
-  it("links the quick actions to the right pages", async () => {
-    await mount();
-    expect(screen.getByRole("link", { name: /View Preparation Pack/ }).getAttribute("href")).toBe("/w/consultant/interview-prep");
-    expect(screen.getByRole("link", { name: /Ask Marketer/ }).getAttribute("href")).toBe("/w/consultant/marketer");
-    expect(screen.getByRole("link", { name: /Join meeting: Senior Java Developer/i }).getAttribute("href")).toBe("https://meet.example.org/j/1");
   });
 
   it("shows an error state when the page fails to load", async () => {

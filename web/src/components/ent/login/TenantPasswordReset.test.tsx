@@ -11,7 +11,7 @@ afterEach(() => {
 describe("TenantForgotPassword", () => {
   it("says the account belongs to the organization and is separate from a personal Kiwiply account", () => {
     render(<TenantForgotPassword name="Acme Staffing" supportEmail="it@acme.test" />);
-    expect(screen.getByText(/only changes your Acme Staffing account/).textContent).toMatch(/separate from any personal Kiwiply account/);
+    expect(screen.getByText(/only changes your Acme Staffing account/).textContent).toMatch(/separate from any personal job-search account/);
     expect(screen.getByText("it@acme.test").getAttribute("href")).toBe("mailto:it@acme.test");
   });
 

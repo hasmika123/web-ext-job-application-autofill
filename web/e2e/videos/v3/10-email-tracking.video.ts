@@ -32,8 +32,8 @@ test("VIDEO-10 Email tracking: mail moves applications forward, risky changes wa
   // ---- the page, the privacy promise, connecting
   await f.go("/w/consultant/inbox");
   await expect(page.locator("[data-consultant-inbox]")).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "I'm Anika, a consultant at Acme Staffing, and this is the Inbox page in my workspace menu.");
-  await narrate(page, "Before I type anything, it tells me who can see what. Only I see my mail. My organization never sees the password, the address, a subject, a sender, or a word of a message.", undefined, page.locator("[data-inbox-privacy]"));
+  await narrate(page, "I'm Anika, a consultant at Acme Staffing, and this is the Email Tracking page in my workspace menu.");
+  await narrate(page, "Before I type anything, it tells me who can see what. Only I see my mail. My organization never sees the password, the address, or any message.", undefined, page.locator("[data-inbox-privacy]"));
   await narrate(page, "It walks me through three steps: use a Gmail just for job hunting, turn on 2-Step Verification, and create an app password. An app password is a special 16-letter code, so my real Google password is never used.");
   await narrate(page, "This is the demo, so the Gmail is a built-in sample mailbox. No real mailbox is contacted, and the address and code are just test values.", undefined, page.locator("[data-inbox-sandbox]"));
 

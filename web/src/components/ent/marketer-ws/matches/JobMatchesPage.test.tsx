@@ -90,64 +90,73 @@ afterEach(() => {
 });
 
 describe("JobMatchesPage", () => {
-  it("draws the four KPI tiles with the board's titles, values and deltas", async () => {
+  it("has no tiles; a chip row carries All and High-confidence with their counts", async () => {
     mount();
-    await waitFor(() => expect(within(document.querySelector('[data-stat-tile="matched"]') as HTMLElement).getByText("142")).toBeTruthy());
-    expect(screen.getByRole("heading", { name: "Job Matches" })).toBeTruthy();
-    expect(screen.getByText("Find the best consultant-job matches using AI and manual matching for your assigned consultants.")).toBeTruthy();
-    for (const t of ["Matched Openings", "High-Confidence Matches", "Consultant-Ready Matches", "Stale Matches (7+ days)"]) expect(screen.getByText(t)).toBeTruthy();
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(4);
-    expect((document.querySelector('[data-stat-tile="highConfidence"]') as HTMLElement).textContent).toContain("31%");
-    expect((document.querySelector('[data-stat-tile="stale"]') as HTMLElement).textContent).toContain("35%");
+    await screen.findByText("Showing 1–10 of 142 matches");
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "All (142)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "High-confidence (78)" })).toBeTruthy();
   });
 
   it("has the filter row and the table with every column, row and button of the board", async () => {
     mount();
     await screen.findByText("Showing 1–10 of 142 matches");
-    for (const f of ["Consultant", "Primary Skill", "Client", "Match Score"]) expect(screen.getAllByText(f).length).toBeGreaterThan(0);
-    expect(screen.getByText("All Consultants")).toBeTruthy();
-    expect(screen.getByText("All Skills")).toBeTruthy();
-    expect(screen.getByText("All Clients")).toBeTruthy();
-    expect(screen.getByText("All Scores")).toBeTruthy();
-    expect(screen.getByText("Clear Filters")).toBeTruthy();
+    for (const f of ["Consultant", "Primary skill", "Client", "Match score"]) expect(screen.getAllByText(f).length).toBeGreaterThan(0);
+    expect(screen.getByText("All consultants")).toBeTruthy();
+    expect(screen.getByText("All skills")).toBeTruthy();
+    expect(screen.getByText("All clients")).toBeTruthy();
+    expect(screen.getByText("All scores")).toBeTruthy();
+    expect(screen.getByText("Clear filters")).toBeTruthy();
     const head = within(document.querySelector("thead") as HTMLElement);
-    for (const c of ["Consultant", "Primary Skill", "Matched Job Title", "Client", "Match Score", "Availability Fit", "Resume Update", "Actions"]) expect(head.getByText(c)).toBeTruthy();
+    for (const c of ["Consultant", "Primary skill", "Matched opening", "Client", "Match score", "Availability fit", "Resume update", "Actions"]) expect(head.getByText(c)).toBeTruthy();
     expect(document.querySelectorAll("[data-match-row]")).toHaveLength(10);
     const alex = document.querySelector('[data-match-row="1"]') as HTMLElement;
     expect(within(alex).getByText("Alex Morgan")).toBeTruthy();
     expect(within(alex).getByText("Java Developer")).toBeTruthy();
     expect(within(alex).getByText("96%")).toBeTruthy();
     expect(within(alex).getByText("Excellent")).toBeTruthy();
-    expect(within(alex).getByText("Not Required")).toBeTruthy();
+    expect(within(alex).getByText("Not required")).toBeTruthy();
     for (const b of ["Review", "Assign", "Compare"]) expect(within(alex).getByRole("button", { name: b })).toBeTruthy();
     expect(within(document.querySelector('[data-match-row="2"]') as HTMLElement).getByText("Update")).toBeTruthy();
     expect(within(document.querySelector('[data-match-row="10"]') as HTMLElement).getByText("68%")).toBeTruthy();
   });
 
-  it("shows the Match Explanation, Match Insights, the help card and Top Matches Today", async () => {
+  it("keeps the Match explanation as the right side; Match insights, Top matches today and the help card are gone", async () => {
     mount();
-    await screen.findByText("Why this is a great match");
-    expect(screen.getByText("Match Explanation")).toBeTruthy();
-    expect(screen.getByText("8 of 9 required skills match")).toBeTruthy();
-    expect(screen.getAllByText("Match Score").length).toBeGreaterThan(1);
-    expect(screen.getByText("Match Insights")).toBeTruthy();
-    for (const l of ["Skills Match", "Experience Level", "Availability Fit", "Client History", "Location Fit"]) expect(screen.getAllByText(l).length).toBeGreaterThan(0);
-    expect(screen.getByText("Review high-confidence matches for your assigned consultants!")).toBeTruthy();
-    expect(screen.getByText(/I've found 78 high-confidence matches/)).toBeTruthy();
-    expect(screen.getByText("Top Matches Today")).toBeTruthy();
-    expect(document.querySelectorAll("[data-top-match]")).toHaveLength(5);
+    await screen.findByText("Why this fits");
+    const side = screen.getByRole("complementary", { name: "Match explanation" });
+    expect(within(side).getByText("Match explanation")).toBeTruthy();
+    expect(within(side).getByText("8 of 9 required skills match")).toBeTruthy();
+    expect(within(side).getByText("Match score")).toBeTruthy();
+    expect(within(side).getByText("96%")).toBeTruthy();
+    expect(screen.queryByText("Match Insights")).toBeNull();
+    expect(screen.queryByText("Top Matches Today")).toBeNull();
+    expect(screen.queryByText(/I've found/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Show high-confidence matches/ })).toBeNull();
+    expect(document.querySelectorAll("[data-top-match]")).toHaveLength(0);
   });
 
-  it("'Show high-confidence matches' applies the high-confidence filter", async () => {
+  it("the High-confidence chip applies the high-confidence filter and shows it pressed", async () => {
     mount();
-    await screen.findByText("Why this is a great match");
-    fireEvent.click(screen.getByRole("button", { name: /Show high-confidence matches/ }));
+    await screen.findByText("Why this fits");
+    fireEvent.click(screen.getByRole("button", { name: "High-confidence (78)" }));
     await waitFor(() => expect(calls.some((c) => c.url.includes("score=high"))).toBe(true));
+    expect(screen.getByRole("button", { name: "High-confidence (78)" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("writes a match that was never scored as Not scored, never 0%", async () => {
+    const f = fixture();
+    f.items[1] = { ...f.items[1], score: 0 };
+    vi.stubGlobal("fetch", routeFetch(() => json(200, f)));
+    mount();
+    await screen.findByText("Showing 1–10 of 142 matches");
+    expect(within(document.querySelector('[data-match-row="2"]') as HTMLElement).getByText("Not scored")).toBeTruthy();
+    expect(screen.queryByText("0%")).toBeNull();
   });
 
   it("clicking a row loads that match's explanation", async () => {
     mount();
-    await screen.findByText("Why this is a great match");
+    await screen.findByText("Why this fits");
     fireEvent.click(document.querySelector('[data-match-row="3"]') as HTMLElement);
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/mkt/matches/3"))).toBe(true));
   });
@@ -183,9 +192,7 @@ describe("JobMatchesPage", () => {
     mount();
     await screen.findByText("Run a match to see suggestions.");
     expect(screen.getByText("Showing 0–0 of 0 matches")).toBeTruthy();
-    expect(screen.getByText("No suggested matches yet.")).toBeTruthy();
     expect(screen.getByText("Pick a match to see why it fits.")).toBeTruthy();
-    expect(screen.getAllByText("Nothing yet")).toHaveLength(4);
   });
 
   it("offers a retry when the board fails to load", async () => {

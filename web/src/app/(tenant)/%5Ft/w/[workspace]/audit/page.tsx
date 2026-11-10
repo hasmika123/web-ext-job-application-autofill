@@ -8,10 +8,10 @@ import { catchAllPage } from "@/lib/ent/shell";
 import { can } from "@/lib/ent/workspaces";
 
 /**
- * Audit Logs at `/w/admin/audit`, inside the EnterpriseShell: the organization audit trail, read only (D9, 2026-10-16 audit). The menu lists it for
+ * Audit Log at `/w/admin/audit`, inside the EnterpriseShell: the organization audit trail, read only (D9, 2026-10-16 audit). The menu lists it for
  * `audit.view`; the API is the real gate (ORG scope, not row-filtered) and answers the generic 404 otherwise. Other workspaces keep what the catch-all shows.
  */
-export const metadata: Metadata = { title: "Audit Logs", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Audit Log", robots: { index: false, follow: false } };
 
 export default async function WorkspaceAuditRoute({ params }: { params: Promise<{ workspace: string }> }) {
   const { workspace } = await params;
@@ -26,7 +26,7 @@ export default async function WorkspaceAuditRoute({ params }: { params: Promise<
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
   return (
     <>
-      <PageHeader title="Audit Logs" subtitle="Who did what in your organization, and when." />
+      <PageHeader title="Audit Log" subtitle="Who did what in your organization, and when." />
       <AuditTabs orgId={me.org.id} />
     </>
   );

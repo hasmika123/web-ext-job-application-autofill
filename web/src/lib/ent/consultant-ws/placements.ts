@@ -278,16 +278,6 @@ export function noteProblem(note: string): string | null {
   return null;
 }
 
-/* ── static default copy (should become admin config) ─────────────────────────────────── */
-
-/** The Helpful Resources defaults. There is no real URL for any of them yet, so the page shows them as plain text with a "Coming soon" hint. */
-export const RESOURCES: readonly { key: string; label: string; href: string | null }[] = [
-  { key: "onboarding", label: "Client Onboarding Guide", href: null },
-  { key: "practices", label: "Consultant Best Practices", href: null },
-  { key: "policy", label: "Time & Expense Policy", href: null },
-  { key: "faq", label: "Placement FAQ", href: null },
-];
-
 /* ── BFF calls ────────────────────────────────────────────────────────────────────────── */
 
 export interface Fetched<T> {

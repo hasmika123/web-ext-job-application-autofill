@@ -9,6 +9,7 @@ import com.dossier.api.repository.ent.consultant.ConProfileRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.ent.EnterpriseDemoSeeder;
 import com.dossier.api.service.ent.EnterpriseFeatureFlag;
 import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.ent.TenantModule;
@@ -103,6 +104,8 @@ public class ProfileWorkspaces {
         // A member of a SHARED-accounts organization has an ordinary account (no org_id); what makes its extension session an enterprise one is the ext=1 token
         // bound to the organization (connect code), valid while the seat is.
         if (orgId == null) orgId = SecurityUtils.currentExtensionTenant().filter(t -> access.resolve(t).isPresent()).orElse(null);
+        // A seeded enterprise DEMO member (shared-mode login, no org on its user row) is the enterprise account of the tenant its token is bound to.
+        if (orgId == null && EnterpriseDemoSeeder.isEnterpriseDemoLogin(user.get().getLogin())) orgId = SecurityUtils.getCurrentTenantId().orElse(null);
         if (orgId == null) return Account.PERSONAL;
         Optional<Organization> org = organizations.findByOrgId(orgId);
         if (org.isEmpty()) return Account.PERSONAL;

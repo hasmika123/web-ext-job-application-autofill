@@ -24,7 +24,7 @@ import { safeReturnTo } from "@/lib/tenant-urls";
 
 /**
  * The tenant sign-in (X2.3, rebuilt from the "Welcome Back" boards), one component for every organization, drawn from the
- * PUBLISHED branding at runtime: the org logo (in the slot beside the "Sign In" heading, or the name as a wordmark), the
+ * PUBLISHED branding at runtime: the org logo (in the sign-in card's slot, or the name as a wordmark), the
  * heading ("Welcome Back" unless the org set a title), the subtitle, the colours (through the tenant CSS variables, never a
  * literal), the support address and which social buttons exist (Google / Microsoft, only when the org's login options enable
  * them). Nothing is hard-coded to one organization and nothing falls back to another organization or to the Kiwiply site.
@@ -82,7 +82,7 @@ const SPARKS: CSSProperties[] = [
   { left: 20, top: 28, transform: "rotate(112deg)" },
 ];
 
-export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessage, supportEmail, microsoft = false, google = false, preview = false, next, policyLinks }: BrandedLoginProps) {
+export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessage, microsoft = false, google = false, preview = false, next, policyLinks }: BrandedLoginProps) {
   const router = useRouter();
   const uid = useId();
   const emailId = `${uid}-email`;
@@ -257,9 +257,10 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
             )}
             {view === "form" && (
               <form onSubmit={onSubmit} noValidate>
-                <CardHeader title="Sign In" subtitle={`Sign in to your ${name} account.`} name={name} logoUrl={logoUrl} preview={preview} />
+                {/* the welcome heading above already names the organization: the card carries only its logo (no second "Sign in" heading pair) */}
+                <CardHeader name={name} logoUrl={logoUrl} preview={preview} />
 
-                <Field id={emailId} label="User Name" icon={<MailIcon size={20} />} error={emailErr}>
+                <Field id={emailId} label="Email" icon={<MailIcon size={20} />} error={emailErr}>
                   <input
                     ref={emailRef}
                     id={emailId}
@@ -315,10 +316,10 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
                 <ErrorLine id={errorId} message={error} />
 
                 <button type="submit" disabled={busy} aria-busy={busy} className={SIGNIN}>
-                  {busy ? "Signing in..." : <>Sign In <ArrowRightIcon size={20} /></>}
+                  {busy ? "Signing in..." : <>Sign in <ArrowRightIcon size={20} /></>}
                 </button>
                 <p data-account-note className="mt-3 text-center text-[13px] leading-snug text-[var(--brand-800)]">
-                  Your {name} account belongs to {name}. It is separate from any personal Kiwiply account.
+                  This account is separate from any personal job-search account.
                 </p>
 
                 {social && (
@@ -347,18 +348,10 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
 
                 <div className="mt-5 space-y-1 text-center text-[13.5px] text-[var(--brand-800)]">
                   <p>
-                    <ShieldIcon size={16} aria-hidden className="mr-1.5 inline-block align-[-3px]" />
-                    Secure access protected by industry standards.
-                  </p>
-                  <p>
                     Need help?{" "}
-                    {supportEmail ? (
-                      <a href={`mailto:${supportEmail}`} className="font-semibold text-accent-deep hover:underline">
-                        Contact IT Support
-                      </a>
-                    ) : (
-                      <span>Contact IT Support</span>
-                    )}
+                    <a href="/support" className="font-semibold text-accent-deep hover:underline">
+                      Contact IT support
+                    </a>
                   </p>
                   <PolicyLinks links={policyLinks} tone="plain" className="pt-1" />
                 </div>
@@ -377,16 +370,23 @@ const SIGNIN = "tenant-signin inline-flex h-[54px] w-full items-center justify-c
 const SOCIAL =
   "tenant-glass-field flex h-[50px] w-full items-center justify-center gap-2.5 rounded-xl text-[14.5px] font-semibold text-[var(--brand-900)] transition-colors hover:bg-white";
 
-/** Heading on the left; behind a thin divider, the org logo slot on the right (dashed placeholder only in the editor preview). */
-function CardHeader({ title, subtitle, name, logoUrl, preview }: { title: string; subtitle: string; name: string; logoUrl?: string | null; preview: boolean }) {
+/**
+ * Heading on the left (when the card has one: the code step); behind a thin divider, the org logo slot on the right (dashed placeholder only in the
+ * editor preview). The sign-in form has no heading of its own: the page's welcome heading already says where you are.
+ */
+function CardHeader({ title, subtitle, name, logoUrl, preview }: { title?: string; subtitle?: string; name: string; logoUrl?: string | null; preview: boolean }) {
   const placeholder = preview && !logoUrl;
   return (
-    <div className="mb-6 flex items-center gap-4">
-      <div className="min-w-0 flex-1">
-        <h2 className="font-body text-[32px] font-extrabold leading-tight tracking-tight sm:text-[38px] md:text-[32px] lg:text-[38px]">{title}</h2>
-        <p className="mt-1 text-[15px] leading-snug text-[var(--brand-800)] sm:text-[16px]">{subtitle}</p>
-      </div>
-      <span aria-hidden className="h-16 w-px shrink-0 bg-[var(--brand-border)] sm:h-20" />
+    <div className={cn("mb-6 flex items-center gap-4", !title && "justify-center")}>
+      {title ? (
+        <>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-body text-[32px] font-extrabold leading-tight tracking-tight sm:text-[38px] md:text-[32px] lg:text-[38px]">{title}</h2>
+            {subtitle ? <p className="mt-1 text-[15px] leading-snug text-[var(--brand-800)] sm:text-[16px]">{subtitle}</p> : null}
+          </div>
+          <span aria-hidden className="h-16 w-px shrink-0 bg-[var(--brand-border)] sm:h-20" />
+        </>
+      ) : null}
       <div
         data-logo-slot={placeholder ? "placeholder" : "logo"}
         className={cn(

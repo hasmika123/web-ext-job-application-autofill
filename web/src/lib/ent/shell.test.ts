@@ -12,20 +12,45 @@ const ws = (m: MeTenant, key: string) => m.workspaces.find((w) => w.key === key)
 const keys = (m: MeTenant, key: string) => navSections(ws(m, key)).flatMap((s) => s.items.map((i) => i.key));
 
 describe("nav filtering per role (16 s5: the API filtered it, the shell only groups it)", () => {
-  it("owner sees the Administration menu the board shows, in the board's three groups", () => {
+  it("owner sees the Administration menu in its labelled groups (Dashboard stands alone)", () => {
     const owner = me("acme.localhost", "owner@acme.com");
     const sections = navSections(ws(owner, "admin"));
-    expect(sections.map((s) => s.id)).toEqual(["people", "plan", "organization"]);
-    expect(sections[0].items.map((i) => i.text)).toEqual([
-      "Dashboard", "Employees", "Invitations", "Teams", "Departments", "Roles & Permissions", "Consultants", "Resumes", "Marketing Assignments", "Jobs", "Applications", "Interviews", "Clients", "Placements",
+    expect(sections.map((s) => [s.id, s.label])).toEqual([["main", null], ["people", "People"], ["talent", "Talent"], ["pipeline", "Pipeline"], ["organization", "Organization"]]);
+    expect(sections[0].items.map((i) => i.text)).toEqual(["Dashboard"]);
+    expect(sections[1].items.map((i) => i.text)).toEqual(["Employees", "Teams & Departments", "Roles"]);
+    expect(sections[2].items.map((i) => i.text)).toEqual(["Consultants", "Assignments", "Resumes"]);
+    expect(sections[3].items.map((i) => i.text)).toEqual(["Jobs", "Applications", "Interviews", "Clients", "Placements"]);
+    expect(sections[4].items.map((i) => i.text)).toEqual(["Reports", "Audit Log", "Branding", "Settings", "Plan & Billing"]);
+    // one "Soon" row (D1): Plan & Billing; the pages that left the menu (HR, Finance, Domains, ...) are nowhere
+    const all = sections.flatMap((s) => s.items);
+    expect(all.filter((i) => i.soon).map((i) => i.key)).toEqual(["billing"]);
+    expect(all.map((i) => i.key)).not.toEqual(expect.arrayContaining(["hr"]));
+    expect(all.length).toBe(17);
+    expect(all.find((i) => i.key === "employees")?.soon).toBeUndefined();
+  });
+
+  it("the Marketing and Consultant menus are grouped by the data's group labels", () => {
+    const mkt = navSections(ws(me("acme.localhost", "marketer@acme.com"), "marketing"));
+    expect(mkt.map((s) => [s.label, s.items.map((i) => i.text)])).toEqual([
+      [null, ["Home"]],
+      ["Talent", ["My Talent", "Resumes"]],
+      ["Pipeline", ["Jobs", "Opportunities", "Submissions", "Applications", "Interviews"]],
+      ["My work", ["Tasks", "Activity", "Performance"]],
     ]);
-    // the whole menu is shown (the board's order); what the member's modules do not open yet is flagged "soon", never hidden
-    expect(sections[1].items.map((i) => i.text)).toEqual(["Subscription Overview", "Consultant Licenses", "Billing", "Feature Usage", "HR", "Finance", "Reports"]);
-    expect(sections[2].items.map((i) => i.text)).toEqual(["Organization Branding", "Domains", "Integrations", "Audit Logs", "Settings", "Policies"]);
-    const soon = sections.flatMap((s) => s.items).filter((i) => i.soon).map((i) => i.key);
-    expect(soon).toEqual(expect.arrayContaining(["hr", "finance", "integrations"]));
-    expect(sections.flatMap((s) => s.items).find((i) => i.key === "employees")?.soon).toBeUndefined();
-    expect(sections.flatMap((s) => s.items).find((i) => i.key === "hr")?.children).toBeUndefined();
+    const cons = navSections(ws(me("acme.localhost", "consultant@acme.com"), "consultant"));
+    expect(cons.map((s) => [s.label, s.items.map((i) => i.text)])).toEqual([
+      [null, ["Home"]],
+      ["Me", ["My Profile", "My Resumes", "Availability"]],
+      ["Work", ["Opportunities", "Submissions", "My Applications", "Interviews", "Offers", "My Placement"]],
+      ["Keep up", ["Tasks", "Activity", "Email Tracking", "My Marketer"]],
+      [null, ["Settings"]],
+    ]);
+  });
+
+  it("an API that sends no groups gets one ungrouped list", () => {
+    const m = me("acme.localhost", "marketer@acme.com");
+    const bare = { ...ws(m, "marketing"), groups: undefined, nav: ws(m, "marketing").nav.map((n) => ({ ...n, group: undefined })) };
+    expect(navSections(bare).map((s) => s.id)).toEqual(["main"]);
   });
 
   it("a marketer has no Administration workspace and no admin pages anywhere in the menu", () => {
@@ -52,13 +77,13 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     expect(navSections(ws(beta, "admin")).flatMap((s) => s.items).find((i) => i.key === "consultants")?.soon).toBe(true);
   });
 
-  it("HR and Finance read 'Soon' with no sub-menu, even when the API lists the page (D9: their pages are placeholders)", () => {
+  it("Plan & Billing reads 'Soon' whether or not the API lists it (D9: its page is a placeholder)", () => {
     const owner = me("acme.localhost", "owner@acme.com");
-    const withHr = { ...owner, workspaces: owner.workspaces.map((w) => (w.key === "admin" ? { ...w, nav: [...w.nav, { key: "hr", label: "HR", icon: "Heart", href: "/w/admin/hr" }] } : w)) };
-    for (const m of [owner, withHr]) {
-      const hr = navSections(ws(m, "admin")).flatMap((s) => s.items).find((i) => i.key === "hr")!;
-      expect(hr.soon).toBe(true);
-      expect(hr.children).toBeUndefined();
+    const without = { ...owner, workspaces: owner.workspaces.map((w) => (w.key === "admin" ? { ...w, nav: w.nav.filter((n) => n.key !== "billing") } : w)) };
+    for (const m of [owner, without]) {
+      const billing = navSections(ws(m, "admin")).flatMap((s) => s.items).find((i) => i.key === "billing")!;
+      expect(billing.soon).toBe(true);
+      expect(billing.text).toBe("Plan & Billing");
     }
   });
 
@@ -94,12 +119,12 @@ describe("the active item", () => {
     expect(activeKey(admin, "/w/admin/employees/42")).toBe("employees");
     expect(activeKey(admin, "/w/admin/unknown-page")).toBeNull();
   });
-  it("tells Employees from Invitations by their own pages", () => {
-    expect(activeKey(admin, "/w/admin/invitations", "")).toBe("invitations");
-    expect(activeKey(admin, "/w/admin/employees", "")).toBe("employees");
+  it("a merged page's tabs keep its row highlighted (Invitations is a tab of Employees)", () => {
+    expect(activeKey(admin, "/w/admin/employees", "tab=invitations")).toBe("employees");
+    expect(activeKey(admin, "/w/admin/teams", "tab=departments")).toBe("teams");
   });
   it("titles a page by its menu label until the page supplies its own", () => {
-    expect(defaultTitle(admin, "/w/admin/roles", "")).toBe("Roles & Permissions");
+    expect(defaultTitle(admin, "/w/admin/roles", "")).toBe("Roles");
     expect(defaultTitle(admin, "/w/admin", "")).toBe("Dashboard");
   });
 });
@@ -148,11 +173,12 @@ describe("the catch-all (pages not built yet)", () => {
       // Invitations and Departments share a path with Employees / Teams (the query or hash tells them apart): the title may be the sibling's
       expect(catchAllPage(owner, "admin", slug).kind, s.key).toBe("page");
     }
-    expect(catchAllPage(owner, "admin", ["roles"])).toEqual({ kind: "page", title: "Roles & Permissions" });
+    expect(catchAllPage(owner, "admin", ["roles"])).toEqual({ kind: "page", title: "Roles" });
     expect(catchAllPage(owner, "admin", [])).toEqual({ kind: "page", title: "Dashboard" });
   });
   it("a path the member's menu does not list is denied (no data, the API is the real gate)", () => {
-    expect(catchAllPage(owner, "admin", ["hr"])).toEqual({ kind: "page", title: "HR" }); // listed as soon: the honest "on the way" page
+    expect(catchAllPage(owner, "admin", ["billing"])).toEqual({ kind: "page", title: "Plan & Billing" }); // listed as soon: the honest "on the way" page
+    expect(catchAllPage(owner, "admin", ["hr"])).toEqual({ kind: "denied" }); // left the Administration menu (D1)
     expect(catchAllPage(owner, "admin", ["nothing-here"])).toEqual({ kind: "denied" });
     expect(catchAllPage(owner, "hr", [])).toEqual({ kind: "denied" });
   });

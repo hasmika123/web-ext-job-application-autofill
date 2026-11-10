@@ -10,6 +10,7 @@ const vm = require("vm");
 let pass = 0, fail = 0;
 const fails = [];
 const tag = "[prepare_batch]";
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 function ok(n, c, e) { if (c) pass++; else { fail++; fails.push(n + (e ? "  ->  " + e : "")); } }
 function eq(n, g, w) { ok(n, JSON.stringify(g) === JSON.stringify(w), `got ${JSON.stringify(g)} want ${JSON.stringify(w)}`); }
 
@@ -78,6 +79,32 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
   eq("role: nothing known", PB.checkRole(7, null), "unknown");
   ok("tenant origin: https acme.kiwiply.com", PB.tenantOriginAllowed(TENANT));
   ok("tenant origin: not http, not a port, not a look-alike", !PB.tenantOriginAllowed("http://acme.kiwiply.com") && !PB.tenantOriginAllowed("https://acme.kiwiply.com:8443") && !PB.tenantOriginAllowed("https://kiwiply.com.evil.test") && !PB.tenantOriginAllowed("https://evilkiwiply.com") && !PB.tenantOriginAllowed("nope"));
+  ok("session id: a positive integer is taken as its decimal string", PB.validate(msg({ sessionId: 42 })).batch.sessionId === "42");
+  eq("session id: zero, a float and a negative number are refused", [0, 1.5, -3].map((v) => PB.validate(msg({ sessionId: v })).reason), ["bad-session", "bad-session", "bad-session"]);
+
+  /* ---------------------------------------------------------- 2b. dev-build allowances come from the manifest only */
+  {
+    ok("no manifest: no http origin is allowed anywhere", !PB.devAtsOriginAllowed("http://jobs.localhost:3399") && !PB.devTenantOriginAllowed("http://acme.localhost:3200"));
+    const hadChrome = Object.prototype.hasOwnProperty.call(globalThis, "chrome");
+    const before = globalThis.chrome;
+    globalThis.chrome = { runtime: { getManifest: () => ({
+      host_permissions: ["https://*.greenhouse.io/*", "http://jobs.localhost:3399/*", "http://localhost:18183/*"],
+      externally_connectable: { matches: ["https://kiwiply.com/*", "https://*.kiwiply.com/*", "http://localhost:3200/*", "http://*.localhost:3200/*"] },
+    }) } };
+    try {
+      ok("dev ATS origin: exact host and port from host_permissions", PB.devAtsOriginAllowed("http://jobs.localhost:3399"));
+      ok("dev ATS origin: another port, https, a non-localhost host and a look-alike are refused", !PB.devAtsOriginAllowed("http://jobs.localhost:3400") && !PB.devAtsOriginAllowed("https://jobs.localhost:3399") && !PB.devAtsOriginAllowed("http://jobs.example.com:3399") && !PB.devAtsOriginAllowed("http://evil-jobs.localhost:3399"));
+      ok("dev ATS origin: the plain-localhost API host is not an ATS origin", !PB.devAtsOriginAllowed("http://localhost:18183"));
+      eq("cleanUrl: a dev ATS http link passes", PB.cleanUrl("http://jobs.localhost:3399/greenhouse/acme/12?t=Platform%20Engineer").url, "http://jobs.localhost:3399/greenhouse/acme/12?t=Platform%20Engineer");
+      eq("cleanUrl: other http links still fail", PB.cleanUrl("http://jobs.lever.co/a/1").error, "http-url");
+      eq("cleanUrl: credentials on a dev link still fail", PB.cleanUrl("http://u:p@jobs.localhost:3399/a").error, "http-url");
+      ok("dev tenant origin: a *.localhost:3200 page may send a batch", PB.tenantOriginAllowed("http://acme.localhost:3200") && PB.tenantOriginAllowed("http://gamma.localhost:3200"));
+      ok("dev tenant origin: not another port, not https, not the bare platform host via the wildcard rule's http check", !PB.tenantOriginAllowed("http://acme.localhost:3000") && !PB.tenantOriginAllowed("https://acme.localhost:3200") && !PB.tenantOriginAllowed("http://acme.kiwiply.com"));
+      ok("production tenant rule is unchanged", PB.tenantOriginAllowed(TENANT) && !PB.tenantOriginAllowed("https://acme.kiwiply.com:8443"));
+    } finally {
+      if (hadChrome) globalThis.chrome = before; else delete globalThis.chrome;
+    }
+  }
 
   /* ---------------------------------------------------------- fakes */
   function memStorage() {
@@ -232,6 +259,17 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
   }
 
   /* ---------------------------------------------------------- 4. scheduling against a mocked chrome.tabs */
+  {
+    // a filled tab waiting for review, or a tab stopped at a sign-in wall, no longer holds back the queue: 8 jobs all open
+    const r = rig();
+    await r.ctl.start(batchOf(8), { userId: 42 });
+    await r.ctl.idle();
+    eq("cap: 5 tabs while none is filled", r.tabs.created.length, 5);
+    for (const n of [1, 2, 3, 4]) await r.ctl.onProgress(100 + n, { batch: { sessionId: "sess_abc123", matchId: n }, phase: "filled", gaps: n === 2 ? 1 : 0 });
+    await r.ctl.idle();
+    eq("cap: each filled tab (complete or with fields left) lets the next job open", r.tabs.created.length, 8);
+    eq("cap: all 8 jobs are open", await states(r), ["PREFILLED", "NEEDS_INPUT", "PREFILLED", "PREFILLED", "OPENED", "OPENED", "OPENED", "OPENED"]);
+  }
   {
     const r = rig();
     await r.ctl.start(batchOf(8), { userId: 42 });
@@ -417,7 +455,8 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     eq("a restarted worker keeps tracking tabs", (await r2.ctl.status()).jobs[0].state, "PREFILLED");
     await r2.ctl.onTabRemoved(102);
     await r2.ctl.idle();
-    eq("...and keeps opening the queue", r2.tabs.created.length, 6);
+    // tab 1's fill freed its place (job 6 opens) and closing tab 2 freed another (job 7 opens)
+    eq("...and keeps opening the queue", r2.tabs.created.length, 7);
     // browser restart: tabs are gone
     r2.tabs.gone = new Set([101, 103, 104, 105, 106]);
     await r2.ctl.reconcile();
@@ -514,6 +553,10 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
       },
       loadMirror: async () => (over.mirror === undefined ? { bio: { firstName: "Cora", email: "c@x.test" }, resume: { skills: ["go"] }, file: null, resumeRef: { serverId: 3, label: "Main" } } : over.mirror),
       wait: async () => {},
+      activated: [],
+      activate: async (id) => { d.activated.push(id); },
+      // a fill the page never reports is given up after this (the real budget is 90 s)
+      fillWaitMs: over.fillWaitMs === undefined ? 40 : over.fillWaitMs,
     };
     return { prep: PB.createPreparer(d), sent, d };
   }
@@ -532,6 +575,17 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     ok("prepare: it never asks for anything but a check and a fill", r.sent.every((s) => s.m.type === "JAF_BATCH_CHECK" || s.m.type === "JAF_BATCH_FILL"));
   }
   {
+    // A job that names its resume (the one the marketer tailored for it): the id survives validation and reaches the mirror loader for that tab only.
+    const v = PB.validate(msg({ jobs: [job(1, { resumeId: 12 }), job(2, { resumeId: "x" }), job(3)] }));
+    eq("resumeId: a positive id is kept on its job", v.batch.jobs.map((j) => j.resumeId), [12, undefined, undefined]);
+    const r = prepRig();
+    const seen = [];
+    r.d.loadMirror = async (j) => { seen.push(j && j.resumeId); return { bio: { firstName: "Cora" }, resume: null, file: null, resumeRef: null }; };
+    await r.prep.prepare(1, { matchId: 1, resumeId: 12 }, BATCH);
+    await r.prep.prepare(2, { matchId: 2 }, BATCH);
+    eq("resumeId: the mirror loader is asked for that job's resume, and for the usual pick otherwise", seen, [12, undefined]);
+  }
+  {
     eq("prepare: sign-in wall -> NEEDS_INPUT, no fill sent", (await (async () => { const r = prepRig({ kind: "signin" }); const x = await r.prep.prepare(1, { matchId: 1 }, BATCH); return [x, r.sent.some((s) => s.m.type === "JAF_BATCH_FILL")]; })()), [{ outcome: "NEEDS_INPUT", reason: PB.REASON.signin }, false]);
     eq("prepare: CAPTCHA page -> NEEDS_INPUT, no fill sent", (await (async () => { const r = prepRig({ kind: "captcha" }); const x = await r.prep.prepare(1, { matchId: 1 }, BATCH); return [x, r.sent.some((s) => s.m.type === "JAF_BATCH_FILL")]; })()), [{ outcome: "NEEDS_INPUT", reason: PB.REASON.captcha }, false]);
     eq("prepare: unsupported site (cannot inject) -> NEEDS_INPUT", await prepRig({ injectFails: true }).prep.prepare(1, { matchId: 1 }, BATCH), { outcome: "NEEDS_INPUT", reason: PB.REASON.unsupported });
@@ -546,9 +600,83 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     slow.d.wait = async () => { waited++; };
     const pr = PB.createPreparer(slow.d);
     await pr.prepare(1, { matchId: 1 }, BATCH);
-    eq("prepare: a page with no form yet is looked at twice (single-page apps), not in a loop", [waited, slow.sent.filter((s) => s.m.type === "JAF_BATCH_CHECK").length], [1, 2]);
+    eq("prepare: a page with no form yet is looked at three times (single-page apps), not in a loop", [waited, slow.sent.filter((s) => s.m.type === "JAF_BATCH_CHECK").length], [2, 3]);
+
+    // Ashby: the adapter matches by URL before the form is drawn. The fill waits for the fields instead of reviewing an empty page.
+    let looks = 0;
+    const late = prepRig();
+    late.d.scanFrames = async () => (++looks < 3 ? [{ frameId: 0, adapter: "ashby", fieldCount: 0 }] : [{ frameId: 0, adapter: "ashby", fieldCount: 6 }]);
+    let lateWaits = 0;
+    late.d.wait = async () => { lateWaits++; };
+    const lateRes = await PB.createPreparer(late.d).prepare(1, { matchId: 1 }, BATCH);
+    eq("prepare: a known site whose form renders late is filled once its fields appear", [lateRes, looks, lateWaits, late.sent.filter((s) => s.m.type === "JAF_BATCH_FILL").length], [{ outcome: "READY" }, 3, 2, 1]);
+    const never = prepRig({ frames: [{ frameId: 0, adapter: "ashby", fieldCount: 0 }] });
+    eq("prepare: a known site that never shows countable fields is still filled after the last look (as before)", await never.prep.prepare(1, { matchId: 1 }, BATCH), { outcome: "READY" });
+    let quick = 0;
+    const ready = prepRig();
+    ready.d.wait = async () => { quick++; };
+    await PB.createPreparer(ready.d).prepare(1, { matchId: 1 }, BATCH);
+    eq("prepare: a form that is already there is filled without waiting", quick, 0);
+  }
+  {
+    // Tabs are filled one at a time, each in front: custom dropdowns (react-select on Greenhouse) only work in a visible tab.
+    const r = prepRig({ fillWaitMs: 5000 });
+    const order = [];
+    const origSend = r.d.sendTo;
+    r.d.sendTo = async (tabId, m, frameId) => { if (m.type === "JAF_BATCH_FILL") order.push("fill:" + tabId); return origSend(tabId, m, frameId); };
+    const p1 = r.prep.prepare(1, { matchId: 1 }, BATCH);
+    const p2 = r.prep.prepare(2, { matchId: 2 }, BATCH);
+    await wait(30);
+    eq("serial: the second tab's fill waits for the first tab to report its fill", order, ["fill:1"]);
+    ok("serial: the tab being filled is brought to the front first", r.d.activated[0] === 1 && r.d.activated.length === 1);
+    ok("serial: fillDone for an unknown tab is ignored", r.prep.fillDone(99) === false);
+    ok("serial: the page's 'filled' report releases the queue", r.prep.fillDone(1) === true);
+    eq("serial: the first tab is READY once its fill is reported", await p1, { outcome: "READY" });
+    await wait(30);
+    eq("serial: then the second tab is activated and filled", [order, r.d.activated], [["fill:1", "fill:2"], [1, 2]]);
+    r.prep.fillDone(2);
+    eq("serial: the second tab is READY too", await p2, { outcome: "READY" });
+    // a fill the page never reports does not block the batch forever
+    const slow = prepRig({ fillWaitMs: 30 });
+    const t0 = Date.now();
+    eq("serial: a fill that never reports is given up after the budget, READY as before", await slow.prep.prepare(3, { matchId: 3 }, BATCH), { outcome: "READY" });
+    ok("serial: ...after the budget, not at once", Date.now() - t0 >= 25);
+    // a tab that cannot be activated is still filled where it is
+    const noAct = prepRig({ fillWaitMs: 0 });
+    noAct.d.activate = async () => { throw new Error("No tab with id"); };
+    eq("serial: a tab that cannot be brought to the front is filled anyway", await noAct.prep.prepare(4, { matchId: 4 }, BATCH), { outcome: "READY" });
+  }
+  {
+    // The batch goes back to the web page it was started from once no tab is left to fill (the progress panel is there).
+    // (the real preparer waits for the page's "filled" report before it answers READY, so the mock reports first)
+    const hold = {};
+    const r = rig({ prepareTab: async (tabId, j, b) => { await hold.ctl.onProgress(tabId, { batch: { sessionId: b.sessionId, matchId: j.matchId }, phase: "filled", gaps: j.matchId === 2 ? 1 : 0 }); return { outcome: "READY" }; } });
+    hold.ctl = r.ctl;
+    r.tabs.activated = [];
+    r.tabs.activate = async (id) => { r.tabs.activated.push(id); };
+    await r.ctl.start(batchOf(2), { userId: 42, originTabId: 7 });
+    await r.ctl.idle();
+    const [t1, t2] = r.tabs.created.map((t) => t.id);
+    await r.ctl.onTabUpdated(t1, { status: "complete" });
+    eq("return: not back to the web page while another tab is still to be filled", r.tabs.activated, []);
+    await r.ctl.onTabUpdated(t2, { status: "complete" });
+    eq("return: once the last tab is filled, the web page's tab is brought back to the front", r.tabs.activated, [7]);
+    const none = rig();
+    none.tabs.activate = async () => { throw new Error("gone"); };
+    await none.ctl.start(batchOf(1), { userId: 42, originTabId: 9 });
+    await none.ctl.idle();
+    await none.ctl.onTabUpdated(none.tabs.created[0].id, { status: "complete" });
+    ok("return: a web page tab that is gone is no error", true);
   }
 
+// A Workday job link opens its application (Workday's own Apply -> Apply Manually address); other links open as saved.
+{
+  const P = (globalThis.JAF || {}).prepareBatch || PB;
+  eq("applicationUrl: Workday job page -> /apply/applyManually", P.applicationUrl("https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Senior-Backend-Engineer---Cloud-Platform_R168509"), "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/San-Jose/Senior-Backend-Engineer---Cloud-Platform_R168509/apply/applyManually");
+  eq("applicationUrl: an apply link is kept", P.applicationUrl("https://acme.wd1.myworkdayjobs.com/careers/job/NYC/Engineer_JR-123/apply"), "https://acme.wd1.myworkdayjobs.com/careers/job/NYC/Engineer_JR-123/apply");
+  eq("applicationUrl: other sites are kept", P.applicationUrl("https://jobs.lever.co/acme/123"), "https://jobs.lever.co/acme/123");
+  eq("applicationUrl: a Workday search page is kept", P.applicationUrl("https://acme.wd1.myworkdayjobs.com/careers"), "https://acme.wd1.myworkdayjobs.com/careers");
+}
   console.log(`${tag} ${pass} passed, ${fail} failed`);
   if (fails.length) { console.log(`${tag} Failures:`); fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log(`${tag} All green.`);

@@ -115,7 +115,7 @@ export function TenantForgotPassword({ name, logoUrl, supportEmail }: { name: st
   return (
     <Shell name={name} logoUrl={logoUrl} title="Reset your password">
       <p className="mb-4 text-[15px] leading-snug text-[var(--brand-800)]">
-        Enter the email address of your {name} account and we&apos;ll send you a link to set a new password. This only changes your {name} account: it belongs to {name} and is separate from any personal Kiwiply account.
+        Enter the email address of your {name} account and we&apos;ll send you a link to set a new password. This only changes your {name} account: it belongs to {name} and is separate from any personal job-search account.
       </p>
       <form onSubmit={onSubmit} noValidate>
         <Field id={`${uid}-email`} label="Email address" icon={<MailIcon size={20} />}>
@@ -203,7 +203,7 @@ export function TenantResetPassword({ name, logoUrl, resetKey }: { name: string;
 
   return (
     <Shell name={name} logoUrl={logoUrl} title="Set a new password">
-      <p className="mb-4 text-[15px] leading-snug text-[var(--brand-800)]">Choose a new password for your {name} account. It does not change any personal Kiwiply account.</p>
+      <p className="mb-4 text-[15px] leading-snug text-[var(--brand-800)]">Choose a new password for your {name} account. It does not change any personal job-search account.</p>
       <form onSubmit={onSubmit} noValidate>
         <Field id={`${uid}-pw`} label="New password" icon={<LockIcon size={20} />}>
           <input id={`${uid}-pw`} name="new-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className={INPUT} />

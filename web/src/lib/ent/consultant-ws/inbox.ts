@@ -191,7 +191,7 @@ export type InboxFetch = { kind: "OK"; view: ConsultantInboxView } | { kind: "DE
 const base = (orgId: number | string) => `/api/orgs/${orgId}/me-workspace/inbox`;
 
 /** The tenant-bound routes `InboxConnect` and the suggestion buttons talk to. */
-export const inboxEndpoints = (orgId: number | string) => ({ connect: base(orgId), notify: `${base(orgId)}/notify` });
+export const inboxEndpoints = (orgId: number | string) => ({ connect: base(orgId), notify: `${base(orgId)}/notify`, checkNow: `${base(orgId)}/check-now` });
 
 /** The routes of "Needs your review", the undo and the rejection setting for this organization's consultant workspace (tenant BFF, the consultant only). */
 export const reviewEndpoints = (orgId: number | string): ReviewEndpoints => ({
