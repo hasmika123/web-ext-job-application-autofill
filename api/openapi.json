@@ -395,7 +395,7 @@
       "get" : {
         "tags" : [ "profile-sync" ],
         "summary" : "Get my bio",
-        "description" : "The current user's bio payload, or 404 if none saved yet.",
+        "description" : "The current user's bio payload, or 404 if none saved yet. For an organization consultant's browser-extension session (ext token bound to the organization) the payload is their workspace career profile (name, phone, location, work mode, work-authorization choice, account email) laid over their own bio.",
         "operationId" : "getProfile",
         "responses" : {
           "200" : {

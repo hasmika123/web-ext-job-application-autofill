@@ -101,6 +101,9 @@ public class ProfileWorkspaces {
         Optional<User> user = SecurityUtils.getCurrentUserLogin().flatMap(users::findOneByLogin);
         if (user.isEmpty()) return Account.PERSONAL;
         Long orgId = user.get().getOrgId();
+        // A member of a SHARED-accounts organization has an ordinary account (no org_id); what makes its extension session an enterprise one is the ext=1 token
+        // bound to the organization (connect code), valid while the seat is.
+        if (orgId == null) orgId = SecurityUtils.currentExtensionTenant().filter(t -> access.resolve(t).isPresent()).orElse(null);
         // A seeded enterprise DEMO member (shared-mode login, no org on its user row) is the enterprise account of the tenant its token is bound to.
         if (orgId == null && EnterpriseDemoSeeder.isEnterpriseDemoLogin(user.get().getLogin())) orgId = SecurityUtils.getCurrentTenantId().orElse(null);
         if (orgId == null) return Account.PERSONAL;

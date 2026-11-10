@@ -47,8 +47,13 @@ class EnterpriseSeatFilterTest {
     }
 
     private void token(String subject, Long tid, Long uid) {
+        token(subject, tid, uid, false);
+    }
+
+    private void token(String subject, Long tid, Long uid, boolean ext) {
         Jwt.Builder b = Jwt.withTokenValue("t").header("alg", "none").subject(subject).claim("userId", uid).issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60));
         if (tid != null) b.claim("tid", tid);
+        if (ext) b.claim("ext", 1);
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(b.build(), List.of()));
     }
 
@@ -75,6 +80,25 @@ class EnterpriseSeatFilterTest {
         run("GET", "/api/profile/version");
         assertThat(response.getStatus()).isEqualTo(200);
         verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void anExtensionTokenOfAnOrdinaryAccountIsJudgedByItsSeatToo() throws Exception {
+        // a member of a shared-accounts organization connects with an ordinary account (no ent# login): its ext=1 token still dies with the seat
+        token("anika-shared", 5L, 7L, true);
+        when(lifecycle.hasActiveSeat(5L, 7L)).thenReturn(false);
+        run("GET", "/api/profile/version");
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getContentAsString()).contains("TOKEN_ACCOUNT_DISABLED");
+        org.mockito.Mockito.verifyNoInteractions(chain);
+    }
+
+    @Test
+    void anOrdinaryAccountsWebSessionWithATidIsNotJudged() throws Exception {
+        token("anika-shared", 5L, 7L, false);
+        run("GET", "/api/profile/version");
+        org.mockito.Mockito.verify(lifecycle, org.mockito.Mockito.never()).hasActiveSeat(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        assertThat(response.getStatus()).isEqualTo(200);
     }
 
     @Test

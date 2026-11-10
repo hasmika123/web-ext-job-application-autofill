@@ -14,7 +14,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Route rules that depend on the KIND of account behind the bearer token (decision O4, docs/enterprise-v2/19 sections 1.4, 3.3, 3.4 and 6.3). It
- * only looks at JWT-authenticated requests of an enterprise account (subject {@code ent#<orgId>#...}) and always answers the generic 404, the same
+ * only looks at JWT-authenticated requests of an enterprise account (subject {@code ent#<orgId>#...}) or carrying {@code ext=1} (a member of a
+ * shared-accounts organization connects the extension with an ordinary account) and always answers the generic 404, the same
  * body as a route that does not exist, so nothing says the route is there for someone else:
  *
  * <ul>
@@ -31,13 +32,21 @@ public class AccountKindRouteFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (!(auth instanceof JwtAuthenticationToken jwtAuth) || !Constants.isEnterpriseLogin(jwtAuth.getToken().getSubject())) {
+        if (!(auth instanceof JwtAuthenticationToken jwtAuth)) {
+            chain.doFilter(request, response);
+            return;
+        }
+        boolean enterpriseLogin = Constants.isEnterpriseLogin(jwtAuth.getToken().getSubject());
+        boolean extension = isExtensionToken(jwtAuth);
+        // An ext=1 token is held to ExtensionRoutes whoever the subject is: a member of a SHARED-accounts organization connects with an ordinary
+        // account (no ent# login) and must not get more than a separate-accounts member does. Personal extension tokens never carry ext=1.
+        if (!enterpriseLogin && !extension) {
             chain.doFilter(request, response);
             return;
         }
         String path = pathOf(request);
-        boolean refused = isPersonalOnly(path) || isPersonalDelete(request.getMethod(), path);
-        if (!refused && isExtensionToken(jwtAuth)) {
+        boolean refused = enterpriseLogin && (isPersonalOnly(path) || isPersonalDelete(request.getMethod(), path));
+        if (!refused && extension) {
             refused = !ExtensionRoutes.allows(request.getMethod(), path, TenantTokenBinding.tenantOf(jwtAuth.getToken()));
         }
         if (refused) {
