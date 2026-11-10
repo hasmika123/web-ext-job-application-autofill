@@ -18,14 +18,14 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     expect(sections.map((s) => [s.id, s.label])).toEqual([["main", null], ["people", "People"], ["talent", "Talent"], ["pipeline", "Pipeline"], ["organization", "Organization"]]);
     expect(sections[0].items.map((i) => i.text)).toEqual(["Dashboard"]);
     expect(sections[1].items.map((i) => i.text)).toEqual(["Employees", "Teams & Departments", "Roles"]);
-    expect(sections[2].items.map((i) => i.text)).toEqual(["Consultants", "Assignments", "Resumes"]);
+    expect(sections[2].items.map((i) => i.text)).toEqual(["Consultants", "Licenses", "Assignments", "Resumes"]);
     expect(sections[3].items.map((i) => i.text)).toEqual(["Jobs", "Applications", "Interviews", "Clients", "Placements"]);
     expect(sections[4].items.map((i) => i.text)).toEqual(["Reports", "Audit Log", "Branding", "Settings", "Plan & Billing"]);
     // one "Soon" row (D1): Plan & Billing; the pages that left the menu (HR, Finance, Domains, ...) are nowhere
     const all = sections.flatMap((s) => s.items);
     expect(all.filter((i) => i.soon).map((i) => i.key)).toEqual(["billing"]);
     expect(all.map((i) => i.key)).not.toEqual(expect.arrayContaining(["hr"]));
-    expect(all.length).toBe(17);
+    expect(all.length).toBe(18);
     expect(all.find((i) => i.key === "employees")?.soon).toBeUndefined();
   });
 

@@ -28,6 +28,7 @@ const ADMIN_FULL: { key: string; label: string; icon: string; href: string; grou
   { key: "teams", label: "Teams & Departments", icon: "Network", href: "/w/admin/teams", group: "people" },
   { key: "roles", label: "Roles", icon: "Key", href: "/w/admin/roles", group: "people" },
   { key: "consultants", label: "Consultants", icon: "Briefcase", href: "/w/admin/consultants", group: "talent" },
+  { key: "licenses", label: "Licenses", icon: "Key", href: "/w/admin/licenses", group: "talent" },
   { key: "assignments", label: "Assignments", icon: "Handshake", href: "/w/admin/marketing-assignments", group: "talent" },
   { key: "resumes", label: "Resumes", icon: "FileText", href: "/w/admin/resumes", group: "talent" },
   { key: "jobs", label: "Jobs", icon: "Target", href: "/w/admin/jobs", group: "pipeline" },

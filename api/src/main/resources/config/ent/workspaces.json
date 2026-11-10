@@ -91,6 +91,16 @@
           "group": "talent"
         },
         {
+          "key": "licenses",
+          "label": "Licenses",
+          "icon": "Key",
+          "href": "/w/admin/licenses",
+          "needs": [
+            "licenses.view"
+          ],
+          "group": "talent"
+        },
+        {
           "key": "assignments",
           "label": "Assignments",
           "icon": "Handshake",
