@@ -175,8 +175,8 @@ class MgmtEscalationsIT extends MemberItSupport {
         return json(r);
     }
 
-    private MvcResult act(String login, long id, String action, String body) throws Exception {
-        return call(login, post(base(a) + "/" + id + "/" + action), body, null, key());
+    private MvcResult act(String who, long id, String action, String body) throws Exception {
+        return call(login(who), post(base(a) + "/" + id + "/" + action), body, null, key()); // fixture name -> this run's login
     }
 
     private long count(String sql, Object... args) {

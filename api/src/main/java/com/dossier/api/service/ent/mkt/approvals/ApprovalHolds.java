@@ -59,6 +59,7 @@ public class ApprovalHolds {
     private final ObjectMapper json;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public ApprovalHolds(
         PipelineGuardSettings settings,
         ApprovalService approvals,

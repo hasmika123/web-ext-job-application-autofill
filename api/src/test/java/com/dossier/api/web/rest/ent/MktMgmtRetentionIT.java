@@ -131,8 +131,9 @@ class MktMgmtRetentionIT extends MemberItSupport {
         assertThat(count("mkt_approval_request", b.getId())).as("B keeps the registry window of 36 months").isEqualTo(1L);
     }
 
-    private static OrgSetting setting(Long orgId, String key, String value) {
-        OrgSetting s = new OrgSetting();
+    /** The organization's row for {@code key} with {@code value}: the existing row updated (the key is unique per organization), else a new one. */
+    private OrgSetting setting(Long orgId, String key, String value) {
+        OrgSetting s = orgSettings.findByOrgIdAndSettingKey(orgId, key).orElseGet(OrgSetting::new);
         s.setOrgId(orgId);
         s.setSettingKey(key);
         s.setValueJson(value);

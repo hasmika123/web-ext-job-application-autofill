@@ -44,7 +44,12 @@ public interface MgmtTeamRepository extends Repository<MktOpportunity, Long> {
     @Query(
         "select count(s) from MktSubmission s where s.orgId = :orgId and s.submittedOn >= :from and s.submittedOn < :to and s.archivedAt is null and (:all = true or s.consultantId in :ids)"
     )
-    long countSubmitted(@Param("orgId") Long orgId, @Param("all") boolean all, @Param("ids") Collection<Long> ids, @Param("from") LocalDate from, @Param("to") LocalDate to);
+    long countSubmittedBetween(@Param("orgId") Long orgId, @Param("all") boolean all, @Param("ids") Collection<Long> ids, @Param("from") java.time.Instant from, @Param("to") java.time.Instant to);
+
+    /** Submissions sent on {@code from} up to (not including) {@code to}, as UTC days ({@code submitted_on} is an instant since the change-audit work). */
+    default long countSubmitted(Long orgId, boolean all, Collection<Long> ids, LocalDate from, LocalDate to) {
+        return countSubmittedBetween(orgId, all, ids, startOf(from), startOf(to));
+    }
 
     /** Interviews scheduled in {@code [from, to)}, cancelled ones left out. */
     @Query(
@@ -84,7 +89,16 @@ public interface MgmtTeamRepository extends Repository<MktOpportunity, Long> {
 
     /** The dates these consultants' packages were recorded as submitted since {@code from}. */
     @Query("select s.submittedOn from MktSubmission s where s.orgId = :orgId and s.consultantId in :ids and s.submittedOn >= :from and s.archivedAt is null")
-    List<LocalDate> submittedOn(@Param("orgId") Long orgId, @Param("ids") Collection<Long> ids, @Param("from") LocalDate from);
+    List<java.time.Instant> submittedSince(@Param("orgId") Long orgId, @Param("ids") Collection<Long> ids, @Param("from") java.time.Instant from);
+
+    /** The UTC days the consultants' submissions were sent on, from {@code from}. */
+    default List<LocalDate> submittedOn(Long orgId, Collection<Long> ids, LocalDate from) {
+        return submittedSince(orgId, ids, startOf(from)).stream().map(t -> t == null ? null : t.atOffset(java.time.ZoneOffset.UTC).toLocalDate()).toList();
+    }
+
+    private static java.time.Instant startOf(LocalDate day) {
+        return day.atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
+    }
 
     /** When these consultants' interviews are or were scheduled, since {@code from}, cancelled ones left out. */
     @Query("select i.scheduledAt from TalentInterview i where i.orgId = :orgId and i.consultantId in :ids and i.scheduledAt >= :from and i.status <> 'CANCELLED'")

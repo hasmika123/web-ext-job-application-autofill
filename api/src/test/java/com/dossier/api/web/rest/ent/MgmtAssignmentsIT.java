@@ -123,8 +123,8 @@ class MgmtAssignmentsIT extends MemberItSupport {
         return json(r);
     }
 
-    private MvcResult send(String login, String path, String body) throws Exception {
-        return call(login, post(base(a) + path), body, null, key());
+    private MvcResult send(String who, String path, String body) throws Exception {
+        return call(login(who), post(base(a) + path), body, null, key()); // "mgr" is the fixture name; the account's login carries this run's prefix
     }
 
     private static List<String> names(JsonNode page, String field) {
