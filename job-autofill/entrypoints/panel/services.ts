@@ -193,7 +193,13 @@ export function makeServices(handoff: Handoff): ResumeUploadServices {
           return {
             ok: false,
             error: capped.message || "Free accounts keep up to 3 resumes — archive one, or upgrade to Pro.",
-            cta: { href: "https://kiwiply.com/pricing", label: "See Pro" },
+            cta: ((): { href: string; label: string } => {
+              // K7.6: the server says which plan unlocks more room; fall back to the pricing page.
+              const up = (capped as { upgrade?: { path?: string; planName?: string; planKey?: string } | null }).upgrade;
+              return up && typeof up.path === "string" && up.path.startsWith("/")
+                ? { href: "https://kiwiply.com" + up.path, label: "See " + (up.planName || up.planKey || "Pro") }
+                : { href: "https://kiwiply.com/pricing", label: "See Pro" };
+            })(),
           };
         }
         throw e;

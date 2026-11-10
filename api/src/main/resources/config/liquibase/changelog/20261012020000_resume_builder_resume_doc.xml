@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Resume Builder R0.1 (docs/RESUME-BUILDER-DESIGN.md sections 5.4-5.6) - the builder's
+        document store: the canonical ResumeDocument, its version history, and the AI proposals.
+
+        resume_doc is 1:1 with resume and web-only: `resume` is the extension's mirror DTO and is
+        hashed whole by ProfileVersion, so a 100 KB doc_json does not belong on it. The projection
+        the extension needs stays in resume.parsed_json. `doc_version` is the optimistic lock / ETag;
+        `content_hash` pins AI proposals and coalesces versions. The doc goes with its resume (FK
+        cascade); resume_doc_version and resume_ai_proposal deliberately carry no FK to resume, so
+        restoring an archived resume stays possible and an old row never blocks a resume delete -
+        account deletion clears them by user_id. All are deleted with the account. Additive.
+    -->
+    <changeSet id="20261012020000-1" author="dossier">
+        <createTable tableName="resume_doc">
+            <column name="resume_id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="doc_json" type="json">
+                <constraints nullable="false"/>
+            </column>
+            <column name="template_id" type="varchar(40)" defaultValue="modern">
+                <constraints nullable="false"/>
+            </column>
+            <column name="theme_json" type="json">
+                <constraints nullable="false"/>
+            </column>
+            <column name="doc_version" type="int" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content_hash" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="profile_synced_at" type="${datetimeType}"/>
+            <column name="exported_at" type="${datetimeType}"/>
+            <column name="exported_hash" type="varchar(64)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="resume_doc"
+            baseColumnNames="resume_id"
+            constraintName="fk_resume_doc_resume_id"
+            referencedTableName="resume"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+            baseTableName="resume_doc"
+            baseColumnNames="user_id"
+            constraintName="fk_resume_doc_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+        <createIndex tableName="resume_doc" indexName="ix_resume_doc_user">
+            <column name="user_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261012020000-2" author="dossier">
+        <createTable tableName="resume_doc_version">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="resume_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="version_no" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="varchar(80)"/>
+            <column name="doc_json" type="json">
+                <constraints nullable="false"/>
+            </column>
+            <column name="template_id" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="theme_json" type="json">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content_hash" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="resume_doc_version"
+            baseColumnNames="user_id"
+            constraintName="fk_resume_doc_version_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+        <addUniqueConstraint
+            tableName="resume_doc_version"
+            columnNames="resume_id, version_no"
+            constraintName="uq_resume_doc_version"/>
+        <createIndex tableName="resume_doc_version" indexName="ix_resume_doc_version_user">
+            <column name="user_id"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261012020000-3" author="dossier">
+        <createTable tableName="resume_ai_proposal">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="resume_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="content_hash" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="task" type="varchar(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="mode" type="varchar(16)"/>
+            <column name="cache_key" type="varchar(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="result_json" type="json">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(10)" defaultValue="OPEN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="model" type="varchar(80)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="resume_ai_proposal"
+            baseColumnNames="user_id"
+            constraintName="fk_resume_ai_proposal_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+        <createIndex tableName="resume_ai_proposal" indexName="ix_resume_ai_proposal_user_key">
+            <column name="user_id"/>
+            <column name="cache_key"/>
+        </createIndex>
+        <createIndex tableName="resume_ai_proposal" indexName="ix_resume_ai_proposal_resume">
+            <column name="resume_id"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

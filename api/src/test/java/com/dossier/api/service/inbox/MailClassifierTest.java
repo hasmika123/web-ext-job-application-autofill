@@ -30,6 +30,24 @@ class MailClassifierTest {
     }
 
     @Test
+    void underReviewIsItsOwnStageButAReceiptWithBoilerplateIsNot() {
+        assertThat(read("Update on your application", "Your application is currently under review by our hiring team.", "Acme Careers").category()).isEqualTo(
+            Category.IN_REVIEW
+        );
+        assertThat(read("Application status: In review", "Hi Sam, we're reviewing your application for the Data Analyst role.", "Globex").category()).isEqualTo(
+            Category.IN_REVIEW
+        );
+        // The receipt says "our team will review" as boilerplate - still just a confirmation.
+        assertThat(
+            read("Thank you for applying to Acme", "We received your application. Your application is under review and we will be in touch.", "Acme").category()
+        ).isEqualTo(Category.APPLIED);
+        // A decision outranks it.
+        assertThat(read("Your application", "Your application was under review; unfortunately we have decided not to move forward.", null).category()).isEqualTo(
+            Category.REJECTED
+        );
+    }
+
+    @Test
     void rejections() {
         MailClassifier.Reading r = read(
             "Your application to Initech",
@@ -101,6 +119,26 @@ class MailClassifierTest {
         MailClassifier.Reading quiet = read("Quick question", "Hi Sam, are you open to relocating to Denver?", "Jane at Acme");
         assertThat(quiet.category()).isEqualTo(Category.OTHER);
         assertThat(quiet.ambiguous()).isTrue();
+    }
+
+    @Test
+    void aRescheduleOrACancellationOfAnInterviewIsStillAnInterviewMailAndNotUnsure() {
+        MailClassifier.Reading moved = read("Rescheduled: your interview with Acme", "Your interview has been rescheduled to Thursday, October 29 at 3:30 PM PT.", null);
+        assertThat(moved.category()).isEqualTo(Category.INTERVIEW);
+        assertThat(moved.ambiguous()).isFalse();
+
+        // "Unfortunately" in a cancellation is regret, not a rejection.
+        MailClassifier.Reading cancelled = read("Interview with Acme", "Unfortunately we need to cancel our interview scheduled for Tuesday.", null);
+        assertThat(cancelled.category()).isEqualTo(Category.INTERVIEW);
+        assertThat(cancelled.ambiguous()).isFalse();
+
+        assertThat(read("Canceled event: Interview with Acme @ Tue Nov 3, 2026 9am (CST)", "This event has been canceled.", null).category()).isEqualTo(Category.INTERVIEW);
+        assertThat(read("Updated invitation: Phone screen with Acme", "The time has changed.", null).category()).isEqualTo(Category.INTERVIEW);
+
+        // A reschedule of something that is not an interview is not one: a bare "reschedule" word needs an interview, call or meeting beside it.
+        assertThat(read("Maintenance notice", "Our service window has been rescheduled.", null).category()).isEqualTo(Category.OTHER);
+        // A real rejection that mentions the interview process being cancelled is still a rejection.
+        assertThat(read("Update", "We will not be moving forward and have cancelled the interview process.", null).category()).isEqualTo(Category.REJECTED);
     }
 
     @Test

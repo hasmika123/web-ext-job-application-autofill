@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 multi-role invitations, X1.15 (docs/enterprise-v2/15-employees-and-teams.md section 2, 41-database-design.md
+        Phase-1 bucket). Additive only: nullable columns on org_member (an invitation IS an org_member row in state INVITED), no
+        new table, no backfill.
+
+        invite_role_ids_json     the role ids the inviter chose, as a JSON array ("[12,15]", first = primary). Re-validated against the
+                                 inviter's CURRENT rights at acceptance (42-threat-model.md T32). NULL on invites sent before X1.15.
+        department_group_id      the org_group (kind DEPARTMENT) the seat is placed in. Also the final column of the member (X4's
+        team_group_id            employees changeset adds these three behind a columnExists precondition; they are shipped here first
+        manager_member_id        because an invitation carries the placement). ON DELETE SET NULL: deleting a group never blocks.
+        invite_message           the inviter's optional personal note (plain text, 500 chars), shown on the join card and in the mail.
+        invite_ended_reason      EXPIRED (the expiry job, or the link ran out) or REVOKED (an admin). NULL while the invite is live
+        invite_ended_at          or accepted. The row is then REMOVED (it frees the one-live-seat-per-email slot, so the person can be
+                                 invited again) and keeps its token hash so an old link still answers "expired".
+        idx_member_org_invites   the Invitations page reads (org, invite_sent_at) newest first.
+
+        One changeset per column (a precondition on several columns is all-or-nothing). Rollbacks drop the column.
+    -->
+    <changeSet id="20261015040000-1" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_member" columnName="invite_role_ids_json"/></not></preConditions>
+        <addColumn tableName="org_member"><column name="invite_role_ids_json" type="varchar(500)"/></addColumn>
+        <rollback><dropColumn tableName="org_member" columnName="invite_role_ids_json"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261015040000-2" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_member" columnName="department_group_id"/></not></preConditions>
+        <addColumn tableName="org_member"><column name="department_group_id" type="bigint"/></addColumn>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="department_group_id" constraintName="fk_member_department_group"
+            referencedTableName="org_group" referencedColumnNames="id" onDelete="SET NULL"/>
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_department_group"/>
+            <dropColumn tableName="org_member" columnName="department_group_id"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261015040000-3" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_member" columnName="team_group_id"/></not></preConditions>
+        <addColumn tableName="org_member"><column name="team_group_id" type="bigint"/></addColumn>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="team_group_id" constraintName="fk_member_team_group"
+            referencedTableName="org_group" referencedColumnNames="id" onDelete="SET NULL"/>
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_team_group"/>
+            <dropColumn tableName="org_member" columnName="team_group_id"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261015040000-4" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_member" columnName="manager_member_id"/></not></preConditions>
+        <addColumn tableName="org_member"><column name="manager_member_id" type="bigint"/></addColumn>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="manager_member_id" constraintName="fk_member_manager"
+            referencedTableName="org_member" referencedColumnNames="id" onDelete="SET NULL"/>
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_manager"/>
+            <dropColumn tableName="org_member" columnName="manager_member_id"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261015040000-5" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_member" columnName="invite_message"/></not></preConditions>
+        <addColumn tableName="org_member"><column name="invite_message" type="varchar(500)"/></addColumn>
+        <rollback><dropColumn tableName="org_member" columnName="invite_message"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261015040000-6" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_member" columnName="invite_ended_reason"/></not></preConditions>
+        <addColumn tableName="org_member"><column name="invite_ended_reason" type="varchar(16)"/></addColumn>
+        <rollback><dropColumn tableName="org_member" columnName="invite_ended_reason"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261015040000-7" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_member" columnName="invite_ended_at"/></not></preConditions>
+        <addColumn tableName="org_member"><column name="invite_ended_at" type="${datetimeType}"/></addColumn>
+        <rollback><dropColumn tableName="org_member" columnName="invite_ended_at"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261015040000-8" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_member" indexName="idx_member_org_invites"/></not></preConditions>
+        <createIndex tableName="org_member" indexName="idx_member_org_invites">
+            <column name="org_id"/>
+            <column name="invite_sent_at"/>
+        </createIndex>
+        <rollback><dropIndex tableName="org_member" indexName="idx_member_org_invites"/></rollback>
+    </changeSet>
+</databaseChangeLog>

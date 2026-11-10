@@ -1,0 +1,2183 @@
+{
+  "area": "pay",
+  "name": "Payments, plans & billing engine",
+  "prefix": "B",
+  "kind": "cross-cutting",
+  "updated": "2026-10-11",
+  "epics": [
+    {
+      "id": "B0",
+      "name": "Launch-1 billing baseline & hardening",
+      "goal": "Phase 12 as built (webhook-only writer, gates, portal, copy) kept green, plus the two things it never proved: a real failed renewal and a lapse, and a boot-time assertion of the live account's fee/tax state before live keys go in.",
+      "priority": "P0"
+    },
+    {
+      "id": "B1",
+      "name": "Catalog & entitlements engine (Phase 18)",
+      "goal": "Prices, limits and feature keys live in MySQL and resolve from grants (\"highest wins\"); code asks has(feature)/limit(key), never \"is Pro\"; the webhook stays the only writer of subscription grants; /pricing and the extension read the same catalog.",
+      "priority": "P0"
+    },
+    {
+      "id": "B2",
+      "name": "Margin guard & unit economics",
+      "goal": "One MarginCalculator with Stripe's real fee schedule (card, Billing 0.7 %, optional Managed Payments 3.5 %, tax, international blend, disputes) guards every publish, promo, student and regional price, and a nightly realised-margin report closes the loop against the 80 % / 20 % floors.",
+      "priority": "P0"
+    },
+    {
+      "id": "B3",
+      "name": "Checkout, upgrade sheet & plan switching",
+      "goal": "Any catalog price (Pro, Autopilot, monthly or 3-month) buyable in one honest flow: the price-with-date line on every CTA, consent recorded, Link/Apple/Google Pay, return to where you were, Pro↔Autopilot switching in-app with a prorated preview.",
+      "priority": "P0"
+    },
+    {
+      "id": "B4",
+      "name": "Subscription lifecycle: invoices, renewals, dunning, lapse",
+      "goal": "Webhook v2 mirrors invoices and period start, writes grants, reminds before every renewal, runs a three-step dunning cadence with a one-tap card update, and turns a lapse into a \"nothing lost\" moment with a reactivate path.",
+      "priority": "P0"
+    },
+    {
+      "id": "B5",
+      "name": "Cancel & win-back, honestly",
+      "goal": "Cancel in two taps inside the app with a cancellation number, a confirmation email and an undo until period end; reasons asked after, never before; no retention gates; one consented win-back email after lapse. The #1 one-star theme of every competitor, done right (G29).",
+      "priority": "P0"
+    },
+    {
+      "id": "B6",
+      "name": "Tax, invoices & legal compliance",
+      "goal": "A recorded tax mode for the live Stripe account (Managed Payments vs Stripe Tax vs none) that the margin guard knows about, invoices and receipts in-app, consent records and EU withdrawal handling, financial records that survive account deletion pseudonymised.",
+      "priority": "P1"
+    },
+    {
+      "id": "B7",
+      "name": "Discounts, promos, students & regional pricing",
+      "goal": "Discounts are products with their own budgets, not coupons that breach the floor: a verified Pro Student plan, local-currency display at launch and guarded regional Pro Lite rows later, governed promo codes, referral credits as grants, explicit stacking rules (G34, G37).",
+      "priority": "P1"
+    },
+    {
+      "id": "B8",
+      "name": "AI budget economics & top-ups",
+      "goal": "The AI budget window follows the real billing period from the invoice mirror, quarterly plans pool one budget, usage rides on /api/billing/me, and a guard-checked one-time top-up waits for the cap-hit data that decides whether it should exist.",
+      "priority": "P1"
+    },
+    {
+      "id": "B9",
+      "name": "Org & services billing engine hooks",
+      "goal": "One Stripe seam and one webhook router for three scopes (user, org, service order): one-time checkout and send-invoice invoices, item quantity ops, refunds and a payout-ledger hook — the engine the org and services designs (O4.*, O9.*) plug into.",
+      "priority": "P1"
+    },
+    {
+      "id": "B10",
+      "name": "Billing ops, reconciliation & observability",
+      "goal": "Nightly Stripe-vs-mirror reconciliation that alerts and never writes money, failed-event alerts and an audited replay tool, billing metrics (MRR by product, churn, cap-hit, conversion), a FakeStripeGateway scenario harness in CI, and billing events in the product analytics pipeline.",
+      "priority": "P0"
+    },
+    {
+      "id": "B11",
+      "name": "Plan surfaces across extension & mobile",
+      "goal": "The extension gates on features not plan names and deep-links every upgrade to the web with a return path; purchases start on the web only (no in-extension or in-app purchase); billing notices flow through the one notification engine.",
+      "priority": "P1"
+    }
+  ],
+  "stories": [
+    {
+      "status": "done",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Money that works the same every time — no \"activating…\" limbo.",
+      "tests": [
+        "BillingWebhookIT (16 cases)",
+        "BillingResourceIT",
+        "EntitlementServiceTest",
+        "npm test -w web"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/BillingWebhookService.java",
+        "api/src/main/java/com/dossier/api/service/BillingService.java",
+        "api/src/main/java/com/dossier/api/web/rest/BillingResource.java",
+        "api/src/main/resources/config/liquibase/changelog/20260921000000_subscription.xml",
+        "web/src/components/billing/BillingCard.tsx",
+        "web/src/components/pricing/PricingSections.tsx",
+        "api/src/test/java/com/dossier/api/web/rest/BillingWebhookIT.java"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "B0.1",
+      "title": "Billing baseline — existing (schema, webhook-only writer, checkout, portal, /me, web surfaces)",
+      "story": "As the product I want Stripe to be the only truth and the webhook the only writer so that nothing reachable from a browser can grant Pro.",
+      "ac": [
+        "subscription + stripe_event tables; idempotent, ordered, retry-safe webhook; cross-app and foreign-subscription guards",
+        "POST /checkout reuses the customer and refuses a second live subscription; portal; GET /me never 404s",
+        "/pricing, /billing/success poller, Settings billing card with renewal/cancel/past_due copy"
+      ],
+      "tech": "Phase 12.1–12.3 as built; see AUDIT-pay.md §0",
+      "epic": "B0"
+    },
+    {
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Free is honestly free; paid is paid on the server.",
+      "tests": [
+        "AiResourceIT, FieldCacheSyncResourceIT, ProfileResourceIT (Free → 402)"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/EntitlementService.java",
+        "api/src/main/java/com/dossier/api/service/ProfileService.java"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "B0.2",
+      "title": "Pro gates with 402 PRO_REQUIRED / RESUME_LIMIT at ten service sites — existing",
+      "story": "As the server I want every Pro-only path to call requirePro() at the service boundary so that clients can never fake a plan.",
+      "ac": [
+        "AI drafting/mapping/picks, cross-device sync, resume cap (non-archived ≥ 3), inbox, matches, fit, tailor, ATS score gated",
+        "Admin AI override outranks the plan gate"
+      ],
+      "tech": "EntitlementService.requirePro; ProRequiredException",
+      "epic": "B0"
+    },
+    {
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Delete means delete — including the charge.",
+      "tests": [
+        "AccountDeletionIT"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/AccountDeletionService.java",
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "B0.3",
+      "title": "Account deletion cancels the Stripe subscription immediately — existing",
+      "story": "As a user deleting my account I want my subscription cancelled at once so that nobody is billed for an account that no longer exists.",
+      "ac": [
+        "AccountDeletionService calls gateway.cancelSubscription when a subscription id exists and billing is on; tolerant of already-cancelled"
+      ],
+      "tech": "AccountDeletionService:133–139; B6.4 changes the record handling, not the cancel",
+      "epic": "B0"
+    },
+    {
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Screenshot-able honesty.",
+      "tests": [
+        "npm test -w web"
+      ],
+      "evidence": [
+        "web/src/components/pricing/PricingSections.tsx",
+        "web/src/components/billing/BillingCard.tsx",
+        "web/src/app/(marketing)/terms"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "B0.4",
+      "title": "Renewal + no-refund copy on /pricing, checkout CTA, billing card; ToS Billing section — existing (12.6)",
+      "story": "As a buyer I want the renewal and refund terms where I pay, not buried in the ToS, so that nothing surprises me.",
+      "ac": [
+        "RenewalNote on /pricing; BillingCard states renews/cancel/no-refund; ToS has Billing section; privacy names Stripe"
+      ],
+      "tech": "PricingSections.tsx:156; BillingCard.tsx:77–91",
+      "epic": "B0"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "B10.1"
+      ],
+      "supersedes": [],
+      "genz": "The scary path tested before anyone's card is on it.",
+      "tests": [
+        "manual run recorded; fixture file committed under api/src/test/resources/billing-scenarios/"
+      ],
+      "evidence": [
+        "PROGRESS.md (15.4 test-clock block)",
+        "api/src/main/java/com/dossier/api/service/billing/BillingWebhookService.java"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": true,
+      "id": "B0.5",
+      "title": "Test-clock run: real failed renewal → past_due → lapse → resumes intact (15.4 carry-over) + runbook",
+      "story": "As the team I want to see a renewal fail and a plan lapse for real in Stripe test mode so that the one path 12.7 could not exercise is proven before live keys.",
+      "ac": [
+        "Seed a fresh user with a test-clock customer (DEPLOY.md §11.1 §G), checkout, attach card 4000 0000 0000 0341, advance past renewal: past_due email arrives, still Pro, then Free at period end with every resume readable and a 4th upload blocked with the CTA",
+        "Findings recorded in PROGRESS 15.4; any bug fixed before 15.4 closes",
+        "The event stream of the run is saved as a fixture for B10.4"
+      ],
+      "tech": "DEPLOY.md §11.1 §G SQL; stripe CLI; BillingWebhookService unchanged",
+      "epic": "B0"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "A10.0"
+      ],
+      "supersedes": [],
+      "genz": "No \"customers charged, nobody became Pro\" week one.",
+      "tests": [
+        "StripeStartupCheckTest (prod/dev matrix with a stubbed gateway)",
+        "BillingResourceIT: unhealthy price → 503"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java:44–55",
+        "api/src/main/java/com/dossier/api/service/billing/StripeProperties.java"
+      ],
+      "design": "docs/design/pay/tax-invoicing-compliance.md",
+      "critical": true,
+      "id": "B0.6",
+      "title": "Live-keys launch gate: boot-time billing self-check (webhook secret, tax mode, Managed Payments state, price ids resolve) + health indicator",
+      "story": "As the operator I want the API to refuse to run with half-configured billing in prod and to print the live account's fee state so that the margin floor is measured against reality, not a guess.",
+      "ac": [
+        "In prod profile: enabled + blank webhook secret → boot fails with the existing ERROR text; dev keeps today's warning",
+        "Startup calls gateway.accountCapabilities() and logs managed_payments + automatic tax state; mismatch with billing.tax.mode (B6.1) → health DOWN + admin alert",
+        "Both configured price ids retrieved from Stripe at boot; a missing one → health DOWN, checkout 503 UNKNOWN_PRICE"
+      ],
+      "tech": "StripeGatewayImpl ctor; new BillingStartupCheck @EventListener(ApplicationReadyEvent); actuator HealthIndicator \"billing\"",
+      "epic": "B0"
+    },
+    {
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "AdminAnalyticsResourceIT"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/AdminAnalyticsService.java",
+        "api/src/main/java/com/dossier/api/service/billing/StripeProperties.java:47–50"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "B0.7",
+      "title": "Admin revenue card (MRR from config amounts) — existing (12.5)",
+      "story": "As an admin I want active Pro, MRR, new and churned this month so that I can see billing at a glance.",
+      "ac": [
+        "overview().billing from the subscription table; amounts from StripeProperties.amountMonthly/amount3mo"
+      ],
+      "tech": "B1.6 re-homes the amounts onto the catalog; B10.3 replaces the maths with invoice data",
+      "epic": "B0"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "O3.1"
+      ],
+      "supersedes": [
+        "A3.1"
+      ],
+      "genz": "Prices that can change without an app update.",
+      "tests": [
+        "CatalogSeedMigrationTest: price ids equal the env values; every FeatureKey used by a require() site exists on ≥ 1 product (reflection)"
+      ],
+      "evidence": [
+        "docs/design/admin/catalog-margin-entitlements.md",
+        "api/src/main/java/com/dossier/api/service/billing/StripeProperties.java:33–37",
+        "ROADMAP.md:1250–1261"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": true,
+      "id": "B1.1",
+      "title": "Catalog schema + seed (product, product_price, product_entitlement, bundle_item, entitlement_grant) — reusing the existing Stripe price ids",
+      "story": "As the platform I want prices, limits and feature keys in MySQL so that a price change is a row, not a deploy.",
+      "ac": [
+        "Liquibase 2026101x_catalog.xml exactly per docs/design/admin/catalog-margin-entitlements.md §2 plus product.tax_code, product_price.budget_override_cents/accepts_promos/country_set/requires_verification, product_price.margin_pct_typical/fee_schedule_version",
+        "Seed FREE/PRO/AUTOPILOT (+ drafts PRO_STUDENT, PRO_LITE, AI_TOPUP, org and service products) with the CLAUDE.md prices and limits as initial catalog values (re-priced from admin afterwards, never code constants) and PRO prices bound to STRIPE_PRICE_MONTHLY/3MO — nothing created in Stripe on deploy",
+        "FeatureKey enum registry (closed set, typed); NULL limit on a numeric key refused"
+      ],
+      "tech": "domain/catalog/*, repository, FeatureKey; no reads yet",
+      "epic": "B1"
+    },
+    {
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "O3.3"
+      ],
+      "supersedes": [
+        "A3.2"
+      ],
+      "genz": "Your plan is a set of things you can do, not a label.",
+      "tests": [
+        "EntitlementResolutionTest (matrix in the design §7)",
+        "EntitlementShadowTest",
+        "existing EntitlementServiceTest unchanged and green"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/EntitlementService.java",
+        "api/src/test/java/com/dossier/api/service/EntitlementServiceTest.java"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": true,
+      "id": "B1.2",
+      "title": "EntitlementService.resolve over grants (highest wins) + has/limit/require(feature) + two-week shadow comparison behind dossier.catalog.enabled",
+      "story": "As a gated service I want to ask has(feature) and limit(key) so that Autopilot, student and org plans need no new if-statements.",
+      "ac": [
+        "resolve(login) unions FREE + active grants; booleans OR, numerics max; aiBudget = the grant supplying the max with its period",
+        "isPro ≡ has(\"ai.server\"); requirePro kept as alias; require(feature) throws 402 PLAN_REQUIRED {feature, upgrade{product, interval, amountCents}}",
+        "Flag off: old row logic answers, new logic computed and compared, mismatch logged with login; migration test proves equality on the 12.1 status × period × override matrix"
+      ],
+      "tech": "EntitlementService + CatalogCache (60 s); request-scoped memo only",
+      "epic": "B1"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B1.1",
+        "B4.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Paid = unlocked, instantly, every time.",
+      "tests": [
+        "BillingWebhookIT: grant written/ended/cleared per event; switch → two grants; replay idempotent"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/BillingWebhookService.java:277–317"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": true,
+      "id": "B1.3",
+      "title": "Webhook writes STRIPE_SUBSCRIPTION grants (only writer) with product mapped from price_id; grant ends_at follows past_due/cancel/period end",
+      "story": "As the billing engine I want the same webhook transaction that mirrors Stripe to write the grant so that the row and the grant can never disagree.",
+      "ac": [
+        "Grant rules per subscription-lifecycle.md §3: open while active/past_due/cancel-pending, ends_at = period end on past_due/cancel flags, cleared on recovery, now on unpaid/incomplete_expired; price switch ends one grant and starts another",
+        "GrantWriterGuard rejects any other writer of source=STRIPE_SUBSCRIPTION in tests",
+        "Shadow mode (B1.2) compares isPro from row vs grant"
+      ],
+      "tech": "BillingWebhookService.upsertFromSubscription/setStatusFromInvoice → GrantService.syncFromSubscription(sub)",
+      "epic": "B1"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "extension"
+      ],
+      "deps": [
+        "B1.2"
+      ],
+      "relates": [
+        "O3.4",
+        "U15.2",
+        "U20.5"
+      ],
+      "supersedes": [],
+      "genz": "The drawer knows exactly what you have.",
+      "tests": [
+        "ProfileVersionIT",
+        "BillingResourceIT /me v2",
+        "job-autofill sync.test.js: features stored on an unchanged check"
+      ],
+      "evidence": [
+        "job-autofill/src/lib/tracking.js:350–393",
+        "web/src/lib/billing.ts"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B1.4",
+      "title": "Features + limits on GET /api/profile/version and PlanDTO v2 on GET /api/billing/me (usage, period start/end, scheduled switch, lapse notice)",
+      "story": "As the extension and the web I want features[] and limits{} from the server so that I render what the user can do without knowing plan names.",
+      "ac": [
+        "/version → {version, plan, features[], limits{}, via?}; version hash unchanged by a plan flip",
+        "/me → PlanDTO v2 per subscription-lifecycle.md §7 (features, limits, usage{aiPct, aiResetsAt, resumes}, currentPeriodStart, scheduled?, pastDue?, lapse? once, firstPaidAt)",
+        "Extension sync stores settings.features on every answered check (plan kept for display)"
+      ],
+      "tech": "ProfileVersionVM; PlanDTO; JAF.sync.checkAndPull",
+      "epic": "B1"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B1.1"
+      ],
+      "relates": [
+        "A3.4",
+        "M2.3"
+      ],
+      "supersedes": [],
+      "genz": "Published prices. Always.",
+      "tests": [
+        "PublicCatalogIT (drafts hidden, country filter)",
+        "Playwright: /pricing shows catalog amounts; npm test -w web"
+      ],
+      "evidence": [
+        "web/src/lib/catalog.ts",
+        "web/src/lib/prices.ts",
+        "web/src/components/pricing/PricingSections.tsx"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B1.5",
+      "title": "Public catalog endpoint + /pricing rendered from it (replaces lib/catalog.ts + lib/prices.ts; Autopilot buyable, not \"Contact us\")",
+      "story": "As a visitor I want the pricing page to show exactly what the catalog sells, in my currency, so that what I see is what checkout charges.",
+      "ac": [
+        "GET /api/catalog/public?country= → active products + active prices (+ regional/student applicability) with Cache-Control max-age=300; drafts never appear",
+        "/pricing and the compare table render from it (ISR 5 min); Autopilot card has a checkout CTA; \"Contact us\" stays only for org/services until B9.2",
+        "PRICE_MONTHLY/PRICE_3MO constants deleted; the upgrade sheet reads amounts from the 402 body (B3.3)"
+      ],
+      "tech": "CatalogPublicResource; web/src/lib/catalog.ts → generated client; keep Offer shape for cards",
+      "benchmark": "Jobright hides prices (/pricing 404); AIApply shows amounts only at checkout — published prices are a trust asset (COMPETITIVE-LANDSCAPE §2)",
+      "epic": "B1"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B1.2",
+        "B1.5"
+      ],
+      "relates": [],
+      "supersedes": [
+        "A3.5"
+      ],
+      "genz": "—",
+      "tests": [
+        "all billing/AI ITs green with the properties removed",
+        "AiBudgetPeriodTest"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeProperties.java:33–50",
+        "api/src/main/java/com/dossier/api/service/ai/AiPolicy.java:34",
+        "api/src/main/resources/config/application-prod.yml"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B1.6",
+      "title": "Re-home hard-coded config onto the catalog: AI budgets (AiPolicy), resume caps, Stripe price ids, MRR amounts; delete the env-var price path",
+      "story": "As the team I want one place for every number that is a price or a limit so that Launch 2 is a catalog edit.",
+      "ac": [
+        "AiBudgetService reads ai.budget_cents_per_period via resolve(); ProfileService reads resumes.max (also replacing the temporary AUTOPILOT_RESUME_LIMIT constant from R0.3); BillingService resolves price ids from product_price; AdminAnalyticsService MRR from price rows",
+        "dossier.stripe.price-monthly/price-3mo/amount-* and dossier.ai.pro-monthly-budget-usd/pro3mo-budget-usd removed with a startup warning if still set",
+        "dossier.catalog.enabled flag removed (always on)"
+      ],
+      "tech": "StripeProperties, AiPolicy, application-prod.yml:196",
+      "epic": "B1"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B1.2"
+      ],
+      "relates": [
+        "A1.2",
+        "A2.4",
+        "A5.9"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "AdminAiQuotaResourceIT",
+        "EntitlementResolutionTest override case"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/web/rest/AdminAiQuotaResource.java",
+        "api/src/main/java/com/dossier/api/service/AiBudgetService.java:118–136"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B1.7",
+      "title": "Migrate ai_quota_override to ADMIN_COMP grants on a synthetic ADMIN_AI_BUDGET product; override \"outranks\" becomes \"highest wins\"",
+      "story": "As support I want the AI override to be an ordinary grant so that the user page explains it like any other entitlement.",
+      "ac": [
+        "Migration copies rows to entitlement_grant(source=ADMIN_COMP, ends_at from the override); AdminAiQuotaResource writes grants; the column stays readable one release then drops",
+        "A deleted account's override grant is removed (closes the admin audit finding)"
+      ],
+      "tech": "AdminAiQuotaService; 20260629000100 + 20260922030000 changelogs",
+      "epic": "B1"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "O3.6",
+        "A5.1"
+      ],
+      "supersedes": [
+        "A3.3"
+      ],
+      "genz": "—",
+      "tests": [
+        "MarginCalculatorTest (table-driven, boundary 79.99/80.00)",
+        "FeeScheduleSettingsTest"
+      ],
+      "evidence": [
+        "docs/design/admin/catalog-margin-entitlements.md §3",
+        "docs/design/org/billing.md §7",
+        "ROADMAP.md:1213–1227"
+      ],
+      "design": "docs/design/pay/fee-model-and-margin-guard.md",
+      "critical": true,
+      "id": "B2.1",
+      "title": "MarginCalculator + FeeSchedule runtime setting (card, Billing 0.7 %, Managed Payments 3.5 %, tax, intl/FX blend, disputes, email; per-invoice allocation)",
+      "story": "As finance I want one pure function with Stripe's real fees so that every price, promo and discount is judged the same honest way.",
+      "ac": [
+        "evaluate(PriceSpec, FeeSchedule, Floors) returns worst/typical margin with a line-by-line cost breakdown; kinds SUBSCRIPTION|SEAT|SERVICE|FEE|TOPUP",
+        "FeeSchedule bound from runtime setting billing.fees with bounds; edit is HIGH-audited and returns the list of active prices that would fall below the floor",
+        "Every row of fee-model-and-margin-guard.md §3 reproduced to the cent, including: Pro $19.99 = 79.0 % with the baseline schedule, 75.7 % with Managed Payments, org AI Interview $9.99 = 79.4 % at a 2-line invoice"
+      ],
+      "tech": "service/billing/MarginCalculator.java; FeeSchedule record; A5.1 settings registry key",
+      "epic": "B2"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B2.1",
+        "B1.1"
+      ],
+      "relates": [
+        "A3.4"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "CatalogResourceIT publish/entitlement cases"
+      ],
+      "evidence": [
+        "docs/design/admin/catalog-margin-entitlements.md §4"
+      ],
+      "design": "docs/design/pay/fee-model-and-margin-guard.md",
+      "critical": false,
+      "id": "B2.2",
+      "title": "Guard on publish and on entitlement edits: 422 MARGIN_BELOW_FLOOR with levers; override reason HIGH-audited; GET /margin live calculator",
+      "story": "As an admin I want publish to refuse a price below the floor and tell me the three levers so that I never ship a loss by accident.",
+      "ac": [
+        "POST /prices/{id}/publish → 422 {marginPct, floorPct, levers:[price ≥ X, budget ≤ Y, override]} unless overrideReason ≥ 20 chars → CATALOG_MARGIN_OVERRIDE audit",
+        "PUT /products/{id}/entitlements re-evaluates every active price of the product; a failing one blocks without override",
+        "GET /api/admin/catalog/margin?… for the admin form (A3.4 renders it)"
+      ],
+      "tech": "CatalogAdminResource; MarginCalculator",
+      "epic": "B2"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B1.6"
+      ],
+      "relates": [
+        "A4.1",
+        "A2.8"
+      ],
+      "supersedes": [],
+      "genz": "Caps that are watched, not quietly raised.",
+      "tests": [
+        "CapHitRollupTest"
+      ],
+      "evidence": [
+        "ROADMAP.md:1207–1209",
+        "api/src/main/java/com/dossier/api/service/AiBudgetService.java"
+      ],
+      "design": "docs/design/pay/fee-model-and-margin-guard.md",
+      "critical": false,
+      "id": "B2.3",
+      "title": "Cap-hit watch: ai.cap_hit_pct per product per period + the \"decide with data\" banner metric (never a silent cap change)",
+      "story": "As the owner I want to know when > 5 % of a plan's users hit 100 % of their AI budget so that I decide between price, budget and top-up with data.",
+      "ac": [
+        "Nightly rollup writes metric_daily ai.cap_hit_pct.{product}, ai.p50/p95_cents.{product}",
+        "Admin catalog shows a red banner when above setting `catalog.cap_hit_alert_pct` (default 5) in the last full period (ROADMAP 1207)",
+        "No code path changes a budget automatically"
+      ],
+      "tech": "metric_daily (A11.3); AiMeteringService ledger",
+      "epic": "B2"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1",
+        "B2.3",
+        "A5.1"
+      ],
+      "relates": [
+        "A2.8",
+        "A16.1"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "UnitEconomicsReportTest with fixture invoices + ledger"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGateway.java"
+      ],
+      "design": "docs/design/pay/fee-model-and-margin-guard.md",
+      "critical": false,
+      "id": "B2.4",
+      "title": "Realised unit-economics report: revenue from the invoice mirror, AI from the ledger, Stripe fees from balance transactions → margin per product per period",
+      "story": "As finance I want the predicted margin checked against what actually happened so that the floor is a measurement, not a hope.",
+      "ac": [
+        "Nightly: per product/period revenue (amount_paid − refunds), AI cost, fees (gateway.listBalanceTransactions → stripe_fee_daily), realised margin → metric_daily",
+        "Two consecutive periods under the floor → banner metric; > 5 pt deviation from predicted → flagged with the likely cause (intl share, disputes, refunds)",
+        "A2.8 reads these keys"
+      ],
+      "tech": "UnitEconomicsJob; StripeGateway.listBalanceTransactions",
+      "epic": "B2"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B1.5"
+      ],
+      "relates": [
+        "T1.1"
+      ],
+      "supersedes": [],
+      "genz": "Apple Pay, done, back to the job.",
+      "tests": [
+        "BillingResourceIT (bodies, 404, switch redirect)",
+        "StripeCheckoutParamsTest asserts every param on the builder",
+        "Playwright: sheet → checkout stub → success → returnTo"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/BillingService.java:69–113",
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java:88–128",
+        "web/src/app/api/billing/checkout/route.ts"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": true,
+      "id": "B3.1",
+      "title": "Checkout v2 from the catalog: {product, interval, returnTo}; consent collection + custom terms text; EU withdrawal checkbox; wallets; cancel_url back to origin; per-price promo flag",
+      "story": "As a buyer I want to pay for Pro or Autopilot, monthly or quarterly, on Stripe's page with Apple/Google Pay and land back where I was, so that upgrading is a minute, not a detour.",
+      "ac": [
+        "POST /api/billing/checkout {product, interval, returnTo} (old {plan} body accepted one release); 404 UNKNOWN_PRICE for draft/retired; Pro→Autopilot returns {switch:true} (B3.4)",
+        "Session: consent_collection.terms_of_service=required + custom_text with the today/renews/noRefund lines; payment_method_reuse_agreement; allow_promotion_codes from product_price.accepts_promos; EU/UK withdrawal custom_field unticked and required; cancel_url=returnTo",
+        "Stripe-side receipt emails off (B3.5 sends ours)",
+        "Individual checkout: tax_id_collection disabled, no custom_fields asking for identifiers; card details only on Stripe-hosted pages (never a Kiwiply form)"
+      ],
+      "tech": "BillingService.startCheckout; StripeGatewayImpl.createCheckoutSession(CheckoutSpec); web/src/app/api/billing/checkout/route.ts",
+      "benchmark": "Huntr/Rezi/Jobscan all sell every tier by checkout; Kiwiply's Autopilot is \"Contact us\" today (G29 adjacent)",
+      "epic": "B3"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B3.1"
+      ],
+      "relates": [
+        "T0.2",
+        "T1.4"
+      ],
+      "supersedes": [],
+      "genz": "We can show you exactly what you agreed to.",
+      "tests": [
+        "BillingWebhookIT consent row",
+        "AccountExportIT"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java:248–304"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B3.2",
+      "title": "billing_consent records from checkout.session.completed (terms version, renewal consent, payment-reuse consent, withdrawal waiver) kept 3 years, in the DSAR export",
+      "story": "As the company I want proof of what each subscriber agreed to so that a dispute or a regulator gets facts, not a ToS link.",
+      "ac": [
+        "Table per checkout-upgrade-cancel-flows.md §3; written in the webhook transaction; terms_version from the legal-versions table",
+        "Retention 3 years after the subscription ends via the A9.5 job; AccountExportResource gains billing.consents[]",
+        "Admin customer timeline shows \"Accepted terms vN on …\"",
+        "billing_consent stores versions, timestamps and IP hash only — never card, bank or identity data"
+      ],
+      "tech": "StripeWebhookEvent gains consent + custom_fields; BillingConsent entity",
+      "epic": "B3"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B1.2"
+      ],
+      "relates": [
+        "U15.1",
+        "U18.1"
+      ],
+      "supersedes": [],
+      "genz": "Convert at the moment of \"oh, I need this\" — honestly.",
+      "tests": [
+        "ProblemDetail shape test per code",
+        "Playwright 402 fixtures → sheet"
+      ],
+      "evidence": [
+        "web/src/components/billing/UpgradeButton.tsx",
+        "web/src/components/billing/SuccessPoller.tsx",
+        "api/src/main/java/com/dossier/api/web/rest/errors/ProRequiredException.java"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B3.3",
+      "title": "402 bodies carry {feature, limit, resetsAt, upgrade{product, interval, amountCents, checkoutPath}} and the UpgradeSheet (U15.1) renders from them in place",
+      "story": "As a Free user hitting a limit I want to see what unlocks it and pay without leaving the page so that the moment of intent is not lost.",
+      "ac": [
+        "Every PLAN_REQUIRED/RESUME_LIMIT/ALERT_LIMIT/AUTOPILOT_*_CAP body includes the server-chosen upgrade object; AI_BUDGET has none (shows resets date; Autopilot users see no upsell)",
+        "UpgradeSheet shows the monthly/3-month toggle, the price-with-date line, copy keys from billing-copy.ts; events upgrade_sheet_shown/checkout_started; subscription_started published server-side from the webhook",
+        "UpgradeButton redirect to /pricing removed"
+      ],
+      "tech": "ProRequiredException/ PlanRequiredException ProblemDetail; web/src/components/billing/UpgradeSheet.tsx (U15.1 owns the component)",
+      "epic": "B3"
+    },
+    {
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B4.1",
+        "B1.4"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Switch plans like switching tabs.",
+      "tests": [
+        "BillingServiceTest switch matrix",
+        "BillingWebhookIT schedule events",
+        "Playwright switch sheet"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGateway.java",
+        "api/src/main/java/com/dossier/api/domain/Subscription.java"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B3.4",
+      "title": "Plan switch: Pro↔Autopilot (upgrade now prorated, downgrade at period end via Subscription Schedule), monthly↔3-month at period end; preview endpoint + switch sheet",
+      "story": "As a Pro user I want to move to Autopilot today and back to Pro later without a second subscription so that I never pay twice or lose paid time.",
+      "ac": [
+        "POST /switch/preview → {effective, chargedTodayCents, nextAmountCents, nextAt}; POST /switch → upgrade: price update with proration_behavior=always_invoice; downgrade/interval: schedule at current_period_end; 409 SAME_PRICE / CANCEL_PENDING",
+        "Mirror tracks schedule_id/scheduled_price_id; /me shows \"switches to Pro on …\"; cancel wins over a pending schedule",
+        "Switch sheet per the design §6; Stripe portal plan switching stays off"
+      ],
+      "tech": "StripeGateway.updateSubscriptionPrice/createSchedule/releaseSchedule/previewProration",
+      "benchmark": "Teal lets you switch weekly→monthly in-app; Jobscan/Huntr require cancel + rebuy",
+      "epic": "B3"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "B4.1"
+      ],
+      "relates": [
+        "A7.4"
+      ],
+      "supersedes": [],
+      "genz": "The receipt is the contract, in plain words.",
+      "tests": [
+        "BillingWebhookIT receipt notice once per invoice",
+        "npm test -w web"
+      ],
+      "evidence": [
+        "web/src/components/billing/SuccessPoller.tsx",
+        "web/src/app/billing/success/page.tsx"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B3.5",
+      "title": "Success page v2 (returnTo, \"Pro since\") + our own receipt email on invoice.paid carrying the plain terms; Stripe receipts off",
+      "story": "As a new subscriber I want a receipt that says what I pay, when it renews and how to cancel, so that I never have to hunt for it.",
+      "ac": [
+        "/billing/success keeps the ≤ 20 s poll; shows \"Back to {returnTo}\"; timeout copy unchanged",
+        "RECEIPT notice per invoice.paid: amount, period, next renewal date + amount, cancel sentence, hosted invoice link; template in the A7.4 registry; dedupe by invoice id",
+        "Stripe dashboard receipt emails documented as off in DEPLOY.md §11"
+      ],
+      "tech": "SuccessPoller.tsx; NotificationService billing publisher",
+      "epic": "B3"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [
+        "B1.4"
+      ],
+      "relates": [
+        "E5.11",
+        "U20.3"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "tracking.test.js 402 mapping",
+        "sync.test.js features stored",
+        "panel/options jsdom tests"
+      ],
+      "evidence": [
+        "job-autofill/src/lib/tracking.js:26",
+        "job-autofill/entrypoints/options/OptionsApp.tsx"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B3.6",
+      "title": "Extension: feature-coded 402 → drawer/options message with a kiwiply.com/upgrade?feature=…&return= deep link; gates on settings.features",
+      "story": "As an extension user hitting a Pro feature I want one line that says what it unlocks and a link that comes back to this page so that upgrading from the drawer is one round trip.",
+      "ac": [
+        "tracking.js request() surfaces {status:402, code, feature, upgrade}; drawer/options render the feature-specific line; link opens the web upgrade sheet with returnTo",
+        "Options/drawer gate on settings.features (fallback to plan when absent); no purchase UI in the extension",
+        "Version bump; ARCHITECTURE.md sync section updated"
+      ],
+      "tech": "src/lib/tracking.js:26; entrypoints/options/OptionsApp.tsx; entrypoints/panel/home-actions.ts",
+      "epic": "B3"
+    },
+    {
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "BillingWebhookIT invoice cases incl. stale invoice.* dropped by invoice.last_event_at",
+        "existing 16 cases unchanged"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/BillingWebhookService.java:218–228",
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java:279–285",
+        "api/src/main/resources/config/liquibase/changelog/20260921000000_subscription.xml"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": true,
+      "id": "B4.1",
+      "title": "Webhook v2: invoice mirror (invoice table), current_period_start, product_code, first_paid_at, refunds/disputes mirrored; invoice ordering",
+      "story": "As the billing engine I want every invoice and the real period start mirrored so that receipts, budgets, reminders and the realised-margin report have data to stand on.",
+      "ac": [
+        "Liquibase billing_v2: subscription columns + invoice + billing_notice + stripe_event.scope per subscription-lifecycle.md §4",
+        "invoice.created/finalized/paid/payment_failed/voided/marked_uncollectible upsert the mirror with amounts, period, URLs, attempt_count, next_payment_attempt; charge.refunded/dispute.* mirror without entitlement change",
+        "Webhook endpoint subscription list in DEPLOY.md §11 updated (invoice.*, subscription_schedule.*, charge.refunded, charge.dispute.*)"
+      ],
+      "tech": "BillingWebhookService.applyInTx; StripeWebhookEvent gains invoice fields; Invoice entity/repo",
+      "epic": "B4"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1",
+        "U7.1"
+      ],
+      "relates": [
+        "B11.3",
+        "U7.1"
+      ],
+      "supersedes": [],
+      "genz": "Zero surprise charges — the thing everyone else gets wrong (G29).",
+      "tests": [
+        "RenewalReminderTest (T−7/T−3/none; dedupe)",
+        "PriceChangeNoticeTest"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/BillingWebhookService.java",
+        "docs/design/user/alerts-notifications.md"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": false,
+      "id": "B4.2",
+      "title": "Renewal reminders (settings `billing.renewal_reminder_days.quarterly` default 7, `.monthly` default 3) via invoice.upcoming + scheduler fallback; 30-day price-change notice path (legal minimum, kept hard); billing_notice dedupe",
+      "story": "As a subscriber I want a heads-up before every charge with a one-tap cancel so that a renewal is never a surprise.",
+      "ac": [
+        "RENEWAL_SOON email + in-app notice with amount, date, one-tap cancel link; none when cancel_at_period_end; dedupe key per invoice/period",
+        "PRICE_CHANGE notice template + job for a catalog-driven migration (sends 30 d before each user's next renewal; migration applied as a schedule, never mid-period) — dormant until the user decides on Launch-2 grandfathering",
+        "California ARL reminder rule satisfied by construction for terms ≥ 3 months"
+      ],
+      "tech": "BillingNoticeService; NotificationService kinds BILLING_*; BillingSchedulerJob daily per user tz",
+      "benchmark": "Jobscan/Teal/Final Round reviews: \"charged without warning\"; Careerflow asks users to cancel 24 h before — we remind instead",
+      "epic": "B4"
+    },
+    {
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B4.1",
+        "A5.1"
+      ],
+      "relates": [
+        "U7.4"
+      ],
+      "supersedes": [],
+      "genz": "Fix the card, keep going.",
+      "tests": [
+        "BillingDunningJobTest (with/without recovery, dedupe, tz)",
+        "BillingResourceIT portal flow param",
+        "Playwright banner"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/BillingWebhookService.java:327–374",
+        "web/src/components/billing/ManageBillingButton.tsx"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": false,
+      "id": "B4.3",
+      "title": "Dunning cadence: day-3 and day-7 emails from invoice.next_payment_attempt, in-app past_due banner, portal deep link to card update (flow_data), push when subscribed",
+      "story": "As a subscriber whose card failed I want to know I am still Pro, when the retry is, and fix the card in one tap, so that I do not lose my plan over an expired card.",
+      "ac": [
+        "Existing day-0 email kept; BillingDunningJob sends #2 at T+3 and #3 at T+7 only while past_due; recovery sends RECOVERED",
+        "Banner on every app page + extension options line with \"Update card\" → POST /portal {flow: payment_method_update}",
+        "Lapse at period end sends LAPSED (everything kept, one-tap resubscribe)"
+      ],
+      "tech": "BillingWebhookService.onPaymentFailed (exists); StripeGateway.createPortalSession(customer, returnUrl, flow)",
+      "epic": "B4"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API",
+        "extension"
+      ],
+      "deps": [
+        "B1.4",
+        "U0.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Lapsing never loses your stuff. Say it on screen.",
+      "tests": [
+        "BillingResourceIT lapse flag once",
+        "Playwright sheet",
+        "panel jsdom test"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/EntitlementService.java:74–83"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B4.4",
+      "title": "Lapse experience: lapsed_at + one-time \"What changed\" sheet (resumes intact, read-only over cap, AI/inbox paused, restart CTA); extension single line",
+      "story": "As a lapsed user I want to be told that nothing was deleted and what is paused so that going Free feels safe, and coming back feels easy.",
+      "ac": [
+        "/me returns lapse{at, from} once while lapse_notice_pending; POST /lapse-notice/ack clears it",
+        "Sheet per the design §8 with real counts (resumes over cap, paused features from the diff of old vs new features[])",
+        "Drawer shows one line with Restart/Stay actions"
+      ],
+      "tech": "EntitlementService (clock lapse exists); PlanDTO v2; LapseSheet.tsx",
+      "epic": "B4"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Undo, even for subscriptions.",
+      "tests": [
+        "BillingServiceTest resume matrix",
+        "BillingResourceIT"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/BillingService.java:84–99"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B4.5",
+      "title": "Resubscribe & reactivate: lapsed user → checkout reuses the customer; cancel-pending → POST /resume clears cancel_at_period_end without a new charge",
+      "story": "As someone who cancelled and changed my mind I want to resume with one tap and no new checkout so that I keep my paid period and my history.",
+      "ac": [
+        "POST /api/billing/resume → gateway.setCancelAtPeriodEnd(id,false) → {renewsAt}; RESUMED email; 409 when not cancel-pending",
+        "Lapsed: /checkout works (customer reused; hasLiveSubscription false); previous invoices still listed",
+        "Settings › Plan shows \"Resume plan\" until period end"
+      ],
+      "tech": "BillingService; StripeGateway.setCancelAtPeriodEnd",
+      "epic": "B4"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U15.2",
+        "M2.2"
+      ],
+      "supersedes": [],
+      "genz": "Cancel is as easy as subscribe — and you get a number.",
+      "tests": [
+        "BillingResourceIT cancel (number, email once, 409 when already pending)",
+        "Playwright: taps counted; a11y",
+        "copy test: block present on both pages"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/BillingService.java:121–138",
+        "web/src/components/billing/BillingCard.tsx"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": true,
+      "id": "B5.1",
+      "title": "In-app one-tap cancel: POST /api/billing/cancel → cancel_at_period_end, cancellation number, confirmation email with the last day; no retention gate (G29)",
+      "story": "As a subscriber I want to cancel inside the app in two taps and get it in writing so that I never wonder whether it worked.",
+      "ac": [
+        "One confirmation sheet (design §7); response {endsAt, cancellationNumber KW-xxxxx}; CANCEL_CONFIRMED email from the request path, webhook send deduped",
+        "Reachable in ≤ 3 taps from any app page (Settings › Plan › Cancel); no offer, survey or extra step before the confirmation",
+        "/pricing and Settings › Plan carry the screenshot-able \"how billing works\" block: monthly or 3-month only, no weekly, no trial, cancel keeps access to period end, no refunds"
+      ],
+      "tech": "BillingService.cancel; StripeGateway.setCancelAtPeriodEnd; web Settings plan panel (U15.2 owns the panel)",
+      "benchmark": "G29 — Teal/Jobscan/Jobright/Final Round one-star reviews: \"charged after I cancelled\"; Simplify/Careerflow cancel via portal with 24 h caveats",
+      "epic": "B5"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "B5.1",
+        "B4.5"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "Playwright",
+        "panel/options jsdom"
+      ],
+      "evidence": [
+        "web/src/components/billing/BillingCard.tsx:48–53",
+        "job-autofill/entrypoints/options/OptionsApp.tsx"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B5.2",
+      "title": "Undo cancel (\"Resume plan\") until period end + cancel state everywhere (card, drawer, emails say \"ends on\", not \"renews on\")",
+      "story": "As someone who cancelled I want a visible way back until my last day so that a change of mind costs nothing.",
+      "ac": [
+        "Resume button on the confirmation screen, Settings › Plan and the LAPSED/RENEWAL emails' counterpart",
+        "BillingCard \"Ends on …\" state verified; extension options shows \"Pro until …\""
+      ],
+      "tech": "BillingCard.tsx:48–53 (state exists); OptionsApp.tsx",
+      "epic": "B5"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B5.1"
+      ],
+      "relates": [
+        "A2.6",
+        "U18.1"
+      ],
+      "supersedes": [
+        "A2.6"
+      ],
+      "genz": "Ask after, never before.",
+      "tests": [
+        "BillingResourceIT reason PATCH",
+        "Playwright"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/domain/Subscription.java"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B5.3",
+      "title": "Reason chips after cancel (optional, one tap; \"Got a job\" feeds the placement metric) + churn metrics",
+      "story": "As the product I want to learn why people leave without making leaving harder so that churn is a signal, not a fight.",
+      "ac": [
+        "Chips: Got a job / Too pricey / Not using it / Missing something / Other (+ free text ≤ 200 chars); stored on subscription.cancel_reason; skippable",
+        "Events subscription_cancelled {reason}; A2.6 reads cancel_reason; \"Got a job\" shows a congratulation and counts toward placements"
+      ],
+      "tech": "PATCH /api/billing/cancel/reason",
+      "epic": "B5"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.4",
+        "A7.2"
+      ],
+      "relates": [
+        "A2.7"
+      ],
+      "supersedes": [
+        "A2.7"
+      ],
+      "genz": "One email. Then we leave you alone.",
+      "tests": [
+        "WinbackJobTest"
+      ],
+      "evidence": [
+        "docs/design/admin/email-notification-operations.md"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B5.4",
+      "title": "Win-back: one consented email setting `billing.winback_days` (default 14) after lapse (no discount unless the user approves one that passes the guard); never inside the cancel flow",
+      "story": "As a lapsed user I want at most one friendly \"your stuff is still here\" note so that coming back is my choice.",
+      "ac": [
+        "WINBACK notice at lapse + `billing.winback_days` only with marketing consent and only once per lapse; suppression list respected",
+        "Copy has no fake urgency; any offer must be a catalog price that passed the guard (B7)",
+        "Unsubscribe link per kind (U7.3)"
+      ],
+      "tech": "BillingSchedulerJob; A7.2 suppression",
+      "epic": "B5"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Life happens; pause.",
+      "tests": [
+        "BillingServiceTest pause matrix"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGateway.java"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B5.5",
+      "title": "Pause subscription (P2, open question): pause collection up to setting `billing.pause_max_months` (default 2) with access paused too",
+      "story": "As a user who landed an interview round I want to pause instead of cancel so that I come back without re-entering a card.",
+      "ac": [
+        "Decision first (PLAN-pay.md open question 6); if yes: gateway.pauseCollection(sub, resumesAt) + grant ends during the pause; no refund; max `billing.pause_max_months` per 12",
+        "Mirror status \"paused\" mapped to Free by EntitlementService"
+      ],
+      "tech": "Stripe pause_collection",
+      "epic": "B5"
+    },
+    {
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "A5.1"
+      ],
+      "relates": [
+        "A5.1",
+        "T0.1"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "TaxModeTest (3 modes → params)",
+        "StripeAutomaticTaxTest kept"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeProperties.java:61–82",
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java:109–148",
+        "api/src/test/java/com/dossier/api/service/billing/StripeAutomaticTaxTest.java"
+      ],
+      "design": "docs/design/pay/tax-invoicing-compliance.md",
+      "critical": true,
+      "id": "B6.1",
+      "title": "Tax mode decision recorded + implemented: billing.tax.mode NONE|STRIPE_TAX|MANAGED runtime setting, tax_code from the catalog on Stripe products, startup assertion (feeds B0.6)",
+      "story": "As the operator I want the live account's tax arrangement written down and enforced by config so that the margin guard and the checkout agree with reality.",
+      "ac": [
+        "One setting replaces the managedPayments/automaticTax booleans at the gateway (both kept as deprecated aliases one release); MANAGED never sends automatic_tax=false",
+        "Catalog publish sets product.tax_code (default txcd_10103000) on the Stripe Product",
+        "DEPLOY.md §11.4 gains the \"assert tax mode\" line; the decision itself is PLAN-pay.md open question 1"
+      ],
+      "tech": "StripeProperties:61–82; StripeGatewayImpl.wantsAutomaticTax",
+      "epic": "B6"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B4.1"
+      ],
+      "relates": [
+        "U15.2",
+        "T1.1"
+      ],
+      "supersedes": [],
+      "genz": "Receipts without emailing support.",
+      "tests": [
+        "InvoiceResourceIT",
+        "Playwright list at 390 px"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGateway.java"
+      ],
+      "design": "docs/design/pay/tax-invoicing-compliance.md",
+      "critical": false,
+      "id": "B6.2",
+      "title": "Invoices & receipts in-app: GET /api/billing/invoices from the mirror, fresh PDF URLs, \"Edit billing details\" via portal invoices flow",
+      "story": "As a subscriber who expenses Pro I want my invoices with my company name on them in two taps so that reimbursement is painless.",
+      "ac": [
+        "List ≤ 36 invoices: number, status, amount, period, PDF; a stored PDF URL older than 24 h is refreshed via gateway.retrieveInvoice",
+        "Portal flow \"invoices\" link; Stripe re-renders with updated customer details",
+        "U1.6 email change updates the Stripe customer email",
+        "Portal \"invoices\" flow configured without tax-ID updates; invoice mirror stores number, status, amounts, period and PDF URL only"
+      ],
+      "tech": "InvoiceResource; StripeGateway.retrieveInvoice/updateCustomerEmail",
+      "epic": "B6"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B3.1"
+      ],
+      "relates": [
+        "T0.1",
+        "T0.2",
+        "A2.3"
+      ],
+      "supersedes": [],
+      "genz": "Rules that respect the law in your country.",
+      "tests": [
+        "StatutoryRefundIT (re-auth, audit, mirror updated)"
+      ],
+      "evidence": [
+        "ROADMAP.md:754–766",
+        "web/src/app/(marketing)/terms"
+      ],
+      "design": "docs/design/pay/tax-invoicing-compliance.md",
+      "critical": false,
+      "id": "B6.3",
+      "title": "Legal pack for billing: EU/UK withdrawal wording + statutory-refund support path (HIGH-audited), CA ARL checklist, ToS Billing update for Autopilot/switching/student/regional; lawyer list for the trust area",
+      "story": "As the company I want the locked \"no refunds\" to coexist with the rights consumers actually have so that we are honest and defensible everywhere we sell.",
+      "ac": [
+        "gateway.refund(invoice, amountCents) exposed only to ADMIN/FINANCE with reason STATUTORY_WITHDRAWAL|DUPLICATE_CHARGE|SERVICE_NO_SHOW → audit BILLING_STATUTORY_REFUND; the subscription is cancelled now in the withdrawal case",
+        "ToS Billing section + /pricing block updated; the EU checkbox text and the three copy keys handed to the lawyer (15.2) with the review list in docs/design/pay/tax-invoicing-compliance.md §3",
+        "If the EU withdrawal-button rule is confirmed: a 14-day \"Withdraw\" action for EU first purchases"
+      ],
+      "tech": "AdminBillingResource; StripeGateway.refund",
+      "epic": "B6"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1",
+        "B3.2"
+      ],
+      "relates": [
+        "T1.4",
+        "A9.4"
+      ],
+      "supersedes": [],
+      "genz": "Delete your account; we keep only what the tax office needs, nameless.",
+      "tests": [
+        "AccountDeletionIT",
+        "AccountExportIT"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/AccountDeletionService.java:133",
+        "api/src/main/java/com/dossier/api/web/rest/AccountExportResource.java"
+      ],
+      "design": "docs/design/pay/tax-invoicing-compliance.md",
+      "critical": false,
+      "id": "B6.4",
+      "title": "Financial records on deletion: invoices/consents/stripe_event pseudonymised (not deleted) and purged by the retention job; billing section in the DSAR export",
+      "story": "As the company I want to keep the financial records the law requires after an account is deleted, with no personal data attached, so that deletion is complete and bookkeeping is intact.",
+      "ac": [
+        "AccountDeletionService: forget() keeps amount/currency/occurred_at and drops customer/user links to PII; invoice rows keep a bare user id; retention default 7 y via A9.5",
+        "AccountExportResource adds billing{plan, invoices[], consents[]}"
+      ],
+      "tech": "StripeEventRepository.forget (exists) changed",
+      "epic": "B6"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B2.1",
+        "B1.1"
+      ],
+      "relates": [
+        "A2.5"
+      ],
+      "supersedes": [
+        "A2.5"
+      ],
+      "genz": "—",
+      "tests": [
+        "PromoCodeServiceTest",
+        "StripeCheckoutParamsTest promo flag",
+        "MarginCalculatorTest coupon rows (Pro $19.99 −20 % = 74.9 % refused)"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java:98",
+        "docs/design/admin/catalog-margin-entitlements.md D7"
+      ],
+      "design": "docs/design/pay/discounts-regional-student.md",
+      "critical": false,
+      "id": "B7.1",
+      "title": "Promo codes through StripeGateway (coupon + promotion code), mirrored with margin on the net price; forever/no-cap refused; per-price accepts_promos drives allow_promotion_codes",
+      "story": "As marketing I want codes that cannot breach the floor so that a campaign never sells a loss.",
+      "ac": [
+        "POST /api/admin/promo-codes → guard on net price (no override for promos); duration at most setting `catalog.promo.max_duration_months` (default 3) repeating; max_redemptions + expires_at within setting `catalog.promo.max_expiry_days` (default 90) required",
+        "allow_promotion_codes on Checkout only when product_price.accepts_promos (default false) — today's unconditional true removed",
+        "Reconciler flags an unexpected discount on a subscription (coupon applied by hand in Stripe)"
+      ],
+      "tech": "PromoCodeService; StripeGateway.createCoupon/createPromotionCode",
+      "epic": "B7"
+    },
+    {
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B1.5",
+        "B3.1",
+        "B2.1",
+        "A5.1"
+      ],
+      "relates": [
+        "M7.4",
+        "A8.3",
+        "U16.4"
+      ],
+      "supersedes": [
+        "M7.1"
+      ],
+      "genz": "Student price that is a real product, not a coupon with an asterisk.",
+      "tests": [
+        "StudentVerificationIT",
+        "MarginCalculatorTest student rows",
+        "Playwright verify flow"
+      ],
+      "evidence": [
+        "web/src/lib/catalog.ts"
+      ],
+      "design": "docs/design/pay/discounts-regional-student.md",
+      "critical": false,
+      "id": "B7.2",
+      "title": "Pro Student as a catalog product (priced in admin; proposed initial values $11.99/mo · $29.99/3 mo, $1.50 budget, 10 resumes) + v1 verification (academic-domain email code, document fallback to support), 12-month expiry (G34)",
+      "story": "As a student I want a verified cheaper Pro that is honest about its smaller allowance so that I can afford the tool during the search that matters most.",
+      "ac": [
+        "PRO_STUDENT product + prices pass the guard (design §3: 80.3 % / 81.3 %); requires_verification=STUDENT on the price rows",
+        "POST /api/billing/student/verify (EDU_EMAIL code against the vendored academic domain list; DOCUMENT → support queue) → student_verification valid for setting `billing.student_verification_months` (default 12); purchasable only while unexpired; immutable price keeps a graduate on it until lapse",
+        "/pricing strip + upgrade sheet link; SheerID v2 noted, not built"
+      ],
+      "tech": "StudentVerificationService; academic_domain table + monthly refresh job (A10.2)",
+      "benchmark": "G34 — Kickresume free Premium for students; Teal/Jobscan/Huntr/Rezi publish no student price (checked 2026-10-11)",
+      "epic": "B7"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "B1.5",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "€18.40 reads better than \"$19.99 plus whatever\".",
+      "tests": [
+        "PublicCatalogIT currency hint",
+        "npm test -w web"
+      ],
+      "evidence": [
+        "web/src/components/pricing/PricingSections.tsx"
+      ],
+      "design": "docs/design/pay/discounts-regional-student.md",
+      "critical": false,
+      "id": "B7.3",
+      "title": "Adaptive Pricing (local-currency display at Checkout) switched on + /pricing shows the visitor's currency estimate; no PPP",
+      "story": "As a buyer outside the US I want to see the price in my currency so that I know what I will pay before I enter a card.",
+      "ac": [
+        "Stripe dashboard setting documented in DEPLOY.md §11 (buyer pays the conversion fee, we receive USD)",
+        "Public catalog returns an indicative local amount from a daily FX table for the CF-IPCountry; /pricing renders \"≈ €18.40, charged in USD\"",
+        "No regional price rows yet (B7.4)"
+      ],
+      "tech": "FxRateJob (ECB daily), CatalogPublicResource",
+      "epic": "B7"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B7.3",
+        "B2.4"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "Fair local prices — honest about the smaller allowance.",
+      "tests": [
+        "RegionalPriceIT",
+        "MarginCalculatorTest regional rows"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java"
+      ],
+      "design": "docs/design/pay/discounts-regional-student.md",
+      "critical": false,
+      "id": "B7.4",
+      "title": "Regional Pro Lite rows (country_set; priced in admin — proposed initial values $8.99 / $9.99 / $12.99, $1 budget) published only where the guard passes; card-country check at checkout (P2, after Launch 2)",
+      "story": "As a job seeker in India or Brazil I want a price that fits my market and still pays for itself so that the product exists for me at all.",
+      "ac": [
+        "PRO_LITE product + three country-set prices; each passes the guard at publish (design §4); shown by CF-IPCountry",
+        "checkout.session.completed with a card country outside the set → regional price refused next time, standard price offered, plain message; no VPN heuristics",
+        "Decision gate: realised report (B2.4) for the first region after 1 period"
+      ],
+      "tech": "product_price.country_set; StripeWebhookEvent customer_details.address.country",
+      "epic": "B7"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B1.2",
+        "U18.1"
+      ],
+      "relates": [
+        "U16.4",
+        "A9.3",
+        "M6.1",
+        "M6.3"
+      ],
+      "supersedes": [
+        "M6.2"
+      ],
+      "genz": "Bring a friend, both get a month — no card games.",
+      "tests": [
+        "ReferralServiceTest",
+        "DiscountPolicyTest stacking"
+      ],
+      "evidence": [
+        "docs/roadmap/areas/user.json (U16.4)"
+      ],
+      "design": "docs/design/pay/discounts-regional-student.md",
+      "critical": false,
+      "id": "B7.5",
+      "title": "Referral credit as a REFERRAL grant (settings `referral.reward_days` default 30 of Pro both sides, after `referral.qualify_active_days` default 7 active days) with a monthly marketing budget cap and anti-farming rules (G37)",
+      "story": "As a user who brings a friend I want a month of Pro for both of us, delivered as a grant that never collides with what I already paid for, so that referrals are a gift, not a billing bug.",
+      "ac": [
+        "referral table + code on signup; QUALIFIED after `referral.qualify_active_days` of activity; grants created (paid user: period extended via a system-only 100 % one-month coupon on the next invoice; Free user: grant now)",
+        "setting `referral.monthly_budget_cents`; exhausted → PAUSED with a visible line; setting `referral.credits_per_year` (default 3 here, 12 proposed by M6.2 — decision D3); self-referral rejected by email + device hash",
+        "U16.4 UI consumes GET /api/billing/referral"
+      ],
+      "tech": "ReferralService; StripeGateway.applyOneTimeCoupon(sub)",
+      "benchmark": "G37 — Kickresume vouchers; cost here is ≤ $3 AI per side, treated as CAC",
+      "epic": "B7"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B7.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "DiscountPolicyTest"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java:98"
+      ],
+      "design": "docs/design/pay/discounts-regional-student.md",
+      "critical": false,
+      "id": "B7.6",
+      "title": "DiscountPolicy: stacking rules (one promo per checkout; never with student/regional; grants highest-wins) + \"no launch sale / no lifetime\" recorded",
+      "story": "As the catalog I want explicit rules for which discounts combine so that two honest discounts cannot add up to a dishonest price.",
+      "ac": [
+        "DiscountPolicy.canCombine table test; enforced at checkout session creation and at promo creation",
+        "Design D9 (no lifetime, no $1 first month) referenced from the admin catalog page copy"
+      ],
+      "tech": "service/billing/DiscountPolicy.java",
+      "benchmark": "Rezi $149 lifetime / LazyApply lifetime: sells future AI cost once — incompatible with \"nothing is unlimited\"",
+      "epic": "B7"
+    },
+    {
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "genz": "A meter, not a bill.",
+      "tests": [
+        "AiBudgetServiceTest",
+        "AiResourceIT"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/AiBudgetService.java",
+        "api/src/main/java/com/dossier/api/service/ai/AiPolicy.java",
+        "web/src/components/settings/AiUsageMeter.tsx"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "B8.1",
+      "title": "AI budget per billing period, % meter, economy model at 80 %, admin override by calendar month — existing (13.1/15.5)",
+      "story": "As a Pro user I want a fair AI allowance that resets when my plan renews so that I always know where I stand.",
+      "ac": [
+        "AiBudgetService windows: Pro = billing period (end from the mirror), override = calendar month; GET /api/ai/usage; meter in Settings"
+      ],
+      "tech": "AiBudgetService:118–136; AiPolicy",
+      "epic": "B8"
+    },
+    {
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1",
+        "B1.6"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "AiBudgetPeriodTest (mid-month renewal, quarter, org, comp)"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/AiBudgetService.java:132–136"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B8.2",
+      "title": "Period start from the invoice mirror (replace the calendar-month fallback) + quarterly pooled budget from budget_override_cents; org/comp period sources",
+      "story": "As a user renewing on the 20th I want my allowance window to start on the 20th so that the meter is right, not three weeks off.",
+      "ac": [
+        "Window = [subscription.current_period_start, current_period_end) for STRIPE_SUBSCRIPTION grants; org period for ORG_ASSIGNMENT; calendar month for comps/referrals; highest budget's period wins",
+        "QUARTER price → budget_override_cents from the catalog (initial values 800/1600 ¢) pooled; \"Resets on\" copy shows the real date"
+      ],
+      "tech": "AiBudgetService.window(); PlanDTO v2 usage",
+      "epic": "B8"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B9.2",
+        "B2.3"
+      ],
+      "relates": [
+        "A4.1"
+      ],
+      "supersedes": [],
+      "genz": "Top up like a transit card — only if the data says people need it.",
+      "tests": [
+        "TopUpIT",
+        "MarginCalculatorTest topup rows"
+      ],
+      "evidence": [
+        "ROADMAP.md:783–784"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B8.3",
+      "title": "AI top-up as a one-time catalog product (TOPUP kind, guard-checked, priced in admin — proposed initial value $6.99 → +$0.75) crediting the current period (P2, gated on the cap-hit metric)",
+      "story": "As an Autopilot user mid-sprint who hit the cap I want to buy more allowance for this period so that I am not stuck for a week.",
+      "ac": [
+        "AI_TOPUP product published only if ai.cap_hit_pct exceeds setting `catalog.cap_hit_alert_pct` (default 5) for a plan (decision recorded); one-time Checkout (payment mode) via B9.2; ai_budget_credit row on invoice.paid; AiBudgetService adds credits to the window",
+        "Guard kind TOPUP ≥ 80 % after fees (design §5); no auto-topup, no stored-card charge without a checkout"
+      ],
+      "tech": "TopUpService; ai_budget_credit table",
+      "epic": "B8"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B1.4"
+      ],
+      "relates": [
+        "U15.2"
+      ],
+      "supersedes": [],
+      "genz": "No surprises.",
+      "tests": [
+        "BillingResourceIT usage",
+        "npm test -w web"
+      ],
+      "evidence": [
+        "web/src/components/billing/BillingCard.tsx",
+        "web/src/lib/ai-usage.ts"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B8.4",
+      "title": "Budget and limits visible on /api/billing/me and the plan panel (aiPct, resetsAt, resumes used/max, alerts) — shared with U15.2",
+      "story": "As a subscriber I want to see my allowance and caps in one place so that there are no surprises on money or limits.",
+      "ac": [
+        "PlanDTO v2 usage block populated from AiBudgetService + resume/alert counts",
+        "U15.2 panel renders meters from it; Free shows what is included + compare"
+      ],
+      "tech": "EntitlementService.resolve + usage providers",
+      "epic": "B8"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1"
+      ],
+      "relates": [
+        "O4.3",
+        "O9.2"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "BillingWebhookIT routing cases; existing cases unchanged"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/BillingWebhookService.java:214–228",
+        "docs/design/org/billing.md §5"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B9.1",
+      "title": "Webhook scope router (USER | ORG | SERVICE by customer metadata / checkout kind) with shared idempotency, ordering and record-then-apply; stripe_event.scope",
+      "story": "As the billing engine I want one webhook endpoint that dispatches org and service events to their handlers so that the hard-won guarantees are shared, not copied.",
+      "ac": [
+        "applyInTx → scope → UserBillingHandler (today's code moved), OrgBillingWebhookHandler, ServiceOrderWebhookHandler (interfaces; org/services areas implement theirs)",
+        "Unknown scope → PROCESSED + log (never 500); stripe_event.scope set; admin timeline filters by scope"
+      ],
+      "tech": "BillingWebhookService refactor; StripeWebhookEvent.scope()",
+      "epic": "B9"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B9.1"
+      ],
+      "relates": [
+        "O4.1",
+        "O4.2",
+        "O9.2"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "StripeGatewayParamsTest per method",
+        "FakeStripeGateway contract test"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGateway.java",
+        "api/src/main/java/com/dossier/api/service/billing/StripeGatewayImpl.java"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B9.2",
+      "title": "Gateway: one-time Checkout (payment mode), send-invoice invoices, invoice items, refunds, customers with metadata scope — the methods O4.1/O4.2/O9.2 and B8.3 need",
+      "story": "As the org and services designers I want the Stripe seam to already speak one-time payments and invoices so that our stories are business logic, not SDK work.",
+      "ac": [
+        "createOneTimeCheckout(spec), createInvoice(customer, lines, collection, daysUntilDue), addInvoiceItem, finalizeInvoice, refund(paymentIntent|invoice, cents, reason), createCustomer(scope, metadata) — all through StripeGateway; FakeStripeGateway mirrors them",
+        "Every call carries metadata.app=kiwiply + kiwiply_scope; the cross-app guard is extended to invoices"
+      ],
+      "tech": "StripeGateway/Impl",
+      "epic": "B9"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B9.2"
+      ],
+      "relates": [
+        "O9.6",
+        "O9.10"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "ServiceRefundIT",
+        "PayoutHookTest"
+      ],
+      "evidence": [
+        "docs/design/org/services-marketplace.md"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B9.3",
+      "title": "Service refunds & payout ledger hooks: refund path for no-show/duplicate (20 % floor aware), expert_payout rows from paid service invoices",
+      "story": "As the services marketplace I want refunds and payouts to flow through the same audited gateway so that money never moves outside the ledger.",
+      "ac": [
+        "refund reasons SERVICE_NO_SHOW|DUPLICATE_CHARGE|STATUTORY (B6.3) with audit; invoice mirror updated; service order state follows (org area)",
+        "PayoutLedger hook: on service invoice.paid create a pending expert_payout (manual approval stays in A13.3)"
+      ],
+      "tech": "ServiceOrderWebhookHandler default impl",
+      "epic": "B9"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B9.2"
+      ],
+      "relates": [
+        "O4.4",
+        "O4.8"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "StripeGatewayParamsTest"
+      ],
+      "evidence": [
+        "docs/design/org/billing.md §4"
+      ],
+      "design": "docs/design/pay/catalog-entitlements-engine.md",
+      "critical": false,
+      "id": "B9.4",
+      "title": "Subscription item quantity ops (±1 with proration policy) + seat reconciler seam for org assignments",
+      "story": "As the org billing flow I want add-seat/remove-seat primitives with the locked proration rules so that O4.4 is a few lines.",
+      "ac": [
+        "setItemQuantity(subId, priceId, delta, proration=create_prorations|none); listSubscriptionItems; OrgSeatReconciler interface fed by B10.1's nightly Stripe listing"
+      ],
+      "tech": "StripeGateway",
+      "epic": "B9"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1"
+      ],
+      "relates": [
+        "A2.2",
+        "A10.2"
+      ],
+      "supersedes": [
+        "A2.2"
+      ],
+      "genz": "Your plan is right even when the internet hiccups.",
+      "tests": [
+        "StripeReconcilerTest matrix with FakeStripeGateway"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/StripeGateway.java",
+        "docs/design/admin/observability-backup-incident.md"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": true,
+      "id": "B10.1",
+      "title": "Nightly Stripe reconciliation: subscriptions/prices/discounts vs mirror and grants; drift → admin alert; never writes money",
+      "story": "As the operator I want to know the morning after a missed webhook so that a wrong plan never lasts longer than a day.",
+      "ac": [
+        "Job lists Stripe subscriptions (updated since −36 h) + every mirror row with status in (active, past_due) and last_event_at < −36 h; compares status/price/period/cancel flags; grants vs subscriptions; unexpected discounts; unknown prices",
+        "Drift → billing_drift rows + admin queue alert with both values; replay suggestion link (B10.2); zero automatic writes",
+        "Runs in the A10.2 job registry with run ledger"
+      ],
+      "tech": "StripeReconciler; StripeGateway.listSubscriptions/listPrices",
+      "epic": "B10"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1"
+      ],
+      "relates": [
+        "B10.1",
+        "A12.1"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "BillingReplayIT",
+        "retention job test"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/billing/BillingWebhookService.java:94–108"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": false,
+      "id": "B10.2",
+      "title": "Webhook health: failed-event alert within 15 min, admin replay endpoint (fetch by id from Stripe, run through handle(), HIGH-audited), stripe_event retention",
+      "story": "As support I want to replay one Stripe event safely so that a fixed bug heals the customer without a database edit.",
+      "ac": [
+        "POST /api/admin/billing/events/{id}/replay → gateway.retrieveEvent → handle(); records replayed_from/replayed_by; 409 if the original is not failed unless force",
+        "Metric billing.webhook.failed_15m → A4.4-style alert; failed events listed on the admin customer timeline",
+        "Retention: ok events 13 months, failed kept until replayed + 13 months"
+      ],
+      "tech": "AdminBillingResource; BillingWebhookService.handle (exists)",
+      "epic": "B10"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B4.1",
+        "B5.3"
+      ],
+      "relates": [
+        "A2.8",
+        "A11.3",
+        "A2.1"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "BillingMetricsRollupTest"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/AdminAnalyticsService.java",
+        "api/src/main/java/com/dossier/api/web/rest/AdminCustomerResource.java"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": false,
+      "id": "B10.3",
+      "title": "Billing metrics from the mirror: MRR/ARR by product and interval, new/churned/reactivated, past_due count, conversion from upgrade_sheet_shown, cap-hit — replaces the config-amount MRR",
+      "story": "As the owner I want billing numbers that come from invoices so that the revenue card cannot drift from Stripe.",
+      "ac": [
+        "metric_daily keys billing.mrr.{product}, billing.churn, billing.reactivations, billing.past_due, billing.conversion; revenue card reads them",
+        "A2.1 customer groups (active/cancel-pending/past_due/lapsed) from the mirror columns"
+      ],
+      "tech": "BillingMetricsJob; AdminAnalyticsService.overview().billing",
+      "epic": "B10"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B0.5"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "BillingScenarioIT (one @ParameterizedTest per file)"
+      ],
+      "evidence": [
+        "api/src/test/java/com/dossier/api/web/rest/BillingResourceIT.java:69",
+        "api/src/test/java/com/dossier/api/web/rest/BillingWebhookIT.java"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": true,
+      "id": "B10.4",
+      "title": "FakeStripeGateway + scripted scenario harness in CI (12.7 run, 15.4 test-clock run, switch, cancel/resume, refund) replayed through the real webhook service",
+      "story": "As the team I want the full billing story to run in CI so that \"a renewal fails and the plan lapses\" is a test, not a memory.",
+      "ac": [
+        "api/src/test/resources/billing-scenarios/*.json event streams (signed with the test secret) run through BillingWebhookResource; assertions on mirror, grants, notices",
+        "FakeStripeGateway implements every StripeGateway method with an in-memory model and emits the events a real Stripe would; used by every billing IT",
+        "Stripe CLI fixture commands documented in api/README"
+      ],
+      "tech": "test support package; replaces ad-hoc stubs in BillingResourceIT",
+      "epic": "B10"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U18.1",
+        "B4.1"
+      ],
+      "relates": [
+        "U18.2",
+        "U18.1"
+      ],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "event schema tests"
+      ],
+      "evidence": [
+        "docs/design/user/analytics-events.md"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B10.5",
+      "title": "Billing events in the product analytics pipeline (upgrade_sheet_shown, checkout_started/abandoned, subscription_started/cancelled/lapsed/resumed/switched) — server-side where money is involved",
+      "story": "As the product I want a trustworthy conversion funnel so that pricing decisions rest on events the client cannot fake.",
+      "ac": [
+        "Schema entries in the U18 taxonomy; money events published from the webhook/service layer, UI events from the sheet; no amounts in client events",
+        "Funnel definition pricing_view → sheet → checkout → paid in A11"
+      ],
+      "tech": "ProductEventRecorder (U18.1)",
+      "epic": "B10"
+    },
+    {
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "genz": "—",
+      "tests": [
+        "sync.test.js",
+        "tracking.test.js",
+        "ProfileResourceIT version"
+      ],
+      "evidence": [
+        "job-autofill/src/lib/tracking.js:350–393",
+        "job-autofill/entrypoints/options/OptionsApp.tsx"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "B11.1",
+      "title": "Plan on the version endpoint + extension 402 mapping + options plan badge — existing (12.3)",
+      "story": "As the extension I want the plan to ride on the version check so that the drawer knows within 15 minutes of any change.",
+      "ac": [
+        "/version {version, plan}; checkAndPull stores settings.plan every answered check; options shows Pro/Free + \"Upgrade on kiwiply.com\""
+      ],
+      "tech": "B1.4 adds features[]",
+      "epic": "B11"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension",
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "N7.1",
+        "E5.11",
+        "M2.3"
+      ],
+      "supersedes": [],
+      "genz": "Pay on the web, use everywhere.",
+      "tests": [
+        "extension bundle string test",
+        "Playwright /upgrade"
+      ],
+      "evidence": [
+        "job-autofill/entrypoints/options/OptionsApp.tsx",
+        "docs/design/user/pwa-push.md"
+      ],
+      "design": "docs/design/pay/checkout-upgrade-cancel-flows.md",
+      "critical": false,
+      "id": "B11.2",
+      "title": "Purchase-surface rules written and enforced: web checkout only; extension/PWA/native deep-link to kiwiply.com/upgrade; no in-app purchase; store-listing copy reviewed",
+      "story": "As the product I want one place where money changes hands so that store rules, consent records and the margin guard apply everywhere.",
+      "ac": [
+        "/upgrade?feature=&return= web route renders the sheet then checkout; extension and PWA link there; documented in ARCHITECTURE.md and the mobile area's store-rules note",
+        "CI grep: no Stripe/price strings in job-autofill/ bundles"
+      ],
+      "tech": "web/src/app/(app)/upgrade/page.tsx",
+      "epic": "B11"
+    },
+    {
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U7.1"
+      ],
+      "relates": [
+        "U15.3",
+        "U7.3"
+      ],
+      "supersedes": [
+        "U15.3"
+      ],
+      "genz": "—",
+      "tests": [
+        "NotificationPolicyTest billing kinds"
+      ],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/NotificationService.java",
+        "docs/design/user/alerts-notifications.md"
+      ],
+      "design": "docs/design/pay/subscription-lifecycle.md",
+      "critical": false,
+      "id": "B11.3",
+      "title": "Billing notices through the notification engine: kinds, channel matrix defaults (email always on for money; in-app; push optional), per-kind unsubscribe where lawful",
+      "story": "As a subscriber I want billing messages to respect my channel preferences, except the ones the law and basic fairness say I must get, so that money news is never spam and never missed.",
+      "ac": [
+        "Kinds BILLING_RENEWAL_SOON, PAYMENT_FAILED, LAPSED, CANCEL_CONFIRMED, RESUMED, RECEIPT, PRICE_CHANGE, PLAN_SWITCHED; email channel locked on for RENEWAL_SOON/PAYMENT_FAILED/PRICE_CHANGE/RECEIPT; in-app on; push follows the user",
+        "billing_notice rows written by the publisher; templates in A7.4"
+      ],
+      "tech": "NotificationService policy (U7.1)",
+      "epic": "B11"
+    }
+  ]
+}

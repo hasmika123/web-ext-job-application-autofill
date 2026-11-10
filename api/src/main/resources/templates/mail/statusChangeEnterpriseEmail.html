@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  Interview / offer e-mail of an ENTERPRISE account (X2.10): the organization's look and "this workspace" wording; the footer links only to the
+  organization's own policy pages. Personal accounts keep statusChangeEmail.html.
+  Model: subject, name, company, role, stage (OFFER or INTERVIEW), link, orgName, theme, brand, logoUrl, assetBase, policyBase (nullable).
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+  <head>
+    <title th:text="${subject}">Interview invite</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+  </head>
+  <body style="margin: 0; padding: 0">
+    <th:block th:with="offer=${stage == 'OFFER'}, accent=${brand} ?: '#0d63e8', btnText='#ffffff', heroBg='#eaf3fd'">
+      <div th:replace="~{mail/fragments :: preheader(${offer} ? #{email.kw.status.pre.offer(${company})} : #{email.kw.status.pre.interview(${company})})}"></div>
+      <th:block th:replace="~{mail/fragments :: shell('enterprise', ${brand}, ${logoUrl}, ${orgName}, ${assetBase}, ~{::section})}">
+        <section>
+          <table th:replace="~{mail/fragments :: heroCentered(${heroBg}, ${assetBase} + '/ent-hero-welcome.png', ${offer} ? #{email.kw.status.kicker.offer} : #{email.kw.status.kicker.interview}, '#0b2a52', ${offer} ? #{email.kw.status.intro.offer(${name}, ${company}, ${role})} : #{email.kw.status.intro.interview(${name}, ${company}, ${role})}, ${link}, #{email.ent.notify.link}, ${accent}, ${btnText})}"></table>
+          <table th:replace="~{mail/fragments :: strip('#e7f3ee', ${role}, #{email.kw.status.card.text(${company}, ${offer} ? #{email.kw.status.stage.offer} : #{email.kw.status.stage.interview})})}"></table>
+          <p style="margin: 0; padding: 14px 28px 4px 28px; font-size: 14px; line-height: 1.5; color: #232826" th:text="#{email.status.check}">Read the original email.</p>
+          <p style="margin: 0; padding: 8px 28px 18px 28px; font-size: 12px; line-height: 1.5; color: #6b726e" th:text="#{email.ent.status.footer}">Footer</p>
+        </section>
+      </th:block>
+    </th:block>
+  </body>
+</html>

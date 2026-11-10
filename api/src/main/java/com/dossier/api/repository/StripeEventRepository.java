@@ -16,6 +16,9 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface StripeEventRepository extends JpaRepository<StripeEvent, String> {
+    /** How many times an event has been replayed by an admin (K8.5): the next replay's row number. */
+    long countByReplayedFrom(String replayedFrom);
+
     /**
      * One person's billing history (9.C1), newest first: events tied to the user, or to their
      * Stripe customer when the user wasn't known yet. Null customer = user only (a derived query

@@ -141,6 +141,21 @@ don't file it as a bug. Trigger it with **Scan & fill this page** on a real form
 - [ ] Sign out on the web while the drawer is open → the drawer returns to the connect prompt
       rather than showing a stale account chip.
 
+## 8. One account at a time (separate enterprise accounts, S7 — needs the S6 server)
+- [ ] Connected to a **personal** account: the drawer header chip reads **Personal** with the email
+      beneath; there is **no** Personal/Org dropdown anywhere.
+- [ ] Click the chip → the account panel shows the same two lines, the "one account at a time" note,
+      **Switch account** (opens `kiwiply.com/connect`) and, for personal only, **Open dashboard**.
+- [ ] Connect an **enterprise** account (tenant workspace → **Connect extension**) with the same email:
+      the chip becomes `<Org> · Enterprise`, the previous account's resumes, bio, learned answers and
+      Jobs cache are gone, and your own settings (AI key, auto-advance, theme) are untouched.
+- [ ] Enterprise **marketer-only**: only "Save for consultant…" shows, and the Network tab shows no
+      profile / resume request. **Consultant**: Autofill + Jobs tabs. Neither role: the plain drawer.
+- [ ] Options → Account shows `<Org> · Enterprise`, the email, no Pro/Free note, and **never** a login
+      that starts with `ent#`.
+- [ ] Connect back to the personal account: the enterprise data is gone from the drawer.
+- [ ] No request carries an `X-Kiwiply-Workspace` header.
+
 ---
 
 ## Findings

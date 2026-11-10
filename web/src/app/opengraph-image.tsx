@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 // File-based metadata: Next serves this as the site's OpenGraph/Twitter card.
-export const alt = "Kiwiply — one profile, every application";
+export const alt = "Kiwiply | Find jobs. Apply faster. Get hired.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -16,9 +16,9 @@ export default function OpengraphImage() {
           flexDirection: "column",
           justifyContent: "space-between",
           padding: "76px 80px",
-          // Charcoal hero gradient (--hero-bg); kiwi green stays reserved for accents.
-          background: "linear-gradient(165deg, #2D3133 0%, #2F3330 60%, #37322B 130%)",
-          color: "#FBFAF6",
+          // v2 palette: navy canvas, lime accents (theme-v2.css tokens, written out because next/og is self-contained).
+          background: "linear-gradient(165deg, #0F1340 0%, #1B1F5E 65%, #232A86 130%)",
+          color: "#FFFFFF",
           fontFamily: "sans-serif",
         }}
       >
@@ -30,7 +30,7 @@ export default function OpengraphImage() {
               width: 76,
               height: 76,
               borderRadius: 9999,
-              background: "#986A35",
+              background: "#E9FBD9",
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -41,7 +41,7 @@ export default function OpengraphImage() {
                 width: 52,
                 height: 52,
                 borderRadius: 9999,
-                background: "#94BD37",
+                background: "#84E33D",
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -51,7 +51,7 @@ export default function OpengraphImage() {
                 <path
                   d="M20 33 l8 8 16-18"
                   fill="none"
-                  stroke="#2D3133"
+                  stroke="#1B1F5E"
                   strokeWidth="7"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -60,8 +60,8 @@ export default function OpengraphImage() {
             </div>
           </div>
           <div style={{ display: "flex", fontSize: 46, fontWeight: 700 }}>
-            <div style={{ color: "#94BD37" }}>kiwi</div>
-            <div style={{ color: "#FBFAF6" }}>ply</div>
+            <div style={{ color: "#84E33D" }}>kiwi</div>
+            <div style={{ color: "#FFFFFF" }}>ply</div>
           </div>
         </div>
 
@@ -77,7 +77,7 @@ export default function OpengraphImage() {
               maxWidth: 920,
             }}
           >
-            One profile, every application.
+            Find jobs. Apply faster. Get hired.
           </div>
           <div
             style={{
@@ -85,11 +85,11 @@ export default function OpengraphImage() {
               marginTop: 26,
               fontSize: 30,
               lineHeight: 1.4,
-              color: "rgba(251,250,246,0.8)",
+              color: "rgba(255,255,255,0.82)",
               maxWidth: 860,
             }}
           >
-            Autofill job applications, manage your resumes, and track every application in one place.
+            Matches you with roles, fills applications for you to review, and tracks replies in your Gmail. One profile, one board, no auto-submit.
           </div>
         </div>
 
@@ -100,11 +100,11 @@ export default function OpengraphImage() {
             alignItems: "center",
             gap: 16,
             fontSize: 24,
-            color: "rgba(251,250,246,0.7)",
+            color: "rgba(255,255,255,0.72)",
           }}
         >
-          <div style={{ display: "flex", color: "#B7D283", fontWeight: 600 }}>kiwiply.com</div>
-          <div style={{ display: "flex", width: 5, height: 5, borderRadius: 9999, background: "rgba(251,250,246,0.5)" }} />
+          <div style={{ display: "flex", color: "#84E33D", fontWeight: 600 }}>kiwiply.com</div>
+          <div style={{ display: "flex", width: 5, height: 5, borderRadius: 9999, background: "rgba(255,255,255,0.5)" }} />
           <div style={{ display: "flex" }}>Browser extension + web app</div>
         </div>
       </div>

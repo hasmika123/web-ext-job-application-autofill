@@ -33,7 +33,21 @@ extension ─https─> Caddy ─┘                                          └
   ```
 - This repo on the box (`git clone …`).
 
-## 1. AWS S3 (private bucket)
+## 1. File storage (local disk by default; AWS S3 optional)
+Every uploaded or built file (resumes, application attachments, built-resume PDFs) goes through the
+API's `FileStorage` seam. The default driver is **local disk**: files live in the `uploads` Docker volume,
+mounted at `/srv/uploads` in the `api` container. It needs **no cloud account and no new `.env` secrets**
+(`DOSSIER_STORAGE_DRIVER` defaults to `local`; `S3_*` are optional).
+
+- The volume is **user data**, not covered by the MySQL dump (`backup-db.sh`). Back it up too, and never
+  run `docker compose down -v` (it deletes the volume). Plain `up -d` / `pull` / recreate keep it.
+- Files written by the old S3 driver stay in the bucket. With `driver=local` those older resumes are not
+  served (the download returns 404 `FILE_MISSING`); to keep serving them, set `DOSSIER_STORAGE_DRIVER=s3`
+  with the S3 values. Moving files between drivers is a separate story (P5.4).
+- Local dev: files go to `~/.dossier/uploads` (override with `DOSSIER_STORAGE_LOCAL_ROOT`); to exercise
+  the S3 driver against MinIO, set `DOSSIER_STORAGE_DRIVER=s3`.
+
+### 1.1 Switching to AWS S3 (optional, config only)
 1. Create a **private** bucket (e.g. `dossier-resumes`) in your region (e.g. `us-east-1`).
    Leave "Block all public access" ON — downloads are proxied through the API.
 2. Create an IAM user with programmatic keys and this least-privilege policy (replace the
@@ -140,7 +154,8 @@ Reload the unpacked extension. (At Chrome Web Store launch, also pin
   ```bash
   git pull && $COMPOSE up -d --build
   ```
-  Liquibase applies new DB migrations automatically on API start.
+  Liquibase applies new DB migrations automatically on API start. For a deploy with a pre-deploy database
+  snapshot, health checks and an automatic rollback, use `scripts/ops/deploy.sh` instead (§5.4).
 - **Logs:** `$COMPOSE logs -f <service>`
 - **Database backup — nightly, off the box (Phase 15.1).** `scripts/ops/backup-db.sh` dumps
   MySQL at 03:15 UTC into the separate **`kiwiply-db-backups`** bucket, and
@@ -168,8 +183,8 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    default encryption SSE-S3.
 2. **Lifecycle** (bucket → Management → Lifecycle rules), or in one command:
    `aws s3api put-bucket-lifecycle-configuration --bucket kiwiply-db-backups --lifecycle-configuration file://scripts/ops/aws/lifecycle.json`.
-   It expires `daily/` after 30 days, `monthly/` after 365 days, and old versions 30 days after
-   they're replaced.
+   It expires `daily/` after 30 days, `monthly/` after 365 days, `binlog/` (the MySQL binary logs,
+   §5.9) after 32 days, `uploads/` after 30, and old versions 30 days after they're replaced.
 3. **IAM user** `kiwiply-backup` with programmatic access only and exactly the inline policy in
    `scripts/ops/aws/backup-user-policy.json` (List + Put + Get; **no** Delete). Create an access key.
    Put it in the **password manager** first, then in the box's `.env`. Never in chat, the repo or
@@ -182,6 +197,13 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    BACKUP_AWS_SECRET_ACCESS_KEY=...
    HC_BACKUP_URL=https://hc-ping.com/<uuid>     # §5.2
    HC_RESTORE_URL=https://hc-ping.com/<uuid>    # §5.2
+   HC_UPLOADS_URL=https://hc-ping.com/<uuid>    # §5.7 (uploads-volume backup)
+   HC_HOST_URL=https://hc-ping.com/<uuid>       # §5.6 (host guard)
+   HC_DEPLOY_URL=https://hc-ping.com/<uuid>     # §5.4 (optional)
+   HC_BINLOG_URL=https://hc-ping.com/<uuid>     # §5.9 (binlog shipping, every 15 minutes)
+   HC_DRILL_URL=https://hc-ping.com/<uuid>      # §5.10 (monthly restore drill)
+   BINLOG_LOCAL_KEEP_DAYS=                      # §5.9 (optional: purge shipped binlogs from the box after N days)
+   BACKUP_AGE_RECIPIENT=                        # §5.7 (optional: age public key, encrypts dumps)
    ```
    These are read by the ops scripts only; the API never sees them.
 5. **Schedule** — a cron.d file of its own, so BeeCompete's crontabs are never touched:
@@ -190,9 +212,18 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    timedatectl | grep 'Time zone'      # the schedule assumes UTC
    install -m 644 scripts/ops/kiwiply-ops.cron /etc/cron.d/kiwiply-ops
    ```
+   Binary logs to S3 every 15 minutes → `/var/log/kiwiply-binlog.log` (§5.9); the full restore drill
+   (dump + binlogs) on the 1st of the month at 05:30 UTC → `/var/log/kiwiply-restore-drill-monthly.log` (§5.10).
    Nightly backup at 03:15 UTC → `/var/log/kiwiply-backup.log`; Sunday 04:45 UTC restore drill →
    `/var/log/kiwiply-restore-drill.log` (and one line per drill in
-   `/root/kiwiply-backups/restore-drills.log`). The last 3 dumps also stay in `/root/kiwiply-backups/`.
+   `/root/kiwiply-backups/restore-drills.log`); nightly uploads-volume archive at 03:40 UTC →
+   `/var/log/kiwiply-backup-uploads.log` (§5.7); host guard every 5 minutes →
+   `/var/log/kiwiply-host-guard.log` (§5.6). The last 3 dumps also stay in `/root/kiwiply-backups/`.
+   Rotate those logs: `install -m 644 scripts/ops/kiwiply-logrotate.conf /etc/logrotate.d/kiwiply` (§5.6).
+   `scripts/ops/install-cron.sh` does both of these in one go and fills in the user and checkout path
+   (`--dry-run` shows the result first); it is also how the jobs move to a non-root deploy user (§5.11).
+   **Until someone has done this step, no backup is running**: the scripts exist, the cron file is not
+   installed by a deploy. Check with `ls -l /etc/cron.d/kiwiply-ops` and Healthchecks.
 6. **First run, by hand** — once the scripts are on the box, i.e. after `develop` is promoted to
    `main` (the deploy's `git pull` brings them) — and check it landed:
    ```bash
@@ -202,19 +233,33 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    `verify-restore.sh` should end with `restore drill OK — dossier-<date>.sql.gz: N tables, …`.
 
 **Tested in CI** (the "Ops scripts" job): shellcheck, the helpers, `backup-db.sh` against a fake
-docker (upload names, the sha256, the monthly copy, the pings, refusing a cut-short dump), and a
-real `mysqldump` of a real MySQL of the production version restored by `verify-restore.sh`.
+docker (upload names, the sha256, the monthly copy, the pings, refusing a cut-short dump, encryption with
+fake `age`/`gpg`), `deploy.sh` and `snapshot-db.sh` against a fake docker (dry run, good deploy, health and
+smoke failures and the rollback, first deploy, locking, migration lint), `host-guard.sh` with fake
+`df`/`/proc/meminfo`/`openssl`, `backup-uploads.sh`, the compose files through `docker compose config`
+(production keeps the overlay aliases, staging has its own, every service rotates logs), and a real
+`mysqldump` of a real MySQL of the production version restored by `verify-restore.sh`.
 
 ### 5.2 Alarms — UptimeRobot + Healthchecks.io (once), and the error digest
 
 Both are free; you create the accounts. Alerts go to your email.
 
+- **The full, exact definitions** of every check and monitor below, with the alert routes (who is told for a
+  down site versus a late backup), are in **`docs/ops/monitors.md`**, and machine-readable in
+  `docs/ops/monitors.json` (REAL-GAPS-C P1.1). Create the accounts, then follow that file.
 - **Healthchecks.io** — two checks. Each one expects a ping and emails you when it doesn't arrive:
   - `kiwiply-backup`: period **1 day**, grace **2 hours**. Its ping URL → `HC_BACKUP_URL`.
   - `kiwiply-restore-drill`: period **7 days**, grace **6 hours**. Its URL → `HC_RESTORE_URL`.
   The scripts ping `/start` when they begin, the plain URL on success, and `/fail` on any failure,
   so a crash, a cut-short dump, a missing bucket key or a restore that doesn't check out all
   alert, and so does a night when cron didn't run at all.
+  Two more are for the binary logs and the full drill: `kiwiply-binlog` (period **15 minutes**, grace 15
+  minutes → `HC_BINLOG_URL`, §5.9) and `kiwiply-restore-drill-monthly` (period **31 days**, grace 2 days →
+  `HC_DRILL_URL`, §5.10).
+  Three more checks use the same scripts' pings (all optional; blank URL = that script stays silent):
+  `kiwiply-uploads` (period **1 day**, grace 2 hours → `HC_UPLOADS_URL`, §5.7), `kiwiply-host` (period
+  **10 minutes**, grace 10 minutes → `HC_HOST_URL`, §5.6: the host guard sends `/fail` with the reason) and
+  `kiwiply-deploy` (no period, alert on `/fail` only → `HC_DEPLOY_URL`, §5.4).
 - **UptimeRobot** — two HTTP(S) monitors, 5-minute interval:
   - `https://kiwiply.com/` — expects 200.
   - `https://api.kiwiply.com/management/health` — keyword monitor, expects `"status":"UP"`.
@@ -249,7 +294,332 @@ database**, so only do it when production data is lost or corrupt.
    $COMPOSE up -d api          # Liquibase applies any migration newer than the dump
    ```
 3. Check: `scripts/migrate/04-verify.sh kiwiply.com`, and sign in.
-Everything written after the dump was taken (up to a day) is gone. Tell affected users.
+Everything written after the dump was taken (up to a day) is gone. Tell affected users. If you restore
+from a backup older than an account deletion, **delete that account again** afterwards (the restore brings
+it back); `docs/ops/incident-runbook.md` §8.
+
+If the dump is encrypted (`.age`/`.gpg`, §5.7), decrypt it first on the machine that holds the private key:
+`age -d -i kiwiply-backup.key -o dossier-<date>.sql.gz dossier-<date>.sql.gz.age`.
+
+### 5.4 Deploying by tag, with a snapshot and an automatic rollback (`deploy.sh`)
+
+`deploy.yml` (§7) runs this script on every merge to `main` (since REAL-GAPS-C P2.1, see the Pipeline
+paragraph below); you can run it by hand on the box too (P2.1-P2.3). It always uses the production file **and** the
+shared-edge overlay (it refuses to run otherwise) and never deploys `latest`, so a bad build has a snapshot
+to go back to and a name for "the version before".
+
+```bash
+cd /root/web-ext-job-application-autofill && git pull --ff-only
+scripts/ops/deploy.sh --dry-run                 # prints every step, runs nothing; do this first
+scripts/ops/deploy.sh                           # deploys this checkout's HEAD sha (the tag CI pushed)
+scripts/ops/deploy.sh --tag <40-hex git sha>    # or any build CI pushed: that is how you roll forward/back to a known one
+scripts/ops/deploy.sh --rollback                # back to the previous tag, no rebuild
+```
+
+What it does, in order (a failure before step 6 changes nothing):
+
+1. checks the tags (never `latest`), the compose files and the `.env`;
+2. works out what to roll back to: the tags it recorded last time, or, the first time (and after a CI
+   deploy of `latest`), the **running images themselves**, tagged `pre-<time>` so they cannot be pruned;
+3. lints the Liquibase changesets that arrived since the previous sha for destructive statements
+   (`dropColumn`, `dropTable`, rename, `modifyDataType`, `delete`, `DROP`/`TRUNCATE`): it stops and lists
+   them unless you pass `--allow-destructive-migrations` after reading them (the rule is additive-only);
+4. takes a **database snapshot** (`scripts/ops/snapshot-db.sh`, kept in `~/kiwiply-backups/pre-deploy-*`,
+   newest 5; `--no-snapshot` skips it; `DEPLOY_SNAPSHOT_HOOK=/path/to/executable` replaces it);
+5. pulls `api` and `web` at the tag (a tag that is not in GHCR stops here, nothing touched);
+6. `compose up -d` with `DOSSIER_API_TAG` / `DOSSIER_WEB_TAG` set (the compose file reads them; unset
+   means `latest`, which is what `deploy.yml` still pulls);
+7. waits (up to 5 minutes) until the API's `/management/health` says `UP` and the web answers, both
+   probed from inside the web container over the compose network, then fetches the public URLs
+   (`https://$SSLIP_HOST/` and `https://api.$SSLIP_HOST/management/health`; override with
+   `DEPLOY_SMOKE_URLS`, skip with `--no-public-smoke`).
+
+If anything fails after step 6 it **rolls back by itself** to the previous tags (`up -d --no-deps api web`),
+waits for health again and exits `1`; exit `2` means the rollback failed too and the stack needs hands.
+It does **not** restore the database on its own (that would discard every write since the snapshot): the
+message names the newest snapshot, and §5.3 shows the restore. Liquibase is additive-only, so the
+previous image runs on the newer schema.
+
+State is in `~/kiwiply-deploy/` (`current.env` = current and previous tags, `history.log`, a lock so two
+deploys cannot overlap). Monitoring: set `HC_DEPLOY_URL` (a Healthchecks.io check; no period, alert on
+`/fail` only) and it pings start / success / fail with the tag in the body; unset = silent.
+
+**The first deploy after this lands also recreates `mysql`:** the compose file gained a `logging:` cap on
+every service (§5.6), and a changed container config means Compose recreates it (about 20 seconds of
+database restart; the volume is untouched). Do it at a quiet time.
+
+**Pipeline (P2.1, switched over in `h-ops`):** `deploy.yml` now does exactly this, in order, on a merge to `main`:
+
+1. the runner builds the `api` and `web` images and pushes each as `ghcr.io/hasmika123/dossier-<svc>:<full commit sha>`
+   **and** `:latest` (nothing deploys `latest`; it is kept for anything that still pulls it);
+2. if the repo variable `DEPLOY_ENABLED` is `true`, it SSHes to the box with the same secrets as before
+   (`VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`) and runs, in `DEPLOY_PATH`:
+   `git pull --ff-only` (so the box runs the repo's own `deploy.sh` and compose files),
+   `bash scripts/ops/deploy.sh --dry-run --tag <sha>` (prints the plan, changes nothing), then
+   `bash scripts/ops/deploy.sh --tag <sha>`: the snapshot, the destructive-migration lint, `pull`, `up -d`, the
+   health wait, the public smoke checks, and the **automatic rollback** if any of that fails after the `up`.
+   A failed or rolled-back deploy makes the workflow run red (exit 1 rolled back, 2 rollback failed);
+3. `docker image prune -f` (dangling images only; the sha-tagged and `pre-<time>` images are kept so a rollback
+   never has to pull).
+
+Runs are serialised (`concurrency: deploy-main`, never cancelled midway) and `deploy.sh` takes its own lock on
+the box. The workflow never edits the shared edge Caddyfile (`~/beecompete-edge/`, outside this repo).
+
+**Rolling back from GitHub (no SSH needed):** Actions -> **Deploy** -> *Run workflow* -> fill **`rollback_tag`**:
+`previous` goes back to the tags the box recorded before the current deploy (`deploy.sh --rollback`, no
+registry call), or paste a full commit sha CI pushed earlier (`deploy.sh --tag <sha> --allow-destructive-migrations`:
+going back adds no migration, and the lint would only misfire). The image build is skipped, and a tag that is not in
+GHCR stops the run before anything is touched. A rollback does not restore the database (§5.3, §5.9); the
+Liquibase rule is additive-only, so the older image runs on the newer schema.
+
+**First time after this lands:** the first run goes through `deploy.sh`'s first-run path (no recorded tags yet), so it tags
+the images that are running as `pre-<time>` and rolls back to those if the new build fails. Watch that run in the Actions tab.
+Disk: every deploy leaves two more sha-tagged images on the box; `host-guard.sh` warns at 85 % disk, and the old
+ones can be removed by hand with `docker image rm` once a release is a few deploys old (never `docker image prune -a`
+on this shared box: that would also take BeeCompete's unused images).
+
+### 5.5 A staging stack (`docker-compose.staging.yml`)
+
+A second copy of the stack on the same box, to check a release before production gets it (REAL-GAPS-C
+P3.2; design: `docs/design/plat/environments-staging-capacity.md`). Its own Compose project
+(`dossier-staging`: own containers, MySQL volume, uploads volume, JWT secret, demo data), capped memory
+(it is the first thing to stop when the box is short: `docker compose -p dossier-staging stop`, which
+`host-guard.sh` prints), and it uses its **own** overlay instead of the shared-edge one, because that
+overlay carries the production aliases and two containers with one alias would split production
+traffic. Setup (yours; nothing here touches the shared edge):
+
+1. A **separate checkout**: `git clone <repo> ~/dossier-staging`, on the branch you want to test.
+2. `cp .env.staging.example .env.staging && chmod 600 .env.staging`, then fill it with **new** values
+   (never a production secret or a production data copy). Placeholders only are in the example.
+3. DNS: `staging.kiwiply.com` and `api-staging.kiwiply.com` to the box. Edge Caddy blocks, added by you to
+   `~/beecompete-edge/Caddyfile` (the same way as MIGRATION.md §10.2; `basic_auth` + `noindex` so it is
+   not public; reload with `caddy reload`):
+   ```
+   staging.kiwiply.com {
+   	import common
+   	basic_auth {
+   		<user> <bcrypt hash from `caddy hash-password`>
+   	}
+   	header X-Robots-Tag "noindex, nofollow"
+   	reverse_proxy dossier-staging-web:3000
+   }
+   api-staging.kiwiply.com {
+   	import common
+   	reverse_proxy dossier-staging-api:8080
+   }
+   ```
+4. Deploy: `scripts/ops/deploy.sh --staging --build --dry-run`, then without `--dry-run`. `--staging` uses
+   `.env.staging`, the staging overlay, `~/kiwiply-deploy-staging/` and `~/kiwiply-backups-staging/`;
+   `--build` builds the images from that checkout (CI only pushes `main` builds); its snapshot, health
+   checks and rollback work as in §5.4. On a 3.7 GB box a build is heavy: do it when the box is quiet.
+5. Staging is **off by default for everything external**: no job-board reads, no inbox poller, no AI, no
+   Stripe (test keys only if you add them), mail blank. Sign in with the demo accounts
+   (`DEMO_ENABLED=true`).
+
+### 5.6 Log rotation and the host guard
+
+- **Container logs** are capped by the `logging:` block in `docker-compose.prod.yml`: 5 files x 10 MB
+  per container, compressed. It applies when a container is created, so the next deploy picks it up.
+  (Host-wide, for everything else on the box, `scripts/ops/docker-daemon.json.example` shows the same
+  setting for `/etc/docker/daemon.json`. **Do not apply it casually:** it needs a Docker restart, which
+  restarts BeeCompete's containers too. The compose block is enough for ours.)
+- **The ops scripts' own logs** in `/var/log/kiwiply-*.log`:
+  `sudo install -m 644 scripts/ops/kiwiply-logrotate.conf /etc/logrotate.d/kiwiply` (its own file; it does not
+  touch BeeCompete's rotation).
+- **`scripts/ops/host-guard.sh`**, every 5 minutes from the cron file (§5.1 step 5): disk (`/`, `/var/lib/docker`:
+  fails at 85 %, "CRITICAL" at 90 %), memory over 90 % or more than 2 GB of swap for two checks in a row
+  (about 10 minutes), a container of ours that restarted since the last check, and TLS certificates with
+  under 14 days left (`$SSLIP_HOST` and `api.$SSLIP_HOST`). It only reads; it never stops or deletes anything.
+  On a problem it pings your Healthchecks.io "host" check's `/fail` with the reasons in the body, so the
+  alert email says what is wrong. Create that check (period 10 minutes, grace 10 minutes), put its URL in
+  `.env` as `HC_HOST_URL`. `scripts/ops/host-guard.sh --dry-run` shows what it sees and sends nothing.
+  Thresholds are environment variables at the top of the script.
+
+### 5.7 Encrypted dumps and the uploads-volume backup
+
+**Encrypting the dumps (REAL-GAPS-C P0.3).** A dump holds every user's data, so it can be encrypted before
+it leaves the box. Off until you set a recipient; then `backup-db.sh` (and the pre-deploy snapshot, and the
+uploads archive below) write `…sql.gz.age` instead of `…sql.gz`. Only the **public** key goes on the box.
+
+1. On **your own machine**: `age-keygen -o kiwiply-backup.key` (or `apt install age` first). The file holds the
+   private key. Put it in the **password manager now**, and keep a second copy somewhere that is not the
+   box and not the cloud account that holds the backups. **Losing it means every encrypted backup is
+   unreadable.** The `age1…` line it prints is the public key.
+2. On the box: `apt install age`, and in `.env`: `BACKUP_AGE_RECIPIENT=age1…` (comma-separate to add a
+   second key, which is a good idea). (gpg works too: `BACKUP_GPG_RECIPIENT=<key id>` with the public key
+   imported on the box. Set only one.) With a recipient set and the tool missing, the backup **fails and
+   alerts** rather than uploading plaintext.
+3. Run `scripts/ops/backup-db.sh --dry-run` (says "would encrypt it to …"), then a real run, and open
+   Healthchecks.
+4. **The weekly drill can no longer restore on the box**, because the box has no private key (by design).
+   It still checks the newest backup is fresh and matches its sha256 and says `INTEGRITY ONLY`. A full
+   restore test then needs the key, on a machine that has it, **at least quarterly**:
+   `aws s3 cp s3://kiwiply-db-backups/daily/<newest>.sql.gz.age .` then
+   `scripts/ops/verify-restore.sh --file <newest>.sql.gz.age --identity kiwiply-backup.key --no-live`
+   (needs Docker; it restores into a throwaway container and prints the row counts).
+
+**The uploads volume (REAL-GAPS-C P0.5).** With `DOSSIER_STORAGE_DRIVER=local` (the compose default) the
+users' files (resumes, attachments, built PDFs) live in the Docker volume `dossier_uploads`, which is
+**not** in the MySQL dump. `scripts/ops/backup-uploads.sh` archives it read-only through a throwaway
+`alpine` container every night (03:40 UTC, cron file), writes a `sha256sum`-format manifest, encrypts like the
+dumps when a recipient is set, uploads `uploads/uploads-<date>.tar.gz[.age]` and `uploads/manifest-<date>.txt`
+to the same backup bucket, and pings `HC_UPLOADS_URL` (a check with period 1 day, grace 2 hours). Setup, yours:
+
+1. Apply the updated lifecycle file (it adds `uploads/`, 30 days): the `put-bucket-lifecycle-configuration`
+   command in §5.1 step 2. The IAM policy needs no change.
+2. Add `HC_UPLOADS_URL=…` to `.env` (and `HC_HOST_URL`, `HC_DEPLOY_URL` if you use them); reinstall the cron
+   file (`install -m 644 scripts/ops/kiwiply-ops.cron /etc/cron.d/kiwiply-ops`).
+3. Run `scripts/ops/backup-uploads.sh --dry-run`, then once for real. If the volume is empty (the driver is
+   `s3`, so the files are in the resume bucket) it says so and counts as success. In that case turn
+   **Bucket Versioning on** for the resume bucket instead: that is its backup.
+
+Restoring uploads (the API stopped, the volume empty or new): download the archive (decrypt it if needed),
+then
+`docker run --rm -v dossier_uploads:/data -v "$PWD":/in alpine sh -c 'cd /data && tar -xzf /in/uploads-<date>.tar.gz'`
+and check with `cd /data && sha256sum -c manifest-<date>.txt` (run it in the same kind of container). The
+deleted-user-file rule: an archive is kept 30 days, so a file a user deleted is gone from backups within a month.
+
+### 5.8 If something goes wrong
+
+`docs/ops/incident-runbook.md`: severities, the first fifteen minutes, containment by scenario, secret
+rotation, evidence to keep, and the breach-notification clocks (GDPR 72 hours to the authority, 48 hours
+planned for organization customers). Read it once now, before you need it.
+
+
+### 5.9 Binary-log shipping and point-in-time recovery (REAL-GAPS-C P0.2)
+
+A nightly dump alone loses up to a day of every user's work. MySQL's **binary log** records every committed change,
+so a dump plus the logs written after it can be replayed to **any moment**, e.g. "14:05 UTC, just before the bad
+migration". `scripts/ops/ship-binlogs.sh` copies the logs off the box every 15 minutes, which makes the recovery
+point objective **about 15 minutes**. (The newest, still-open file is closed and shipped by the next run.)
+
+What it does, every 15 minutes from `/etc/cron.d/kiwiply-ops`:
+
+1. `FLUSH BINARY LOGS`: closes the current file, so every commit up to now is in a closed one;
+2. uploads each closed file that is not yet in S3 as `binlog/<server uuid>/binlog.NNNNNN.gz` (encrypted to `.gz.age` /
+   `.gz.gpg` when a recipient is set, like the dumps, §5.7), with its sha256 as metadata. Safe to re-run: nothing is
+   uploaded twice; a failed upload is retried next run;
+3. pings Healthchecks `kiwiply-binlog` (`HC_BINLOG_URL`); a missed or failed run alerts.
+
+It is a **no-op until `BACKUP_S3_BUCKET` and the backup keys are in `.env`**, so the cron line is safe to install early.
+It can't delete anything in S3 (the backup key has no delete permission); the lifecycle rule expires `binlog/` after
+**32 days**, one more than the 30 days of daily dumps, so any dump you could restore has its logs. On the box MySQL
+keeps its own copies for 30 days (`binlog_expire_logs_seconds`); to free disk sooner set `BINLOG_LOCAL_KEEP_DAYS=7` in
+`.env` (it purges only after a run has shipped everything). Since this change the nightly dump (and the pre-deploy
+snapshot) also records **which binlog file and position it is consistent with** (`mysqldump --source-data=2`, a comment
+at the top of the dump; it costs a global read lock for a moment at the start of the dump). That is the starting point for
+the replay. A dump taken without binary logging on records none, and the drill reports it as "dump only".
+
+**Your setup, once:**
+
+1. Confirm binary logging is on (it is MySQL 9's default; we never turned it off) and the format:
+   ```bash
+   cd /root/web-ext-job-application-autofill && COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.shared-edge.yml"
+   $COMPOSE exec mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -e "SELECT @@log_bin, @@binlog_format, @@binlog_expire_logs_seconds, @@time_zone, @@server_uuid"'
+   ```
+   Expect `1  ROW  2592000  SYSTEM  <uuid>`. If `@@log_bin` is `0`, stop and tell the engineer: the compose file would need a change.
+2. Apply the updated lifecycle file (it adds `binlog/`): the `put-bucket-lifecycle-configuration` command in §5.1 step 2.
+   The IAM policy needs no change (the `binlog/` objects are List + Put + Get like everything else).
+3. Healthchecks: a check `kiwiply-binlog`, period 15 minutes, grace 15 minutes; its URL into `.env` as `HC_BINLOG_URL`
+   (`docs/ops/monitors.md`). Optionally `BINLOG_LOCAL_KEEP_DAYS=7`.
+4. Install the cron file again (§5.1 step 5, or `scripts/ops/install-cron.sh`).
+5. Run it once by hand and look:
+   ```bash
+   scripts/ops/ship-binlogs.sh --dry-run
+   scripts/ops/ship-binlogs.sh
+   docker run --rm -e AWS_ACCESS_KEY_ID="$(grep ^BACKUP_AWS_ACCESS_KEY_ID .env | cut -d= -f2-)" \
+     -e AWS_SECRET_ACCESS_KEY="$(grep ^BACKUP_AWS_SECRET_ACCESS_KEY .env | cut -d= -f2-)" -e AWS_DEFAULT_REGION=us-east-1 \
+     amazon/aws-cli s3 ls s3://kiwiply-db-backups/binlog/ --recursive
+   ```
+   (or look in the AWS console). The next nightly dump should show its position:
+   `gunzip -c ~/kiwiply-backups/dossier-<date>.sql.gz | head -n 40 | grep SOURCE_LOG_FILE`.
+
+**Point-in-time recovery (the real thing).** It replaces the live database, like §5.3, so only for a real loss. It
+beats §5.3 because it keeps what happened after the dump, **including account deletions and erasures**, as long as
+the target time is after them. Rehearse it first (§5.10): the drill does exactly these steps in a scratch container.
+
+1. Decide the target `T` (UTC): just before the damage, or "as late as possible" for plain data loss (omit `--stop-datetime`).
+2. Take the newest dump **before** `T` (`~/kiwiply-backups/` or S3 `daily/`; decrypt it first if it is `.age`, §5.3) and read where it
+   starts: `gunzip -c dossier-<date>.sql.gz | head -n 60 | grep SOURCE_LOG_FILE` gives
+   `SOURCE_LOG_FILE='binlog.000012', SOURCE_LOG_POS=157`.
+3. Download the logs from that file on, into an empty directory (the console works; the prefix is the server uuid, and a
+   database that was rebuilt has a **new** uuid, so use the newest prefix), decrypt if needed, `gunzip *.gz`, and delete
+   every file numbered below the start file. Check the numbers are **consecutive**: a gap means the replay can only go as far as the gap.
+4. Restore the dump (§5.3 step 2, API stopped).
+5. Replay. The official `mysql` image has **no `mysqlbinlog`**, so use the matching tool image the drill builds on first
+   use (`kiwiply-mysqlbinlog:9.2.0`; run `scripts/ops/restore-drill.sh` once to create it, a few minutes), reading the files
+   from the current directory:
+   ```bash
+   FILES="binlog.000012 binlog.000013 binlog.000014"      # in order, from the start file on
+   tar -cf - $FILES | docker run --rm -i --network none kiwiply-mysqlbinlog:9.2.0 \
+     sh -c 'mkdir /b && tar -xf - -C /b && cd /b && exec mysqlbinlog "$@"' mysqlbinlog \
+     --start-position=157 --stop-datetime="2026-10-17 14:05:00" $FILES > replay.sql
+   less replay.sql        # read what is about to be applied; the last statement must be the one BEFORE the damage
+   $COMPOSE exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot' < replay.sql
+   ```
+   `--start-position` applies to the first file only; `--stop-datetime` is in the server's time zone (UTC on the box:
+   check `@@time_zone` and `date -u`), and `--stop-position=N` is exact when you know it.
+6. `$COMPOSE up -d api` (Liquibase applies any newer migration), then `scripts/migrate/04-verify.sh kiwiply.com`
+   and sign in. Tell affected users the window that was lost (T to the last shipped log).
+
+The binlog files hold row data (PII), so they are encrypted with the dumps when a recipient is set (§5.7) and live only in the
+private backup bucket. If `ship-binlogs.sh` is not running, you are back to "up to 24 hours lost"; that is what the
+`kiwiply-binlog` alarm is for.
+
+### 5.10 Restore drills: weekly, monthly, quarterly (REAL-GAPS-C P0.4, P0.6)
+
+| Drill | Script | When | Proves |
+|---|---|---|---|
+| dump | `scripts/ops/verify-restore.sh` | Sundays 04:45 UTC (cron) | the newest dump is at most 2 days old, matches its sha256, restores |
+| **full** | **`scripts/ops/restore-drill.sh`** | **the 1st of the month, 05:30 UTC (cron)** | **the newest dump AND the binlogs after it restore into a scratch MySQL; checks pass; every binlog number is present (no hole in point-in-time recovery)** |
+| rebuild | the checklist below | quarterly, by hand, **never on the production box** | a person with only the password manager and GitHub can bring Kiwiply back on a new machine, and how long it takes |
+
+`restore-drill.sh` never touches the live database: it needs no `compose` access to it at all. It starts a throwaway
+`mysql:9.2.0` (the version in `docker-compose.prod.yml`; a test asserts they match) with **no network and 1 GB**, loads the
+dump, replays the logs with `mysqlbinlog` from the same dump position, then checks: every table is there, the user table
+is not empty, the Liquibase changelog exists, is not empty and has no changeset in a bad state; prints **each table's exact
+row count**, writes one line to `~/kiwiply-backups/restore-drills.log`, removes the container and pings `HC_DRILL_URL`.
+Any failure is a non-zero exit and a `/fail` ping.
+
+```bash
+scripts/ops/restore-drill.sh --dry-run                                   # what it would do
+scripts/ops/restore-drill.sh                                             # newest dump + binlogs from the bucket
+scripts/ops/restore-drill.sh --stop-datetime '2026-10-17 14:05:00'       # point in time, to rehearse §5.9
+scripts/ops/restore-drill.sh --file dossier-<date>.sql.gz --binlog-dir ./binlogs     # local files, no AWS
+scripts/ops/restore-drill.sh --file dossier-<date>.sql.gz.age --identity kiwiply-backup.key --binlog-dir ./binlogs
+```
+
+- **The first run builds a small tool image** (`kiwiply-mysqlbinlog:9.2.0`: MySQL's own `mysql-community-client`, same version
+  as the server, signature-checked) because the official `mysql` image has no `mysqlbinlog`. It needs network access to
+  `repo.mysql.com`, takes a few minutes and a few hundred MB, and is kept. `--binlog-tool-image` / `BINLOG_TOOL_IMAGE` names
+  an image you already have.
+- **Encrypted dumps (§5.7):** the box holds no private key, so the cron run reports `INTEGRITY ONLY` for them (fresh and sha256-ok,
+  not restored). Run the full drill on the machine that holds the key, with `--identity`, **at least quarterly**.
+- **A failing drill:** `a gap between number N and M` means binlog files are missing from S3 (check `kiwiply-binlog`, the
+  cron log, the bucket); `the binlog the dump starts at is missing` right after a nightly dump just means the next 15-minute
+  run has not shipped the then-active file yet, so run it again; `this dump records no binlog position` is a dump from before
+  this change or with binary logging off (the drill still restores it as "dump only"); the rest are data problems: treat as SEV2
+  and do not trust the backup until it passes (`docs/ops/incident-runbook.md` section 12).
+- The tool image and scratch container are the only things it leaves on the box (the container is removed even on failure).
+
+**Quarterly fresh-box rebuild drill (P0.6)**, on a throwaway VM or your own machine with Docker, written down with the time it took:
+
+1. From the password manager only: the `.env`, the age private key, the AWS backup key. From GitHub: this repo (`main`).
+2. `docker compose -f docker-compose.prod.yml up -d mysql` (no `caddy`, no overlay: this is not the shared box).
+3. Fetch the newest `daily/` dump and the `binlog/<uuid>/` files (decrypt with the key). Restore the dump, replay the logs
+   (§5.9 steps 4 and 5), or just run `restore-drill.sh --file ... --binlog-dir ...` to prove the data and then repeat on the real MySQL.
+4. `docker compose -f docker-compose.prod.yml up -d api web`; check from inside the web container
+   (`docker compose exec web node -e "fetch('http://api:8080/management/health').then(r=>r.text()).then(console.log)"`).
+5. Restore the uploads archive (§5.7) and confirm `sha256sum -c manifest-<date>.txt`.
+6. Check the S3 resume bucket has **versioning on**. Record: date, who, minutes from "start" to "API healthy", what was missing
+   from the notes. Fix the notes. Delete the VM.
+
+### 5.11 Running the deploy as a non-root user (REAL-GAPS-C P2.5)
+
+CI and every ops cron job run as `root` with the checkout under `/root` (§7.1: "a known compromise"). The exact, reversible
+commands to move all of it to a dedicated `kiwiply-deploy` user (docker group, its own SSH key, its own checkout, cron under
+that user, the CI secrets switched) are in **`docs/ops/deploy-user.md`**, with the order that keeps production up the whole time.
+It is yours to run on the box: nothing in a deploy does it for you.
 
 ## 6. When you get a real domain
 Point `app.` and `api.` A-records at the IP, then in `Caddyfile` replace the two
@@ -260,8 +630,16 @@ extension's host permission, and restart Caddy. Nothing else changes.
 Two workflows live in `.github/workflows/`:
 - **`ci.yml`** — runs the extension, web, and API test suites on every PR and push. No setup needed.
 - **`deploy.yml`** — on merge to `main`, builds the api + web images on GitHub's runners,
-  pushes them to **GHCR**, then SSHes into the VPS to `pull` + restart. Building off-box keeps
-  the heavy Gradle/npm builds from hammering the VPS.
+  pushes them to **GHCR** tagged with the commit sha (and `latest`), then SSHes into the VPS and runs
+  `scripts/ops/deploy.sh --tag <sha>` (snapshot, health, smoke checks, automatic rollback; §5.4). Building off-box
+  keeps the heavy Gradle/npm builds from hammering the VPS. A manual run with `rollback_tag` rolls back (§5.4).
+
+Hardening (REAL-GAPS-C P2.6): every workflow has a least-privilege top-level `permissions: contents: read` (only the image
+build job also has `packages: write`); every third-party action is pinned by its **full commit sha** with the version in a
+comment (`uses: actions/checkout@<sha> # v7`), and `.github/dependabot.yml` opens a weekly PR to move the pins; deploys
+share one `concurrency` group and are never cancelled midway. `scripts/ops/test/workflows.test.sh` (in the CI "Ops scripts" job)
+fails the build if a pin, a permission or the `deploy.sh` call is lost, and CI also runs `bash -n` on every ops script and a
+`deploy.sh --dry-run`.
 
 ### 7.1 Current configuration (live since 2026-09-17 — nothing to do)
 
@@ -279,8 +657,9 @@ rebuilding it if it ever breaks:
 `DEPLOY_PATH` exists because the checkout lives under `/root`, so a bare `~` would resolve
 differently for any other user. `VPS_USER=root` is a **known compromise**: BeeCompete's `deploy`
 user is in the `docker` group but has no passwordless sudo, so it cannot drive a stack under
-`/root`. Moving the checkout somewhere `deploy` can read would let CI drop root — worth doing,
-not yet done.
+`/root`, and it is BeeCompete's identity besides. The fix is a dedicated `kiwiply-deploy` user with its own
+checkout, key and cron, switching `VPS_USER`, `VPS_SSH_KEY` and `DEPLOY_PATH`: **`docs/ops/deploy-user.md`**
+(§5.11) has every command. Not done yet.
 
 ### 7.2 Setting this up again from scratch
 
@@ -329,9 +708,11 @@ not yet done.
   Recover through the hosting panel's **KVM/web console**, which bypasses SSH:
   `fail2ban-client set sshd unbanip <your-ip>` — or wait it out (10 min default).
 
-After that, every merge to `main` auto-builds and deploys. Trigger manually anytime via the
-Actions tab → **Deploy** → *Run workflow*. The compose pulls `…:latest` from GHCR; a manual
-`$COMPOSE up -d --build` still works for an off-pipeline deploy (**with the overlay** — see §5).
+After that, every merge to `main` auto-builds and deploys by sha through `scripts/ops/deploy.sh` (§5.4). Trigger manually
+anytime via the Actions tab → **Deploy** → *Run workflow* (leave `rollback_tag` empty for a normal deploy, fill it to roll back).
+The compose file still falls back to `…:latest` when `DOSSIER_API_TAG`/`DOSSIER_WEB_TAG` are not exported, which only a
+hand-run `$COMPOSE up -d` does; `deploy.sh` always exports an explicit tag. A manual `$COMPOSE up -d --build` still works for an
+off-pipeline deploy (**with the overlay** — see §5).
 
 ## 8. Publishing the browser extension (Chrome Web Store)
 The **`publish-extension.yml`** workflow packages the extension into a CWS-ready zip (always,
@@ -508,6 +889,104 @@ it is never shipped in the extension. Provider is Google Gemini (swappable via e
 > quota** and makes **no provider call**, which also softens Gemini's per-minute rate limits for
 > common questions. Nothing to configure; it's automatic.
 
+### 10.1 Resume Builder AI (R4.1) - models and switches
+
+The builder's Pro AI (Rewrite with AI, generated summaries; AI Suggestions, cover letters and translation
+follow in later stories) runs on the same provider, key and per-period budget as everything above, as five
+more tasks. **`AiPolicy.models` keys** (`dossier.ai.policy.models.<task>`, env `DOSSIER_AI_MODEL_<TASK>`):
+
+| Task (key) | Env var | Default |
+|---|---|---|
+| `rewrite` | `DOSSIER_AI_MODEL_REWRITE` | `DOSSIER_AI_MODEL` (Flash-Lite) |
+| `summary` | `DOSSIER_AI_MODEL_SUMMARY` | `DOSSIER_AI_MODEL` |
+| `suggest` | `DOSSIER_AI_MODEL_SUGGEST` | `DOSSIER_AI_MODEL` |
+| `cover` | `DOSSIER_AI_MODEL_COVER` | `DOSSIER_AI_MODEL` |
+| `translate` | `DOSSIER_AI_MODEL_TRANSLATE` | `DOSSIER_AI_MODEL` |
+
+Blank = the default model. Past the soft cap the economy model (`DOSSIER_AI_ECONOMY_MODEL`) replaces them,
+as for every task. `DOSSIER_AI_DISABLED_TASKS` accepts the same five names as a kill switch (the call answers
+`disabled`, nothing is sent). **Admin settings** (`app_setting`, read within a minute): `ai.feature.resume.enabled`
+(true; the builder-wide switch), `ai.cap.resume.daily` (40 calls a user a day across rewrite / summary /
+suggest), `resume.ai.rewriteMaxRefs` (12 lines a call), `ai.output_tokens_max.rewrite` (3000; the output
+ceiling for rewrite and summary), `resume.rate.aiPerMin` (20 calls a user a minute, then `429 RATE_LIMITED`).
+Every call is metered like the rest (`ai_call`, tasks `rewrite` / `summary`); a repeated request is answered
+from its stored proposal and costs nothing. A Free user always gets `402 PRO_REQUIRED`.
+
+### 10.2 Runtime routing from `/admin/ai/providers`
+
+Which model answers each task is an **admin setting**, not a redeploy (design: `docs/AI-ADMIN-CONFIG-DESIGN.md`).
+Open `/admin/ai/providers` (admins only): provider cards with **Test connection**, a routing table (provider,
+model, fallback, max tokens, on/off per task), per-model prices, the **Server AI** switch and a recent-calls panel
+read from the `ai_call` ledger. Every control autosaves; turning something off asks for a reason; every change is
+written to `app_setting_history` and audited as `AI_CONFIG_CHANGE`.
+
+- **What is env and what is runtime.** The **key** is env only (`DOSSIER_AI_API_KEY`; the page shows "Key present"
+  and the variable's *name*, never a value, and you cannot type, view or test-type a key there). Everything else
+  (models, routes, fallback, base URL, timeout, prices, economy model, soft cap, kill switches) resolves
+  **runtime row > env > code default**, and an edit applies on the very next call with no restart (the settings
+  snapshot is dropped on write; a second API instance would see it within 60 s). "Reset" on a field deletes the
+  runtime row and falls back to env.
+- **The env master rule.** `DOSSIER_AI_ENABLED=false` is a deployment master: runtime settings can only *lower*
+  it. With it false the page shows an amber note and the Server AI switch is disabled; nothing an admin session
+  does can turn server AI on in a deployment whose operator turned it off.
+- **Rotate or add a key:** edit `.env` on the box, then recreate the API (step 3 above). Not from the page.
+- **Never-collected values** (SSN/ITIN, bank routing or account numbers, tax ids, passport/visa numbers, date of
+  birth) are stripped from every prompt and resume text in `AiRouter` before any provider is called. A PDF sent as
+  a file cannot be read there, so the provider itself sees that input.
+
+### 10.3 Prove it: the stub run (CI-safe) and the live Gemini pass
+
+`web/scripts/ai-smoke.mjs` exercises every server-side AI flow through the real web routes and reads the
+`ai_call` ledger the way the admin page does: parse, rewrite + apply, summary, suggestions + apply/dismiss,
+job-fit, resume-match, tailor + apply, the two ATS scores, the extension's paste-a-JD fit/match and
+draft / pick / map / enrich, daily job matches; then Test connection, the route switch (change a model, the next
+call uses it, reset) and the kill switch. Each flow checks the response shape, a new ledger row (provider, model,
+success, latency, cost), the meter, the truth checks (no invented numbers or employers), that a Free user gets
+`402 PRO_REQUIRED` (parse is the free exception) and that a never-collected value never reaches the provider.
+Inbox reading is reported SKIP: its AI step only runs in the IMAP poller on a connected mailbox.
+
+The **stub** (`ai-stub` Spring profile, `StubAiProvider`) answers every task deterministically with no key, no
+network and no cost. It refuses to start next to the `prod` profile, and the Gemini card then reads "Google
+Gemini (stub)". A local stack on free ports (never the demo's):
+
+```bash
+docker run --rm -d --name ai-proof-mysql -e MYSQL_ROOT_PASSWORD=aiproof -e MYSQL_DATABASE=dossierApi -p 127.0.0.1:34511:3306 mysql:9.2.0 mysqld --lower_case_table_names=1 --skip-mysqlx --character_set_server=utf8mb4 --explicit_defaults_for_timestamp
+# the API with the stub (plus your usual SPRING_DATASOURCE_*, SERVER_PORT, DOSSIER_STORAGE_LOCAL_ROOT)
+SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:34511/dossierApi?useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true' SPRING_DATASOURCE_PASSWORD=aiproof SERVER_PORT=18281 node scripts/dev/api-local.mjs --stub
+# the web
+cd web && DOSSIER_API_URL=http://127.0.0.1:18281 npx next dev -p 13311
+# the smoke, in a second shell (AI_ADMIN_* = a dev admin, the seeded `admin` on a local dev API; AI_MYSQL_* only for the ATS scores + job matches)
+cd web && AI_API=http://127.0.0.1:18281 AI_WEB=http://127.0.0.1:13311 AI_ADMIN_USER=admin AI_ADMIN_PASS=... AI_MYSQL_CONTAINER=ai-proof-mysql AI_MYSQL_PASSWORD=aiproof node scripts/ai-smoke.mjs --stub
+```
+
+On first use the script registers and admin-activates two throwaway users (a "Pro" one through an admin AI-budget
+override, and a Free one) and keeps their logins in the gitignored `web/.env.ai-smoke`; it never prints a
+password. The web allows 10 sign-ins per 5 minutes per IP and the script uses 3, so back-to-back runs wait. It
+refuses `NODE_ENV=production`, any non-local host unless `AI_ALLOW_REMOTE=1`, a `--stub` run against a stack that
+talks to real Gemini, and a `--live` run against a stub. Exit 0 only when no row FAILs (SKIP rows are fine).
+
+**The live pass on the demo (real Gemini; you run this).** Put the key where only the API reads it:
+
+1. Create `api/.env.ai.local` (gitignored by `.env.*`):
+   ```
+   DOSSIER_AI_ENABLED=true
+   DOSSIER_AI_PROVIDER=gemini
+   DOSSIER_AI_API_KEY=<your AIza... key>
+   ```
+2. Restart the demo API **through the launcher**, so the file is loaded into the API's environment only (it prints
+   the variable *names*, never the values). Stop the old demo API first, keep the demo's own datasource env as you
+   started it before, and do not pass `--stub`: `SERVER_PORT=18181 node scripts/dev/api-local.mjs`.
+3. Run the live pass. The script never reads `api/.env.ai.local`: it only asks the API whether a key is present,
+   and prints `SKIP: no Gemini key (DOSSIER_AI_API_KEY) — put it in api/.env.ai.local` and exits 0 if not.
+   ```bash
+   cd web && AI_API=http://127.0.0.1:18181 AI_WEB=http://127.0.0.1:13211 AI_ADMIN_USER=<dev admin> AI_ADMIN_PASS=<its password> node scripts/ai-smoke.mjs --live
+   ```
+   Add `AI_MYSQL_CONTAINER=rb-demo-mysql AI_MYSQL_PASSWORD=<that container's root password>` to also run the two ATS
+   scores and the daily job matches (they need a real Pro subscription row, which the script writes and removes).
+   If `web/.env.rb-smoke` exists, its throwaway account is the Pro user (its resumes and applications are cleared
+   first). Cost guard: about 25 small calls on Flash-Lite, a few cents at most; the ledger total is printed at the
+   end, and the Pro user's budget override is 100 cents.
+
 ## 11. Billing (Phase 12, Stripe) — ⚠️ sandbox ready, NOT live yet
 
 > **A blank `STRIPE_SECRET_KEY` disables billing, and that is a valid running state.** The API
@@ -522,8 +1001,8 @@ Four secrets, all env-only (they never reach a client bundle):
 |---|---|
 | `STRIPE_SECRET_KEY` | `sk_test_…` / `sk_live_…`. **Blank ⇒ billing off.** |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` — verifies deliveries really came from Stripe. Without it the webhook rejects everything. |
-| `STRIPE_PRICE_MONTHLY` | Price id for $19.99/month |
-| `STRIPE_PRICE_3MO` | Price id for $49.99/3 months (15.5; the old $44.99 Price is archived in Stripe, not reused) |
+| `STRIPE_PRICE_MONTHLY` | Price id for $19.99/month. Deprecated (K1.6): once PRO v1 is published from the plan builder the catalog answers; run `POST /api/admin/plans/PRO/versions/1/import-stripe-prices` once at cut-over (docs/subscriptions/README.md), then remove after one release |
+| `STRIPE_PRICE_3MO` | Price id for $49.99/3 months (15.5; the old $44.99 Price is archived in Stripe, not reused). Deprecated like `STRIPE_PRICE_MONTHLY` (K1.6) |
 
 Add them to the box's `.env` (same file as the `DOSSIER_AI_*` block), then `$COMPOSE up -d api`.
 **Paste them with no trailing space or newline.** The app trims them now, but Stripe rejects a
@@ -893,6 +1372,63 @@ bump `DOSSIER_INBOX_KEY_VERSION` by one, and keep the old one readable by adding
 with that env var set. Each stored password moves to the new key the next time its inbox is
 checked (every 15 minutes once the poller, 14.3, is live), so keep the retired key for a day, then drop it.
 
+### 12.1 Demo accounts (phase demo)
+
+The public demo panel on kiwiply.com offers `demo` (a job seeker with a ready-made search) and, only while
+`DEMO_ADMIN_ENABLED=true` (never in production), `demo-admin` (the app admin console at `/admin`), without signing up.
+Organization accounts are not offered here (decision O4): they sign in on their own tenant host through that host's demo
+tab, and `POST /api/authenticate/demo` answers 404 for `demo-org`. The panel also links to the demo company's sign-in when
+`ENT_DEMO_SEED` is on (`tenantDemo` on `GET /api/public/demo`). **Default off.**
+
+- **They exist** after the first boot with this release: the API creates them at startup (Free plan,
+  `ROLE_USER`, never an admin) and seeds the job seeker's data when the demo is enabled (an empty board is
+  also filled on the first demo job-seeker login).
+- **The switch is server config only: the `DEMO_ENABLED` env var** (bound to `dossier.demo.enabled`,
+  default `false`). To turn the demo **on**: set `DEMO_ENABLED=true` in the box's `.env` and recreate the
+  api container (`docker compose ... up -d api`, with the shared-edge overlay). To turn it **off**: set it
+  to `false` (or remove it) and restart the same way. There is **no admin switch** and **no SQL flip**: the
+  admin card on `/admin/system` only shows the current state ("Enabled"/"Disabled"), and the old
+  `app_setting` `demo.enabled` row is ignored. The API reads the property directly, with no caching.
+- **When it starts disabled**, the API revokes the demo accounts' refresh tokens, so flipping to off and
+  restarting signs any open demo session out.
+- **While off**, the login page shows nothing about the demo, `POST /api/authenticate/demo` and a typed
+  `demo` / `demo@kiwiply.com` login both return 403 `DEMO_DISABLED`.
+- **`DEMO_PASSWORD`** (optional env): the stored password of the two accounts. Leave it **blank** in
+  production: the API then uses a random password per boot, so the only way in is the one-click button.
+- **Sandbox, not read-only (`DemoGuard`):** demo accounts may use the **Resume Builder and the profile**
+  (built resumes, doc edits, versions, share links, resume files, profile items, onboarding, application
+  attachments, `POST /api/ai/draft` and the Resume Builder AI). Those endpoints do not call the guard.
+  A demo session still gets 403 `DEMO_READ_ONLY` ("This is a demo account - changes aren't saved") on
+  account save / password change, account delete / export, billing, inbox connect / disconnect,
+  notification preferences, every `/api/orgs/**` write and the AI resume parse. The application board stays live.
+  - `DEMO_ALLOW_WRITES` (default `false`, `dossier.demo.allow-writes`): a global **dev** override that lifts
+    the remaining blocks too. Never set it in production (it is not in `docker-compose.prod.yml`).
+  - `DEMO_RESET_CRON` (default `0 0 4 * * *`, UTC; empty = off, `dossier.demo.reset-cron`): nightly reset of
+    the demo accounts to the seed. It runs the same reset as the admin button, and also erases the builder
+    documents, versions, AI proposals, share links and stored files the demo accounts made. It is scoped to
+    the two demo user ids; real users' data is never touched. Only runs while `DEMO_ENABLED` is true.
+  - `DEMO_AI_CALLS_PER_DAY` (default `10`, `dossier.demo.ai-calls-per-day`; `0` = no AI for demo): a per-account,
+    per-UTC-day cap on successful AI calls, applied inside `AiBudgetService.decide` on top of the normal plan
+    and budget. The demo accounts are Free, so they still get `PRO_REQUIRED` for most AI tasks unless an admin
+    gives `demo` an AI quota override on the admin AI page (the override's budget then also applies).
+- **Reset:** "Reset demo data" on the admin card (a data operation, still in admin and audited as
+  `DEMO_RESET`; disabled while the demo is off) wipes both accounts' rows and re-seeds the job seeker
+  (Priya Sharma, 8 applications, 2 resumes with no file behind them). Do it whenever visitors have left the
+  board in a mess.
+- **Demo organization:** when the demo AND the org feature (`ORGS_ENABLED`) are on, and the `prod` Spring profile is
+  NOT active, the same seed also creates `demo-bootcamp` (a bootcamp owned by `demo-org`: two cohorts, two staff,
+  twelve synthetic members of whom nine share a summary, two share nothing and one is still invited, plus Priya as a
+  summary-sharing member). It is idempotent, never overwrites a member's own sharing choice, and the synthetic
+  people are non-activated accounts on `example.com` that nobody can sign in as. Production never gets it:
+  `ORGS_ENABLED` defaults to false and the profile check refuses regardless.
+- **Local demo (no API, no database):** `npm ci` at the repo root, then `npm run dev:demo -w web`. It starts
+  `web/scripts/mock-api.mjs` (a stand-in for the Spring API on `:8080`, demo switched on unless `MOCK_DEMO_ENABLED=false`, fixed data for
+  Priya Sharma and the org admin, writes refused with `DEMO_READ_ONLY` except the Resume Builder and profile sandbox) and `next dev` pointed at it.
+  Open http://localhost:3000/login, pick an account, press "Open demo". Change the mock's port with
+  `MOCK_API_PORT` (the script wires `DOSSIER_API_URL` for you). It is a separate script, not part of the
+  Next bundle, and refuses to start under `NODE_ENV=production`; production takes its demo state from
+  `DEMO_ENABLED` on the API.
+
 ## 13. Promoting `develop` → `main` — the first big release (reviewed 2026-10-05)
 
 Production last deployed `main` at **`4de5b60`** (PR #56, images built 2026-09-21). `develop` is
@@ -969,3 +1505,115 @@ $COMPOSE up -d api web
 The dump re-creates the database exactly as it was, which removes the new tables' changelog rows,
 so Liquibase stays consistent with the old code. Then `git reset --hard 4de5b60` on the box's checkout
 so the next deploy starts from a known place, and revert the promotion on `main`.
+
+## 14. PDF service (Resume Builder export, R0.6)
+
+"Export PDF" in the resume editor makes the PDF with a headless Chromium: the web renders the
+same HTML as the live preview and the `chromium` sidecar prints it. The PDF is then stored through
+the API's `FileStorage` (the `uploads` volume by default) so the extension can attach it.
+
+**What runs.** One extra container in `docker-compose.prod.yml`, `chromium`
+(`ghcr.io/browserless/chromium`, pinned by version **and** digest: `v2.57.0@sha256:6bac628b...`).
+It is on the `internal` network only: no `ports:`, and it is **not** in
+`docker-compose.shared-edge.yml`, so neither the standalone Caddy nor the shared edge can reach it.
+The web talks to it at `PDF_BROWSER_URL` (default `ws://chromium:3000`). The overlay needs no change;
+`up -d` with both files starts it with the rest. There is no `depends_on` from web: if the sidecar is
+down the site is fine and only "Export PDF" fails (503 "needs the pdf service").
+
+**Memory and limits.** `mem_limit: 1g`, `cpus: 1.5`, `shm_size: 512m` (Chromium crashes on big
+pages with Docker's default 64 MB `/dev/shm`). Measured on v2.57.0: about 260 MB after a few prints.
+Admission control is two walls: the web prints one PDF at a time with a queue of 10 (a full queue is
+a 503 with `Retry-After`), and browserless itself takes 2 at once with 4 queued. A print that takes
+more than 20 s is cut off (504). These are env now and become admin settings later:
+
+| Env on the web container | Future admin key | Default |
+|---|---|---|
+| `RESUME_PDF_TIMEOUT_MS` | `resume.pdf.timeoutMs` | `20000` |
+| `RESUME_PDF_MAX_CONCURRENT` | `resume.pdf.maxConcurrent` | `1` |
+| `RESUME_PDF_QUEUE_MAX` | `resume.pdf.queueMax` | `10` |
+| `RESUME_PDF_MAX_FIT_STEPS` | `resume.pdf.maxFitSteps` | `3` |
+| `RESUME_PDF_CONNECT_TIMEOUT_MS` | `resume.pdf.connectTimeoutMs` | `30000` |
+| `RESUME_PDF_CONNECT_ATTEMPTS` | `resume.pdf.connectAttempts` | `5` |
+| `RESUME_PDF_CONNECT_BACKOFF_MS` | `resume.pdf.connectBackoffMs` | `500` |
+| `RESUME_PDF_CONNECT_BUDGET_MS` | `resume.pdf.connectBudgetMs` | `60000` |
+| `RESUME_PDF_WARMUP` | `resume.pdf.warmup` | `1` |
+
+The first connect after the sidecar starts (or sits idle) launches a COLD Chromium: ~14 s on the demo box against ~1.3 s
+warm. The connect therefore waits up to `connectTimeoutMs` per try, retries with doubling backoff, and the web server
+warms the sidecar once on boot so the first export after a deploy finds it ready.
+
+**Restart.** `restart: unless-stopped` plus a healthcheck (`curl /pressure` every 30 s, 3 strikes).
+Docker restarts a crashed container but does not restart an unhealthy one; if it shows `unhealthy`,
+`$COMPOSE restart chromium`. A restart loses nothing (no state, nothing is stored in it).
+
+**Health check, from the box**
+```bash
+$COMPOSE ps chromium                     # STATUS should say "(healthy)"
+$COMPOSE exec chromium curl -s localhost:3000/pressure     # "isAvailable": true, "running": 0
+$COMPOSE exec web node -e "fetch('http://chromium:3000/pressure').then(r=>console.log(r.status))"   # 200: web can reach it
+$COMPOSE port chromium 3000              # prints nothing: it is not published
+```
+
+**Verify an export end to end** (after a deploy or an image bump): sign in, open any built resume,
+press **Export PDF**. Expect a download named after the resume, a "PDF ready" toast, and in
+`$COMPOSE logs web` a line `{"event":"resume.export.pdf","pages":1,...}`. Then
+`https://kiwiply.com/resume-builder` shows no "PDF out of date" chip on that resume until you edit it.
+A `resume.fit.mismatch` line means Chromium needed more pages than the editor preview predicted and the
+export stepped the fit ladder down; it is information, not an error.
+
+**Bumping the image.** Pick the new tag, resolve its digest with
+`docker buildx imagetools inspect ghcr.io/browserless/chromium:<tag>` (the top "Digest"), change both
+in the compose file, `docker compose ... pull chromium && up -d chromium`, then run the checks above.
+Chromium versions move the layout by a hair at most; the one-page fixture test
+(`PDF_SMOKE=1 PDF_BROWSER_URL=ws://localhost:3000 npm run test:unit -w web -- pdf.browser`, with the
+sidecar's port published temporarily on a dev machine) must still say 1 page.
+
+**Backups.** The sidecar holds nothing. The PDFs themselves are in the `uploads` volume (§1), which is
+not in the MySQL dump.
+
+### 14.1 Async PDF on every save (Resume Builder R3.7)
+
+Every save of a built resume updates the database at once and leaves a **PENDING** marker on its
+`resume_doc` row (15 s after the last keystroke - `resume.pdf.settleMs`; immediately for a template switch
+or when the editor is left). A worker inside the **web** container claims the row, prints it in the
+`chromium` sidecar and posts the bytes to the API, which stores them through `FileStorage` (the `uploads`
+volume or S3) as the resume's file - the object the extension attaches. The old object is deleted on
+replace; there is no PDF history.
+
+**Two env values make it run** (both in `docker-compose.prod.yml`, both read from the box's `.env`):
+
+| Env | Where | What |
+|---|---|---|
+| `DOSSIER_INTERNAL_TOKEN` | `api` **and** `web` (the same value) | Shared secret for `/api/internal/**`, sent as `X-Internal-Token`, compared in constant time. Generate once: `openssl rand -hex 32`; keep it in the password manager (GitHub secrets are write-only). **Blank = the API refuses every internal request and the worker logs an error and does not start**; manual "Export PDF" and the rest of the site are unaffected. |
+| `DOSSIER_TENANT_HOST_SECRET` | `api` **and** `web` (the same value) | Enterprise V2: proves to the API that `X-Kiwiply-Host` (the visitor's host) came from the web server, sent as `X-Kiwiply-Host-Secret`, compared in constant time. Generate once: `openssl rand -hex 32`; keep it in the password manager. **Blank on the API in prod = no tenant host is believed** (the platform is unaffected). `TRUST_PROXY_HOST` (web, default `true`) controls whether `X-Forwarded-Host` is believed: leave it on behind the edge Caddy. |
+| `RESUME_PDF_WORKER` | `web` | `1` (the compose default) turns the polling loop on. Exactly one web container should set it (several would be safe, claims are leased, but waste Chromium time). |
+
+**Never publish `/api/internal/*`.** The web reaches it over the Compose network (`DOSSIER_API_URL=http://api:8080`).
+`api.kiwiply.com` is a deliberate public exception for the extension, so the shared edge's Caddyfile
+(`~/beecompete-edge/Caddyfile`, outside this repo) should answer `404` for `/api/internal/*`; the token
+makes the routes useless without it, the block makes them invisible. (Not changed from this repo: the
+shared edge is not ours to edit casually.)
+
+**Tunables** are admin settings (`app_setting`, default in parentheses), read within a minute:
+`resume.pdf.settleMs` (15000), `.pollMs` (5000), `.leaseMs` (120000), `.backoffBaseMs` (30000),
+`.backoffMaxMs` (900000), `.maxAttempts` (5), `.busyRetryMs` (10000), `.statusPollMs` (5000, the editor),
+`.statusWindowMs` (180000, the editor). A render the limiter refuses (busy) costs no attempt; a timeout or
+error backs off `min(backoffMax, backoffBase * 2^attempts)` and the job is **FAILED** after `maxAttempts`
+(the editor then offers "Retry"). A worker that dies leaves its lease to expire (`leaseMs`) and the row is
+claimed again - that counts as an attempt, so a render that crashes the worker cannot loop forever.
+
+**Queue stats and alerts.**
+```bash
+# admin JWT required; {pending, running, failed, oldestPendingAge (seconds)}
+curl -s -H "authorization: Bearer $ADMIN_JWT" https://api.kiwiply.com/api/admin/resume-pdf-jobs/stats
+$COMPOSE logs web | grep 'pdf-job'      # "pdf-job 12 ready pages=1 ms=840" / "pdf-job 12 ERROR ..."
+$COMPOSE logs api | grep 'PDF queue is stuck'   # WARN when the oldest pending request is > 10 min old
+```
+Metrics (Prometheus, `/management/prometheus`): `resume_pdf_job_claimed_total`, `_ready_total`,
+`_failed_total`, `_busy_total`, `_discarded_total`, `resume_pdf_job_latency_seconds`, gauge
+`resume_pdf_queue_pending`. A growing `pending` with nothing `running` means the worker is not polling
+(token missing? `RESUME_PDF_WORKER` unset? web unhealthy?).
+
+**Verify after a deploy.** Edit a resume in the builder, wait ~20 s: the top bar shows "· PDF updating…"
+and then clears; `$COMPOSE logs web` has a `pdf-job <id> ready` line; `GET /api/profile/resumes` shows
+`"pdf":{"status":"READY"}` for it. Rolling back the web image is safe: PENDING rows simply wait.

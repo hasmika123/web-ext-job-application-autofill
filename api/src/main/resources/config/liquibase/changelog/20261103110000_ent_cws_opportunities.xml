@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Assigned Opportunities page (branch ent-talent-consultant). One table, the consultant's response to a job the marketer assigned:
+          cws_opportunity_response  one row per (consultant, assigned match): response status (NEW, AWAITING_RESPONSE, IN_REVIEW, DECLINED), the marketer's
+                                    priority and due date, the decline reason, the "need more info" question and the "request resume update" note.
+        A row exists only once somebody has something to say about the opportunity; a match without a row is shown as NEW with a derived priority and due date.
+        priority and due_on are the MARKETER's inputs. No marketer-side write exists yet, so the demo seeder writes stand-ins (documented as SAMPLE on the page);
+        both columns are nullable so "the marketer has not set one" stays distinguishable from a real value.
+        A "match" is requirement_match, whose tenant-safe unique key is (org_id, requirement_id, consultant_id), so the composite FK points at that key.
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FKs, every secondary index starts with org_id, DATETIME(6) UTC,
+        additive, empty rollback, no JSON columns, no sensitive columns (every free-text field is scanned by the PII guard before it is stored).
+    -->
+    <changeSet id="ent-cws-11-cws_opportunity_response" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_opportunity_response"/></not></preConditions>
+        <createTable tableName="cws_opportunity_response">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="NEW"><constraints nullable="false"/></column>
+            <column name="priority" type="varchar(10)"/>
+            <column name="due_on" type="date"/>
+            <column name="decline_reason" type="varchar(300)"/>
+            <column name="info_request" type="varchar(300)"/>
+            <column name="resume_update_note" type="varchar(300)"/>
+            <column name="resume_update_requested_at" type="${datetimeType}"/>
+            <column name="responded_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_opportunity_response" baseColumnNames="org_id" constraintName="fk_cws_opp_resp_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_opportunity_response" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_opp_resp_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_opportunity_response" baseColumnNames="org_id, requirement_id, consultant_id" constraintName="fk_cws_opp_resp_match" referencedTableName="requirement_match" referencedColumnNames="org_id, requirement_id, consultant_id"/>
+        <addUniqueConstraint tableName="cws_opportunity_response" columnNames="org_id, consultant_id, requirement_id" constraintName="uk_cws_opp_resp"/>
+        <createIndex tableName="cws_opportunity_response" indexName="ix_cws_opp_resp_status"><column name="org_id"/><column name="consultant_id"/><column name="status"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

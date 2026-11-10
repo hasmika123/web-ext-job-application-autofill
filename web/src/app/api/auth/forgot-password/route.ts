@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/config";
+import { authHostHeaders } from "@/lib/auth-host";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /**
@@ -8,6 +9,9 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
  * addresses are registered), and emails a reset link when there's a match. We mirror that:
  * we always return `{ ok: true }` so the UI can show the same "check your email" message
  * either way. The Spring endpoint binds the raw email as a plain-text request body.
+ *
+ * S9 (decision O4): on an organization's host the request carries that host, so the API looks the address up among THAT organization's
+ * accounts only and builds the link on that host; on kiwiply.com it is the personal account only. The answer is the same either way.
  */
 export async function POST(request: Request) {
   const rl = rateLimit(request, "forgot", 5, 60 * 60_000); // 5 / hour per client IP
@@ -28,7 +32,7 @@ export async function POST(request: Request) {
   try {
     await fetch(apiUrl("/api/account/reset-password/init"), {
       method: "POST",
-      headers: { "content-type": "text/plain" },
+      headers: { "content-type": "text/plain", ...(await authHostHeaders()) },
       body: email,
       cache: "no-store",
     });

@@ -4,6 +4,12 @@
 # RUN ON: the production box, weekly from cron (scripts/ops/kiwiply-ops.cron) or by hand:
 #   scripts/ops/verify-restore.sh                        # newest backup in the bucket vs the live DB
 #   scripts/ops/verify-restore.sh --file X.sql.gz --no-live   # a local dump, no live comparison
+#   scripts/ops/verify-restore.sh --file X.sql.gz.age --identity key.txt --no-live   # encrypted dump
+#
+# Encrypted backups (.age / .gpg): the private key is NOT on the box, so the weekly cron run can
+# only prove the newest one is fresh and matches its sha256 ("integrity only"). A full restore of
+# an encrypted dump needs the key: run it from the machine that holds it (DEPLOY.md section 5.7),
+# at least quarterly.
 #
 # Restores into a THROWAWAY MySQL container with no network, never into production:
 #   1. fetches the newest daily/ backup and checks its sha256 against the one uploaded with it;
@@ -31,6 +37,9 @@ DRILL="kiwiply-restore-drill-$$"
 SCHEMA="dossierapi"   # lower_case_table_names=1 lowercases dossierApi
 FILE=""
 LIVE=1
+IDENTITY="${BACKUP_AGE_IDENTITY_FILE:-}"
+GPG_DECRYPT=0
+FROM_BUCKET=0
 HC_RESTORE_URL=""
 WORK=""
 
@@ -38,7 +47,9 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --file) FILE="${2:?--file needs a path}"; shift 2 ;;
     --no-live) LIVE=0; shift ;;
-    *) die "unknown argument: $1 (usage: $0 [--file X.sql.gz] [--no-live])" ;;
+    --identity) IDENTITY="${2:?--identity needs the age private key file}"; shift 2 ;;
+    --gpg-decrypt) GPG_DECRYPT=1; shift ;;
+    *) die "unknown argument: $1 (usage: $0 [--file X.sql.gz[.age|.gpg]] [--identity KEY] [--gpg-decrypt] [--no-live])" ;;
   esac
 done
 
@@ -78,6 +89,7 @@ if [ -z "$FILE" ]; then
     --query 'Metadata.sha256' --output text | tr -d '\r')"
   [ "$(sha256_of "$WORK/$NAME")" = "$EXPECTED" ] || die "$NAME doesn't match the sha256 it was uploaded with"
   FILE="$WORK/$NAME"
+  FROM_BUCKET=1
 else
   [ -f "$FILE" ] || die "no such file: $FILE"
   NAME="$(basename "$FILE")"
@@ -85,6 +97,25 @@ fi
 TAKEN="$(backup_date "$NAME")"
 # A name without a date (a hand-made dump) compares against nothing live "before" it.
 printf '%s' "$TAKEN" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' || TAKEN="1970-01-01"
+
+case "$NAME" in
+  *.age|*.gpg)
+    if { [ "${NAME##*.}" = age ] && [ -n "$IDENTITY" ]; } || { [ "${NAME##*.}" = gpg ] && [ "$GPG_DECRYPT" = 1 ]; }; then
+      say "Decrypting $NAME"
+      decrypt_file "$FILE" "$WORK/plain.sql.gz" "$IDENTITY"
+      FILE="$WORK/plain.sql.gz"
+    else
+      [ "$FROM_BUCKET" = 1 ] || die "$NAME is encrypted: pass --identity KEY (age) or --gpg-decrypt (gpg)"
+      REPORT="$(date -u +%FT%TZ) restore drill INTEGRITY ONLY - $NAME is encrypted and this box holds no private key (by design): fresh and sha256 verified, NOT restored"
+      say "$REPORT"
+      mkdir -p "$LOG_DIR"
+      printf '%s
+' "$REPORT" >> "$LOG_DIR/restore-drills.log"
+      hc_ping "$HC_RESTORE_URL" "" "integrity only: $NAME fresh and sha256-verified, not restored (encrypted)"
+      exit 0
+    fi ;;
+  *) ;;
+esac
 
 say "Checking the dump is whole"
 dump_complete "$FILE" || die "$NAME is incomplete (no trailer or no tables)"

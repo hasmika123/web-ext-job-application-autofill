@@ -42,9 +42,14 @@ export default function Dialog({
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
 
+  // The latest close handler, read through a ref: a caller that passes an inline `onClose` (a new function every render) must not
+  // re-run the open/focus effect below on each keystroke, which used to restore focus to the page behind and then re-focus the dialog's
+  // first control, so the next key (a space, say) landed on a button.
+  const closeRef = useRef({ dismissable, onClose });
+  closeRef.current = { dismissable, onClose };
   const requestClose = useCallback(() => {
-    if (dismissable) onClose();
-  }, [dismissable, onClose]);
+    if (closeRef.current.dismissable) closeRef.current.onClose();
+  }, []);
 
   useEffect(() => {
     if (!open) return;

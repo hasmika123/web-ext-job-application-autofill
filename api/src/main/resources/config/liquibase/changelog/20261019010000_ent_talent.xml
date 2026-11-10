@@ -1,0 +1,519 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 talent foundation (branch ent-talent): the org-owned tables behind the Jobs, Marketing Assignments, Consultants,
+        Applications and Resumes boards and the dashboard's talent tiles. See docs/enterprise-v2/talent-foundation.md.
+
+        Rules (41-database-design.md): org_id NOT NULL on every table, FK to organization (RESTRICT), every secondary index starts with
+        org_id, every FK from one org-owned table to another is composite (org_id, parent_id) to the parent's (org_id, id) unique key,
+        statuses are varchar enum names, timestamps are DATETIME(6) UTC, no sensitive PII columns (no phone, no date of birth, no
+        document or bank numbers), additive only. Each table is its own precondition-guarded changeSet (MARK_RAN on a re-run); the
+        rollbacks are empty on purpose (flag off, data inert: 41 section 2).
+
+        Table names follow the design docs where the meaning matches (client_account, client_contact, client_requirement,
+        consultant_profile, org_resume); the person-owned names application and interview are taken, so the org-level records are
+        talent_application, talent_interview and talent_placement, and the match table is requirement_match (opportunity_match precursor).
+    -->
+
+    <changeSet id="ent-talent-0" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_group" indexName="uk_group_org_id"/></not></preConditions>
+        <addUniqueConstraint tableName="org_group" columnNames="org_id, id" constraintName="uk_group_org_id"/>
+        <rollback/>
+    </changeSet>
+
+    <!-- Demand-side organizations (34 section 1). name_key (lower(name)) is added by a following changeset. -->
+    <changeSet id="ent-talent-1-client_account" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="client_account"/></not></preConditions>
+        <createTable tableName="client_account">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)" defaultValue="END_CLIENT"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="website" type="varchar(300)"/>
+            <column name="industry" type="varchar(80)"/>
+            <column name="status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="owner_member_id" type="bigint"/>
+            <column name="notes" type="varchar(1000)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="archived_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="client_account" baseColumnNames="org_id" constraintName="fk_client_account_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="client_account" baseColumnNames="org_id, owner_member_id" constraintName="fk_client_account_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="client_account" columnNames="org_id, id" constraintName="uk_client_account_org_id"/>
+        <createIndex tableName="client_account" indexName="ix_client_account_kind"><column name="org_id"/><column name="kind"/><column name="status"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="client_account" constraintName="fk_client_account_owner"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Business contacts of a client: name, title and work email only (no phone). -->
+    <changeSet id="ent-talent-2-client_contact" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="client_contact"/></not></preConditions>
+        <createTable tableName="client_contact">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="client_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(80)"/>
+            <column name="work_email" type="varchar(254)"/>
+            <column name="role_label" type="varchar(40)"/>
+            <column name="status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="client_contact" baseColumnNames="org_id" constraintName="fk_client_contact_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="client_contact" baseColumnNames="org_id, client_id" constraintName="fk_client_contact_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="client_contact" columnNames="org_id, id" constraintName="uk_client_contact_org_id"/>
+        <createIndex tableName="client_contact" indexName="ix_client_contact_client"><column name="org_id"/><column name="client_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Org overlay of a consultant (30 section 2, 03 section 2.3) plus the directory columns of the Consultants board. member_id is null for consultants who are not seats. -->
+    <changeSet id="ent-talent-3-consultant_profile" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="consultant_profile"/></not></preConditions>
+        <createTable tableName="consultant_profile">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="member_id" type="bigint"/>
+            <column name="display_name" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="email" type="varchar(254)"><constraints nullable="false"/></column>
+            <column name="job_title" type="varchar(120)"/>
+            <column name="headline" type="varchar(120)"/>
+            <column name="years_experience" type="smallint"/>
+            <column name="location_label" type="varchar(120)"/>
+            <column name="work_mode" type="varchar(20)"/>
+            <column name="availability_status" type="varchar(20)" defaultValue="AVAILABLE"><constraints nullable="false"/></column>
+            <column name="available_from" type="date"/>
+            <column name="availability_since" type="date"/>
+            <column name="marketing_status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="bench_since" type="date"/>
+            <column name="license_status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="license_valid_until" type="date"/>
+            <column name="profile_completeness" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="has_certifications" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="has_preferences" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="department_group_id" type="bigint"/>
+            <column name="status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="consultant_profile" baseColumnNames="org_id" constraintName="fk_consultant_profile_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="consultant_profile" baseColumnNames="org_id, member_id" constraintName="fk_consultant_profile_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="consultant_profile" baseColumnNames="org_id, department_group_id" constraintName="fk_consultant_profile_department_group" referencedTableName="org_group" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="consultant_profile" columnNames="org_id, id" constraintName="uk_consultant_profile_org_id"/>
+        <addUniqueConstraint tableName="consultant_profile" columnNames="org_id, member_id" constraintName="uk_consultant_profile_member"/>
+        <createIndex tableName="consultant_profile" indexName="ix_consultant_profile_avail"><column name="org_id"/><column name="availability_status"/><column name="marketing_status"/></createIndex>
+        <createIndex tableName="consultant_profile" indexName="ix_consultant_profile_license"><column name="org_id"/><column name="license_status"/></createIndex>
+        <createIndex tableName="consultant_profile" indexName="ix_consultant_profile_created"><column name="org_id"/><column name="created_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="consultant_profile" constraintName="fk_consultant_profile_member"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Skills of a consultant; primary_skill marks the chips shown in the directory. -->
+    <changeSet id="ent-talent-4-consultant_skill" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="consultant_skill"/></not></preConditions>
+        <createTable tableName="consultant_skill">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="skill" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="primary_skill" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="consultant_skill" baseColumnNames="org_id" constraintName="fk_consultant_skill_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="consultant_skill" baseColumnNames="org_id, consultant_id" constraintName="fk_consultant_skill_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="consultant_skill" columnNames="org_id, consultant_id, skill" constraintName="uk_consultant_skill"/>
+        <createIndex tableName="consultant_skill" indexName="ix_consultant_skill_skill"><column name="org_id"/><column name="skill"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- How many consultants a marketer may carry (17 section 5 cap, per marketer). -->
+    <changeSet id="ent-talent-5-marketer_capacity" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="marketer_capacity"/></not></preConditions>
+        <createTable tableName="marketer_capacity">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="capacity" type="smallint" defaultValueNumeric="10"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="title_label" type="varchar(80)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="marketer_capacity" baseColumnNames="org_id" constraintName="fk_marketer_capacity_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="marketer_capacity" baseColumnNames="org_id, member_id" constraintName="fk_marketer_capacity_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="marketer_capacity" columnNames="org_id, member_id" constraintName="uk_marketer_capacity_member"/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="marketer_capacity" constraintName="fk_marketer_capacity_member"/>
+        </rollback>
+    </changeSet>
+
+    <!-- One current marketer (+ optional backup) per consultant for the Marketing Assignments board; consultants need not be seats, so org_assignment cannot hold it. -->
+    <changeSet id="ent-talent-6-marketer_assignment" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="marketer_assignment"/></not></preConditions>
+        <createTable tableName="marketer_assignment">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="marketer_member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="backup_member_id" type="bigint"/>
+            <column name="priority" type="varchar(10)" defaultValue="MEDIUM"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="assigned_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="assigned_by_member_id" type="bigint"/>
+            <column name="last_activity_at" type="${datetimeType}"/>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="marketer_assignment" baseColumnNames="org_id" constraintName="fk_marketer_assignment_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="marketer_assignment" baseColumnNames="org_id, consultant_id" constraintName="fk_marketer_assignment_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="marketer_assignment" baseColumnNames="org_id, marketer_member_id" constraintName="fk_marketer_assignment_marketer" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="marketer_assignment" baseColumnNames="org_id, backup_member_id" constraintName="fk_marketer_assignment_backup" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="marketer_assignment" baseColumnNames="org_id, assigned_by_member_id" constraintName="fk_marketer_assignment_assigned_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="marketer_assignment" columnNames="org_id, consultant_id" constraintName="uk_marketer_assignment_consultant"/>
+        <createIndex tableName="marketer_assignment" indexName="ix_marketer_assignment_marketer"><column name="org_id"/><column name="marketer_member_id"/><column name="status"/></createIndex>
+        <createIndex tableName="marketer_assignment" indexName="ix_marketer_assignment_assigned"><column name="org_id"/><column name="assigned_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="marketer_assignment" constraintName="fk_marketer_assignment_marketer"/>
+            <dropForeignKeyConstraint baseTableName="marketer_assignment" constraintName="fk_marketer_assignment_backup"/>
+            <dropForeignKeyConstraint baseTableName="marketer_assignment" constraintName="fk_marketer_assignment_assigned_by"/>
+        </rollback>
+    </changeSet>
+
+    <!-- A client job (34 section 2); the Jobs board. status adds IN_REVIEW to the doc list. -->
+    <changeSet id="ent-talent-7-client_requirement" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="client_requirement"/></not></preConditions>
+        <createTable tableName="client_requirement">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="client_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="contact_id" type="bigint"/>
+            <column name="title" type="varchar(300)"><constraints nullable="false"/></column>
+            <column name="description_text" type="varchar(4000)"/>
+            <column name="location" type="varchar(300)"/>
+            <column name="work_mode" type="varchar(20)"/>
+            <column name="employment_label" type="varchar(20)"/>
+            <column name="duration_label" type="varchar(40)"/>
+            <column name="experience_level" type="varchar(20)"/>
+            <column name="rate_min_minor" type="bigint"/>
+            <column name="rate_max_minor" type="bigint"/>
+            <column name="rate_unit" type="varchar(10)"/>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="positions" type="smallint" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="filled" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="OPEN"><constraints nullable="false"/></column>
+            <column name="posted_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="owner_member_id" type="bigint"/>
+            <column name="source" type="varchar(20)" defaultValue="MANUAL"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="closed_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="client_requirement" baseColumnNames="org_id" constraintName="fk_client_requirement_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="client_requirement" baseColumnNames="org_id, client_id" constraintName="fk_client_requirement_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="client_requirement" baseColumnNames="org_id, contact_id" constraintName="fk_client_requirement_contact" referencedTableName="client_contact" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="client_requirement" baseColumnNames="org_id, owner_member_id" constraintName="fk_client_requirement_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="client_requirement" columnNames="org_id, id" constraintName="uk_client_requirement_org_id"/>
+        <createIndex tableName="client_requirement" indexName="ix_client_requirement_status"><column name="org_id"/><column name="status"/><column name="posted_at"/></createIndex>
+        <createIndex tableName="client_requirement" indexName="ix_client_requirement_client"><column name="org_id"/><column name="client_id"/></createIndex>
+        <createIndex tableName="client_requirement" indexName="ix_client_requirement_posted"><column name="org_id"/><column name="posted_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="client_requirement" constraintName="fk_client_requirement_owner"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Required skills of a requirement. -->
+    <changeSet id="ent-talent-8-requirement_skill" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="requirement_skill"/></not></preConditions>
+        <createTable tableName="requirement_skill">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="skill" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="requirement_skill" baseColumnNames="org_id" constraintName="fk_requirement_skill_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="requirement_skill" baseColumnNames="org_id, requirement_id" constraintName="fk_requirement_skill_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="requirement_skill" columnNames="org_id, requirement_id, skill" constraintName="uk_requirement_skill"/>
+        <createIndex tableName="requirement_skill" indexName="ix_requirement_skill_skill"><column name="org_id"/><column name="skill"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Consultant to job match score (opportunity_match precursor, 31 section 4); ASSIGNED rows are the Assigned Opportunities. -->
+    <changeSet id="ent-talent-9-requirement_match" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="requirement_match"/></not></preConditions>
+        <createTable tableName="requirement_match">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="score" type="smallint"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(300)"/>
+            <column name="source" type="varchar(20)" defaultValue="RULE"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="SUGGESTED"><constraints nullable="false"/></column>
+            <column name="assigned_by_member_id" type="bigint"/>
+            <column name="assigned_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="requirement_match" baseColumnNames="org_id" constraintName="fk_requirement_match_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="requirement_match" baseColumnNames="org_id, requirement_id" constraintName="fk_requirement_match_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="requirement_match" baseColumnNames="org_id, consultant_id" constraintName="fk_requirement_match_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="requirement_match" baseColumnNames="org_id, assigned_by_member_id" constraintName="fk_requirement_match_assigned_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="requirement_match" columnNames="org_id, requirement_id, consultant_id" constraintName="uk_requirement_match_pair"/>
+        <createIndex tableName="requirement_match" indexName="ix_requirement_match_consultant"><column name="org_id"/><column name="consultant_id"/><column name="status"/></createIndex>
+        <createIndex tableName="requirement_match" indexName="ix_requirement_match_score"><column name="org_id"/><column name="requirement_id"/><column name="score"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="requirement_match" constraintName="fk_requirement_match_assigned_by"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Metadata-only org resume (30 section 3); resume_id is a future link to a person resume and has no FK. Preview text lives in headline, summary_text and org_resume_experience. -->
+    <changeSet id="ent-talent-10-org_resume" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_resume"/></not></preConditions>
+        <createTable tableName="org_resume">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="member_id" type="bigint"/>
+            <column name="resume_id" type="bigint"/>
+            <column name="kind" type="varchar(20)" defaultValue="ORG_MANAGED"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="file_name" type="varchar(200)"/>
+            <column name="target_role" type="varchar(120)"/>
+            <column name="version_no" type="smallint" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="primary_for_org" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="visibility" type="varchar(20)" defaultValue="INTERNAL"><constraints nullable="false"/></column>
+            <column name="approval_status" type="varchar(20)" defaultValue="APPROVED"><constraints nullable="false"/></column>
+            <column name="approved_at" type="${datetimeType}"/>
+            <column name="approved_by_member_id" type="bigint"/>
+            <column name="owner_member_id" type="bigint"/>
+            <column name="file_size_kb" type="int"/>
+            <column name="headline" type="varchar(120)"/>
+            <column name="summary_text" type="varchar(1000)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_resume" baseColumnNames="org_id" constraintName="fk_org_resume_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_resume" baseColumnNames="org_id, consultant_id" constraintName="fk_org_resume_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="org_resume" baseColumnNames="org_id, member_id" constraintName="fk_org_resume_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="org_resume" baseColumnNames="org_id, approved_by_member_id" constraintName="fk_org_resume_approved_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="org_resume" baseColumnNames="org_id, owner_member_id" constraintName="fk_org_resume_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="org_resume" columnNames="org_id, id" constraintName="uk_org_resume_org_id"/>
+        <createIndex tableName="org_resume" indexName="ix_org_resume_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <createIndex tableName="org_resume" indexName="ix_org_resume_approval"><column name="org_id"/><column name="approval_status"/></createIndex>
+        <createIndex tableName="org_resume" indexName="ix_org_resume_updated"><column name="org_id"/><column name="updated_at"/></createIndex>
+        <createIndex tableName="org_resume" indexName="ix_org_resume_created"><column name="org_id"/><column name="created_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_resume" constraintName="fk_org_resume_member"/>
+            <dropForeignKeyConstraint baseTableName="org_resume" constraintName="fk_org_resume_approved_by"/>
+            <dropForeignKeyConstraint baseTableName="org_resume" constraintName="fk_org_resume_owner"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Experience entries a resume preview is drawn from. -->
+    <changeSet id="ent-talent-11-org_resume_experience" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_resume_experience"/></not></preConditions>
+        <createTable tableName="org_resume_experience">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="resume_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="employer" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="start_year" type="smallint"><constraints nullable="false"/></column>
+            <column name="end_year" type="smallint"/>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_resume_experience" baseColumnNames="org_id" constraintName="fk_org_resume_experience_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_resume_experience" baseColumnNames="org_id, resume_id" constraintName="fk_org_resume_experience_resume" referencedTableName="org_resume" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="org_resume_experience" indexName="ix_org_resume_exp"><column name="org_id"/><column name="resume_id"/><column name="sort_order"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- A consultant application to a client job (32, candidate_submission precursor); the Applications board. -->
+    <changeSet id="ent-talent-12-talent_application" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="talent_application"/></not></preConditions>
+        <createTable tableName="talent_application">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="code" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="client_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="resume_id" type="bigint"/>
+            <column name="marketer_member_id" type="bigint"/>
+            <column name="stage" type="varchar(20)" defaultValue="ASSIGNED"><constraints nullable="false"/></column>
+            <column name="closed_reason" type="varchar(20)"/>
+            <column name="applied_on" type="date"><constraints nullable="false"/></column>
+            <column name="source_label" type="varchar(40)"/>
+            <column name="next_action" type="varchar(120)"/>
+            <column name="next_action_due" type="date"/>
+            <column name="stage_changed_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="talent_application" baseColumnNames="org_id" constraintName="fk_talent_application_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="talent_application" baseColumnNames="org_id, requirement_id" constraintName="fk_talent_application_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_application" baseColumnNames="org_id, consultant_id" constraintName="fk_talent_application_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_application" baseColumnNames="org_id, client_id" constraintName="fk_talent_application_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_application" baseColumnNames="org_id, resume_id" constraintName="fk_talent_application_resume" referencedTableName="org_resume" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_application" baseColumnNames="org_id, marketer_member_id" constraintName="fk_talent_application_marketer" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="talent_application" columnNames="org_id, id" constraintName="uk_talent_application_org_id"/>
+        <addUniqueConstraint tableName="talent_application" columnNames="org_id, code" constraintName="uk_talent_application_code"/>
+        <addUniqueConstraint tableName="talent_application" columnNames="org_id, requirement_id, consultant_id" constraintName="uk_talent_application_pair"/>
+        <createIndex tableName="talent_application" indexName="ix_talent_application_stage"><column name="org_id"/><column name="stage"/><column name="applied_on"/></createIndex>
+        <createIndex tableName="talent_application" indexName="ix_talent_application_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <createIndex tableName="talent_application" indexName="ix_talent_application_marketer"><column name="org_id"/><column name="marketer_member_id"/><column name="stage"/></createIndex>
+        <createIndex tableName="talent_application" indexName="ix_talent_application_created"><column name="org_id"/><column name="created_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_application" constraintName="fk_talent_application_marketer"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Append-only application history (timeline, activity, stage-change deltas). -->
+    <changeSet id="ent-talent-13-talent_application_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="talent_application_event"/></not></preConditions>
+        <createTable tableName="talent_application_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="application_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="event_type" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="from_stage" type="varchar(20)"/>
+            <column name="to_stage" type="varchar(20)"/>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="detail" type="varchar(300)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="talent_application_event" baseColumnNames="org_id" constraintName="fk_talent_application_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="talent_application_event" baseColumnNames="org_id, application_id" constraintName="fk_talent_application_event_application" referencedTableName="talent_application" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_application_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_talent_application_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="talent_application_event" indexName="ix_talent_app_event_app"><column name="org_id"/><column name="application_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="talent_application_event" indexName="ix_talent_app_event_time"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_application_event" constraintName="fk_talent_application_event_actor"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Notes on an application. -->
+    <changeSet id="ent-talent-14-talent_application_note" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="talent_application_note"/></not></preConditions>
+        <createTable tableName="talent_application_note">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="application_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="author_member_id" type="bigint"/>
+            <column name="body" type="varchar(1000)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="talent_application_note" baseColumnNames="org_id" constraintName="fk_talent_application_note_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="talent_application_note" baseColumnNames="org_id, application_id" constraintName="fk_talent_application_note_application" referencedTableName="talent_application" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_application_note" baseColumnNames="org_id, author_member_id" constraintName="fk_talent_application_note_author" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="talent_application_note" indexName="ix_talent_app_note_app"><column name="org_id"/><column name="application_id"/><column name="created_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_application_note" constraintName="fk_talent_application_note_author"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Interview slots (33 precursor): feeds Upcoming Interviews and Next Interview. -->
+    <changeSet id="ent-talent-15-talent_interview" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="talent_interview"/></not></preConditions>
+        <createTable tableName="talent_interview">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="application_id" type="bigint"/>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="client_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="scheduled_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="duration_minutes" type="smallint" defaultValueNumeric="45"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="SCHEDULED"><constraints nullable="false"/></column>
+            <column name="round_label" type="varchar(40)"/>
+            <column name="interviewer_name" type="varchar(120)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="talent_interview" baseColumnNames="org_id" constraintName="fk_talent_interview_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="talent_interview" baseColumnNames="org_id, application_id" constraintName="fk_talent_interview_application" referencedTableName="talent_application" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_interview" baseColumnNames="org_id, consultant_id" constraintName="fk_talent_interview_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_interview" baseColumnNames="org_id, client_id" constraintName="fk_talent_interview_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="talent_interview" indexName="ix_talent_interview_time"><column name="org_id"/><column name="scheduled_at"/></createIndex>
+        <createIndex tableName="talent_interview" indexName="ix_talent_interview_consultant"><column name="org_id"/><column name="consultant_id"/><column name="scheduled_at"/></createIndex>
+        <createIndex tableName="talent_interview" indexName="ix_talent_interview_status"><column name="org_id"/><column name="status"/><column name="scheduled_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- A consultant placed at a client (35 precursor). Rates are records, never money movement. -->
+    <changeSet id="ent-talent-16-talent_placement" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="talent_placement"/></not></preConditions>
+        <createTable tableName="talent_placement">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="client_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"/>
+            <column name="role_title" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="start_date" type="date"><constraints nullable="false"/></column>
+            <column name="end_date" type="date"/>
+            <column name="bill_rate_minor" type="bigint"/>
+            <column name="rate_unit" type="varchar(10)"/>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="talent_placement" baseColumnNames="org_id" constraintName="fk_talent_placement_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="talent_placement" baseColumnNames="org_id, consultant_id" constraintName="fk_talent_placement_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_placement" baseColumnNames="org_id, client_id" constraintName="fk_talent_placement_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_placement" baseColumnNames="org_id, requirement_id" constraintName="fk_talent_placement_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="talent_placement" indexName="ix_talent_placement_status"><column name="org_id"/><column name="status"/><column name="start_date"/></createIndex>
+        <createIndex tableName="talent_placement" indexName="ix_talent_placement_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Record-only monthly spend ledger for the dashboard tile; no billing logic. -->
+    <changeSet id="ent-talent-17-org_spend_entry" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_spend_entry"/></not></preConditions>
+        <createTable tableName="org_spend_entry">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="month_start" type="date"><constraints nullable="false"/></column>
+            <column name="category" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(120)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_spend_entry" baseColumnNames="org_id" constraintName="fk_org_spend_entry_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="org_spend_entry" columnNames="org_id, month_start, category" constraintName="uk_org_spend_entry"/>
+        <rollback/>
+    </changeSet>
+
+    <!-- client_account.name_key: one client name per org, case-insensitive (41 R5). -->
+    <changeSet id="ent-talent-gen-client-name" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="client_account" columnName="name_key"/></not></preConditions>
+        <sql>ALTER TABLE client_account ADD COLUMN name_key VARCHAR(200) GENERATED ALWAYS AS (LOWER(name)) STORED</sql>
+        <sql>ALTER TABLE client_account ADD CONSTRAINT uk_client_account_name UNIQUE (org_id, name_key)</sql>
+        <rollback/>
+    </changeSet>
+
+    <!-- org_resume.primary_key: at most one primary resume per consultant (41 R5). -->
+    <changeSet id="ent-talent-gen-resume-primary" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_resume" columnName="primary_key"/></not></preConditions>
+        <sql>ALTER TABLE org_resume ADD COLUMN primary_key BIGINT GENERATED ALWAYS AS (IF(primary_for_org, consultant_id, NULL)) STORED</sql>
+        <sql>ALTER TABLE org_resume ADD CONSTRAINT uk_org_resume_primary UNIQUE (org_id, primary_key)</sql>
+        <rollback/>
+    </changeSet>
+
+</databaseChangeLog>

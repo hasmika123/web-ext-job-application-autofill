@@ -27,6 +27,8 @@ import com.dossier.api.repository.BioRepository;
 import com.dossier.api.repository.AiCallRepository;
 import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.repository.FieldCacheRepository;
+import com.dossier.api.domain.NotificationPreference;
+import com.dossier.api.repository.NotificationPreferenceRepository;
 import com.dossier.api.repository.ProfileSuggestionRepository;
 import com.dossier.api.repository.RefreshTokenRepository;
 import com.dossier.api.repository.ResumeRepository;
@@ -99,6 +101,9 @@ class AccountDeletionResourceIT {
     @Autowired
     private StripeEventRepository stripeEventRepository;
 
+    @Autowired
+    private NotificationPreferenceRepository notificationPreferenceRepository;
+
     /** Stubbed: the test is about OUR ordering and cleanup, not Stripe's API. */
     @MockitoBean
     private StripeGateway stripeGateway;
@@ -165,8 +170,16 @@ class AccountDeletionResourceIT {
         call.setCostMicros(24);
         call = aiCallRepository.saveAndFlush(call);
 
+        // E2E-U7.0: the notification switches go with the account.
+        NotificationPreference prefs = new NotificationPreference();
+        prefs.setUserId(user.getId());
+        prefs.setMatrixJson("{}");
+        prefs.setTz("UTC");
+        notificationPreferenceRepository.saveAndFlush(prefs);
+
         mockMvc.perform(delete("/api/account")).andExpect(status().isNoContent());
 
+        assertThat(notificationPreferenceRepository.findById(user.getId())).isEmpty();
         assertThat(userRepository.findOneByLogin("user")).isEmpty();
         assertThat(bioRepository.findById(bio.getId())).isEmpty();
         assertThat(resumeRepository.findById(resume.getId())).isEmpty();

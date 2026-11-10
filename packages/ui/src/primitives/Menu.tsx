@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import { cloneElement, isValidElement, useEffect, useId, useRef, useState } from "react";
+import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactElement, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "./cn";
 
@@ -18,6 +18,10 @@ import { cn } from "./cn";
  *     { separator: true },
  *     { label: "Delete", onSelect: remove, danger: true },
  *   ]} />
+ *
+ * A trigger that is itself a button (a `<button>`, `Button`, `IconButton`) IS the menu's button: it gets the menu semantics
+ * (`aria-haspopup`, `aria-expanded`, Arrow Down opens) and the click handler directly, so there is one tab stop and no
+ * button nested in a button. Any other trigger (a `div` with an avatar in it) is wrapped in a `role="button"` span as before.
  */
 export interface MenuItem {
   label: ReactNode;
@@ -83,13 +87,17 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
       if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
       setOpen(false);
     };
-    const close = () => setOpen(false);
+    // a scroll INSIDE the open menu is the user reaching an item, not the page moving away
+    const close = (e?: Event) => {
+      if (e?.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener("mousedown", onDocMouseDown);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
     // Focus the first enabled item on open.
     const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])');
-    first?.focus();
+    first?.focus({ preventScroll: true }); // a scroll event closes the menu, and focusing the (not yet placed) first item would scroll the page
     return () => {
       document.removeEventListener("mousedown", onDocMouseDown);
       window.removeEventListener("scroll", close, true);
@@ -139,33 +147,62 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
     }
   }
 
+  const aria = {
+    "aria-haspopup": "menu" as const,
+    "aria-expanded": open,
+    "aria-disabled": disabled || undefined,
+    "aria-controls": open ? `${baseId}-menu` : undefined,
+  };
+  const toggle = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    if (disabled) return;
+    setOpen((v) => !v);
+  };
+  // The trigger is a button already (a host `<button>` or a component such as `IconButton`): it takes the menu's behaviour itself.
+  const own = isValidElement(trigger) && (typeof trigger.type !== "string" || trigger.type === "button") ? (trigger as ReactElement<Record<string, unknown>>) : null;
+
   return (
     <div className={cn("inline-flex", className)}>
-      <span
-        ref={triggerRef}
-        role="button"
-        tabIndex={disabled ? -1 : 0}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-disabled={disabled || undefined}
-        aria-controls={open ? `${baseId}-menu` : undefined}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (disabled) return;
-          setOpen((v) => !v);
-        }}
-        onKeyDown={(e) => {
-          if (disabled) return;
-          if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen(true);
-          }
-        }}
-        className="inline-flex"
-      >
-        {trigger}
-      </span>
+      {own ? (
+        <span ref={triggerRef} className="inline-flex">
+          {cloneElement(own, {
+            ...aria,
+            onClick: (e: ReactMouseEvent) => {
+              (own.props.onClick as ((ev: ReactMouseEvent) => void) | undefined)?.(e);
+              toggle(e);
+            },
+            onKeyDown: (e: KeyboardEvent) => {
+              (own.props.onKeyDown as ((ev: KeyboardEvent) => void) | undefined)?.(e);
+              if (disabled) return;
+              // Enter and Space already click a button; Arrow Down is the menu's own way in
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen(true);
+              }
+            },
+          })}
+        </span>
+      ) : (
+        <span
+          ref={triggerRef}
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          {...aria}
+          onClick={toggle}
+          onKeyDown={(e) => {
+            if (disabled) return;
+            if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(true);
+            }
+          }}
+          className="inline-flex"
+        >
+          {trigger}
+        </span>
+      )}
 
       {open &&
         typeof document !== "undefined" &&
@@ -185,7 +222,7 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
               visibility: pos ? "visible" : "hidden",
             }}
             className={cn(
-              "scroll-slim z-[161] min-w-[9rem] overflow-y-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
+              "scroll-slim z-[1100] min-w-[9rem] overflow-y-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
               menuClassName,
             )}
           >
@@ -214,7 +251,7 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
                     "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors " +
                       "focus:outline-none focus-visible:bg-paper-2 disabled:pointer-events-none disabled:opacity-50",
                     entry.danger
-                      ? "text-danger hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]"
+                      ? "text-danger-text hover:bg-[color-mix(in_srgb,var(--color-danger)_10%,transparent)]"
                       : "text-ink hover:bg-paper-2",
                   )}
                 >

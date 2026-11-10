@@ -1,5 +1,6 @@
 package com.dossier.api.service;
 
+import com.dossier.api.security.LoginWorld;
 import com.dossier.api.config.Constants;
 import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.User;
@@ -69,22 +70,38 @@ public class UserService {
     }
 
     public Optional<User> completePasswordReset(String newPassword, String key) {
+        return completePasswordReset(newPassword, key, LoginWorld.LEGACY);
+    }
+
+    /**
+     * Finish a reset inside one account world (decision O4): a key that belongs to an account of the other world is "no such key", so a
+     * reset link can not be spent on the wrong host. {@code LEGACY} (switch off) accepts any key, as before.
+     */
+    public Optional<User> completePasswordReset(String newPassword, String key, LoginWorld world) {
         LOG.debug("Reset user password for reset key {}", key);
         return userRepository
             .findOneByResetKey(key)
+            .filter(user -> !world.enforced() || java.util.Objects.equals(user.getOrgId(), world.orgId()))
             .filter(user -> user.getResetDate().isAfter(Instant.now().minus(1, ChronoUnit.DAYS)))
             .map(user -> {
                 user.setPassword(passwordEncoder.encode(newPassword));
                 user.setResetKey(null);
                 user.setResetDate(null);
+                user.setPasswordChangeRequired(false);
+                user.setPasswordTempExpiresAt(null);
                 this.clearUserCaches(user);
                 return user;
             });
     }
 
     public Optional<User> requestPasswordReset(String mail) {
+        return requestPasswordReset(null, mail);
+    }
+
+    /** Start a reset for the account with {@code mail} in ONE world: {@code scope} is an organization id (its enterprise accounts) or null (personal). */
+    public Optional<User> requestPasswordReset(Long scope, String mail) {
         return userRepository
-            .findOneByEmailIgnoreCase(mail)
+            .findOneByScopeAndEmail(scope, mail)
             .filter(User::isActivated)
             .map(user -> {
                 user.setResetKey(RandomUtil.generateResetKey());
@@ -94,7 +111,17 @@ public class UserService {
             });
     }
 
+    /** The ACTIVATED enterprise account of {@code orgId} with this (Google-verified) address, authorities loaded; empty for anything else. Never creates one. */
+    @Transactional(readOnly = true)
+    public Optional<User> findActiveEnterpriseAccount(Long orgId, String email) {
+        if (orgId == null || email == null) return Optional.empty();
+        return userRepository.findOneWithAuthoritiesByOrgIdAndEmailIgnoreCase(orgId, email).filter(User::isActivated);
+    }
+
     public User registerUser(AdminUserDTO userDTO, String password) {
+        if (DemoAccountService.isDemoLogin(userDTO.getLogin())) {
+            throw new UsernameAlreadyUsedException(); // the demo namespaces (demo, demo-org, demo-ent-*) are never registrable
+        }
         userRepository
             .findOneByLogin(userDTO.getLogin().toLowerCase())
             .ifPresent(existingUser -> {
@@ -103,8 +130,11 @@ public class UserService {
                     throw new UsernameAlreadyUsedException();
                 }
             });
+        if (Constants.isEnterpriseLogin(userDTO.getLogin())) {
+            throw new UsernameAlreadyUsedException(); // the ent# login namespace belongs to enterprise accounts (decision O4)
+        }
         userRepository
-            .findOneByEmailIgnoreCase(userDTO.getEmail())
+            .findOneByOrgIdIsNullAndEmailIgnoreCase(userDTO.getEmail())
             .ifPresent(existingUser -> {
                 boolean removed = removeNonActivatedUser(existingUser);
                 if (!removed) {
@@ -146,7 +176,10 @@ public class UserService {
      */
     public User findOrCreateGoogleUser(String email, String firstName, String lastName) {
         String mail = email.toLowerCase();
-        Optional<User> existing = userRepository.findOneByEmailIgnoreCase(mail);
+        if (Constants.isEnterpriseLogin(mail)) {
+            throw new UsernameAlreadyUsedException(); // the ent# login namespace belongs to enterprise accounts (decision O4)
+        }
+        Optional<User> existing = userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase(mail);
         if (existing.isPresent()) {
             User user = existing.get();
             boolean changed = false;
@@ -318,8 +351,13 @@ public class UserService {
                 if (!passwordEncoder.matches(currentClearTextPassword, currentEncryptedPassword)) {
                     throw new InvalidPasswordException();
                 }
+                if (user.isPasswordChangeRequired() && passwordEncoder.matches(newPassword, currentEncryptedPassword)) {
+                    throw new InvalidPasswordException(); // a forced change must actually change it
+                }
                 String encryptedPassword = passwordEncoder.encode(newPassword);
                 user.setPassword(encryptedPassword);
+                user.setPasswordChangeRequired(false);
+                user.setPasswordTempExpiresAt(null);
                 this.clearUserCaches(user);
                 LOG.debug("Changed password for User: {}", user);
             });
@@ -327,12 +365,12 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public Page<AdminUserDTO> getAllManagedUsers(Pageable pageable) {
-        return userRepository.findAll(pageable).map(AdminUserDTO::new);
+        return userRepository.findAllByOrgIdIsNull(pageable).map(AdminUserDTO::new);
     }
 
     @Transactional(readOnly = true)
     public Page<UserDTO> getAllPublicUsers(Pageable pageable) {
-        return userRepository.findAllByIdNotNullAndActivatedIsTrue(pageable).map(UserDTO::new);
+        return userRepository.findAllByOrgIdIsNullAndActivatedIsTrue(pageable).map(UserDTO::new);
     }
 
     @Transactional(readOnly = true)
@@ -373,7 +411,178 @@ public class UserService {
     private void clearUserCaches(User user) {
         Objects.requireNonNull(cacheManager.getCache(UserRepository.USERS_BY_LOGIN_CACHE)).evictIfPresent(user.getLogin());
         if (user.getEmail() != null) {
-            Objects.requireNonNull(cacheManager.getCache(UserRepository.USERS_BY_EMAIL_CACHE)).evictIfPresent(user.getEmail());
+            Objects.requireNonNull(cacheManager.getCache(UserRepository.USERS_BY_EMAIL_CACHE)).evictIfPresent(UserRepository.emailCacheKey(user.getOrgId(), user.getEmail()));
         }
+    }
+
+    // ---- administrator-issued temporary passwords (X1.11 owner onboarding, employee direct-create) -------------------
+
+    private static final java.security.SecureRandom TEMP_RANDOM = new java.security.SecureRandom();
+    private static final String TEMP_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    private static final String TEMP_LOWER = "abcdefghijkmnopqrstuvwxyz";
+    private static final String TEMP_DIGIT = "23456789";
+    private static final String TEMP_SYMBOL = "!#$%*+-=?@";
+    public static final int TEMP_PASSWORD_LENGTH = 16;
+
+    /** What creating (or finding) an account for an administrator produced. {@code tempPassword} is null when the account already existed (its password is untouched). */
+    public record TempAccount(User user, String tempPassword, boolean created) {}
+
+    /** A random 16-character password with at least one upper-case letter, lower-case letter, digit and symbol; no look-alike characters (0 O 1 l I). */
+    public static String generateTempPassword() {
+        String all = TEMP_UPPER + TEMP_LOWER + TEMP_DIGIT + TEMP_SYMBOL;
+        char[] out = new char[TEMP_PASSWORD_LENGTH];
+        String[] required = { TEMP_UPPER, TEMP_LOWER, TEMP_DIGIT, TEMP_SYMBOL };
+        for (int i = 0; i < out.length; i++) {
+            String pool = i < required.length ? required[i] : all;
+            out[i] = pool.charAt(TEMP_RANDOM.nextInt(pool.length()));
+        }
+        for (int i = out.length - 1; i > 0; i--) { // shuffle so the required classes are not always first
+            int j = TEMP_RANDOM.nextInt(i + 1);
+            char t = out[i];
+            out[i] = out[j];
+            out[j] = t;
+        }
+        return new String(out);
+    }
+
+    /**
+     * The account for {@code email}: the existing one untouched (no new password, no flag), or a NEW activated account (no email
+     * verification step) whose password is {@code password} - the server-generated one, or an administrator-chosen one the caller
+     * has already checked against the password rules - flagged "must change on first sign-in" and expiring at {@code expiresAt}.
+     */
+    @Transactional
+    public TempAccount createTempAccount(String email, String firstName, String lastName, String password, Instant expiresAt) {
+        String mail = email.strip().toLowerCase(Locale.ROOT);
+        // Personal scope: the "attach an existing account" branch stays until phase S4 replaces it with a separate enterprise account.
+        Optional<User> existing = userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase(mail);
+        if (existing.isPresent()) {
+            Hibernate.initialize(existing.get().getAuthorities());
+            return new TempAccount(existing.get(), null, false);
+        }
+        String temp = password == null ? generateTempPassword() : password;
+        User user = new User();
+        user.setLogin(freeLogin(mail));
+        user.setPassword(passwordEncoder.encode(temp));
+        user.setFirstName(trimTo(firstName, 50));
+        user.setLastName(trimTo(lastName, 50));
+        user.setEmail(mail);
+        user.setLangKey("en");
+        user.setActivated(true);
+        user.setPasswordChangeRequired(true);
+        user.setPasswordTempExpiresAt(expiresAt);
+        Set<Authority> authorities = new HashSet<>();
+        authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add);
+        user.setAuthorities(authorities);
+        userRepository.save(user);
+        clearUserCaches(user);
+        return new TempAccount(user, temp, true);
+    }
+
+    /**
+     * A NEW activated ENTERPRISE account of organization {@code orgId} (decision O4, docs/enterprise-v2/19): {@code org_id} set, login
+     * {@code ent#<orgId>#...}, ROLE_USER only, never any lookup of (or link to) a personal account with the same address. With
+     * {@code tempExpiresAt} the password is a temporary one (the given {@code password} or a generated one) flagged "must change at first
+     * sign-in"; without it {@code password} is the person's own choice (invitation acceptance) and is required. Throws
+     * {@link EmailAlreadyUsedException} when this organization already has an account for the address.
+     */
+    @Transactional
+    public TempAccount createEnterpriseAccount(Long orgId, String email, String firstName, String lastName, String password, Instant tempExpiresAt) {
+        if (orgId == null) throw new IllegalArgumentException("orgId is required");
+        if (email == null || email.isBlank()) throw new IllegalArgumentException("email is required");
+        if (tempExpiresAt == null && (password == null || password.isEmpty())) throw new IllegalArgumentException("password is required");
+        String mail = email.strip().toLowerCase(Locale.ROOT);
+        if (userRepository.findOneByOrgIdAndEmailIgnoreCase(orgId, mail).isPresent()) throw new EmailAlreadyUsedException();
+        String pw = password == null || password.isEmpty() ? generateTempPassword() : password;
+        User user = new User();
+        user.setOrgId(orgId);
+        user.setLogin(enterpriseLogin(orgId, mail));
+        user.setPassword(passwordEncoder.encode(pw));
+        user.setFirstName(trimTo(firstName, 50));
+        user.setLastName(trimTo(lastName, 50));
+        user.setEmail(mail);
+        user.setLangKey("en");
+        user.setActivated(true);
+        user.setPasswordChangeRequired(tempExpiresAt != null);
+        user.setPasswordTempExpiresAt(tempExpiresAt);
+        Set<Authority> authorities = new HashSet<>();
+        authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add); // ROLE_USER only: an enterprise account is never a platform admin
+        user.setAuthorities(authorities);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (org.springframework.dao.DataIntegrityViolationException raced) { // the same address created twice at once
+            throw new EmailAlreadyUsedException();
+        }
+        clearUserCaches(user);
+        return new TempAccount(user, pw, true);
+    }
+
+    /** The enterprise account of {@code orgId} for {@code email} (authorities loaded), or empty. Never looks at personal accounts. */
+    @Transactional(readOnly = true)
+    public Optional<User> findEnterpriseAccount(Long orgId, String email) {
+        if (orgId == null || email == null) return Optional.empty();
+        Optional<User> found = userRepository.findOneByOrgIdAndEmailIgnoreCase(orgId, email.strip());
+        found.ifPresent(u -> Hibernate.initialize(u.getAuthorities()));
+        return found;
+    }
+
+    /** Sets an enterprise account's own chosen password (invitation acceptance): no longer temporary, activated, hashed. */
+    @Transactional
+    public void setEnterprisePassword(User user, String password) {
+        if (user.getOrgId() == null) throw new IllegalArgumentException("not an enterprise account");
+        user.setPassword(passwordEncoder.encode(password));
+        user.setPasswordChangeRequired(false);
+        user.setPasswordTempExpiresAt(null);
+        user.setActivated(true);
+        userRepository.save(user);
+        clearUserCaches(user);
+    }
+
+    /** {@code ent#<orgId>#<email>} when it fits the login rules, else {@code ent#<orgId>#<first 16 hex of sha-256(email)>}. */
+    static String enterpriseLogin(Long orgId, String mail) {
+        String prefix = Constants.ENTERPRISE_LOGIN_PREFIX + orgId + "#";
+        String direct = prefix + mail;
+        if (direct.length() <= 50 && direct.matches(Constants.ENTERPRISE_LOGIN_REGEX)) return direct;
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(mail.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (int i = 0; i < 8; i++) hex.append(String.format("%02x", d[i]));
+            return prefix + hex;
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** Gives the account a new temporary password (server-generated unless {@code password} is given), flags it for change and sets its expiry. Returns the clear-text password for the one-time display; it is stored hashed only. */
+    @Transactional
+    public String resetTempPassword(User user, String password, Instant expiresAt) {
+        String temp = password == null ? generateTempPassword() : password;
+        user.setPassword(passwordEncoder.encode(temp));
+        user.setPasswordChangeRequired(true);
+        user.setPasswordTempExpiresAt(expiresAt);
+        userRepository.save(user);
+        clearUserCaches(user);
+        return temp;
+    }
+
+    /** True when the account still holds an administrator-issued password that has run out (sign-in must be refused). */
+    public static boolean tempPasswordExpired(User user) {
+        return user.isPasswordChangeRequired() && user.getPasswordTempExpiresAt() != null && user.getPasswordTempExpiresAt().isBefore(Instant.now());
+    }
+
+    private String freeLogin(String mail) {
+        String login = mail.length() <= 50 ? mail : mail.substring(0, 40);
+        if (mail.length() <= 50 && userRepository.findOneByLogin(login).isEmpty()) return login;
+        String head = login.length() > 40 ? login.substring(0, 40) : login;
+        for (int i = 0; i < 50; i++) {
+            String candidate = head + "-" + (1000 + TEMP_RANDOM.nextInt(9000));
+            if (userRepository.findOneByLogin(candidate).isEmpty()) return candidate;
+        }
+        throw new IllegalStateException("could not find a free login");
+    }
+
+    private static String trimTo(String s, int max) {
+        if (s == null || s.isBlank()) return null;
+        String t = s.strip();
+        return t.length() > max ? t.substring(0, max) : t;
     }
 }

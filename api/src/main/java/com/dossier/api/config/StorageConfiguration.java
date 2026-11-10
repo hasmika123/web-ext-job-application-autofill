@@ -1,43 +1,39 @@
 package com.dossier.api.config;
 
-import java.net.URI;
+import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.LocalFileStorage;
+import com.dossier.api.service.storage.s3.S3FileStorage;
+import java.nio.file.Path;
+import java.util.Locale;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.util.StringUtils;
-import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
 
 /**
- * Builds the S3 client used to talk to the resume blob store (Cloudflare R2 in
- * prod, MinIO in dev/tests). Constructing the client opens no connection, so the
- * bean is safe to create even when credentials are absent (e.g. unrelated tests).
+ * Chooses the {@link FileStorage} driver from {@code dossier.storage.driver}: {@code local}
+ * (default) or {@code s3}. The S3 client only exists under {@code s3}. Constructing either
+ * driver opens no connection, so the bean is safe in unrelated tests.
  */
 @Configuration
 @EnableConfigurationProperties(StorageProperties.class)
 public class StorageConfiguration {
 
     @Bean
-    public S3Client s3Client(StorageProperties props) {
-        S3Configuration s3Config = S3Configuration.builder().pathStyleAccessEnabled(props.isPathStyleAccess()).build();
-        // When no key is configured (e.g. unrelated tests, or before R2 is wired up),
-        // fall back to anonymous creds so the bean still builds — the SDK rejects a
-        // blank access key. Real deployments provide STORAGE_ACCESS_KEY/SECRET_KEY.
-        AwsCredentialsProvider credentials = StringUtils.hasText(props.getAccessKey())
-            ? StaticCredentialsProvider.create(AwsBasicCredentials.create(props.getAccessKey(), props.getSecretKey()))
-            : AnonymousCredentialsProvider.create();
-        var builder = S3Client.builder()
-            .region(Region.of(StringUtils.hasText(props.getRegion()) ? props.getRegion() : "auto"))
-            .credentialsProvider(credentials)
-            .serviceConfiguration(s3Config);
-        if (StringUtils.hasText(props.getEndpoint())) {
-            builder.endpointOverride(URI.create(props.getEndpoint()));
-        }
-        return builder.build();
+    public FileStorage fileStorage(StorageProperties props) {
+        String driver = props.getDriver() == null ? "local" : props.getDriver().trim().toLowerCase(Locale.ROOT);
+        return switch (driver) {
+            case "", "local" -> new LocalFileStorage(Path.of(props.getLocal().getRoot()));
+            case "s3" -> S3FileStorage.create(
+                props.getEndpoint(),
+                props.getRegion(),
+                props.getBucket(),
+                props.getAccessKey(),
+                props.getSecretKey(),
+                props.isPathStyleAccess()
+            );
+            default -> throw new IllegalStateException(
+                "dossier.storage.driver must be 'local' or 's3', but was '" + props.getDriver() + "'"
+            );
+        };
     }
 }

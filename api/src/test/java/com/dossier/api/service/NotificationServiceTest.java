@@ -9,11 +9,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.dossier.api.domain.InboxConnection;
 import com.dossier.api.domain.Notification;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
-import com.dossier.api.repository.InboxConnectionRepository;
+import com.dossier.api.domain.enumeration.NotificationKind;
 import com.dossier.api.repository.NotificationRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.inbox.InboxParser;
@@ -32,7 +31,7 @@ class NotificationServiceTest {
 
     private NotificationRepository notifications;
     private MailService mail;
-    private InboxConnection connection;
+    private NotificationPreferenceService preferences;
     private NotificationService service;
     private final List<Notification> saved = new ArrayList<>();
     private User user;
@@ -44,9 +43,8 @@ class NotificationServiceTest {
             saved.add(inv.getArgument(0));
             return inv.getArgument(0);
         });
-        InboxConnectionRepository connections = mock(InboxConnectionRepository.class);
-        connection = new InboxConnection(7L);
-        when(connections.findById(7L)).thenReturn(Optional.of(connection));
+        preferences = mock(NotificationPreferenceService.class);
+        when(preferences.decide(eq(7L), any(NotificationKind.class), any(Instant.class))).thenReturn(new NotificationPolicy.Decision(true, true));
         UserRepository users = mock(UserRepository.class);
         user = new User();
         user.setId(7L);
@@ -54,7 +52,7 @@ class NotificationServiceTest {
         user.setEmail("sam@real-address.com");
         when(users.findById(7L)).thenReturn(Optional.of(user));
         mail = mock(MailService.class);
-        service = new NotificationService(notifications, connections, users, mail, "https://kiwiply.com/");
+        service = new NotificationService(notifications, preferences, users, mail, "https://kiwiply.com/");
     }
 
     private static InboxParser.StatusChanged changed(ApplicationStatus to, Duration ago) {
@@ -101,9 +99,47 @@ class NotificationServiceTest {
 
     @Test
     void theUserCanTurnTheEmailsOff() {
-        connection.setNotifyEmail(false);
+        when(preferences.decide(eq(7L), eq(NotificationKind.APP_STATUS), any(Instant.class))).thenReturn(new NotificationPolicy.Decision(true, false));
         service.notify(changed(ApplicationStatus.OFFER, Duration.ofHours(1)), NOW);
         assertThat(saved).hasSize(1); // still in-app
         verify(mail, never()).sendStatusChangeEmail(any(), anyString(), anyString(), anyString(), eq("https://kiwiply.com/board?app=42"));
+    }
+
+    // ---- publish (E2E-U7.0) -------------------------------------------------
+
+    @Test
+    void publishStoresTheNoticeAndEmailsWhenThePolicySaysSo() {
+        var payload = NotificationService.Payload.of("Your plan renews soon", "It renews on the 3rd.", "/settings#billing").deduped("billing:renewal:2026-11");
+
+        var made = service.publish(NotificationKind.BILLING, 7L, payload, NOW);
+
+        assertThat(made).isPresent();
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).getKind()).isEqualTo("BILLING");
+        assertThat(saved.get(0).getDedupeKey()).isEqualTo("billing:renewal:2026-11");
+        assertThat(saved.get(0).isInappMuted()).isFalse();
+        verify(mail).sendNotificationEmail(user, "Billing", "Your plan renews soon", "It renews on the 3rd.", "https://kiwiply.com/settings#billing");
+    }
+
+    @Test
+    void publishIsIdempotentOnTheDedupeKey() {
+        when(notifications.existsByUserIdAndDedupeKey(7L, "k1")).thenReturn(true);
+
+        var made = service.publish(NotificationKind.SYSTEM, 7L, NotificationService.Payload.of("Hello", null, null).deduped("k1"), NOW);
+
+        assertThat(made).isEmpty();
+        assertThat(saved).isEmpty();
+        verify(mail, never()).sendNotificationEmail(any(), anyString(), anyString(), any(), anyString());
+    }
+
+    @Test
+    void aKindSwitchedOffInAppIsStoredButMutedAndNeverEmailedWhenEmailIsOff() {
+        when(preferences.decide(eq(7L), eq(NotificationKind.SYSTEM), any(Instant.class))).thenReturn(new NotificationPolicy.Decision(false, false));
+
+        service.publish(NotificationKind.SYSTEM, 7L, NotificationService.Payload.of("News", "Something new", "/dashboard"), NOW);
+
+        assertThat(saved).hasSize(1);
+        assertThat(saved.get(0).isInappMuted()).isTrue(); // the dedupe ledger keeps it; the bell never shows it
+        verify(mail, never()).sendNotificationEmail(any(), anyString(), anyString(), any(), anyString());
     }
 }

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace (branch ent-talent-consultant), My Resumes page: one row each time the consultant's OWN resume is viewed,
+        downloaded or shared (tiles Total Views / Downloads / Times Shared and Recent Activity). Isolated to the consultant role.
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FKs (org_id, resume_id) to org_resume and
+        (org_id, consultant_id) to consultant_profile, every secondary index starts with org_id, varchar enum names (VIEWED, DOWNLOADED,
+        SHARED), DATETIME(6) UTC, no PII, additive, empty rollback.
+    -->
+    <changeSet id="ent-cws-3-cws_resume_activity" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_resume_activity"/></not></preConditions>
+        <createTable tableName="cws_resume_activity">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="resume_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_resume_activity" baseColumnNames="org_id" constraintName="fk_cws_resume_activity_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_resume_activity" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_resume_activity_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_resume_activity" baseColumnNames="org_id, resume_id" constraintName="fk_cws_resume_activity_resume" referencedTableName="org_resume" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_resume_activity" indexName="ix_cws_resume_activity_consultant"><column name="org_id"/><column name="consultant_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="cws_resume_activity" indexName="ix_cws_resume_activity_resume"><column name="org_id"/><column name="resume_id"/><column name="kind"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

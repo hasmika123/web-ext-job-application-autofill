@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Prepare selected openings (docs/enterprise-v2/63-prepare-batch.md). Additive only.
+        prepare_session = one batch a consultant asked to prepare in their own browser; prepare_item = one opening in it (unique per session and match; this is
+        also what the daily and monthly caps count); prepare_event = the append-only trail the extension reports (opened, filled, needs input, submit detected, ...).
+        No page content, no field values and no personal data: a job title, a company and a short scanned note.
+    -->
+    <changeSet id="20261117010000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="prepare_session"/></not>
+        </preConditions>
+        <createTable tableName="prepare_session">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consultant_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="member_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="prepare_session" indexName="ix_prepare_session_consultant">
+            <column name="org_id"/>
+            <column name="consultant_id"/>
+            <column name="created_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="prepare_session" baseColumnNames="org_id"
+            constraintName="fk_prepare_session_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <rollback><dropTable tableName="prepare_session"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261117010000-2" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="prepare_item"/></not>
+        </preConditions>
+        <createTable tableName="prepare_item">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="session_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consultant_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="match_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="opportunity_id" type="bigint"/>
+            <column name="url" type="varchar(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="varchar(255)"/>
+            <column name="company" type="varchar(255)"/>
+            <column name="state" type="varchar(20)" defaultValue="WAITING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="detail" type="varchar(200)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="prepare_item" columnNames="session_id, match_id" constraintName="uk_prepare_item_session_match"/>
+        <createIndex tableName="prepare_item" indexName="ix_prepare_item_consultant">
+            <column name="org_id"/>
+            <column name="consultant_id"/>
+            <column name="created_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="prepare_item" baseColumnNames="session_id"
+            constraintName="fk_prepare_item_session" referencedTableName="prepare_session" referencedColumnNames="id"/>
+        <rollback><dropTable tableName="prepare_item"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261117010000-3" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="prepare_event"/></not>
+        </preConditions>
+        <createTable tableName="prepare_event">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="session_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="item_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="match_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="detail" type="varchar(200)"/>
+            <column name="occurred_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="prepare_event" indexName="ix_prepare_event_item">
+            <column name="session_id"/>
+            <column name="item_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="prepare_event" baseColumnNames="item_id"
+            constraintName="fk_prepare_event_item" referencedTableName="prepare_item" referencedColumnNames="id"/>
+        <rollback><dropTable tableName="prepare_event"/></rollback>
+    </changeSet>
+</databaseChangeLog>

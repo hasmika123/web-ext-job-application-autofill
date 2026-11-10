@@ -1,6 +1,7 @@
 package com.dossier.api.service.billing;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -26,6 +27,15 @@ import java.util.Optional;
  * @param app            the {@code app} metadata on the session or subscription — {@link #KIWIPLY} on
  *                       everything we create; another value means another business on the same
  *                       Stripe account, and the event is none of ours
+ * @param currentPeriodStart start of the current period (item 0), when the event has one (K8.2)
+ * @param scope          {@code kiwiply_scope} metadata ({@link #SCOPE_ORG} / {@link #SCOPE_PERSONAL}), null on events that predate it (K8.2, 07 s5)
+ * @param orgId          {@code org_id} metadata when the scope is org
+ * @param quoteId        {@code quote_id} metadata set at checkout and on subscription updates
+ * @param items          every subscription item (id, price, quantity), for add-on mirroring
+ * @param invoice        the invoice snapshot, on {@code invoice.*} events
+ * @param scheduleId     the subscription schedule id, on subscriptions and {@code subscription_schedule.*} events
+ * @param discount       a coupon discount, on {@code customer.discount.*} events
+ * @param paymentIntentId payment intent of an invoice, when present
  */
 public record StripeWebhookEvent(
     String id,
@@ -41,8 +51,81 @@ public record StripeWebhookEvent(
     String clientReferenceId,
     Long amountCents,
     String currency,
-    String app
+    String app,
+    Instant currentPeriodStart,
+    String scope,
+    Long orgId,
+    String quoteId,
+    List<Item> items,
+    InvoiceInfo invoice,
+    String scheduleId,
+    DiscountInfo discount,
+    String paymentIntentId
 ) {
+    /** Values of the {@code kiwiply_scope} metadata (07 s5). */
+    public static final String SCOPE_PERSONAL = "personal";
+    public static final String SCOPE_ORG = "org";
+
+    /** One subscription item on the event. */
+    public record Item(String itemId, String priceId, long quantity) {}
+
+    /** One invoice line on the event. */
+    public record InvoiceLineInfo(String priceId, long quantity, long amount, String description, Instant periodStart, Instant periodEnd, boolean proration) {}
+
+    /** The invoice on an {@code invoice.*} event. */
+    public record InvoiceInfo(
+        String id,
+        String number,
+        String status,
+        String currency,
+        long amountDue,
+        long amountPaid,
+        Instant periodStart,
+        Instant periodEnd,
+        Instant dueAt,
+        Instant paidAt,
+        String hostedUrl,
+        String pdfUrl,
+        List<InvoiceLineInfo> lines
+    ) {
+        public InvoiceInfo {
+            lines = lines == null ? List.of() : List.copyOf(lines);
+        }
+    }
+
+    /** The discount on a {@code customer.discount.*} event. */
+    public record DiscountInfo(String couponId, Long amountOffMinor, Long percentOff) {}
+
+    public StripeWebhookEvent {
+        items = items == null ? List.of() : List.copyOf(items);
+    }
+
+    /** The pre-K8.2 shape (personal fields only); every new field is empty. Keeps hand-built events in tests and callers unchanged. */
+    public StripeWebhookEvent(
+        String id,
+        String type,
+        Instant created,
+        String objectType,
+        String customerId,
+        String subscriptionId,
+        String status,
+        String priceId,
+        Instant currentPeriodEnd,
+        Boolean cancelAtPeriodEnd,
+        String clientReferenceId,
+        Long amountCents,
+        String currency,
+        String app
+    ) {
+        this(id, type, created, objectType, customerId, subscriptionId, status, priceId, currentPeriodEnd, cancelAtPeriodEnd, clientReferenceId,
+            amountCents, currency, app, null, null, null, null, List.of(), null, null, null, null);
+    }
+
+    /** True when the event says it belongs to an organization's billing. */
+    public boolean isOrgScoped() {
+        return SCOPE_ORG.equalsIgnoreCase(scope == null ? "" : scope.trim());
+    }
+
     /** The {@code app} metadata value Kiwiply puts on every customer, checkout and subscription. */
     public static final String KIWIPLY = "kiwiply";
 

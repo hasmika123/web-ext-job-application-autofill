@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Decision O4, phase S6 (docs/enterprise-v2/19 section 6.3): the one-time code that connects the browser extension to an ENTERPRISE account.
+        Tenant hosts cannot be listed in the extension's externally_connectable, so the tenant host mints a code (60 seconds, single use) and the
+        platform /connect page exchanges it for an extension session. The raw code is never stored: only its SHA-256, bound to the account
+        (user_id) and its organization (org_id, the future tid). A row carries nothing else. Purely additive.
+    -->
+    <changeSet id="ext-connect-code-1" author="enterprise">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="ext_connect_code"/></not></preConditions>
+        <createTable tableName="ext_connect_code">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code_hash" type="varchar(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_ext_connect_code_hash"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="used_at" type="${datetimeType}"/>
+        </createTable>
+        <createIndex tableName="ext_connect_code" indexName="ix_ext_connect_code_expires">
+            <column name="expires_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="ext_connect_code" baseColumnNames="user_id" constraintName="fk_ext_connect_code_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="ext_connect_code" baseColumnNames="org_id" constraintName="fk_ext_connect_code_org"
+                                 referencedTableName="organization" referencedColumnNames="id" onDelete="CASCADE"/>
+        <rollback>
+            <dropTable tableName="ext_connect_code"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

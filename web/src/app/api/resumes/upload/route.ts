@@ -1,6 +1,9 @@
 import { apiUrl } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
 import { LIMITS } from "@/lib/validate";
+import { demoReadOnly } from "@/lib/demo-server";
+import { formatBytesCap } from "@/lib/format-bytes";
+import { getBuilderConfig } from "@/lib/resume-builder-config";
 
 /**
  * POST /api/resumes/upload — Option A proxy upload (the permanent design on a
@@ -9,10 +12,10 @@ import { LIMITS } from "@/lib/validate";
  * bytes to the owner-scoped Spring endpoint. The browser never calls Spring/R2
  * directly, and the JWT stays server-side.
  *
- * Files are capped at 10MB. (formData() buffers; at this cap that's fine. True
- * streaming pass-through is a later refinement if the cap ever grows.)
+ * Files are capped at the admin setting `profile.upload.maxBytes` (read from the builder config; the
+ * API's file endpoint enforces the same key). formData() buffers; at this cap that's fine. True
+ * streaming pass-through is a later refinement if the cap ever grows.
  */
-const MAX_BYTES = 10 * 1024 * 1024;
 
 export async function POST(request: Request) {
   const token = await getAccessToken();
@@ -37,8 +40,9 @@ export async function POST(request: Request) {
   if (!(file instanceof File) || file.size === 0) {
     return Response.json({ error: "No file provided." }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
-    return Response.json({ error: "That file is too large (max 10MB)." }, { status: 413 });
+  const maxBytes = (await getBuilderConfig()).profile.uploadMaxBytes;
+  if (file.size > maxBytes) {
+    return Response.json({ error: `That file is too large (max ${formatBytesCap(maxBytes)}).` }, { status: 413 });
   }
   if (label.length > LIMITS.resumeLabelServer) {
     return Response.json(
@@ -66,6 +70,8 @@ export async function POST(request: Request) {
   if (createRes.status === 401) {
     return Response.json({ error: "Your session expired — please sign in again." }, { status: 401 });
   }
+  const demo = await demoReadOnly(createRes);
+  if (demo) return demo;
   // The Free resume cap (Phase 12.4). Passed through with its code and counts rather than
   // flattened into a 502: this is the one upload failure the user can actually do something
   // about, and the upload screen turns it into an inline upgrade prompt.

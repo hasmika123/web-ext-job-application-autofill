@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Resume Builder R3.11 (docs/RESUME-BUILDER-DESIGN.md section 8.7) - access control for a resume.
+
+        resume_access: one grant to a Kiwiply account (subject_type USER, by login) or to anyone holding a
+        link (subject_type LINK, a 32-char random token). The org marketer is NOT a row: that pairing is read
+        from the member's data_share consent when it exists. role is VIEW (EDIT is reserved). allow_download
+        belongs to a link: the design's AccessGrantDTO and the public page both carry it, so it needs a column.
+        A grant goes with its resume (FK cascade), so deleting a resume ends every share of it.
+
+        resume_view_event: the "who viewed it" audit, one row per non-owner read. A LINK viewer is anonymous:
+        viewer_login is NULL and no IP or user agent is stored. Rows go with the resume (FK cascade) and are
+        purged after resume.views.retentionDays. Additive only.
+    -->
+    <changeSet id="20261012070000-1" author="dossier">
+        <createTable tableName="resume_access">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="resume_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="owner_user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subject_type" type="varchar(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subject_login" type="varchar(50)"/>
+            <column name="token" type="char(32)"/>
+            <column name="role" type="varchar(8)" defaultValue="VIEW">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label" type="varchar(80)"/>
+            <column name="allow_download" type="boolean" valueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="${datetimeType}"/>
+            <column name="revoked_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by_login" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="view_count" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_viewed_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="resume_access"
+            baseColumnNames="resume_id"
+            constraintName="fk_resume_access_resume_id"
+            referencedTableName="resume"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+            baseTableName="resume_access"
+            baseColumnNames="owner_user_id"
+            constraintName="fk_resume_access_owner_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="resume_access" columnNames="token" constraintName="uq_resume_access_token"/>
+        <createIndex tableName="resume_access" indexName="ix_resume_access_resume">
+            <column name="resume_id"/>
+            <column name="revoked_at"/>
+        </createIndex>
+        <createIndex tableName="resume_access" indexName="ix_resume_access_subject">
+            <column name="subject_login"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261012070000-2" author="dossier">
+        <createTable tableName="resume_view_event">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="resume_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="owner_user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="viewer_kind" type="varchar(8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="viewer_login" type="varchar(50)"/>
+            <column name="access_id" type="bigint"/>
+            <column name="what" type="varchar(8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="viewed_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="resume_view_event"
+            baseColumnNames="resume_id"
+            constraintName="fk_resume_view_event_resume_id"
+            referencedTableName="resume"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+            baseTableName="resume_view_event"
+            baseColumnNames="owner_user_id"
+            constraintName="fk_resume_view_event_owner_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"/>
+        <createIndex tableName="resume_view_event" indexName="ix_resume_view_event_resume">
+            <column name="resume_id"/>
+            <column name="viewed_at"/>
+        </createIndex>
+        <createIndex tableName="resume_view_event" indexName="ix_resume_view_event_viewed_at">
+            <column name="viewed_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

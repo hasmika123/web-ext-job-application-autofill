@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Marketing workspace, Resumes page. Owned by that page ONLY.
+        mkt_resume_event: the append-only change log of org_resume rows (created, edited to a new version, approval requested,
+        approved, marked for update). It feeds "Recent Resume Activity" and the derived "needs update" flag. Metadata only: a short
+        label and a version number, never resume content and no sensitive PII.
+        Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded).
+    -->
+    <changeSet id="mkt-resumes-1-mkt_resume_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_resume_event"/></not></preConditions>
+        <createTable tableName="mkt_resume_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="resume_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="kind" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="version_no" type="smallint"/>
+            <column name="detail" type="varchar(200)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_resume_event" baseColumnNames="org_id" constraintName="fk_mkt_resume_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_resume_event" baseColumnNames="org_id, resume_id" constraintName="fk_mkt_resume_event_resume" referencedTableName="org_resume" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_resume_event" baseColumnNames="org_id, consultant_id" constraintName="fk_mkt_resume_event_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_resume_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_mkt_resume_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="mkt_resume_event" indexName="ix_mkt_resume_event_time"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="mkt_resume_event" indexName="ix_mkt_resume_event_resume"><column name="org_id"/><column name="resume_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="mkt_resume_event" indexName="ix_mkt_resume_event_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_resume_event" constraintName="fk_mkt_resume_event_actor"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, job source flow (branch ent-talent-consultant). Product decision 2026-10-13: Kiwiply does NOT load full job details from any job
+        source. The marketer enters a few details, the SOURCE LINK (the posting URL) and a short note; the consultant opens the link and applies on the source site
+        with the browser extension. One companion table (client_requirement itself is shared and untouched):
+          cws_job_source  one row per job: source_url (https only, validated on write and on read), source_name (LinkedIn, Dice, Company site ...), quick_info
+                          (the marketer's short note, scanned by the PII guard) and who added it. The marketer role writes it in the real product; the demo
+                          seeder writes stand-in rows (sample_data = true).
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FKs (client_requirement, org_member), every secondary index starts
+        with org_id, DATETIME(6) UTC, additive, empty rollback, no JSON, no sensitive columns.
+    -->
+    <changeSet id="ent-cws-20-cws_job_source" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_job_source"/></not></preConditions>
+        <createTable tableName="cws_job_source">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="source_url" type="varchar(500)"/>
+            <column name="source_name" type="varchar(80)"/>
+            <column name="quick_info" type="varchar(500)"/>
+            <column name="added_by_member_id" type="bigint"/>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_job_source" baseColumnNames="org_id" constraintName="fk_cws_job_source_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_job_source" baseColumnNames="org_id, requirement_id" constraintName="fk_cws_job_source_req" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_job_source" baseColumnNames="org_id, added_by_member_id" constraintName="fk_cws_job_source_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_job_source" columnNames="org_id, requirement_id" constraintName="uk_cws_job_source_req"/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="cws_job_source" constraintName="fk_cws_job_source_member"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

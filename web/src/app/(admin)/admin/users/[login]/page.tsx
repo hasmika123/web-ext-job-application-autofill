@@ -9,7 +9,7 @@ import CustomerBilling from "@/components/admin/CustomerBilling";
 import type { CustomerDetail } from "@/lib/customers";
 
 export const metadata: Metadata = {
-  title: "User · Admin · Kiwiply",
+  title: "User · Admin",
   robots: { index: false, follow: false },
 };
 
@@ -124,9 +124,9 @@ function BackLink() {
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-paper px-4 py-3">
+    <div className="min-w-0 bg-paper px-4 py-3">
       <dt className="text-[11px] uppercase tracking-wide text-ink-soft">{label}</dt>
-      <dd className="mt-0.5 text-sm text-ink">{value}</dd>
+      <dd className="mt-0.5 break-words text-sm text-ink">{value}</dd>
     </div>
   );
 }

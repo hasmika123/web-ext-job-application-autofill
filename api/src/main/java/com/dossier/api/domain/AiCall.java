@@ -45,6 +45,81 @@ public class AiCall implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** Which provider served (or failed) the call; rows from before I1.10 are {@code gemini}. */
+    @Column(name = "provider", nullable = false, length = 20)
+    private String provider = "gemini";
+
+    @Column(name = "latency_ms")
+    private Integer latencyMs;
+
+    /** False for a FAILED attempt (cost 0): the ledger also records errors so the admin page can show them. */
+    @Column(name = "success", nullable = false)
+    private boolean success = true;
+
+    /** Short code of why it failed (an {@code AiErrorKind}); never a provider message. */
+    @Column(name = "error_kind", length = 24)
+    private String errorKind;
+
+    /** The catalog service this call served (K7.2, docs/subscriptions/06 section 6); null for calls with no service (the admin probe). */
+    @Column(name = "feature_key", length = 60)
+    private String featureKey;
+
+    /** The personal usage-ledger reservation behind this call, once a caller reserves (K7.5); null until then. */
+    @Column(name = "usage_event_id")
+    private Long usageEventId;
+
+    /** {@code PERSONAL} or {@code ORG}; null on rows written before K7.2. */
+    @Column(name = "usage_scope", length = 8)
+    private String usageScope;
+
+    /** The organization an ORG-scoped call was made for; null on the personal path. */
+    @Column(name = "org_id")
+    private Long orgId;
+
+    /** The consultant an ORG-scoped call benefited; null on the personal path. */
+    @Column(name = "beneficiary_login", length = 50)
+    private String beneficiaryLogin;
+
+    public String getFeatureKey() {
+        return featureKey;
+    }
+
+    public void setFeatureKey(String featureKey) {
+        this.featureKey = featureKey;
+    }
+
+    public Long getUsageEventId() {
+        return usageEventId;
+    }
+
+    public void setUsageEventId(Long usageEventId) {
+        this.usageEventId = usageEventId;
+    }
+
+    public String getUsageScope() {
+        return usageScope;
+    }
+
+    public void setUsageScope(String usageScope) {
+        this.usageScope = usageScope;
+    }
+
+    public Long getOrgId() {
+        return orgId;
+    }
+
+    public void setOrgId(Long orgId) {
+        this.orgId = orgId;
+    }
+
+    public String getBeneficiaryLogin() {
+        return beneficiaryLogin;
+    }
+
+    public void setBeneficiaryLogin(String beneficiaryLogin) {
+        this.beneficiaryLogin = beneficiaryLogin;
+    }
+
     public Long getId() {
         return id;
     }
@@ -103,6 +178,38 @@ public class AiCall implements Serializable {
 
     public void setCostMicros(long costMicros) {
         this.costMicros = costMicros;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
+
+    public Integer getLatencyMs() {
+        return latencyMs;
+    }
+
+    public void setLatencyMs(Integer latencyMs) {
+        this.latencyMs = latencyMs;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public String getErrorKind() {
+        return errorKind;
+    }
+
+    public void setErrorKind(String errorKind) {
+        this.errorKind = errorKind;
     }
 
     public Instant getCreatedAt() {

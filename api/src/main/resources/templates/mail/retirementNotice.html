@@ -1,0 +1,30 @@
+<!doctype html>
+<!--
+  Retirement notice e-mail (personal Kiwiply, green theme): "your plan is changing on {date}" (60, 30, 7 and 1 days before) and, with the same frame, "your account moved to
+  Free" once the date has passed. Docs: docs/subscriptions/11-plan-retirement.md section 4; story K10.3.
+  Model (set by RetirementNoticeService, every line already written from the copy register in the user's language):
+    subject, preheader, kicker, line1, line2, intro (the greeting and the first sentence), stripTitle, stripText, paragraphs (list), emphasis (nullable),
+    button, footer, link. Optional: assetBase (art folder, default https://kiwiply.com/email). No new images; the same art as the notification e-mail.
+-->
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}" lang="en">
+  <head>
+    <title th:text="${subject}">Your plan is changing</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+  </head>
+  <body style="margin: 0; padding: 0">
+    <div th:replace="~{mail/fragments :: preheader(${preheader})}"></div>
+    <th:block th:with="art=${assetBase} ?: 'https://kiwiply.com/email', accent='#5cc21f', btnText='#0b2a12', accentText='#2f7d12', heroBg='#eaf6e3', stripBg='#eaf6e3'">
+      <th:block th:replace="~{mail/fragments :: shell('kiwiply', null, null, null, ${art}, ~{::section})}">
+        <section>
+          <table th:replace="~{mail/fragments :: hero(${heroBg}, ${art} + '/kiwi-hero-active.png', 230, ${kicker}, ${line1}, ${line2}, ${accentText}, ${intro}, ${link}, ${button}, ${accent}, ${btnText})}"></table>
+          <table th:replace="~{mail/fragments :: strip(${stripBg}, ${stripTitle}, ${stripText})}"></table>
+          <p th:each="para : ${paragraphs}" style="margin: 0; padding: 12px 28px 0 28px; font-size: 14px; line-height: 1.55; color: #232826" th:text="${para}">A paragraph.</p>
+          <p th:if="${emphasis != null}" style="margin: 0; padding: 12px 28px 0 28px; font-size: 14px; line-height: 1.55; font-weight: 700; color: #2f7d12" th:text="${emphasis}">Last day.</p>
+          <p style="margin: 0; padding: 16px 28px 18px 28px; font-size: 12px; line-height: 1.5; color: #6b726e" th:text="${footer}">Footer</p>
+        </section>
+      </th:block>
+    </th:block>
+  </body>
+</html>

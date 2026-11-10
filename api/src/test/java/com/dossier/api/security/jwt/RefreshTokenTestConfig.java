@@ -1,6 +1,7 @@
 package com.dossier.api.security.jwt;
 
 import com.dossier.api.service.AdminMfaService;
+import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.RefreshTokenService;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -23,5 +24,10 @@ public class RefreshTokenTestConfig {
     @Bean
     AdminMfaService adminMfaService() {
         return Mockito.mock(AdminMfaService.class);
+    }
+
+    @Bean
+    DemoGuard demoGuard() {
+        return Mockito.mock(DemoGuard.class);
     }
 }

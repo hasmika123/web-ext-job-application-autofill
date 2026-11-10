@@ -1,5 +1,7 @@
 package com.dossier.api.repository;
 
+import org.springframework.data.domain.Pageable;
+import java.time.Instant;
 import com.dossier.api.domain.RefreshToken;
 import java.util.List;
 import java.util.Optional;
@@ -39,4 +41,16 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update RefreshToken t set t.revoked = true where t.userId = :userId and t.revoked = false")
     int revokeAllByUserId(@Param("userId") Long userId);
+
+    // ---- retention (T1.4): read by the retention sweep only; nothing else deletes these rows in bulk ----
+
+    @Query("select count(t) from RefreshToken t where t.expiresAt < :cutoff")
+    long countPurgeable(@Param("cutoff") Instant cutoff);
+
+    @Query("select t.id from RefreshToken t where t.expiresAt < :cutoff order by t.id")
+    List<Long> purgeableIds(@Param("cutoff") Instant cutoff, Pageable page);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from RefreshToken t where t.id in :ids")
+    int deleteByIdIn(@Param("ids") List<Long> ids);
 }

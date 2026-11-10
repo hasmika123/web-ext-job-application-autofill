@@ -44,7 +44,7 @@ public class ErrorDigestAppender extends AppenderBase<ILoggingEvent> {
             digest.add(
                 logger,
                 event.getMessage(),
-                event.getFormattedMessage(),
+                tenantPrefix(event) + event.getFormattedMessage(),
                 root == null ? null : root.getClassName(),
                 trace(thrown),
                 Instant.ofEpochMilli(event.getTimeStamp())
@@ -52,6 +52,19 @@ public class ErrorDigestAppender extends AppenderBase<ILoggingEvent> {
         } catch (RuntimeException ignored) {
             // A broken digest is never allowed to break logging.
         }
+    }
+
+    /** X1.10: which tenant the error happened for (ids and a hostname only), so the digest line is attributable; empty when none. */
+    static String tenantPrefix(ILoggingEvent event) {
+        java.util.Map<String, String> mdc = event.getMDCPropertyMap();
+        if (mdc == null || mdc.get("tenant") == null) return "";
+        StringBuilder b = new StringBuilder("[tenant=").append(clean(mdc.get("tenant")));
+        if (mdc.get("host") != null) b.append(" host=").append(clean(mdc.get("host")));
+        return b.append("] ").toString();
+    }
+
+    private static String clean(String v) {
+        return v.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
     private static IThrowableProxy rootCause(IThrowableProxy t) {

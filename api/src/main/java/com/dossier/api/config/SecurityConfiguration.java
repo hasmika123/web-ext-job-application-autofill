@@ -3,6 +3,8 @@ package com.dossier.api.config;
 import static org.springframework.security.config.Customizer.withDefaults;
 
 import com.dossier.api.security.*;
+import com.dossier.api.service.AccountScopes;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,6 +14,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.servlet.util.matcher.MvcRequestMatcher;
@@ -34,7 +37,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc, ObjectProvider<AccountScopes> accountScopes, ObjectProvider<com.dossier.api.service.ent.members.EnterpriseAccountLifecycle> enterpriseAccounts, @org.springframework.beans.factory.annotation.Value("${dossier.management.scrape-token:}") String scrapeToken) throws Exception {
         http
             .cors(withDefaults())
             .csrf(csrf -> csrf.disable())
@@ -43,10 +46,35 @@ public class SecurityConfiguration {
                 authz
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate/mfa")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate/demo")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/demo")).permitAll()
+                    // T1.5: the subprocessor register is public, read-only.
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/legal/subprocessors")).permitAll()
+                    // Enterprise V2 (X1.3): the host-derived public view of a tenant. 404 while enterprise is off or the host is unknown.
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/demo")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/policies")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/policies/*")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/assets/*")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.HEAD, "/api/public/tenant/assets/*")).permitAll()
+                    // The two public on/off switches (orgs, demo): booleans only, cached, never per-user (PublicConfigResource).
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/config/public")).permitAll()
+                    // Resume share links (R3.11): the 32-char token is the credential. GET only; the resource
+                    // rate-limits, answers every refusal with the same 404 and stores nothing about the visitor.
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/resumes/*")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/resumes/*/pdf")).permitAll()
+                    // Join previews (O2.2): the invite token / join code is the credential. GET only; JoinResource rate-limits, answers
+                    // every miss with the same 404 and never caches. Accepting (POST) needs a signed-in account.
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/join/*")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/join/code/*")).permitAll()
+                    // Accepting an invitation to a SEPARATE organization (decision O4): the invite token is the credential and the person has no account yet.
+                    // JoinResource.acceptInvite answers 401 itself for the legacy (shared-account) organizations, which still need a signed-in account.
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/join/*/accept")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/auth/google")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/refresh")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/logout")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/extension/connect-code/exchange")).permitAll()
                     .requestMatchers(mvc.pattern("/api/register")).permitAll()
                     .requestMatchers(mvc.pattern("/api/activate")).permitAll()
                     .requestMatchers(mvc.pattern("/api/account/reset-password/init")).permitAll()
@@ -60,13 +88,19 @@ public class SecurityConfiguration {
                     // way. It is NOT unprotected: the Stripe-Signature header is verified against
                     // the webhook secret before anything is read (see BillingWebhookResource).
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/billing/webhook")).permitAll()
+                    // The pricing page prices a basket without an account (anonymous quotes); the resource requires authentication itself for every
+                    // other kind and rate-limits by IP.
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/billing/quotes")).permitAll()
+                    // The pricing page's catalog: published public plans only, read-only, cached (K5.1).
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/catalog/public")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/catalog/public/plans/*")).permitAll()
                     .requestMatchers(mvc.pattern("/api/admin/**")).hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/api/**")).authenticated()
                     .requestMatchers(mvc.pattern("/v3/api-docs/**")).hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/management/health")).permitAll()
                     .requestMatchers(mvc.pattern("/management/health/**")).permitAll()
-                    .requestMatchers(mvc.pattern("/management/info")).permitAll()
-                    .requestMatchers(mvc.pattern("/management/prometheus")).permitAll()
+                    // X1.13: metrics need an admin JWT or the dedicated scrape token; info is admin-only (the /management/** rule below)
+                    .requestMatchers(mvc.pattern("/management/prometheus")).hasAnyAuthority(AuthoritiesConstants.ADMIN, ScrapeTokenFilter.AUTHORITY)
                     .requestMatchers(mvc.pattern("/management/**")).hasAuthority(AuthoritiesConstants.ADMIN)
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -75,7 +109,17 @@ public class SecurityConfiguration {
                     .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
                     .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
             )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()));
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()))
+            // X1.13: the scrape token authenticates /management/prometheus only, ahead of the JWT filter
+            .addFilterBefore(new ScrapeTokenFilter(scrapeToken), BearerTokenAuthenticationFilter.class)
+            // Enterprise V2 (X1.5): after bearer authentication, keep tenant-bound tokens on their own tenant's routes.
+            .addFilterAfter(new TenantTokenBindingFilter(accountScopes), BearerTokenAuthenticationFilter.class)
+            // Decision O4: an enterprise account has no personal plan or personal inbox; those routes answer the generic 404 for its tokens.
+            .addFilterAfter(new AccountKindRouteFilter(), BearerTokenAuthenticationFilter.class)
+            // Decision O4 (S8): an enterprise token works only while its person holds an ACTIVE seat (suspended / offboarded = refused at once).
+            .addFilterAfter(new EnterpriseSeatFilter(enterpriseAccounts), BearerTokenAuthenticationFilter.class)
+            // Administrator-issued temporary password: the session can only change it (PASSWORD_CHANGE_REQUIRED everywhere else).
+            .addFilterAfter(new PasswordChangeRequiredFilter(), BearerTokenAuthenticationFilter.class);
         return http.build();
     }
 

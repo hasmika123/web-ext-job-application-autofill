@@ -1,4 +1,26 @@
 import { serverApiFetch } from "@/lib/api";
+import { badId, forward, forwardJson, ID } from "@/lib/tracker-proxy";
+
+/**
+ * GET /api/applications/:id - one application with its timeline `events`, `notes`, `interviews`,
+ * `mailCount` and inbox `suggestions` (the detail sheet's one call). 404 when it is not the caller's.
+ */
+export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  if (!ID.test(id)) return badId();
+  return forward(`/api/profile/applications/${id}`);
+}
+
+/**
+ * PATCH /api/applications/:id - the user's own changes, body `{status?, nextAction?, nextActionAt?, starred?,
+ * archived?, resumeId?, outcome?}` (a field left out stays; `null` clears nextAction, nextActionAt,
+ * resumeId, outcome). Spring writes the timeline events and answers the updated application.
+ */
+export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  if (!ID.test(id)) return badId();
+  return forwardJson(request, `/api/profile/applications/${id}`, "PATCH");
+}
 
 /**
  * Mutations for one of the current user's tracked applications, proxied to Spring's
@@ -6,7 +28,7 @@ import { serverApiFetch } from "@/lib/api";
  * moves, the "Did you submit?" nudge (status -> APPLIED + confirm), and dismiss/delete.
  * Ownership is enforced server-side (404 if not the caller's application).
  */
-const STATUSES = ["DRAFT", "SAVED", "APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
+const STATUSES = ["DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN"];
 // Strict enums, mirrored from the backend JobType / JobMode.
 const JOB_TYPES = ["FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "TEMPORARY", "OTHER"];
 const JOB_MODES = ["ON_SITE", "HYBRID", "REMOTE", "OTHER"];

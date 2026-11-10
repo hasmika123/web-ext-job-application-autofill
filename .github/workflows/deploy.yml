@@ -1,12 +1,38 @@
 name: Deploy
 
-# On merge to main: build the api + web images, push them to GHCR, then have the VPS pull
-# and restart. Building on GitHub's runners keeps the heavy Gradle/npm builds off the VPS.
+# On merge to main: build the api + web images, push them to GHCR TAGGED WITH THE COMMIT SHA (and
+# `latest`), then SSH to the box and run scripts/ops/deploy.sh with that exact sha. Building on
+# GitHub's runners keeps the heavy Gradle/npm builds off the VPS.
+#
+# What runs on the box is the repo's own scripts/ops/deploy.sh (REAL-GAPS-C P2.1, P2.2, P2.3), so a
+# deploy gets, in order: the shared-edge compose overlay (never our own Caddy), a Liquibase
+# destructive-statement lint, a pre-deploy database snapshot, `pull` at the explicit sha tag,
+# `up -d`, a wait for the API health and the web, public smoke checks, and an AUTOMATIC ROLLBACK to
+# the previous tags if anything after the `up` fails. DEPLOY.md section 5.4 has the full list.
+#
+# Manual rollback: Actions -> Deploy -> Run workflow, and fill `rollback_tag` with
+#   previous        the tags the box recorded before the current deploy (no registry call), or
+#   <40-hex sha>    any build CI pushed earlier (a tag that is not in GHCR stops the run untouched).
+# Leave it empty for an ordinary deploy of the branch you picked (main).
+#
+# Nothing here ever runs on a pull request; the deploy job only runs when DEPLOY_ENABLED is 'true'.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      rollback_tag:
+        description: 'ROLLBACK ONLY: "previous", or the sha tag to go back to. Empty = a normal deploy.'
+        type: string
+        required: false
+        default: ''
 
+# Least privilege: no job gets more than it lists below.
+permissions:
+  contents: read
+
+# One deploy at a time, and a queued one never cancels a running one (a half-finished `up` is worse
+# than a late one). deploy.sh also takes its own lock on the box.
 concurrency:
   group: deploy-main
   cancel-in-progress: false
@@ -20,24 +46,27 @@ jobs:
   build-push:
     name: Build + push images to GHCR
     runs-on: ubuntu-latest
+    # A rollback redeploys images that already exist, so nothing is built for it.
+    if: ${{ inputs.rollback_tag == '' }}
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build + push API image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: ./api
           file: ./api/Dockerfile
           push: true
+          # The sha tag is what deploy.sh deploys; `latest` stays for anything that still pulls it.
           tags: |
             ${{ env.REGISTRY }}/${{ env.OWNER }}/dossier-api:latest
             ${{ env.REGISTRY }}/${{ env.OWNER }}/dossier-api:${{ github.sha }}
@@ -45,7 +74,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build + push web image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           # Root context so the web build can sync parser-core from job-autofill/.
           context: .
@@ -64,31 +93,73 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Pull + restart on the VPS
+    name: Deploy on the VPS (scripts/ops/deploy.sh)
     needs: build-push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # Stays off until the VPS secrets are set and you flip the DEPLOY_ENABLED repo variable
     # to 'true'. Until then, images still build/push above; only the SSH step is skipped.
-    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    # `!failure() && !cancelled()` lets this run when build-push was SKIPPED (a rollback) but not
+    # when it failed.
+    if: ${{ !cancelled() && !failure() && vars.DEPLOY_ENABLED == 'true' }}
     steps:
+      - name: Work out what to deploy
+        id: target
+        env:
+          ROLLBACK_TAG: ${{ inputs.rollback_tag }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The value goes into a remote shell script below, so it is checked HERE against the same
+          # rule deploy.sh enforces (an explicit tag, never `latest`): letters, digits, . _ -
+          if [ -z "$ROLLBACK_TAG" ]; then
+            mode=deploy; tag="$COMMIT_SHA"
+          elif [ "$ROLLBACK_TAG" = previous ]; then
+            mode=rollback-previous; tag=previous
+          else
+            mode=rollback-tag; tag="$ROLLBACK_TAG"
+          fi
+          if [ "$mode" != rollback-previous ]; then
+            if ! printf '%s' "$tag" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' || [ "${tag,,}" = latest ]; then
+              echo "::error::'$tag' is not a deployable tag (an explicit tag, never 'latest')"
+              exit 1
+            fi
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Deploying: mode=$mode tag=$tag"
+
       - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          # deploy.sh waits up to 5 minutes for health, plus the pull and the snapshot.
+          command_timeout: 20m
           script: |
             set -e
+            MODE='${{ steps.target.outputs.mode }}'
+            TAG='${{ steps.target.outputs.tag }}'
             cd ${{ vars.DEPLOY_PATH || '~/web-ext-job-application-autofill' }}
+            # Make sure the box runs THIS repo's deploy.sh (and compose files), not a stale copy.
             git pull --ff-only
-            # Dossier shares a host with another stack, so the shared-edge overlay applies:
-            # it keeps our Caddy from starting (the box's edge Caddy owns :80/:443) and puts
-            # web + api on the shared web_edge network. See MIGRATION.md §10.
-            COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.shared-edge.yml"
-            $COMPOSE pull
-            $COMPOSE up -d
-            # No Caddy force-recreate here: there is no Dossier Caddy on this host, and the
-            # shared edge Caddyfile lives outside this repo (~/beecompete-edge/) so a deploy
-            # must never touch it. On a single-tenant host, drop the overlay and restore the
-            # force-recreate — the bind-mounted Caddyfile changes inode on git pull.
+            # scripts/ops/deploy.sh always uses `-f docker-compose.prod.yml -f
+            # docker-compose.shared-edge.yml` and refuses to run without the overlay: Dossier shares
+            # the host with BeeCompete, whose edge Caddy owns :80/:443 (MIGRATION.md section 10). It
+            # never touches the edge Caddyfile (~/beecompete-edge/, outside this repo).
+            case "$MODE" in
+              deploy)
+                bash scripts/ops/deploy.sh --dry-run --tag "$TAG"
+                bash scripts/ops/deploy.sh --tag "$TAG" ;;
+              rollback-previous)
+                bash scripts/ops/deploy.sh --rollback ;;
+              rollback-tag)
+                # Going back to an older build adds no migration (the database already has them), so
+                # the destructive-changeset lint, which diffs the old commit against the newer one,
+                # would only produce false alarms and could block an emergency rollback.
+                bash scripts/ops/deploy.sh --tag "$TAG" --allow-destructive-migrations ;;
+              *) echo "unknown mode: $MODE"; exit 1 ;;
+            esac
             docker image prune -f

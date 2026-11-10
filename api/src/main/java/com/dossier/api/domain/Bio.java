@@ -34,7 +34,24 @@ public class Bio implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     private User user;
 
+    /**
+     * Common Profile bookkeeping (Resume Builder, DESIGN 5.1): {@code provenance} per bio key,
+     * cached {@code completeness}, {@code seededFromResumeId}, onboarding state. Server-only: never in
+     * {@code BioDTO}, never hashed by {@code ProfileVersion}, so writing it does not make the
+     * extension re-pull.
+     */
+    @Column(name = "meta_json", columnDefinition = "json")
+    private String metaJson;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
+
+    public String getMetaJson() {
+        return this.metaJson;
+    }
+
+    public void setMetaJson(String metaJson) {
+        this.metaJson = metaJson;
+    }
 
     public Long getId() {
         return this.id;

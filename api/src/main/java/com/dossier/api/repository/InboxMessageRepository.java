@@ -27,6 +27,10 @@ public interface InboxMessageRepository extends JpaRepository<InboxMessage, Long
     /** The mail about one application (14.4b), newest first. */
     List<InboxMessage> findByUserIdAndApplicationIdOrderBySentAtDesc(Long userId, Long applicationId);
 
+    /** How many messages are linked to each of these applications (APP-E2E U6.2): rows of {@code [applicationId, count]}. */
+    @Query("select m.applicationId, count(m) from InboxMessage m where m.userId = :userId and m.applicationId in :ids group by m.applicationId")
+    List<Object[]> countByApplicationIds(@Param("userId") Long userId, @Param("ids") java.util.Collection<Long> ids);
+
     Optional<InboxMessage> findOneByIdAndUserId(Long id, Long userId);
 
     /** The message a reply answers, by its Message-ID — to follow a thread to its application. */

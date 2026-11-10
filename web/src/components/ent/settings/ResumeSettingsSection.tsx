@@ -1,0 +1,149 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, CheckIcon, Dialog, ErrorState, Skeleton, Switch, useToast } from "@kiwiply/ui";
+import { CARD } from "@/components/ent/dashboard/parts";
+import { fetchResumePolicy, saveConsultantShareLinks, type ResumePolicy } from "@/lib/ent/resume-policy";
+
+/**
+ * The Resumes tab of Settings: the Resume Builder policy. One switch lets consultants create share links for their organization resumes
+ * (default off; a marketer acting for a consultant can never, whatever it says). It autosaves: the switch moves at once, a quiet check
+ * shows when the API has it, and an Undo toast gives the old value back. A failed save puts the switch back and says why. The API is the
+ * gate; this section only draws what it answers.
+ */
+/** "3 active share links will stop working" (`stop`), or "3 share links are" (the toast: "3 share links are paused"). */
+function linksText(n: number, stop = false): string {
+  const noun = n === 1 ? "share link" : "share links";
+  if (stop) return `${n} active ${noun} will stop working`;
+  return `${n} ${noun} ${n === 1 ? "is" : "are"}`;
+}
+
+export default function ResumeSettingsSection({ orgId }: { orgId: number }) {
+  const toast = useToast();
+  const [policy, setPolicy] = useState<ResumePolicy | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "failed" | "denied">("loading");
+  const [saved, setSaved] = useState(false);
+  const [confirmOff, setConfirmOff] = useState(false);
+  const policyRef = useRef<ResumePolicy | null>(null);
+  const tick = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    policyRef.current = policy;
+  }, [policy]);
+  useEffect(
+    () => () => {
+      if (tick.current) clearTimeout(tick.current);
+    },
+    [],
+  );
+
+  const load = useCallback(async () => {
+    setStatus("loading");
+    const r = await fetchResumePolicy(orgId);
+    if (r.kind === "OK") {
+      setPolicy(r.policy);
+      setStatus("ready");
+    } else {
+      setStatus(r.kind === "DENIED" ? "denied" : "failed");
+    }
+  }, [orgId]);
+
+  useEffect(() => {
+    const t = setTimeout(() => void load(), 0);
+    return () => clearTimeout(t);
+  }, [load]);
+
+  const flashTick = () => {
+    setSaved(true);
+    if (tick.current) clearTimeout(tick.current);
+    tick.current = setTimeout(() => setSaved(false), 2000);
+  };
+
+  /** Optimistic write of the share-link switch; `undoable` is false for the write an Undo itself makes (no Undo of an Undo). */
+  const change = async (value: boolean, undoable = true) => {
+    const before = policyRef.current;
+    if (!before) return;
+    setSaved(false);
+    setPolicy({ ...before, consultantShareLinks: value });
+    const r = await saveConsultantShareLinks(orgId, value);
+    if (r.kind === "OK") {
+      setPolicy(r.policy);
+      flashTick();
+      toast({
+        title: value ? "Consultants can now create share links" : "Consultants can no longer create share links",
+        // Turning it off paused the existing links (kept, not deleted); Undo, like turning it on again, brings them back.
+        description: !value && before.activeConsultantLinks > 0 ? `${linksText(before.activeConsultantLinks)} paused. Turn this back on to restore ${before.activeConsultantLinks === 1 ? "it" : "them"}.` : undefined,
+        variant: "success",
+        action: undoable ? { label: "Undo", onClick: () => void change(before.consultantShareLinks, false) } : undefined,
+      });
+      return;
+    }
+    setPolicy(before);
+    if (r.kind === "DEMO") return; // the shell's one demo notice ("This is a demo account — changes aren't saved") already says it
+    if (r.kind === "DENIED") void load();
+    toast({ title: "Not saved", description: r.kind === "INVALID" ? r.message : "That change wasn't saved. Nothing changed.", variant: "error" });
+  };
+
+  if (status === "loading") return <Skeleton className="h-40 w-full rounded-2xl" />;
+  if (status === "denied") return <ErrorState what="these settings" description="You don't have access to the organization settings." />;
+  if (status === "failed" || !policy) return <ErrorState what="the organization settings" description="Please refresh in a moment." onRetry={() => void load()} />;
+
+  return (
+    <section aria-labelledby="org-set-resumes" className={`${CARD} p-5`} data-org-settings>
+      <h2 id="org-set-resumes" className="text-[16px] font-bold text-ink">
+        Resumes
+      </h2>
+      <div className="mt-4 flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <Switch
+            label="Share links"
+            description="Let consultants create share links for their organization resumes"
+            checked={policy.consultantShareLinks}
+            // Turning it ON just saves (autosave, check, Undo). Turning it OFF pauses every existing link, so it asks first.
+            onCheckedChange={(v) => (v ? void change(true) : setConfirmOff(true))}
+          />
+        </div>
+        <span aria-live="polite" title={saved ? "Saved" : undefined} data-saved-tick={saved ? "" : undefined} className="inline-flex h-5 w-5 flex-none items-center justify-center text-green-600">
+          {saved ? (
+            <>
+              <CheckIcon size={16} />
+              <span className="sr-only">Saved</span>
+            </>
+          ) : null}
+        </span>
+      </div>
+      <p className="mt-3 text-[12.5px] leading-snug text-muted">
+        Off by default. A marketer preparing a resume for a consultant can never create share links.
+      </p>
+      <Dialog
+        open={confirmOff}
+        onClose={() => setConfirmOff(false)}
+        title="Turn off share links?"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmOff(false)} className="max-sm:min-h-11" data-confirm-cancel>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              className="max-sm:min-h-11"
+              data-confirm-off
+              onClick={() => {
+                setConfirmOff(false);
+                void change(false);
+              }}
+            >
+              Turn off
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-soft" data-confirm-copy>
+          {policy.activeConsultantLinks > 0
+            ? `${linksText(policy.activeConsultantLinks, true)} right away. You can turn sharing back on later to restore ${policy.activeConsultantLinks === 1 ? "it" : "them"}.`
+            : "No share links are active right now. Consultants will no longer be able to create them. You can turn sharing back on later."}
+        </p>
+      </Dialog>
+    </section>
+  );
+}

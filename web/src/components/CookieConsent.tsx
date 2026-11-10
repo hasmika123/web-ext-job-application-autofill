@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Script from "next/script";
-import { useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useBottomBar } from "@kiwiply/ui";
 import { GA_MEASUREMENT_ID, analyticsEnabled } from "@/lib/analytics";
 
 /**
@@ -60,6 +61,17 @@ function setConsent(next: Choice): void {
   listeners.forEach((l) => l());
 }
 
+/** The banner's fixed frame; it tells the rest of the app it covers the bottom edge (the bug-report button and toasts clear it). */
+function ConsentFrame({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useBottomBar(ref);
+  return (
+    <div ref={ref} role="dialog" aria-live="polite" aria-label="Cookie consent" className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4 sm:px-6 sm:pb-6">
+      {children}
+    </div>
+  );
+}
+
 export default function CookieConsent() {
   const choice = useSyncExternalStore(subscribe, readConsent, serverConsent);
 
@@ -84,12 +96,7 @@ gtag('config', '${GA_MEASUREMENT_ID}');`}
       )}
 
       {choice === null && (
-        <div
-          role="dialog"
-          aria-live="polite"
-          aria-label="Cookie consent"
-          className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4 sm:px-6 sm:pb-6"
-        >
+        <ConsentFrame>
           <div className="mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl border border-line bg-paper p-4 shadow-[var(--shadow)] sm:flex-row sm:items-center sm:gap-4 sm:p-5">
             <p className="flex-1 text-[13px] leading-relaxed text-ink-soft">
               We use a few analytics cookies to understand how Kiwiply is used so we can improve it.
@@ -104,20 +111,20 @@ gtag('config', '${GA_MEASUREMENT_ID}');`}
               <button
                 type="button"
                 onClick={() => setConsent("denied")}
-                className="rounded-full border border-line px-4 py-2 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
+                className="rounded-full border border-line px-4 py-2 max-sm:min-h-11 text-[13px] font-semibold text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
               >
                 Decline
               </button>
               <button
                 type="button"
                 onClick={() => setConsent("granted")}
-                className="rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-on-accent transition-colors hover:brightness-95"
+                className="rounded-full bg-accent px-4 py-2 max-sm:min-h-11 text-[13px] font-semibold text-on-accent transition-colors hover:brightness-95"
               >
                 Accept
               </button>
             </div>
           </div>
-        </div>
+        </ConsentFrame>
       )}
     </>
   );

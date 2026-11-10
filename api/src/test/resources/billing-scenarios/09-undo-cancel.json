@@ -1,0 +1,15 @@
+{
+  "name": "undo-cancel",
+  "description": "The customer cancels, changes their mind before the period ends, and is renewed as normal.",
+  "steps": [
+    { "do": "quote", "as": "q1", "kind": "CHECKOUT", "interval": "MONTH", "addons": [] },
+    { "do": "checkout", "quote": "q1" },
+    { "do": "stripe.completeCheckout" },
+    { "do": "stripe.portalCancel" },
+    { "do": "expect", "subscription": { "cancelAtPeriodEnd": true } },
+    { "do": "stripe.portalUndoCancel" },
+    { "do": "expect", "subscription": { "cancelAtPeriodEnd": false }, "reconcileDrift": 0 },
+    { "do": "advance", "toPeriodEnd": true, "plusHours": 1 },
+    { "do": "expect", "subscription": { "status": "active", "cancelAtPeriodEnd": false }, "pro": true, "invoices": 2, "paidTotalMinor": 3998, "reconcileDrift": 0 }
+  ]
+}

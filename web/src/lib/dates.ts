@@ -34,3 +34,23 @@ export function formatDate(
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(display.locale, { ...options, timeZone: display.timeZone });
 }
+
+/**
+ * "just now", "5 minutes ago", "2 hours ago", "yesterday", "3 days ago", then a short date once it is over a week
+ * old. `nowMs` is a parameter so a caller (and a test) controls the clock; "" for a missing or unparseable date.
+ */
+export function timeAgo(iso: string | null | undefined, nowMs: number, display: DateDisplay = SERVER_DATE_DISPLAY): string {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const s = Math.max(0, Math.round((nowMs - t) / 1000));
+  if (s < 45) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} ${m === 1 ? "minute" : "minutes"} ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} ${h === 1 ? "hour" : "hours"} ago`;
+  const d = Math.round(h / 24);
+  if (d === 1) return "yesterday";
+  if (d <= 7) return `${d} days ago`;
+  return formatDate(iso, { month: "short", day: "numeric", year: "numeric" }, display);
+}

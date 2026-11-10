@@ -1,0 +1,10 @@
+# ===================================================================
+# The "ai-stub" profile (I1.14): server AI on, answered by the deterministic StubAiProvider - no key, no network,
+# no cost. Development and CI only: AiConfiguration refuses to start it together with the "prod" profile.
+# Used by `node scripts/dev/api-local.mjs --stub` and `web/scripts/ai-smoke.mjs --stub`.
+# ===================================================================
+dossier:
+  ai:
+    enabled: true
+    provider: gemini
+    api-key: ''

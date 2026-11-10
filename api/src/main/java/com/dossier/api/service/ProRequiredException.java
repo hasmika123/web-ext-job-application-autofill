@@ -19,6 +19,8 @@ public class ProRequiredException extends RuntimeException {
 
     private final String code;
     private final transient Map<String, Object> extra;
+    /** The service that was refused, when known: used only to choose the upgrade block of the 402 body, never part of the body itself. */
+    private transient String featureKey;
 
     public ProRequiredException(String code, String message) {
         this(code, message, Map.of());
@@ -28,6 +30,15 @@ public class ProRequiredException extends RuntimeException {
         super(message);
         this.code = code;
         this.extra = extra == null ? Map.of() : Map.copyOf(extra);
+    }
+
+    public ProRequiredException forFeature(String featureKey) {
+        this.featureKey = featureKey;
+        return this;
+    }
+
+    public String getFeatureKey() {
+        return featureKey;
     }
 
     public String getCode() {

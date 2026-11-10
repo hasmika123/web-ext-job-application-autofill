@@ -1,4 +1,15 @@
 import { serverApiFetch } from "@/lib/api";
+import { forward, search } from "@/lib/tracker-proxy";
+
+/**
+ * GET /api/applications - the list. With no query it is the old plain array; with any of
+ * `page, size, sort, q, status, company, archived, ghosted` Spring answers one page
+ * `{items, total, page, size, summary}` (the per-tab counts), so the board filters, sorts and pages on the
+ * server. The query string is forwarded as is; Spring validates it (400 `SORT_INVALID`, 422 `TRACKER_INVALID`).
+ */
+export async function GET(request: Request) {
+  return forward(`/api/profile/applications${search(request)}`);
+}
 
 /**
  * Create a tracked application by hand, proxied to Spring's user-scoped
@@ -6,7 +17,7 @@ import { serverApiFetch } from "@/lib/api";
  * without the extension" path: the board's "Add application" form posts here. Server
  * owns createdAt/updatedAt/user; we only forward the fields a person can fill in.
  */
-const STATUSES = ["DRAFT", "SAVED", "APPLIED", "INTERVIEW", "OFFER", "REJECTED"];
+const STATUSES = ["DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN"];
 // Strict enums, mirrored from the backend JobType / JobMode.
 const JOB_TYPES = ["FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "TEMPORARY", "OTHER"];
 const JOB_MODES = ["ON_SITE", "HYBRID", "REMOTE", "OTHER"];

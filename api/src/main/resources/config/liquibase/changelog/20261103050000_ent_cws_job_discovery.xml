@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Job Discovery (branch ent-talent-consultant): the consultant's OWN saved searches and recent searches
+        (kind SAVED / RECENT in one table). The filters are plain columns, no JSON. Isolated to the consultant role: nobody else reads
+        or writes it. No PII columns (free text is scanned by the PII scanner before it is stored). 41-database-design.md R1-R10:
+        org_id NOT NULL, FK to organization, composite tenant FKs to consultant_profile and client_account, every secondary index
+        starts with org_id, varchar enum names, DATETIME(6) UTC, additive, empty rollback.
+    -->
+    <changeSet id="ent-cws-5-cws_saved_search" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_saved_search"/></not></preConditions>
+        <createTable tableName="cws_saved_search">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(10)" defaultValue="SAVED"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(80)"/>
+            <column name="keyword" type="varchar(120)"/>
+            <column name="location" type="varchar(120)"/>
+            <column name="job_type" type="varchar(20)"/>
+            <column name="work_mode" type="varchar(20)"/>
+            <column name="experience" type="varchar(20)"/>
+            <column name="industry" type="varchar(80)"/>
+            <column name="skill" type="varchar(80)"/>
+            <column name="client_id" type="bigint"/>
+            <column name="min_rate_minor" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="last_used_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_saved_search" baseColumnNames="org_id" constraintName="fk_cws_saved_search_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_saved_search" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_saved_search_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_saved_search" baseColumnNames="org_id, client_id" constraintName="fk_cws_saved_search_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_saved_search" indexName="ix_cws_saved_search_consultant"><column name="org_id"/><column name="consultant_id"/><column name="kind"/><column name="last_used_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

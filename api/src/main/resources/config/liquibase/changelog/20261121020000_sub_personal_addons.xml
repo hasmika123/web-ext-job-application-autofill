@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Personal add-ons and changes (docs/subscriptions/08-data-model.md sections 4.2 and 4.3; story K5.2). subscription_addon holds what a subscriber
+        has beyond the plan base: one LIVE row per (subscription, feature); live_seq is generated (0 while live, NULL once closed) so a UNIQUE key
+        allows exactly one live row but any number of closed ones. personal_subscription_change is the personal twin of the organization's
+        subscription_change (that name is taken by the org-scoped table): the audit and retry record of a confirmed change. Additive; guarded; empty rollback.
+    -->
+    <changeSet id="sub-personal-addon-table" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="subscription_addon"/></not></preConditions>
+        <createTable tableName="subscription_addon">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="subscription_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="product_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="price_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="quantity" type="int" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="allowance_override" type="bigint"/>
+            <column name="stripe_item_id" type="varchar(255)"/>
+            <column name="starts_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="ends_at" type="${datetimeType}"/>
+            <column name="live" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="change_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="subscription_addon" baseColumnNames="subscription_id" constraintName="fk_sub_addon_subscription"
+                                 referencedTableName="subscription" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="subscription_addon" baseColumnNames="user_id" constraintName="fk_sub_addon_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="subscription_addon" baseColumnNames="price_id" constraintName="fk_sub_addon_price"
+                                 referencedTableName="product_price" referencedColumnNames="id"/>
+        <createIndex tableName="subscription_addon" indexName="ix_sub_addon_user">
+            <column name="user_id"/>
+            <column name="live"/>
+        </createIndex>
+        <createIndex tableName="subscription_addon" indexName="ix_sub_addon_ends">
+            <column name="ends_at"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-personal-addon-live-seq" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="subscription_addon" columnName="live_seq"/></not></preConditions>
+        <!-- 0 while live, NULL once closed (MySQL refuses a generated column that reads the auto-increment id): UNIQUE (subscription, feature, live_seq) = one live row per feature, any number of closed ones (NULLs never collide). -->
+        <sql dbms="mysql">ALTER TABLE subscription_addon ADD COLUMN live_seq BIGINT GENERATED ALWAYS AS (IF(live, 0, NULL)) STORED</sql>
+        <sql dbms="mysql">CREATE UNIQUE INDEX ux_sub_addon_live ON subscription_addon (subscription_id, feature_key, live_seq)</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-personal-change-table" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="personal_subscription_change"/></not></preConditions>
+        <createTable tableName="personal_subscription_change">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="subscription_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="quote_id" type="bigint"/>
+            <column name="batch_id" type="char(36)"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"/>
+            <column name="product_id" type="bigint"/>
+            <column name="price_id" type="bigint"/>
+            <column name="quantity_from" type="int"/>
+            <column name="quantity_to" type="int"/>
+            <column name="plan_version_from" type="bigint"/>
+            <column name="plan_version_to" type="bigint"/>
+            <column name="interval_from" type="varchar(10)"/>
+            <column name="interval_to" type="varchar(10)"/>
+            <column name="payload_json" type="json"/>
+            <column name="effective_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="stripe_ref" type="varchar(255)"/>
+            <column name="stripe_idempotency_key" type="varchar(255)"/>
+            <column name="failed_reason" type="varchar(500)"/>
+            <column name="attempts" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="applied_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="personal_subscription_change" baseColumnNames="subscription_id" constraintName="fk_psc_subscription"
+                                 referencedTableName="subscription" referencedColumnNames="id"/>
+        <createIndex tableName="personal_subscription_change" indexName="ix_psc_sub">
+            <column name="subscription_id"/>
+            <column name="status"/>
+            <column name="effective_at"/>
+        </createIndex>
+        <createIndex tableName="personal_subscription_change" indexName="ix_psc_batch">
+            <column name="batch_id"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

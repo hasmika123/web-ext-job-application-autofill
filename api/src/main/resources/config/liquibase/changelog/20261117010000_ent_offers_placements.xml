@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Offers to placement (X9.8, X10.4, X10.6). Purely additive; no new table.
+          cws_offer        the org side RECORDS an offer (draft, then "extended" = recorded as received from the client). The business fields are plain
+                           numbers with a currency and a period (rate_minor + rate_period, base_salary_minor, total_comp_minor), an end date or term,
+                           notes. Never a bank, tax or identity column. Kiwiply signs nothing and sends nothing: the consultant alone accepts or declines.
+                           The stored value PENDING_REVIEW is the "extended" state (kept so every existing consultant query and row stays valid);
+                           DRAFT and WITHDRAWN are new values of the same varchar column.
+          cws_offer_event  gains who did it (actor_member_id, actor_kind MEMBER / CONSULTANT / SYSTEM) and a detail line.
+          talent_placement gains the end kind (COMPLETED / TERMINATED) with a reason, the notice date (ENDING) and the offer it came from. Existing
+                           ACTIVE / PENDING_START / ENDED rows stay valid (a null end_kind on an ENDED row is a normal completion).
+    -->
+    <changeSet id="20261117010000-1-offer-columns" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="cws_offer" columnName="client_id"/></not></preConditions>
+        <addColumn tableName="cws_offer">
+            <column name="client_id" type="bigint"/>
+            <column name="submission_id" type="bigint"/>
+            <column name="placement_id" type="bigint"/>
+            <column name="placement_type" type="varchar(20)"/>
+            <column name="rate_minor" type="bigint"/>
+            <column name="rate_period" type="varchar(10)"/>
+            <column name="end_date" type="date"/>
+            <column name="term_months" type="int"/>
+            <column name="notes" type="varchar(500)"/>
+            <column name="extended_at" type="${datetimeType}"/>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="updated_by_member_id" type="bigint"/>
+            <column name="updated_by_kind" type="varchar(12)" defaultValue="MEMBER"><constraints nullable="false"/></column>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="cws_offer" baseColumnNames="org_id, client_id" constraintName="fk_cws_offer_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_offer" baseColumnNames="org_id, submission_id" constraintName="fk_cws_offer_submission" referencedTableName="mkt_submission" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_offer" baseColumnNames="org_id, created_by_member_id" constraintName="fk_cws_offer_created_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_offer" baseColumnNames="org_id, updated_by_member_id" constraintName="fk_cws_offer_updated_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_offer" indexName="ix_cws_offer_status"><column name="org_id"/><column name="status"/><column name="offer_deadline"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The columns and data stay. -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="cws_offer" constraintName="fk_cws_offer_created_by"/>
+            <dropForeignKeyConstraint baseTableName="cws_offer" constraintName="fk_cws_offer_updated_by"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261117010000-2-offer-event-actor" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="cws_offer_event" columnName="actor_kind"/></not></preConditions>
+        <addColumn tableName="cws_offer_event">
+            <column name="actor_member_id" type="bigint"/>
+            <column name="actor_kind" type="varchar(12)" defaultValue="SYSTEM"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(300)"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="20261117010000-3-placement-end" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="talent_placement" columnName="end_kind"/></not></preConditions>
+        <addColumn tableName="talent_placement">
+            <column name="end_kind" type="varchar(12)"/>
+            <column name="end_reason" type="varchar(300)"/>
+            <column name="notice_on" type="date"/>
+            <column name="offer_id" type="bigint"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

@@ -183,5 +183,34 @@
     return out;
   }
 
-  JAF.sync = { providerFromSettings, pullAll, pushBio, pushResume, pushAll, syncNow, syncFieldCache, mergeResume, checkAndPull };
+  // Which resume does a fill use when the person did not pick one just now? The one last picked in the
+  // drawer, else the account's default, else the first live one. Pure: `resumes` is the local list.
+  function chooseResume(resumes, lastResumeId) {
+    const live = (resumes || []).filter((r) => r && !r.archived);
+    return live.find((r) => lastResumeId && r.id === lastResumeId) || live.find((r) => r.defaultResume) || live[0] || null;
+  }
+
+  // Make sure a resume's file bytes are in the local store before a fill attaches them. A resume
+  // created on the web arrives in the mirror as a record only (`hasFile` false) although the server
+  // holds its PDF (`r2ObjectKey`): fetch it once, cache it under the local id and mark the record.
+  // Best-effort and pull-only: any failure returns the resume unchanged, so the fill goes on without
+  // the file. Returns the (possibly updated) resume record.
+  async function ensureResumeFile(provider, storage, resume) {
+    storage = storage || JAF.storage;
+    if (!resume || resume.hasFile || resume.serverId == null || !resume.r2ObjectKey) return resume;
+    if (!provider || typeof provider.downloadResumeFile !== "function") return resume;
+    let got = null;
+    try { got = await provider.downloadResumeFile(resume.serverId); } catch (e) { return resume; }
+    if (!got || !got.blob || !got.blob.size) return resume;
+    try {
+      await storage.saveResumeFile(resume.id, got.blob);
+      const current = (await storage.getResume(resume.id)) || resume;
+      current.hasFile = true;
+      current.fileName = got.fileName || current.fileName || "resume.pdf";
+      await storage.saveResume(current);
+      return current;
+    } catch (e) { return resume; }
+  }
+
+  JAF.sync = { providerFromSettings, pullAll, pushBio, pushResume, pushAll, syncNow, syncFieldCache, mergeResume, checkAndPull, chooseResume, ensureResumeFile };
 })();

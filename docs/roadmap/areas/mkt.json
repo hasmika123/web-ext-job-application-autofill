@@ -1,0 +1,2825 @@
+{
+  "area": "mkt",
+  "name": "Marketing site & growth",
+  "prefix": "M",
+  "kind": "cross-cutting",
+  "updated": "2026-10-11",
+  "summary": "The public face and the growth engine: an honest-claims register enforced in CI, one landing page on the real differentiators, a pricing page that says the money rules out loud, an SEO foundation and a content engine only we can write truthfully (ATS guides from captured DOM, a free deterministic ATS check, companies/jobs pages from the posting store), the missing /help, referral and creator/campus programmes that fit the margin floor, and first-party growth analytics.",
+  "epics": [
+    {
+      "id": "M0",
+      "name": "Honest claims & the marketing QA gate",
+      "goal": "One register of what we say vs what ships, rendered through one helper, enforced by a lint in CI — no fabricated testimonials, numbers, partners or browsers on any public surface.",
+      "priority": "P0"
+    },
+    {
+      "id": "M1",
+      "name": "Positioning, landing & conversion",
+      "goal": "One landing page built on the real differentiators (the inbox that updates the board, you submit, the self-building profile), real product footage, honest live numbers, a phone path, a try-it page and measured CTAs.",
+      "priority": "P0"
+    },
+    {
+      "id": "M2",
+      "name": "Pricing page & honest money",
+      "goal": "The money rules said out loud in one block, a full comparison table from the catalog, Offer JSON-LD, an org calculator and context-aware arrival from the 402 sheet.",
+      "priority": "P0"
+    },
+    {
+      "id": "M3",
+      "name": "SEO foundation",
+      "goal": "A route registry feeding canonical, OG, sitemaps, breadcrumbs and JSON-LD; 404/redirects; llms.txt; Lighthouse and link checks in CI; Search Console wiring.",
+      "priority": "P0"
+    },
+    {
+      "id": "M4",
+      "name": "Help center (/help)",
+      "goal": "The missing public help site: searchable in-repo articles, FAQ with structured data, contextual deep links from the drawer and the app, per-ATS 'what we fill' pages and the permissions explainer.",
+      "priority": "P0"
+    },
+    {
+      "id": "M5",
+      "name": "Content engine: guides, free tools, programmatic pages",
+      "goal": "Content only we can write truthfully — ATS application guides from captured DOM, a free deterministic ATS resume check, application-question guides from aggregated labels, companies/jobs pages from the posting store, comparisons.",
+      "priority": "P1"
+    },
+    {
+      "id": "M6",
+      "name": "Referral programme & social sharing",
+      "goal": "Codes, attribution, qualification after 7 active days, Pro-time rewards as entitlement grants, fraud rules, an admin view, and share cards designed to be posted.",
+      "priority": "P1"
+    },
+    {
+      "id": "M7",
+      "name": "Campus, creator & partner programmes",
+      "goal": "Ambassadors on Pro-while-active, affiliates at 30% of the first 3 months with disclosure rules and a recorded payout ledger, a /campus page for career centres, a press kit, and the student discount if the user approves it.",
+      "priority": "P1"
+    },
+    {
+      "id": "M8",
+      "name": "Growth analytics & the marketing funnel",
+      "goal": "First-touch attribution captured server-side at signup, cookieless route counts, a six-step funnel by channel, Consent Mode v2 for GA4, an admin Growth page and flag-based marketing experiments.",
+      "priority": "P0"
+    },
+    {
+      "id": "M9",
+      "name": "Lifecycle email & newsletter",
+      "goal": "A three-email honest welcome series, a public changelog, a monthly product update to double-opt-in subscribers, consented dormant nudges and newsletter capture on content pages.",
+      "priority": "P1"
+    },
+    {
+      "id": "M10",
+      "name": "Store listings & distribution",
+      "goal": "Listings generated from the register, Firefox/Edge presence linked from the site, a real-UI screenshot pipeline, a polite review prompt and a launch kit.",
+      "priority": "P1"
+    },
+    {
+      "id": "M11",
+      "name": "Marketing site quality: tests, performance, accessibility",
+      "goal": "Playwright smoke at 390/768/1440, axe on every marketing route, a real image pipeline, cache headers for ISR routes and i18n-ready strings.",
+      "priority": "P1"
+    }
+  ],
+  "stories": [
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "T7.4"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/LANDING-V2-SPEC.md §1 and §13",
+        "job-autofill/STORE-LISTING.md honesty rule",
+        "git log --grep honest (ec0a4b2, 5bfaa1a)"
+      ],
+      "design": "docs/design/mkt/honest-claims-register.md",
+      "critical": true,
+      "id": "M0.1",
+      "epic": "M0",
+      "title": "Honest-claims register as data + <Claim> helper",
+      "benchmark": "G36 — competitors' unverifiable claims ('3X more interviews', '3,000,000 users'); Kiwiply publishes only sourced claims",
+      "story": "As the person who signs off marketing I want every public claim to be a typed entry with status, evidence and surfaces so that one flip changes every page and nothing unverified can be rendered.",
+      "genz": "This audience screenshots and fact-checks; one caught lie on TikTok costs more than any campaign buys.",
+      "ac": [
+        "web/src/content/claims.ts exports CLAIMS with id/text/status/evidence/surfaces/owner/reviewBy; the initial set in the design doc §3 is present",
+        "<Claim id> renders text, appends the caveat for partial, wraps planned in the existing Soon chip, and throws at build for banned/unknown ids",
+        "npm run claims:md -w web regenerates the Markdown table in docs/design/mkt/honest-claims-register.md §3 from the data (never hand-edited)",
+        "No page changes yet beyond one proof usage on the trust strip"
+      ],
+      "tests": [
+        "Build-time assertion test: unknown id fails next build; partial renders caveat; planned renders chip",
+        "claims:md output snapshot"
+      ],
+      "tech": "New web/src/content/claims.ts, web/src/components/marketing/Claim.tsx, web/scripts/claims-md.mjs; reuses the Soon chip from MarketingFooter.tsx and Eyebrow.tsx"
+    },
+    {
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/placeholder-data.ts:27",
+        "web/src/components/marketing/about/placeholder-data.ts:10",
+        "web/src/components/marketing/organizations/placeholder-data.ts:10",
+        "web/APP-V2-SPEC.md §7 (stats band)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M0.2",
+      "epic": "M0",
+      "title": "Remove fabricated testimonials and numbers from /, /v3, /about, /organizations",
+      "benchmark": "Rezi '4,510,834 job seekers helped', JobRight '3,000,000 trusted users' — we render nothing we cannot source",
+      "story": "As a visitor I want every quote and number on the site to be real so that what I read about Kiwiply is true.",
+      "genz": "Fake 'Priya S., Recent Graduate' quotes are exactly what this audience calls out.",
+      "ac": [
+        "TESTIMONIALS, ABOUT_TESTIMONIALS, V3_STORIES are empty arrays; SuccessStories/Testimonials/V3Stories render nothing when empty (no empty heading)",
+        "V3StatsBand renders the honest STATS value band instead of '1M+ Jobs Aggregated…'; V3Companies 'Our users get hired at…' wordmarks removed",
+        "/organizations OVERVIEW, MOBILE_STRIP, TEAM_ROWS numbers become clearly-labelled 'Example' mock data with fictional names (Northwind) and no percentages",
+        "PLACEHOLDER headers removed; every remaining claim on these pages goes through <Claim>"
+      ],
+      "tests": [
+        "Render tests: empty arrays render no section",
+        "claims-lint fixture passes on these pages"
+      ],
+      "tech": "web/src/components/marketing/placeholder-data.ts, about/placeholder-data.ts, organizations/placeholder-data.ts, v3/placeholder-data.ts, sections/SuccessStories.tsx, v3/V3StatsBand.tsx, v3/V3Companies.tsx"
+    },
+    {
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/nav.ts:93-199",
+        "web/src/app/(marketing)/contact/page.tsx:31-39"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M0.3",
+      "epic": "M0",
+      "title": "Footer and contact destinations made true",
+      "story": "As a visitor I want footer links to go where they say so that 'Status', 'Press', 'Careers', 'Accessibility' and 'Do Not Sell' are not all /contact or /privacy.",
+      "genz": "Dead-end links read as a shell company.",
+      "ac": [
+        "Careers, Press, Status, Accessibility, API render as Soon chips (existing pattern) or link to real pages once M7.5/M11.2/P-status exist",
+        "'Do Not Sell or Share My Personal Information' links to /privacy#your-rights with a working email/DSAR path (U14 export) and says plainly we do not sell data",
+        "'Application Tracker' no longer links to the auth-gated /dashboard from the marketing footer; 'Browser Extension Help' → /help (M4.1) or Soon until then",
+        "SOCIAL_LINKS render nothing while every href is '#'",
+        "/contact: Help Center → /help (or Soon), FAQ → /help/faq instead of /v3#faq, response-time sentence only when the A8.4 SLA is measured (register partial)"
+      ],
+      "tests": [
+        "Link test: every footer href resolves to 200 or is a Soon chip",
+        "Playwright 390px footer accordion"
+      ],
+      "tech": "web/src/components/marketing/nav.ts FOOTER_COLUMNS/FOOTER_LEGAL/SOCIAL_LINKS, MarketingFooter.tsx, (marketing)/contact/page.tsx QUICK"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        ".github/workflows/ci.yml (tsc/eslint/build only)",
+        "job-autofill/STORE-LISTING.md (CWS rejection 2026-09-18)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M0.4",
+      "epic": "M0",
+      "title": "claims-lint in CI with CLAIMS_STRICT on deploy",
+      "benchmark": "G36 — the register as a CI gate",
+      "story": "As a maintainer I want the build to fail on a banned phrase, a bare number or a stale claim so that honesty does not depend on memory.",
+      "genz": "Honesty as infrastructure, not vibes.",
+      "ac": [
+        "web/scripts/claims-lint.mjs implements the six checks in the design §4 (banned phrases, numbers, planned-without-chip, placeholders under CLAIMS_STRICT, review dates, store-listing vendor names and ≤5 repetitions)",
+        "Part of npm test -w web; deploy.yml sets CLAIMS_STRICT=1",
+        "GitHub annotations with file:line; allow-list comment // claim:allow <id> <reason>",
+        "Runs in under 2 s; no new dependencies"
+      ],
+      "tests": [
+        "web/scripts/claims-lint.test.mjs with fixtures for each failure",
+        "CI job green on version2 after M0.2"
+      ],
+      "tech": "TypeScript compiler API already in devDependencies for JSX text extraction; globs over web/src/components/marketing/**, web/src/app/(marketing)/**, web/content/**, job-autofill/STORE-LISTING.md"
+    },
+    {
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/partners-data.ts",
+        "web/src/components/marketing/nav.ts:172-180 (Brave/Opera/Safari)",
+        "job-autofill/BROWSERS.md (Safari deferred)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M0.5",
+      "epic": "M0",
+      "title": "One support matrix for browsers and ATS feeding tiles, help and store",
+      "story": "As a visitor I want the browsers and sites shown on the site to be the ones that actually work so that I do not install on Safari and bounce.",
+      "genz": "They will try Brave first; promising it and failing is worse than not listing it.",
+      "ac": [
+        "web/src/content/support-matrix.ts (browsers: Chrome/Edge ships, Firefox partial until the AMO smoke test, Safari planned; ATS: verified set from AUTOFILL-QA.md) is the only source for BROWSER_TILES, WORKS_TODAY/ON_THE_ROADMAP, the help matrix and the store listing capability wording",
+        "Brave/Opera/Safari tiles removed until verified (register banned until then)",
+        "An extension script npm run export:support in job-autofill writes the verified list from AUTOFILL-QA.md front matter; a test fails if the web copy drifts"
+      ],
+      "tests": [
+        "Drift test between job-autofill export and web/src/content/support-matrix.ts",
+        "Snapshot of TrustStrip at 390px"
+      ],
+      "tech": "partners-data.ts becomes a re-export of support-matrix.ts; nav.ts BROWSER_TILES reads it; job-autofill/AUTOFILL-QA.md gains a machine-readable header"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "E1.6"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/AUTOFILL-QA.md (manual verification only today)",
+        "docs/roadmap/COMPETITIVE-GAPS.md G2"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M0.6",
+      "epic": "M0",
+      "title": "Public fill-accuracy table per ATS (publishing side of the DOM-fixture harness)",
+      "benchmark": "G2 — Simplify's weakest point is Workday (~70% reported); publishing measured numbers with date and fixture count is a trust asset",
+      "story": "As a sceptical visitor I want to see how much of each ATS form Kiwiply actually fills, measured, dated, so that the claim is checkable.",
+      "genz": "A number with a method beats an adjective.",
+      "ac": [
+        "job-autofill CI writes test/fixtures/accuracy.json {ats, fixtures, requiredFilled%, fieldsFilled%, measuredAt, extVersion} (the E-area harness produces it; this story consumes it and ships a stub producer if E has not landed)",
+        "/help/autofill/accuracy renders the table with date, fixture count and a plain method paragraph; the register claim ats-verified links to it",
+        "Store listing capability paragraph links to the page (no numbers in the listing)",
+        "If a number drops below the threshold set in the runtime settings (A5), the page shows it anyway — we never hide a bad number"
+      ],
+      "tests": [
+        "Page renders from a fixture file; missing file renders 'not measured yet' not a crash",
+        "Claims lint allows the numbers because they come from the accuracy file (allow rule by import)"
+      ],
+      "tech": "job-autofill/test/accuracy-report.mjs (stub until E harness), web/src/app/(marketing)/help/autofill/accuracy/page.tsx reading web/content/generated/accuracy.json copied at build"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [
+        "T3.8",
+        "T1.6"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/COMPETITIVE-GAPS.md G27, G31",
+        "web/src/app/(marketing)/privacy/page.tsx (AI section)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M0.7",
+      "epic": "M0",
+      "title": "Trust statements: 'practice, never live cheating', 'AI never invents', 'never sold, never trained on, never shown to employers'",
+      "benchmark": "G27 (Final Round's reputational problem), G31 (Yoodli charges for training exclusion); we state it on the page",
+      "story": "As a visitor comparing tools I want the three lines competitors get hammered on stated plainly so that I know where Kiwiply stands before I upload a resume.",
+      "genz": "They assume AI is used; they want to know it is honest and that their data is theirs.",
+      "ac": [
+        "Register entries practice-only, ai-never-invents, data-never-sold-trained-shown with evidence paths (I-area guardrails, provider settings, policy clause) and status partial until T/I confirm; rendered via <Claim> on /pricing (interview practice row), the AI pillars on /, /about Guides, and /help privacy",
+        "Copy reviewed against the trust area's policy wording (T owns the policy; this story owns the marketing lines)",
+        "No line renders as ships until its evidence exists"
+      ],
+      "tests": [
+        "Claims lint passes; snapshot of the three placements at 390px"
+      ],
+      "tech": "web/src/content/claims.ts additions; sections/Pillars.tsx, about/Guides.tsx, pricing comparison rows"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/sections/SuccessStories.tsx",
+        "api/src/main/java/com/dossier/api/web/rest/AccountExportResource.java"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M0.8",
+      "epic": "M0",
+      "title": "Testimonial consent capture and the only path to a quote on the site",
+      "story": "As a happy user I want to offer a quote with my consent recorded so that Kiwiply can show real words, and as a visitor I want to know each quote is from a real consenting person.",
+      "genz": "Real first names and real roles, or nothing.",
+      "ac": [
+        "testimonial_consent table (design §2) + POST /api/testimonials {quote, displayName, roleText, consent:true} from a Settings card (U14 surface) and an admin review list (A1 surfaces) with approve/revoke (audited)",
+        "Approved rows are the only source for TESTIMONIALS (fetched at build/ISR 1h); revoke hides on next revalidate",
+        "Every rendered quote carries 'Shared with consent · <month year>'",
+        "DSAR export includes the row; account deletion revokes"
+      ],
+      "tests": [
+        "TestimonialResourceIT: consent required, revoke hides, deletion cascades",
+        "Web render test: only approved rows"
+      ],
+      "tech": "Liquibase 2026xxxx_testimonial_consent.xml, TestimonialResource.java, admin-v3 list component, web ISR fetch in sections/SuccessStories.tsx"
+    },
+    {
+      "status": "partial",
+      "size": "L",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/LANDING-V2-SPEC.md §12 phases",
+        "PROGRESS.md Current focus (version2)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.1",
+      "epic": "M1",
+      "title": "Landing v2 + /about + /organizations built (V2.1–V2.6) — existing",
+      "story": "As a visitor I want a complete marketing site so that I can understand and start using Kiwiply.",
+      "genz": "Bright, mobile-first, mascot — the look is right; the words need to be true.",
+      "ac": [
+        "Pages render under the scoped theme with header/footer, carousel, sections, mocks, mobile sheet (done)",
+        "Remaining: placeholder copy (M0.2), real renders in web/public/v2 (user-owed), conversion events (M1.6)"
+      ],
+      "tests": [
+        "npm test -w web and npm run build -w web green (existing)"
+      ],
+      "tech": "web/src/app/(marketing)/*, web/src/components/marketing/**, packages/ui/styles/theme-v2.css"
+    },
+    {
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/ChromeGate.tsx",
+        "web/src/lib/site.ts NON_INDEXABLE_PATHS (/v3)",
+        "docs/HANDOFF-ROADMAP.md §6 ('/ vs /v3 … the user's decision')"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.2",
+      "epic": "M1",
+      "title": "One landing: decide / vs /v3, merge the nav trees, retire the other with redirects",
+      "story": "As the owner I want one landing page and one header so that visitors, SEO and experiments are not split across two sites.",
+      "genz": "One front door.",
+      "ac": [
+        "Decision recorded in LANDING-V2-SPEC.md §14 (user picks); the losing route 301s to the winner; ChromeGate and the /v3 own-chrome path are removed if /v3 loses (or become the only header if it wins)",
+        "The FAQ moves to /help/faq (M4.1) and the stats band to the honest STATS band in either case",
+        "NON_INDEXABLE_PATHS drops /v3; sitemap updated",
+        "Header nav merged: one NAV with For Individuals / For Organizations / Pricing / Resources (Help, About, Contact)"
+      ],
+      "tests": [
+        "Redirect test; nav active-state test; Playwright 390px header sheet"
+      ],
+      "tech": "web/src/components/marketing/{nav.ts,ChromeGate.tsx,MarketingHeader.tsx}, v3/*, web/src/lib/site.ts, next.config.ts redirects"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/hero-slides.tsx",
+        "ROADMAP.md 'Competitor cross-check' and 'One thing to be cautious about'"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.3",
+      "epic": "M1",
+      "title": "Hero and pillars on the real differentiators + a 'Why you press submit' page",
+      "benchmark": "LazyApply/JobCopilot (Trustpilot ~2.2) sell volume; Simplify Autopilot 'goes without review'; our 'you submit, never ticks attestations' is the trust asset (COMPETITIVE-LANDSCAPE §4.1)",
+      "story": "As a visitor I want the first screen to tell me what only Kiwiply does — the inbox that updates my board, the profile that builds itself, and that I always press submit — so that I know why to pick it.",
+      "genz": "'It knew I got rejected before I opened the email' is the line they would post.",
+      "ac": [
+        "Slide 1 headline/lede rewritten around the three differentiators using register claims; 'on autopilot' appears only as the plan name on the Autopilot slide with 'prepares, you submit' in the same line",
+        "Pillars order: Inbox that updates your board · Autofill you review · Profile that builds itself · Best resume per job · Track everything; AI tiles carry the Pro chip",
+        "/why-you-submit: a short page (ATS anti-bot reality, attestation boxes, our rule, what Autopilot does and does not do) linked from the hero tick and the pricing Autopilot card",
+        "Copy fits 390px: h1 ≤ 3 lines at 36px"
+      ],
+      "tests": [
+        "Claims lint; Playwright 390/1440 screenshots into design/landing-v2/shots/",
+        "Link test for the new page"
+      ],
+      "tech": "web/src/components/marketing/hero-slides.tsx, sections/Pillars.tsx, new (marketing)/why-you-submit/page.tsx, routes registry entry (M3.1)"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M10.3"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/lib/site.ts (DEMO_VIDEO_URL = null)",
+        "web/LANDING-V2-SPEC.md §1 item 'Watch demo'"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.4",
+      "epic": "M1",
+      "title": "Real product footage: demo video + GIF loops from the screenshot pipeline",
+      "story": "As a visitor I want to watch the real drawer fill a real form in 60 seconds so that I believe it before installing.",
+      "genz": "They watch before they read; mock cards are not proof.",
+      "ac": [
+        "DEMO_VIDEO_URL set to a hosted MP4/YouTube of the real extension on a verified ATS form (recorded against the demo account via the M10.3 pipeline; no fabricated data on screen)",
+        "Three 6-second loops (fill plan → fill → inbox update) as muted autoplay videos with reduced-motion fallback posters, used in the hero art and the Inbox section",
+        "Watch-demo button appears (already gated on DEMO_VIDEO_URL); lightbox is keyboard accessible",
+        "No new runtime deps; files under web/public/v2/video with sizes documented in README"
+      ],
+      "tests": [
+        "Playwright: button visible when URL set, hidden when null; reduced-motion shows poster",
+        "Lighthouse: no CLS from media"
+      ],
+      "tech": "web/src/lib/site.ts DEMO_VIDEO_URL, HeroArt.tsx, sections/InboxTracking.tsx, web/public/v2/README.md"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/resources/config/liquibase/changelog/20260922000000_fill_event.xml",
+        "web/src/components/marketing/placeholder-data.ts STATS"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.5",
+      "epic": "M1",
+      "title": "Honest live numbers: GET /api/public/stats + <LiveStat> with floors",
+      "benchmark": "Rezi/JobRight invented counters; Kiwiply shows live, thresholded counts or nothing",
+      "story": "As a visitor I want any number on the site to be live and real so that 'applications filled this week' means exactly that.",
+      "genz": "Live counters are credible; round numbers with a plus sign are not.",
+      "ac": [
+        "GET /api/public/stats returns {fillsLast7d, applicationsTracked, postingsOpen, atsVerified} from fill_event, application, job_posting, support matrix; cached 10 min; null for any metric below its floor from settings `public.stats_floor.fills_7d` (default 500), `public.stats_floor.applications` (default 5,000), `public.stats_floor.postings` (default 1,000)",
+        "<LiveStat metric> renders the number with 'live' and the as-of time, or renders nothing (the layout never reserves space for an absent stat)",
+        "STATS value band keeps its qualitative tiles; live numbers appear only in the hero tick row when present",
+        "Claims lint recognises <LiveStat> as the only allowed numeric source"
+      ],
+      "tests": [
+        "PublicStatsResourceIT: floors, caching, no auth, no PII",
+        "Render test: null → nothing"
+      ],
+      "tech": "api PublicStatsResource.java (read-only queries with indexes on created_at), web/src/components/marketing/LiveStat.tsx"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "A5.1"
+      ],
+      "relates": [
+        "U18.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/src/lib/analytics.ts (track() never called from marketing routes)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.6",
+      "epic": "M1",
+      "title": "Marketing conversion events (cta_click, signup_started, install_click, pricing_view)",
+      "story": "As the owner I want to know which CTA and which page produce signups and installs so that copy changes are measured, not guessed.",
+      "genz": "The phone funnel cannot be tuned blind.",
+      "ac": [
+        "track() called from a shared <TrackedLink> on every marketing CTA with {id, route, surface}; signup_started fires once per session on /signup form focus or Google button; install_click carries the detected browser; pricing_view carries the highlighted plan",
+        "Events go to GA4 only after consent (existing) and to the first-party pipeline when U18.1 lands (adapter in analytics.ts, no second schema)",
+        "No PII, no user id in GA4 params",
+        "Event names documented in docs/design/user/analytics-events.md's taxonomy (append-only PR note; U18 owns the file)"
+      ],
+      "tests": [
+        "Unit: TrackedLink no-ops without gtag; fires with consent",
+        "Playwright: consent → click → dataLayer entry"
+      ],
+      "tech": "web/src/lib/analytics.ts, new web/src/components/marketing/TrackedLink.tsx used by MarketingHeader, HeroCarousel, FinalCta, PricingSections"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "U2.7",
+        "N0.6",
+        "N2.5"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/design/user/onboarding-activation.md §4 (phone path)",
+        "web/src/components/marketing/nav.ts SIGNUP_HREF"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.7",
+      "epic": "M1",
+      "title": "Phone visitor path: 'send the install link to my laptop' + continue on the web",
+      "benchmark": "G14 — Gen Z discovers jobs on the phone (22% TikTok vs 20.8% LinkedIn); Simplify/JobRight have apps; our extension cannot install on a phone so the path must be explicit",
+      "story": "As a phone visitor I want to send myself the install link and keep going on the web so that the extension's laptop-only nature does not end my visit.",
+      "genz": "Most of them arrive from a social link on a phone.",
+      "ac": [
+        "On touch/narrow UA the header and hero CTA become 'Start on your phone' (→ /signup) + 'Email me the laptop link' (POST /api/public/install-link {email}, setting `ratelimit.install_link.per_day` (default 3 per IP), double-use of the newsletter rate limiter, Brevo mail with the store links and a one-line honest note)",
+        "Signed-in phone users get the same from the dashboard checklist (U2.7 owns that card; this story owns the public one)",
+        "Copy states plainly: autofill works on a laptop; matches, saving, tracking and the inbox work on the phone"
+      ],
+      "tests": [
+        "InstallLinkResourceIT: rate limit, no account created, email template",
+        "Playwright mobile preset: CTA swap"
+      ],
+      "tech": "web/src/components/marketing/{MarketingHeader,HeroCarousel}.tsx UA/pointer detection (server hint + client), api PublicInstallLinkResource.java reusing NewsletterService mail plumbing"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "A5.1"
+      ],
+      "relates": [
+        "E12.4"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/COMPETITIVE-GAPS.md G9",
+        "job-autofill/ARCHITECTURE.md (generic matcher)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.8",
+      "epic": "M1",
+      "title": "/try: a sandbox application form the extension fills right after install",
+      "benchmark": "G9 — Simplify's test autofill; first value in 30 s before the first real form",
+      "story": "As a new install I want a safe practice form so that I see the review plan and a fill before I risk a real application.",
+      "genz": "Instant feedback or they uninstall.",
+      "ac": [
+        "/try renders a realistic multi-step form (name, contact, work history repeat, education, work authorization, custom dropdown, file upload) with no backend submission and a visible 'Practice form — nothing is sent' banner",
+        "The extension's generic matcher fills it (E-area ensures the page is in the host list or activeTab works); the page detects the fill via DOM mutation and shows 'Filled N fields — now try a real one' with links to the ATS guides",
+        "New installs land here from the onboarding/welcome page of the extension (E owns the redirect; this story ships the page + a query flag ?from=install for the funnel)",
+        "noindex (not a content page); 390px works but says autofill needs the laptop extension"
+      ],
+      "tests": [
+        "Playwright: form renders, mutation detector counts filled fields when values are set programmatically",
+        "Extension smoke (job-autofill npm test fixture) fills the /try DOM snapshot"
+      ],
+      "tech": "web/src/app/(marketing)/try/page.tsx + components/marketing/try/*; snapshot exported to job-autofill/test/fixtures/kiwiply-try.html"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.5"
+      ],
+      "relates": [
+        "U20.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/wxt.config.ts (host permissions)",
+        "job-autofill/BROWSERS.md",
+        "web/src/components/marketing/nav.ts ('Browser Extension' → /signup)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.9",
+      "epic": "M1",
+      "title": "/extension install page with browser detection, store links and the permissions summary",
+      "benchmark": "G11 (Firefox/Edge presence), G30 (permissions explainer) — Simplify asks <all_urls>; we list our hosts",
+      "story": "As a visitor I want one page that shows the right store button for my browser, what the extension can and cannot see, and what happens after install so that installing feels safe.",
+      "genz": "Permission dialogs scare them; explain before the dialog does.",
+      "ac": [
+        "Detects Chrome/Edge/Firefox/other; primary button links to the right store (CWS, Edge Add-ons, AMO; Edge may link to CWS until the Edge listing exists — says so); unsupported browsers get the laptop-link form (M1.7)",
+        "Permissions block generated from wxt.config.ts host list via a build-time export (no hand copy), with the reason for each; links to /help permissions explainer (M4.5)",
+        "SoftwareApplication JSON-LD (M3.1) with the real version from job-autofill/package.json",
+        "After-install steps: connect account, try the practice form, first real fill"
+      ],
+      "tests": [
+        "UA detection unit test; drift test between wxt.config.ts hosts and the rendered list",
+        "Playwright 390px"
+      ],
+      "tech": "web/src/app/(marketing)/extension/page.tsx, job-autofill script export:manifest-summary → web/content/generated/extension.json"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1",
+        "M3.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/sections/ForIndividuals.tsx (rows all link to /signup)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M1.10",
+      "epic": "M1",
+      "title": "Audience landing pages: /students, /new-grads, /career-switchers",
+      "benchmark": "Simplify's student/new-grad pages and JobRight's entry-level lists; ours stay honest and link to real matches",
+      "story": "As a student I want a page that speaks to first jobs and internships so that I see Kiwiply is for me, not for senior engineers.",
+      "genz": "Segment-specific copy converts; generic 'job seekers' does not.",
+      "ac": [
+        "Three pages composed from existing sections with audience-specific hero copy (register claims only), the Students carousel slide art, a 'what you get free' block, and live role counts for the audience's title cluster via GET /api/public/jobs/titles when above floor (M5.6) — otherwise no number",
+        "Each links to /campus (M7.4) and the ATS guides; canonical/OG/breadcrumbs from the registry",
+        "Internal links from the For Individuals section rows (currently all → /signup)"
+      ],
+      "tests": [
+        "Claims lint; link test; 390px screenshots"
+      ],
+      "tech": "web/src/app/(marketing)/{students,new-grads,career-switchers}/page.tsx reusing sections/*, hero-slides students art"
+    },
+    {
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "ROADMAP.md Phase 15.5/15.6",
+        "PROGRESS.md ('15.5 is DONE in code')"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M2.1",
+      "epic": "M2",
+      "title": "/pricing with plans, services, pop-ups and Contact-us routing (15.5/15.6) — existing",
+      "story": "As a visitor I want to see every plan and service with its price so that I can choose.",
+      "genz": "Public prices are the first trust test.",
+      "ac": [
+        "Free/Pro/Autopilot/Consultancy cards, What's included pop-ups, services, per-person menu, plan-aware Pro button, Contact-us for unsold items (done)"
+      ],
+      "tests": [
+        "Existing web build/lint; PricingSections renders with mock plan"
+      ],
+      "tech": "web/src/app/(marketing)/pricing/page.tsx, components/pricing/PricingSections.tsx, web/src/lib/catalog.ts"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [
+        "U15.2",
+        "B11.3",
+        "B5.1",
+        "B0.4"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "ROADMAP.md Phase 12 'Billing mechanics (locked)'",
+        "web/src/app/(marketing)/terms/page.tsx Billing section"
+      ],
+      "design": "docs/design/mkt/pricing-page.md",
+      "critical": true,
+      "id": "M2.2",
+      "epic": "M2",
+      "title": "The money block: billing rules said out loud, register-driven",
+      "benchmark": "G29 — billing is the #1 one-star theme at Teal, Simplify, JobRight, Jobscan (refund fee 3.5%, charges after cancel); we state no-weekly/no-trial/no-refund/cancel-keeps-period in one block",
+      "story": "As a visitor I want the billing rules in one screenshot-able block so that I never feel tricked later.",
+      "genz": "They read the fine print on TikTok; make it the large print.",
+      "ac": [
+        "Block renders under the plan cards with only ships-status money claims (prices, no-weekly, no-trial, no-trial-no-refund, nothing-unlimited, resume-cap); renewal-reminder and cancel-two-taps lines appear automatically when U15.3/U15.2 flip them to ships",
+        "Same block reused on /help/plans and in the 402 sheet footer (U15.1 consumes the component)",
+        "Visible on a 390×844 viewport after one scroll past the cards",
+        "Copy approved against the ToS billing section (T-area wording wins on conflict)"
+      ],
+      "tests": [
+        "Render test: planned lines omitted, not shown as soon",
+        "Playwright 390px position"
+      ],
+      "tech": "web/src/components/pricing/MoneyBlock.tsx reading claims.ts; PricingSections.tsx placement"
+    },
+    {
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/lib/catalog.ts:178 (COMPARE exists, limits incomplete)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M2.3",
+      "epic": "M2",
+      "title": "Full comparison table from the catalog with every limit and 'Coming' chips",
+      "story": "As a visitor I want a table that shows every limit — resumes, AI budget, matches, inbox, Autopilot caps — so that I know what I buy and what stays free.",
+      "genz": "'Nothing is unlimited' is believable only when the limits are printed.",
+      "ac": [
+        "COMPARE in catalog.ts extended with the rows in the design §2 (AI budget per period, matches/day, resume caps, learned-answer sync, inbox, Autopilot caps, interview practice); Free column first; identical autofill shown identical",
+        "Unshipped rows carry the Coming chip and the phase; prices never do",
+        "Mobile: horizontal-scroll-free layout (stacked per plan with a sticky plan switcher)",
+        "No 'unlimited' string anywhere in the catalog (test)"
+      ],
+      "tests": [
+        "catalog.test.ts rows/cells/limits; Playwright 390px stacked layout"
+      ],
+      "tech": "web/src/lib/catalog.ts COMPARE, components/pricing/CompareTable.tsx"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M3.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/app/(marketing)/pricing/page.tsx (no structured data)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M2.4",
+      "epic": "M2",
+      "title": "Product/Offer JSON-LD + pricing FAQ with FAQPage",
+      "story": "As a searcher I want the plan prices and FAQ to show as rich results so that the honest numbers reach me before a competitor's.",
+      "genz": "They search 'kiwiply pricing' before installing.",
+      "ac": [
+        "Product + Offer (UnitPriceSpecification monthly/3-month) per plan, Service + Offer per expert service, FAQPage from 8 plan questions (cancel, refunds, trial, what Free includes, AI budget, resume cap, student/org pricing, Launch 2 price change), BreadcrumbList",
+        "Prices in JSON-LD equal catalog prices (test); no aggregateRating"
+      ],
+      "tests": [
+        "JSON-LD schema fixture validation; equality with catalog"
+      ],
+      "tech": "web/src/lib/seo/jsonld.ts helpers (M3.1), (marketing)/pricing/page.tsx"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/lib/catalog.ts PER_PERSON, CONSULTANCY_ADDONS",
+        "ROADMAP.md 'Prices — organizations'"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M2.5",
+      "epic": "M2",
+      "title": "Organization pricing section with a people × items calculator",
+      "story": "As a career centre or consultancy I want to see what N people with these items cost per month plus the setup fee so that I can budget before contacting sales.",
+      "genz": "Org buyers are millennials with a budget line; show the number.",
+      "ac": [
+        "Reads CONSULTANCY, PER_PERSON, CONSULTANCY_ADDONS; people 1–50 × selected items → monthly total + one-time setup fee; 'above individual prices on purpose' sentence (register org-pricing-above)",
+        "Ops add-on shows Custom until 23.0; CTA stays Contact us with topic=organization and the chosen configuration prefilled in the inquiry message",
+        "Accessible controls (steppers with labels), works at 390px"
+      ],
+      "tests": [
+        "Calculator maths unit test; Playwright: inquiry prefill"
+      ],
+      "tech": "components/pricing/OrgCalculator.tsx, ContactForm.tsx accepts ?config="
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "U15.1",
+        "B1.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/AUDIT-user.md (/pricing, 402 redirect leaves the app)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M2.6",
+      "epic": "M2",
+      "title": "Context-aware arrival from the 402 sheet and the DB-catalog switch",
+      "story": "As a user who hit a Pro gate I want /pricing to highlight exactly what I tapped and take me back after so that upgrading is a two-minute detour, not a maze.",
+      "genz": "Lose the thread and they close the tab.",
+      "ac": [
+        "/pricing?reason=PRO_REQUIRED&feature=<id>&back=<path> highlights the plan card + table row, shows 'This is what you tapped', and passes back to the checkout success_url so /billing/success offers 'Back to <feature>'",
+        "When A3.1 lands, the page reads GET /api/catalog/public with catalog.ts as fallback (logged); the money block and table are unchanged",
+        "Pricing-page events (M1.6) carry reason/feature"
+      ],
+      "tests": [
+        "Playwright: highlight + back link; fallback when API 500s"
+      ],
+      "tech": "(marketing)/pricing/page.tsx searchParams, components/billing success page, web/src/lib/catalog.ts loader"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/app/layout.tsx (metadataBase only)",
+        "web/src/app/sitemap.ts (hand list)"
+      ],
+      "design": "docs/design/mkt/seo-content-engine.md",
+      "critical": true,
+      "id": "M3.1",
+      "epic": "M3",
+      "title": "Route registry + JSON-LD (Organization, WebSite, SoftwareApplication, BreadcrumbList, FAQPage)",
+      "story": "As the owner I want every public page registered once so that canonical, sitemap, breadcrumbs and structured data come from one list.",
+      "genz": "Fast, correct search results on a phone are the first impression.",
+      "ac": [
+        "web/src/lib/routes.ts exports publicRoutes() merging static pages, content front matter and programmatic feeds; seo({route}) helper returns Metadata with canonical/OG/robots",
+        "jsonld.ts helpers; root layout emits Organization + WebSite; /extension emits SoftwareApplication; deep pages emit BreadcrumbList; pages with faq emit FAQPage",
+        "Every existing marketing page migrated to seo()",
+        "No new deps"
+      ],
+      "tests": [
+        "routes.test.ts: every route has title/description/canonical; JSON-LD fixtures validate"
+      ],
+      "tech": "web/src/lib/routes.ts, web/src/lib/seo/{seo,jsonld}.ts, app/layout.tsx"
+    },
+    {
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/app/robots.ts",
+        "web/src/app/sitemap.ts"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M3.2",
+      "epic": "M3",
+      "title": "Baseline robots/sitemap/metadataBase/OG image (Phase 6/V2.6) — existing",
+      "story": "As a crawler I want robots and a sitemap so that only public pages are indexed.",
+      "genz": "—",
+      "ac": [
+        "robots.ts with the disjoint disallow list, sitemap.ts with 7 URLs, title template, one OG image (done)"
+      ],
+      "tests": [
+        "Existing build"
+      ],
+      "tech": "web/src/app/{robots,sitemap}.ts, opengraph-image.tsx, web/src/lib/site.ts"
+    },
+    {
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M3.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/app/opengraph-image.tsx (single image)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M3.3",
+      "epic": "M3",
+      "title": "Per-page canonical + generated OG images from the registry",
+      "story": "As someone sharing a Kiwiply page I want a card that shows that page's headline so that the link looks intentional.",
+      "genz": "Link previews are the packaging on every share.",
+      "ac": [
+        "og/[...slug]/route.tsx renders headline + kicker + family colour per route (one template, navy/lime palette); every page's metadata points at its own image",
+        "alternates.canonical on every page; www and trailing-slash variants resolve",
+        "Twitter card summary_large_image per page"
+      ],
+      "tests": [
+        "Snapshot of OG route for 3 pages; metadata test for canonical"
+      ],
+      "tech": "move app/opengraph-image.tsx into the generator; seo() sets openGraph.images"
+    },
+    {
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M3.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/app/sitemap.ts (hand-maintained lastmod comment)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M3.4",
+      "epic": "M3",
+      "title": "Chunked sitemaps from the registry + IndexNow + Search Console/Bing runbook",
+      "story": "As the owner I want sitemaps that grow with content and a ping when pages change so that new guides are indexed in hours, not weeks.",
+      "genz": "—",
+      "ac": [
+        "Sitemap index + chunks (static, help, guides, tools, companies, jobs, examples) generated from publicRoutes(); lastModified from front matter / updated_at; thresholds exclude noindex pages",
+        "api/indexnow/route.ts pings Bing/Yandex with changed URLs after deploy (key file served); the deploy workflow calls it",
+        "docs: DEPLOY.md §SEO — Search Console + Bing verification steps, sitemap submission, weekly coverage check (M3.7)"
+      ],
+      "tests": [
+        "Sitemap chunks disjoint from NON_INDEXABLE_PATHS; IndexNow route rejects without key"
+      ],
+      "tech": "web/src/app/sitemap/[id]/route.ts, api/indexnow/route.ts, .github/workflows/deploy.yml step"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M3.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "simplify.jobs official links include llms.txt (AUDIT-mkt.md §4)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M3.5",
+      "epic": "M3",
+      "title": "llms.txt and llms-full.txt",
+      "benchmark": "Simplify ships llms.txt; AI answer engines read it",
+      "story": "As an AI answer engine I want a plain index of Kiwiply's public pages so that answers about Kiwiply come from Kiwiply.",
+      "genz": "They ask ChatGPT which tool to use.",
+      "ac": [
+        "/llms.txt lists public routes with one-line descriptions from the registry, grouped; /llms-full.txt concatenates help + guides markdown",
+        "Both excluded from the sitemap, allowed in robots",
+        "Register claims only in descriptions (lint runs on the generated text)"
+      ],
+      "tests": [
+        "Route test: content matches registry; claims lint on output"
+      ],
+      "tech": "web/src/app/llms.txt/route.ts, llms-full.txt/route.ts"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U17.3"
+      ],
+      "supersedes": [],
+      "evidence": [
+        ".github/workflows/ci.yml (no perf/link checks)",
+        "web/LANDING-V2-SPEC.md §11 (LCP target stated, unmeasured)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M3.6",
+      "epic": "M3",
+      "title": "Lighthouse CI budgets + link checker on marketing routes",
+      "story": "As a maintainer I want CI to fail when the landing page gets slow or a link dies so that growth pages stay fast and whole.",
+      "genz": "LCP on a throttled phone decides whether they ever see the hero.",
+      "ac": [
+        "CI job runs Lighthouse (lhci) on /, /pricing, /extension, one guide, one tool at mobile preset with budgets LCP ≤ 2.5 s, CLS ≤ 0.1, TBT ≤ 200 ms, perf ≥ 90; results as artefacts",
+        "Link checker crawls the built site (internal links + anchors) and fails on 404/410 or a missing anchor; external links checked weekly, not per PR",
+        "Runs on PRs touching web/**"
+      ],
+      "tests": [
+        "The job itself; a deliberately broken anchor fixture fails in a dry run"
+      ],
+      "tech": ".github/workflows/ci.yml new job; web/scripts/check-links.mjs (fetch over the standalone server); lhci as a devDependency is acceptable (CI-only)"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/lib/legacy-redirect.ts (app-side only)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M3.7",
+      "epic": "M3",
+      "title": "404 page + redirects registry (301/410) with tests",
+      "story": "As a visitor who follows an old link I want a helpful page or the right redirect so that I do not land on a blank Next error.",
+      "genz": "A dead link from a TikTok caption is a lost install.",
+      "ac": [
+        "app/not-found.tsx in the marketing theme: search over the help index (M4.1) or top links until then, mascot peek, no console errors",
+        "web/src/lib/redirects.ts (source, destination, code) applied in next.config.ts; includes /v3 (after M1.2), legacy pricing anchors, renamed help slugs",
+        "410 for removed token pages"
+      ],
+      "tests": [
+        "Redirect table test; Playwright 404 render at 390px"
+      ],
+      "tech": "web/src/app/not-found.tsx, web/src/lib/redirects.ts, next.config.ts"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M3.4"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "docs/design/mkt/seo-content-engine.md §1 index policy"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M3.8",
+      "epic": "M3",
+      "title": "Search Console coverage review runbook and thin-page thresholds",
+      "story": "As the owner I want a weekly five-minute routine and automatic thresholds so that thin or broken pages never drag the domain down.",
+      "genz": "—",
+      "ac": [
+        "Thresholds from settings `seo.index.company_min_open_roles` (default 1 in 30 days) and `seo.index.title_min_roles` (default 20) (example pages require R7 content) applied to index flags",
+        "docs/design/mkt/seo-content-engine.md §9 runbook linked from DEPLOY.md: coverage report, Core Web Vitals, manual actions, what to do for each",
+        "Admin A5 runtime setting seo.indexProgrammatic (default off until M5.6 ships) gates programmatic index flags"
+      ],
+      "tests": [
+        "Threshold unit tests"
+      ],
+      "tech": "web/src/lib/routes.ts, DEPLOY.md"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M5.1",
+        "A5.1"
+      ],
+      "relates": [
+        "S1.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/src/app/(marketing)/contact/page.tsx:31 (HELP_HREF mailto)",
+        "web/src/components/marketing/v3/V3Faq.tsx"
+      ],
+      "design": "docs/design/mkt/help-center.md",
+      "critical": true,
+      "id": "M4.1",
+      "epic": "M4",
+      "title": "/help shell: sections, in-repo articles, search index, /help/faq; contact links fixed",
+      "benchmark": "G33 — Simplify/Huntr/Rezi help centres rank; Jobscan's FAQ/learning centre feeds its SEO; ours is in-repo, lint-checked, indexable",
+      "story": "As a visitor or user I want a searchable help site so that 'Browse our Help Center' is not a mailto.",
+      "genz": "They search before they ask; the answer must be two taps away.",
+      "ac": [
+        "/help index with six sections and search over a build-time index (web/public/help/search-index.json, client scorer, no service); /help/<section>/<slug> article layout with breadcrumbs, updated date, related, Still stuck → /contact?topic=support",
+        "/help/faq holds the five v3 FAQ answers rewritten through <Claim> with FAQPage JSON-LD; /contact FAQ and Help Center links updated; footer Browser Extension Help → /help",
+        "Section ownership documented: sup area authors the Safety section in the same directory",
+        "390px: search box above the fold, section list, 44px rows"
+      ],
+      "tests": [
+        "help-index.test.ts: front matter, unique slugs, related resolve, every article indexed; search scorer ranks 'cancel' and 'gmail password' correctly; Playwright 390px"
+      ],
+      "tech": "web/content/help/**, web/src/app/(marketing)/help/**, web/src/lib/help-search.ts, web/scripts/build-help-index.mjs"
+    },
+    {
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M4.1",
+        "M10.3"
+      ],
+      "relates": [
+        "S1.3"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/STORE-LISTING.md",
+        "job-autofill/PRIVACY.md"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M4.2",
+      "epic": "M4",
+      "title": "First twenty help articles with real screenshots",
+      "story": "As a new user I want install, connect, first fill, Gmail connect, cancel and delete explained with real screenshots so that I never need to email support for the basics.",
+      "genz": "Short steps, real pictures, no marketing voice.",
+      "ac": [
+        "The 20 articles listed in the design §4 exist with front matter, ≤ 400 words each, real screenshots from the pipeline (demo account), register claims only",
+        "Each ends with related + feedback + contact; every 'Coming soon' link on the site now has a destination",
+        "Admin inquiry categories (A8.3) mapped: ≥ 80% of the last 90 days' inquiry topics have an article"
+      ],
+      "tests": [
+        "help-index tests pass; screenshot files exist and have alt text; claims lint"
+      ],
+      "tech": "web/content/help/**; sources: STORE-LISTING.md, PRIVACY.md, ARCHITECTURE.md, catalog.ts, terms page"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "M4.1"
+      ],
+      "relates": [
+        "S1.6",
+        "S4.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/ARCHITECTURE.md (panel drawer)",
+        "docs/roadmap/AUDIT-user.md (Settings Help & Support 'Coming soon')"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M4.3",
+      "epic": "M4",
+      "title": "Contextual help links from the drawer, options page and app with ?from",
+      "story": "As a user stuck on a screen I want the help link there to open the right article so that help is contextual.",
+      "genz": "Help where the confusion is.",
+      "ac": [
+        "Extension drawer '?' → /help/autofill/review-plan?from=ext-drawer; options page → connect article; inbox connect page, 402 sheet and activation emails carry their links (design §5)",
+        "from is an enum; unknown values dropped; help_opened {slug, from} event via the analytics adapter",
+        "help-toc.json generated for the app's Settings panel (sup consumes)",
+        "Extension version bump per ritual"
+      ],
+      "tests": [
+        "Extension test: link targets; web: enum handling"
+      ],
+      "tech": "job-autofill/entrypoints/panel/*, options; web/src/app/(app)/settings/inbox, components/billing upgrade sheet; web/scripts/build-help-index.mjs emits help-toc.json"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "M4.1"
+      ],
+      "relates": [
+        "S1.4"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/design/mkt/help-center.md §2-3"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M4.4",
+      "epic": "M4",
+      "title": "Article feedback ('Was this helpful?') and top-from-surface",
+      "story": "As the owner I want to know which articles fail so that the worst ones get fixed first.",
+      "genz": "One tap, no form.",
+      "ac": [
+        "help_feedback table (design §2); POST /api/public/help-feedback rate setting `ratelimit.help_feedback.per_day` (default 10 per IP), ip hashed with a daily salt, no raw IP; weekly digest to the admin A8 queue",
+        "GET /api/public/help/top?from= returns top 5 from U18 rollups or front matter surfaces fallback",
+        "Article renders Yes/No + optional 200-char note; thanks state"
+      ],
+      "tests": [
+        "HelpFeedbackResourceIT: limits, enum from, no raw IP; render test"
+      ],
+      "tech": "Liquibase help_feedback, HelpFeedbackResource.java, web article layout"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "M4.1",
+        "A5.1"
+      ],
+      "relates": [
+        "T6.2"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/wxt.config.ts",
+        "job-autofill/PRIVACY.md"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M4.5",
+      "epic": "M4",
+      "title": "Permissions explainer page + CI check that manifest hosts match it",
+      "benchmark": "G30 — Simplify's <all_urls> flagged 'medium/very high risk' by store scanners; we publish the exact host list and why",
+      "story": "As a cautious installer I want every permission and host listed with its reason so that the browser's warning dialog is not the first explanation I see.",
+      "genz": "Privacy-literate and suspicious of extensions by default.",
+      "ac": [
+        "/help/privacy/permissions renders from web/content/generated/extension.json (hosts, permissions, optional permissions, each with a reason from a maintained map); 'why we don't ask for <all_urls>' paragraph; what the extension stores locally",
+        "CI check (job-autofill npm test) fails when wxt.config.ts hosts/permissions drift from the reason map; store privacy tab text generated from the same map (M10.1)",
+        "Linked from /extension, the store listing and the install dialog article"
+      ],
+      "tests": [
+        "Drift test; page render from fixture; claims lint"
+      ],
+      "tech": "job-autofill/scripts/export-manifest-summary.mjs, job-autofill/src/config/permission-reasons.js, web/src/app/(marketing)/help/privacy/permissions/page.tsx"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M4.1",
+        "M0.6"
+      ],
+      "relates": [
+        "S1.3"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/AUTOFILL-QA.md",
+        "job-autofill/src/config/rules.js"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M4.6",
+      "epic": "M4",
+      "title": "Per-ATS 'what we fill, what we can't' pages linked to the accuracy table",
+      "benchmark": "G33 / G2 — Teal Career Hub and Jobscan ATS guides are generic; ours are per-ATS and measured",
+      "story": "As a user on a Workday form I want the page that says exactly what Kiwiply fills there, what it skips and why, so that I know what to check.",
+      "genz": "Specific beats generic.",
+      "ac": [
+        "/help/autofill/<ats> for each verified ATS: generated field block from the engine export (M5.2 shares it), known limitations from AUTOFILL-QA.md, the measured accuracy row (M0.6), 'something didn't fill?' path",
+        "Linked from the drawer's skipped-field hint (E owns the hint; this story ships the URL contract /help/autofill/<ats>#skipped)",
+        "Register claim ats-verified links here"
+      ],
+      "tests": [
+        "Pages render for every ATS in the support matrix; missing export → build error"
+      ],
+      "tech": "web/content/help/autofill/<ats>.md + generated block component"
+    },
+    {
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/resources/config/liquibase/changelog/20261005010000_sales_inquiry.xml",
+        "docs/roadmap/areas/admin.json A8.3 done"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M4.7",
+      "epic": "M4",
+      "title": "Contact form → admin inquiries queue (15.6) — existing",
+      "story": "As a visitor I want to contact Kiwiply about a plan or a problem so that a human replies.",
+      "genz": "—",
+      "ac": [
+        "/contact with topic preselect posts to /api/inquiries → sales_inquiry → admin Inquiries (done)"
+      ],
+      "tests": [
+        "Existing InquiryResourceIT"
+      ],
+      "tech": "web/src/app/(marketing)/contact/page.tsx, web/src/app/api/inquiries/route.ts"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M3.1"
+      ],
+      "relates": [
+        "S1.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/nav.ts:134-143 (Blog/Guides 'Soon')"
+      ],
+      "design": "docs/design/mkt/seo-content-engine.md",
+      "critical": true,
+      "id": "M5.1",
+      "epic": "M5",
+      "title": "Content pipeline: markdown renderer, front matter schema, content-lint, layouts",
+      "story": "As a writer I want to add a page by adding a Markdown file so that content ships through a PR with the same checks as code.",
+      "genz": "Fast to publish, consistent to read.",
+      "ac": [
+        "web/content/** with README (authoring rules, schema), web/src/lib/markdown.ts renderer (headings, lists, links, tables, code, callouts, images) with no new runtime deps unless approved in the PR, front matter parser, web/scripts/content-lint.mjs (schema, description ≤160, claims ids exist, FAQ shape)",
+        "components/content/{ContentLayout,Toc,Callout,FaqBlock,Breadcrumbs,CtaBand,AuthorCard}; authors.ts; reading time; updated date",
+        "Registry picks up content routes automatically (M3.1)",
+        "One sample page per type renders at 390px"
+      ],
+      "tests": [
+        "markdown.test.ts fixtures; content-lint fixtures; routes test includes content"
+      ],
+      "tech": "web/src/lib/{markdown,content}.ts, web/scripts/content-lint.mjs, components/content/*"
+    },
+    {
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "M5.1"
+      ],
+      "relates": [
+        "S1.3"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/src/config/rules.js",
+        "job-autofill/test/fixtures (captured DOM)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M5.2",
+      "epic": "M5",
+      "title": "ATS application guides (Workday, Greenhouse, Lever, Ashby, Workable) with engine-generated field blocks",
+      "benchmark": "Jobscan owns 'ats resume checker' via guides; nobody writes 'how a Workday application really works' from captured DOM — we can",
+      "story": "As an applicant I want to know how each ATS's form really behaves — steps, repeating sections, custom dropdowns, the questions it always asks — so that I am not surprised, and I see that Kiwiply handles it.",
+      "genz": "Practical, specific, searchable at 11pm before a deadline.",
+      "ac": [
+        "Five guides following the design §4 outline, each with a 'What this form asks' block generated from job-autofill rules via npm run export:fields → web/content/generated/ats-fields.json (regenerated on every extension release)",
+        "FAQ per guide; internal links to /help/autofill/<ats>, /companies?ats=, the free resume check; one CTA",
+        "Honest per register: what Kiwiply fills vs leaves to you",
+        "Workday first (highest search intent), then the other four"
+      ],
+      "tests": [
+        "Generated block snapshot per ATS; content-lint; claims lint; link test"
+      ],
+      "tech": "job-autofill/scripts/export-fields.mjs over src/config/rules.js; web/content/guides/apply/*.md"
+    },
+    {
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "M5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/web/rest/AtsScoreResource.java (auth-only today)",
+        "CLAUDE.md (Free has no server AI except parsing)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M5.3",
+      "epic": "M5",
+      "title": "Free public ATS resume check (deterministic, no sign-in, rate-limited) with hand-off to the builder",
+      "benchmark": "Teal's free ATS score and Jobscan's free scan are their top hooks; ours is truly free (no AI, no account) and honest about what a score means",
+      "story": "As a visitor I want to drop my resume and get a real structural check in seconds without an account so that I get value before I trust Kiwiply with anything.",
+      "genz": "Instant, free, no email wall.",
+      "ac": [
+        "POST /api/public/ats-check (multipart PDF/DOCX up to setting `public.ats_check.max_bytes`, default 5 MB; optional JD text) runs the deterministic checks (15 checks: sections, contact block, dates, columns/tables/images, file type, length, keyword presence vs JD) and returns score + checks + keywords; no AI call; nothing persisted (asserted); rate setting `ratelimit.ats_check.per_day` (default 5 per IP); 10 s timeout; flag `flag.ats_check` (default on)",
+        "/tools/ats-resume-check page with drop zone, JD paste, result list with fix hints, the honest sentence (register ats-check-honest), and 'Save this report & fix it' → signup with a one-time server token handing the parsed text to R1.4",
+        "Works at 390px with the OS file picker"
+      ],
+      "tests": [
+        "PublicAtsCheckResourceIT: no persistence, limits, determinism, bad types, timeout; web Playwright upload fixture → result"
+      ],
+      "tech": "api PublicAtsCheckResource.java reusing the resume text extractor and the non-AI part of the ATS scorer (13.5); web/src/app/(marketing)/tools/ats-resume-check/page.tsx"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "M5.1",
+        "A5.3"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/resources/config/liquibase/changelog/20260922010000_profile_suggestion.xml",
+        "ROADMAP.md 10.3 (learned answers)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M5.4",
+      "epic": "M5",
+      "title": "Application-question guides from aggregated learned-answer labels",
+      "story": "As an applicant I want a page per common application question — why it is asked, what a good answer has, a template — so that the long-tail questions stop being a blocker.",
+      "genz": "They skip applications over one awkward question (55.6% skipped over a cover letter).",
+      "ac": [
+        "Nightly export (admin job list A6) of labels with COUNT at or above setting `mkt.question_guides.min_count` (default 50) across users and the ATS that ask them → web/content/generated/questions.json; never answer values, never per-user data",
+        "/guides/questions/<slug> pages generated from a template + a human-edited markdown body for the top 30; FAQ + the 'Kiwiply remembers your answer' claim",
+        "Index page by ATS and by theme (authorization, availability, salary, EEO — EEO pages explain optional/voluntary)"
+      ],
+      "tests": [
+        "Export job IT: threshold, no values; page generation test"
+      ],
+      "tech": "api ProfileSuggestion label aggregation job, web/content/guides/questions/*"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M5.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/lib/profile-options.ts (skills taxonomy source)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M5.5",
+      "epic": "M5",
+      "title": "JD keyword finder (client-side tool)",
+      "story": "As an applicant I want to paste a job description and see the skills it emphasises so that I can check them against my resume.",
+      "genz": "Paste, see, act — no upload.",
+      "ac": [
+        "/tools/job-keywords: paste → client-side TF-IDF over a bundled stop-list + the profile skills taxonomy → chips with counts → 'check these against your resume' opens the ATS check with the JD attached",
+        "No server call; works offline once loaded; 390px"
+      ],
+      "tests": [
+        "Unit: keyword extraction fixtures; Playwright"
+      ],
+      "tech": "web/src/app/(marketing)/tools/job-keywords/page.tsx, web/src/lib/skills.json from the profile schema"
+    },
+    {
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U4.1",
+        "M3.1",
+        "M3.8"
+      ],
+      "relates": [
+        "U11.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/resources/config/liquibase/changelog/20260922070000_job_sources.xml",
+        "docs/roadmap/areas/user.json U4.1 (posting store v2)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M5.6",
+      "epic": "M5",
+      "title": "Programmatic companies and job-title pages from the posting store",
+      "benchmark": "Simplify's companies directory and JobRight's title/location job pages drive their organic traffic; ours add 'which ATS this company uses — and Kiwiply fills it' (G18)",
+      "story": "As a searcher looking for 'Northwind careers' I want a page with their open roles, the ATS they use and a save-to-board button so that Kiwiply is where I start applying.",
+      "genz": "They search the company name on the phone first.",
+      "ac": [
+        "GET /api/public/companies, /companies/{slug}, /jobs/titles, /jobs?title= (cached, no auth, CORS to kiwiply.com), company_stats nightly row, index on job_posting(company_slug, posted_at)",
+        "/companies, /companies/<slug>, /jobs/<title-slug> with ISR 1h, JobPosting JSON-LD (url = employer canonical), aggregator attribution per licence, thresholds from M3.8, Save → signup/app",
+        "Admin setting seo.indexProgrammatic gates index flags; pages exist noindex before it is on"
+      ],
+      "tests": [
+        "PublicCompanyResourceIT: thresholds, cache headers, attribution; routes test for programmatic feeds; Playwright 390px company page"
+      ],
+      "tech": "api PublicJobsResource.java over job_posting/job_source; web/src/app/(marketing)/{companies,jobs}/**"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M5.1"
+      ],
+      "relates": [
+        "R7"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/resume-builder/stories.json (R7 Growth)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M5.7",
+      "epic": "M5",
+      "title": "Resume examples hub (SEO wrapper) shared with Resume Builder R7",
+      "story": "As a searcher for 'ux designer resume example' I want a real example with a one-tap 'open in the builder' so that Kiwiply's builder is where I start.",
+      "genz": "Templates are how this generation discovers resume tools.",
+      "ac": [
+        "/resume-examples hub + /resume-examples/<role> wrapper (breadcrumbs, FAQ, Article JSON-LD, related guides/jobs) rendering R7's example data; not linked or indexed until R7 ships ≥ 20 examples",
+        "Internal links from /jobs/<title> and the question guides"
+      ],
+      "tests": [
+        "Routes test respects the R7 threshold; render test with fixture examples"
+      ],
+      "tech": "web/src/app/(marketing)/resume-examples/**, data contract agreed with docs/resume-builder/stories.json R7"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1",
+        "M5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/AUDIT-mkt.md §4",
+        "docs/roadmap/COMPETITIVE-LANDSCAPE.md"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M5.8",
+      "epic": "M5",
+      "title": "Comparison pages: Kiwiply vs Simplify / Teal / Huntr / Jobscan / JobRight (quoted, cited, dated)",
+      "benchmark": "JobRight publishes 'Simplify Copilot Review 2026' on its own blog; ours quote only published facts with URLs and a checked date",
+      "story": "As a visitor comparing tools I want a fair table of published facts so that I can decide without reading five competitor-written 'reviews'.",
+      "genz": "They know 'review' sites are ads; a cited table reads as honest.",
+      "ac": [
+        "Five pages from web/content/compare/*.md with a facts table (price, free tier, paid features, refund/cancel policy, auto-submit stance, browsers) per competitor with source URL + checked date next to ours from the register/catalog; no adjectives about competitors; quarterly refresh field",
+        "Claims lint allows quoted competitor numbers only inside the attributed cell (// claim:allow)",
+        "Canonical, FAQ, breadcrumbs"
+      ],
+      "tests": [
+        "content-lint; claims lint allow-path; link test on sources (weekly external)"
+      ],
+      "tech": "web/content/compare/*.md, components/content/CompareTable.tsx; research from docs/roadmap/AUDIT-mkt.md §4 and COMPETITIVE-LANDSCAPE.md"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M5.1",
+        "S5.4"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/nav.ts (Blog 'Soon')"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M5.9",
+      "epic": "M5",
+      "title": "Blog with RSS, fed by the changelog and guide round-ups",
+      "story": "As a subscriber I want a feed of what shipped and what we learned so that the newsletter and the blog say the same true things.",
+      "genz": "Build-in-public beats press releases.",
+      "ac": [
+        "/blog index + posts from web/content/blog/*.md; /blog/rss.xml; author cards; no stock photos",
+        "First three posts: launch note (honest 'what works today'), the Workday guide round-up, the fill-accuracy method",
+        "Linked from the footer Resources column (Blog chip becomes a link)"
+      ],
+      "tests": [
+        "RSS validates; routes test; claims lint"
+      ],
+      "tech": "web/src/app/(marketing)/blog/**, rss route"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U16.4",
+        "M8.1",
+        "B7.5"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/areas/user.json U16.4",
+        "docs/roadmap/PLAN-user.md §7 Q5"
+      ],
+      "design": "docs/design/mkt/referral-program.md",
+      "critical": true,
+      "id": "M6.1",
+      "epic": "M6",
+      "title": "Referral schema, codes, /r/<code> landing and signup capture (no rewards yet)",
+      "benchmark": "G37 / Teal referral codes and Kickresume vouchers — ours publishes the rules on the landing page and pays only for retained users",
+      "story": "As a user I want a code and a link that attribute my friend's signup to me so that a reward can follow once they actually use Kiwiply.",
+      "genz": "Sharing is how they recommend tools; the deal must be plain.",
+      "ac": [
+        "Tables referral_code, referral, entitlement_grant (design §2); GET /api/referrals/me; code format KIWI-XXXXX from the unambiguous alphabet",
+        "/r/<code> sets the kw_ref cookie (setting `referral.cookie_days`, default 30; httpOnly, Lax), shows the rules and the referrer's first name if show_name; CTA /signup?ref=",
+        "Signup (password and Google paths) captures the code → referral PENDING with signup_ip_hash/ua_hash; POST /api/referrals/claim for typed codes within setting `referral.claim_window_days` (default 14); one referrer per invitee",
+        "Privacy policy paragraph drafted for U14.5"
+      ],
+      "tests": [
+        "ReferralServiceIT: uniqueness, precedence cookie vs code, one-per-invitee, Google path; web cookie/route tests"
+      ],
+      "tech": "Liquibase referral tables, ReferralResource.java, web/src/app/r/[code]/page.tsx, web/src/app/api/auth/signup/route.ts and google route forward the code"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "M6.1",
+        "A5.1"
+      ],
+      "relates": [
+        "U7.1",
+        "U18.3",
+        "B7.5"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/EntitlementService.java",
+        "ROADMAP.md Phase 12 (Stripe is the truth; grants are not subscriptions)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M6.2",
+      "epic": "M6",
+      "title": "Qualifier job, Pro-time grants (or one-time coupon for payers) and notifications",
+      "story": "As a referrer I want the reward to arrive automatically once my friend is activated and active for 7 days so that nobody has to ask support.",
+      "genz": "Automatic and visible, or it never happened.",
+      "ac": [
+        "Nightly ReferralQualifier: PENDING → QUALIFIED on activated_at + setting `referral.qualify_active_days` (default 7) distinct active days within `referral.qualify_window_days` (default 30) (from U18 daily rollups; until U18.3, from application/fill/match rows); QUALIFIED → REWARDED with two entitlement_grant rows (setting `referral.reward_days`, default 30 days of Pro) or a one-time Stripe coupon for a paying referrer; EXPIRED after `referral.qualify_window_days`",
+        "EntitlementService.isPro() honours live grants when no paid subscription; plan on GET /api/profile/version reflects it",
+        "Notifications referral_rewarded to both via the U7 engine (or NotificationService until U7.1)",
+        "Flag `flag.referrals` (A5.3) gates grants; cap from setting `referral.credits_per_year` (default 12 proposed here, 3 in B7.5 — decision D3) enforced with a plain message"
+      ],
+      "tests": [
+        "ReferralQualifierIT with seeded activity; EntitlementServiceIT grants; coupon path mocked via StripeGateway"
+      ],
+      "tech": "ReferralQualifierJob.java, EntitlementService.java, StripeGateway.applyOnce"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "B7.5",
+        "A5.1"
+      ],
+      "relates": [
+        "B7.5"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/design/mkt/referral-program.md §5"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M6.3",
+      "epic": "M6",
+      "title": "Fraud rules and the admin Referrals page",
+      "story": "As the owner I want self-referrals, disposable emails and farms rejected automatically and a page to see and reverse rewards so that the programme cannot be gamed.",
+      "genz": "—",
+      "ac": [
+        "Rules from the design §5 (self, same device hash, disposable domain list shared with U1, velocity holds, activity sanity, chargeback revoke, cap) with reject reasons",
+        "Admin /admin/referrals list/filter + reject/revoke (audited A12) + weekly cost line for A16",
+        "Hashes purged with the account; no raw IP/UA anywhere"
+      ],
+      "tests": [
+        "Each rule as an IT case; admin Playwright 390px"
+      ],
+      "tech": "ReferralFraudService.java, web/src/lib/disposable-domains.ts, admin-v3 page"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "M6.1"
+      ],
+      "relates": [
+        "U16.3",
+        "U16.4",
+        "M9.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/areas/user.json U16.3"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M6.4",
+      "epic": "M6",
+      "title": "Referral placements: welcome series, Sunday recap, drawer footer line",
+      "story": "As a user who just had a good moment I want the invite offered right then, quietly, so that sharing feels natural rather than nagging.",
+      "genz": "Share after a win, never during a fill.",
+      "ac": [
+        "Welcome email 3 and the Sunday recap include the code with the rules in one line; the extension drawer footer shows 'Invite a friend' once per remote-config `ext.invite_footer.interval_days` (default 30) after a successful fill (dismiss sticky)",
+        "Never shown during a fill or in the review plan; respects the referrals.enabled flag",
+        "Extension bump per ritual"
+      ],
+      "tests": [
+        "Email template snapshot; extension test for frequency/dismiss"
+      ],
+      "tech": "job-autofill/entrypoints/panel footer, email templates in NotificationService, U16.3 recap template hook"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "A5.5"
+      ],
+      "relates": [
+        "U16.3",
+        "O6.6",
+        "N1.6",
+        "S3.8"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/src/app/opengraph-image.tsx (ImageResponse already used)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M6.5",
+      "epic": "M6",
+      "title": "Share cards for TikTok/Instagram (1080×1920 + square), counts only by default",
+      "benchmark": "G35 — Gen Z discovery is social; Handshake badges; our cards show counts not company names unless opted in",
+      "story": "As a user who got an interview I want a card I can post that shows my progress without leaking where I applied so that I can celebrate safely.",
+      "genz": "Designed for the formats they actually post; privacy default on.",
+      "ac": [
+        "GET /api/share-card?kind=recap|interview|streak&format=story|square renders a PNG (next/og ImageResponse) with mascot, counts, no company/role names unless ?reveal=1 after an explicit toggle; signed URL, 1h TTL, no PII in the URL",
+        "OS share sheet on the phone, download on desktop; the card carries the referral link as text only when the user enables it",
+        "Design tokens from theme-v2; alt text"
+      ],
+      "tests": [
+        "Snapshot of both formats; privacy default test; signed-URL expiry"
+      ],
+      "tech": "web/src/app/api/share-card/route.tsx (ImageResponse), hook into U16.3 recap and U6 interview rows"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "A3.1",
+        "A2.5",
+        "B7.2"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/COMPETITIVE-GAPS.md G34 and §G.1",
+        "docs/design/mkt/campus-creator-programs.md §5"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M7.1",
+      "epic": "M7",
+      "title": "Verified-student discount via the catalog and school-email verification (needs the user's decision)",
+      "benchmark": "G34 — Kickresume gives Premium free to students; we propose a catalog-defined discount that the margin guard proves (15% passes, 20% needs a smaller student AI budget)",
+      "story": "As a verified student I want a lower Pro price so that Kiwiply is affordable on a student budget, and as the owner I want it to still clear the margin floor.",
+      "genz": "A student price is expected; a student trick is not.",
+      "ac": [
+        "Blocked until the user answers PLAN-mkt.md §6 Q1; then: student_verification table, POST /api/account/student-verify (school-domain list or admin-reviewed upload), 12-month expiry and re-verify",
+        "Catalog discount row with eligibility STUDENT_VERIFIED; the A3 margin guard must pass for the chosen % before checkout applies the Stripe coupon",
+        "/students page and /pricing FAQ show the verified price; no student-only trial"
+      ],
+      "tests": [
+        "Verification IT: domain list, expiry, revoke; checkout applies coupon only when valid; margin guard test"
+      ],
+      "tech": "web/src/lib/edu-domains.ts (generated list), StudentVerificationResource.java, catalog discount (A3.1 or catalog.ts fallback)"
+    },
+    {
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "M8.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "docs/design/mkt/campus-creator-programs.md §2-3"
+      ],
+      "design": "docs/design/mkt/campus-creator-programs.md",
+      "critical": true,
+      "id": "M7.2",
+      "epic": "M7",
+      "title": "Creator/affiliate programme: apply, approve, /p/<code>, attribution, terms with disclosure",
+      "benchmark": "Huntr 30% of first 3 months (30-day cookie, no self-referral, no paid ads); Rezi 30% for 12 months with FTC disclosure; Jobscan 15% via Impact",
+      "story": "As a career creator I want a link that pays me a published share of the first three months of anyone who subscribes through it, with clear rules, so that recommending Kiwiply is worth my time and honest with my audience.",
+      "genz": "Creators are where this audience hears about tools.",
+      "ac": [
+        "partner, partner_attribution tables; POST /api/partners/apply, admin approve/reject (audited); A-XXXXX codes; /p/<code> landing variant sets kw_src ref; attribution at signup via M8.1 (first click, setting `mkt.affiliate.attribution_days`, default 30)",
+        "/partners dashboard: link, stats (signups, activated, paying), kit download, terms acceptance (version stored); terms page with disclosure line, no brand-term ads, no coupon sites, no self-referral, 18+",
+        "No money yet (M7.6)"
+      ],
+      "tests": [
+        "PartnerServiceIT: apply/approve/code; attribution precedence R/C/A; self-referral rejection; web Playwright 390px dashboard"
+      ],
+      "tech": "Liquibase partner tables, PartnerResource.java, web/src/app/p/[code], web/src/app/(app)/partners"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "M7.2",
+        "B7.5",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [
+        "S8.3"
+      ],
+      "evidence": [
+        "docs/design/mkt/campus-creator-programs.md §0, §3"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M7.3",
+      "epic": "M7",
+      "title": "Campus ambassadors: Pro-while-active grants, renewal bar, kit, monthly numbers email",
+      "story": "As a student ambassador I want Pro while I am active, a kit and my numbers each month so that representing Kiwiply on campus is a real role with a reference at the end.",
+      "genz": "A real programme with a letter at the end beats stickers.",
+      "ac": [
+        "kind=AMBASSADOR partners with campus; approval grants entitlement_grant AMBASSADOR for setting `mkt.ambassador.grant_days` (default 30); AmbassadorRenewalJob renews while the bar holds (at least setting `mkt.ambassador.renew_min_signups` (default 5) attributed signups or 1 self-reported event, spot-checked), PAUSED then ENDED otherwise; cap setting `mkt.ambassador.max_active` (default 150)",
+        "Kit page: logos, three real screenshots, the honest one-liners from the register, event checklist; monthly email with their numbers",
+        "Ambassador list on /campus only with consent"
+      ],
+      "tests": [
+        "Renewal job IT; grant via EntitlementService; email snapshot"
+      ],
+      "tech": "AmbassadorRenewalJob.java, partner.kind, kit route under /partners/kit"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1",
+        "A5.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/lib/catalog.ts InquiryTopic",
+        "docs/roadmap/areas/org.json O14 (Marketing & sales)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M7.4",
+      "epic": "M7",
+      "title": "/campus page for career centres + partnership inquiry topic",
+      "benchmark": "Jobscan's partnerships track for career centres; Handshake is the incumbent — we pitch 'apply + track + prove, with consent', not a Handshake replacement",
+      "story": "As a career-centre lead I want a page that explains what my students get, what I see (only what they consent to), and the price shape so that I can bring it to my director.",
+      "genz": "The buyer is a millennial administrator; the users are Gen Z — the page must satisfy both.",
+      "ac": [
+        "/campus composed from the organizations sections with the consent story (links to the O6 consent preview once it exists), what-a-centre-gets list, the ambassador programme block, Talk to us with topic=campus (new InquiryTopic, label 'Career centre / school')",
+        "Register claims only; org pricing 'above individual' sentence; no free-seat promises",
+        "Linked from /students and the organizations nav"
+      ],
+      "tests": [
+        "Claims lint; inquiry topic IT; 390px"
+      ],
+      "tech": "web/src/app/(marketing)/campus/page.tsx, web/src/lib/catalog.ts InquiryTopic + TOPIC_LABELS"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "brand/README.md",
+        "web/src/components/marketing/nav.ts (Press → /contact)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M7.5",
+      "epic": "M7",
+      "title": "/press: brand assets and the facts sheet",
+      "story": "As a journalist or creator I want the logo files, the mascot, the honest one-paragraph description and the real facts (founded 2026, beta, what works today) so that I do not invent them.",
+      "genz": "Creators need assets in one click.",
+      "ac": [
+        "/press with downloadable logo/mark/mascot (from brand/ via web/public), colour tokens, the boilerplate paragraph and a facts table generated from the register + LiveStat (or 'not published' lines)",
+        "Footer Press chip becomes a link",
+        "No team photos, no 'founded by' claims until true"
+      ],
+      "tests": [
+        "Link test; claims lint"
+      ],
+      "tech": "web/src/app/(marketing)/press/page.tsx, brand/README.md assets"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "M7.2"
+      ],
+      "relates": [
+        "A16"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/web/rest/BillingWebhookResource.java",
+        "CLAUDE.md (record money, never move it — same discipline)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M7.6",
+      "epic": "M7",
+      "title": "Affiliate commissions via the Stripe webhook, admin ledger and recorded payouts",
+      "story": "As the owner I want commissions computed from real invoices, reversed on refunds/disputes, and payouts recorded (never moved by the system) so that the programme is auditable and cheap to run.",
+      "genz": "—",
+      "ac": [
+        "partner_commission rows written by BillingWebhookResource on invoice.paid for attributed Pro/Autopilot users, first setting `mkt.affiliate.commission_months` (default 3) months only, setting `mkt.affiliate.commission_pct` (default 30) of net; REVERSED on refund/dispute within setting `mkt.affiliate.reversal_days` (default 90)",
+        "Admin /admin/partners: ledger, accrued per partner, 'record payout' (method, reference) marks commissions PAID, CSV; A16 margin report gains a partner-cost line",
+        "Payout handles encrypted (EncryptionService), masked in UI; manual quarterly payouts documented in DEPLOY.md"
+      ],
+      "tests": [
+        "Webhook IT with invoice fixtures; reversal; payout marks PAID; export"
+      ],
+      "tech": "BillingWebhookResource.java hook, PartnerCommissionService.java, admin-v3 ledger page"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "A5.1"
+      ],
+      "relates": [
+        "A11.6"
+      ],
+      "supersedes": [
+        "A11.6"
+      ],
+      "evidence": [
+        "web/src/app/api/auth/signup/route.ts (no attribution)",
+        "docs/roadmap/areas/admin.json A11.6"
+      ],
+      "design": "docs/design/mkt/growth-funnel-analytics.md",
+      "critical": true,
+      "id": "M8.1",
+      "epic": "M8",
+      "title": "First-touch attribution: kw_src cookie + user_acquisition at signup",
+      "story": "As the owner I want to know where each account came from — UTM, referrer host, landing page, code — captured server-side, so that channels can be compared without a third party.",
+      "genz": "Which TikTok sent them matters more than which keyword.",
+      "ac": [
+        "Middleware sets kw_src (httpOnly, Lax, setting `analytics.attribution_cookie_days` default 90, ≤1 KB, no identifiers) on first marketing visit with utm_*, referrer host, landing path, ref code; channel derived by web/src/lib/channel.ts",
+        "Signup BFF (password + Google) forwards it; API writes user_acquisition (idempotent, cascade delete, in DSAR export); country from the edge header when present",
+        "No client JS reads the cookie"
+      ],
+      "tests": [
+        "channel.test.ts 20 fixtures; BFF forward on both paths; UserAcquisitionResourceIT idempotent/cascade/export"
+      ],
+      "tech": "web/src/proxy.ts (middleware), web/src/app/api/auth/{signup,google}/route.ts, Liquibase user_acquisition, AccountResource register"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "M8.1",
+        "A5.1"
+      ],
+      "relates": [
+        "U18.1",
+        "U18.3"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/design/mkt/growth-funnel-analytics.md §4"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M8.2",
+      "epic": "M8",
+      "title": "Funnel definitions and the nightly rollup (funnel_daily by channel and surface)",
+      "story": "As the owner I want visit → signup → verified → extension → first fill → paid computed nightly by channel so that the funnel is a table, not a spreadsheet.",
+      "genz": "—",
+      "ac": [
+        "funnel_daily table; GrowthRollupJob joins user_acquisition with jhi_user, extension sessions, fill_event, application SAVED, subscription; signup_started from U18 events when present; idempotent per day; registered in A10 job health",
+        "Definitions exactly as the design §4; phone cohort uses first_save"
+      ],
+      "tests": [
+        "GrowthRollupJobIT with seeded users across steps; rerun idempotent"
+      ],
+      "tech": "GrowthRollupJob.java, Liquibase funnel_daily"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U18.3"
+      ],
+      "relates": [
+        "A11.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/admin-v3/analytics/sample-data.ts (sample acquisition today)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M8.3",
+      "epic": "M8",
+      "title": "Admin Growth page: funnel, channels, landing pages, paid-by-channel",
+      "story": "As the owner I want one page that answers 'where do paying users come from' so that spend and effort follow evidence.",
+      "genz": "—",
+      "ac": [
+        "GET /api/admin/growth/{funnel,landing,channels}; admin-v3 page with the wireframe in the design §11 at 390px; 'through <date>' label; channel filter; visit→signup labelled as a ratio of totals",
+        "Replaces the sample acquisition charts in admin analytics (A11.6 consumes)"
+      ],
+      "tests": [
+        "Resource ITs; Playwright 390px"
+      ],
+      "tech": "AdminGrowthResource.java, web/src/components/admin-v3/growth/*"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/CookieConsent.tsx",
+        "web/src/lib/analytics.ts"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M8.4",
+      "epic": "M8",
+      "title": "Cookieless route counts + Consent Mode v2 defaults for GA4",
+      "story": "As the owner I want page traffic by route without consent (no identifiers) and GA4 that respects the banner by design so that the two never disagree about privacy.",
+      "genz": "Privacy by construction is the pitch; measure accordingly.",
+      "ac": [
+        "Middleware in-process counters flushed per minute to POST /api/internal/page-hits (service token) → page_hit_daily with a daily-salted hash for uniques_approx; route normalisation for dynamic segments",
+        "gtag consent defaults denied before load; banner Accept updates; existing equal-weight banner unchanged",
+        "Privacy policy sentence drafted for U14.5"
+      ],
+      "tests": [
+        "Counter unit test (normalisation, flush); PageHitsResourceIT (service token only); Playwright: consent defaults in dataLayer"
+      ],
+      "tech": "web/src/proxy.ts, web/src/lib/page-hits.ts, PageHitsResource.java, CookieConsent.tsx"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U18.5",
+        "A5"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/areas/user.json U18.5",
+        "docs/roadmap/areas/admin.json A5"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M8.5",
+      "epic": "M8",
+      "title": "Marketing experiments via flags (server-rendered hero variants)",
+      "story": "As the owner I want to test two hero headlines without a third-party tool so that copy decisions are measured.",
+      "genz": "—",
+      "ac": [
+        "Variant chosen server-side from the A5 flag + U18.5 bucketing (session cookie for anonymous); the variant is a prop to HeroCarousel; events (M1.6) carry variant; both variants use register claims",
+        "Indexable (no client flicker); experiment doc template in docs/design/mkt/growth-funnel-analytics.md"
+      ],
+      "tests": [
+        "Bucketing determinism; render test both variants"
+      ],
+      "tech": "web/src/lib/experiments.ts, HeroCarousel props"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API",
+        "extension"
+      ],
+      "deps": [
+        "U18.3"
+      ],
+      "relates": [
+        "U20.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/src/lib/analytics.js",
+        "api POST /api/extension/session"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M8.6",
+      "epic": "M8",
+      "title": "Install funnel: store click → connect → first fill joined with extension telemetry",
+      "story": "As the owner I want to see how many store clicks become connected extensions and first fills so that the install step stops being a black box.",
+      "genz": "—",
+      "ac": [
+        "install_click (M1.6) + extension install event (existing MP analytics) + first POST /api/extension/session + first fill_event joined per user in funnel_daily steps; store-listing channel derived when the first touch is the store (referrer host chrome.google.com / addons.mozilla.org)",
+        "Admin Growth page gains the install sub-funnel"
+      ],
+      "tests": [
+        "Rollup IT with extension session fixtures"
+      ],
+      "tech": "GrowthRollupJob extension steps, channel.ts store hosts"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "U7.1",
+        "A7.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/NotificationService.java",
+        "ROADMAP.md 16.1 (Brevo 300/day cap)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M9.1",
+      "epic": "M9",
+      "title": "Welcome series: three honest emails (what works today, first fill, inbox/referral)",
+      "story": "As a new user I want three short emails that help me get to a first fill so that I do not forget the extension exists.",
+      "genz": "Short, useful, unsubscribable in one tap.",
+      "ac": [
+        "Day 0 (after activation): install/connect + the practice form; Day 2: first real fill tips + the ATS guide for the user's target cluster; Day 7: inbox tracking (Pro) + the referral line (M6.4); each skipped when the step is already done; one-click unsubscribe from marketing mail (separate from transactional)",
+        "Sent via the existing Brevo SMTP through NotificationService templates; register claims only; plain-text alternative",
+        "Volume respects the Brevo free cap (A7 watch)"
+      ],
+      "tests": [
+        "Scheduling IT: skip rules, unsubscribe honoured; template snapshots; claims lint on templates"
+      ],
+      "tech": "WelcomeSeriesJob.java, email templates, marketing_unsubscribe flag on jhi_user or notification prefs (U7.3)"
+    },
+    {
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/resources/config/liquibase/changelog/20260629000200_email_subscriber.xml"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M9.2",
+      "epic": "M9",
+      "title": "Newsletter double opt-in + unsubscribe (Phase 6/9) — existing",
+      "story": "As a visitor I want to subscribe and unsubscribe with one click so that my inbox stays mine.",
+      "genz": "—",
+      "ac": [
+        "POST /api/newsletter/{subscribe,confirm,unsubscribe}; confirm/unsubscribe pages; admin subscribers list (done; A7.1 partial on the admin side)"
+      ],
+      "tests": [
+        "Existing NewsletterResourceIT"
+      ],
+      "tech": "api NewsletterResource.java, web/src/app/newsletter/*"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "S5.4"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "PROGRESS.md Log",
+        "web/src/components/marketing/placeholder-data.ts FOOTER_TRUST ('Built in the open')"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M9.3",
+      "epic": "M9",
+      "title": "/changelog: public 'what shipped' page from release notes",
+      "story": "As a user I want to see what changed and what is coming, honestly, so that 'beta, improving weekly' is checkable.",
+      "genz": "Build in public.",
+      "ac": [
+        "web/content/changelog/*.md (date, extension version, web changes, 'known gaps'); /changelog page + RSS; generated from PROGRESS.md Log entries by a script with a human pass",
+        "Register claims only; 'coming' items phrased as coming",
+        "Linked from the footer and the welcome series"
+      ],
+      "tests": [
+        "Routes/content-lint; RSS validates"
+      ],
+      "tech": "web/scripts/changelog-from-progress.mjs, web/src/app/(marketing)/changelog/page.tsx"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "S5.4"
+      ],
+      "relates": [
+        "A7.6"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/areas/admin.json A7.6 (campaigns read-only)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M9.4",
+      "epic": "M9",
+      "title": "Monthly product update to subscribers from the changelog (Brevo campaign, read-only mirror)",
+      "story": "As a subscriber I want one monthly email of what shipped so that the newsletter is worth the opt-in.",
+      "genz": "One email a month, never more.",
+      "ac": [
+        "Admin action 'draft this month's update' renders the changelog into a Brevo campaign (API) to the confirmed-subscriber segment; sending stays in Brevo's UI (A7.6 reads campaigns read-only); unsubscribe link = our one-click route",
+        "Dry-run preview page; claims lint on the rendered HTML"
+      ],
+      "tests": [
+        "Renderer snapshot; Brevo client mocked; segment = confirmed only"
+      ],
+      "tech": "BrevoCampaignClient.java (minimal), admin button on A7 subscribers page"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "relates": [
+        "B5.4",
+        "U7.3"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/areas/admin.json A2.7 (win-back through Brevo with consent)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M9.5",
+      "epic": "M9",
+      "title": "Dormant nudges with consent (no fill for setting `mkt.dormant.no_fill_days` default 21, no visit for `mkt.dormant.no_visit_days` default 45)",
+      "story": "As a lapsed user I want at most one gentle email reminding me what Kiwiply can do now so that I come back when it is useful, not because I am chased.",
+      "genz": "One nudge, honest, easy out.",
+      "ac": [
+        "Two triggers, one email each, lifetime once per trigger; respects marketing unsubscribe and U7 prefs; content = the three most-used features + the changelog since they left; never a discount (no promo stacking rule)",
+        "Job registered in A10 health; counts on the Growth page"
+      ],
+      "tests": [
+        "Scheduling IT: once-only, consent, content window"
+      ],
+      "tech": "DormantNudgeJob.java reusing the welcome-series templates"
+    },
+    {
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "A5.1"
+      ],
+      "relates": [
+        "U7.3"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/marketing/MarketingFooter.tsx (NewsletterSignup)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M9.6",
+      "epic": "M9",
+      "title": "Newsletter capture on content pages + preference-centre link",
+      "story": "As a reader of a guide I want to subscribe in place and later manage what I get so that the newsletter grows from content, not pop-ups.",
+      "genz": "Inline, no modal, no exit-intent.",
+      "ac": [
+        "CtaBand variant 'Get the monthly update' on guides/blog using the existing NewsletterSignup (double opt-in unchanged); no pop-ups or exit-intent anywhere (rule in web/content/README.md)",
+        "Unsubscribe page links to the U7.3 preferences when signed in",
+        "Source recorded (utm_content=guide-slug) for the Growth page"
+      ],
+      "tests": [
+        "Render test; subscribe flow mock"
+      ],
+      "tech": "components/content/CtaBand.tsx, NewsletterSignup props"
+    },
+    {
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/STORE-LISTING.md header (rewritten 2026-10-06 for 15.3)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M10.1",
+      "epic": "M10",
+      "title": "Store listing copy for the Free/Pro split (15.3) — existing",
+      "story": "As a store visitor I want a listing that says what is free, what Pro adds and that nothing is submitted for me.",
+      "genz": "—",
+      "ac": [
+        "STORE-LISTING.md rewritten 2026-10-06; no vendor names; ≤5 repetitions; privacy answers from PRIVACY.md (done)"
+      ],
+      "tests": [
+        "Manual checklist in the file"
+      ],
+      "tech": "job-autofill/STORE-LISTING.md"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension",
+        "web"
+      ],
+      "deps": [
+        "M0.1",
+        "T6.2"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/STORE-LISTING.md",
+        "docs/design/mkt/honest-claims-register.md §1 (store listing)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M10.2",
+      "epic": "M10",
+      "title": "Store listing generated from the register (description, privacy tab, permissions justification)",
+      "story": "As a maintainer I want the listing text to be built from the same claims and permission reasons as the site so that store, site and help never disagree.",
+      "genz": "—",
+      "ac": [
+        "job-autofill/scripts/build-store-listing.mjs renders STORE-LISTING.md sections from claims (capability wording, no vendor names) + permission-reasons.js; the claims lint store checks run on the output; a free-text section survives regeneration",
+        "AMO listing variant with the Firefox caveat from the support matrix"
+      ],
+      "tests": [
+        "Generator snapshot; lint on output"
+      ],
+      "tech": "job-autofill/scripts/build-store-listing.mjs reading web/src/content/claims.ts (compiled) — or a shared JSON export to avoid cross-workspace TS"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U19.3"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/scripts/mock-api.mjs",
+        "docs/HANDOFF-ROADMAP.md §0 (demo accounts)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M10.3",
+      "epic": "M10",
+      "title": "Screenshot/GIF pipeline against the demo account (store, help, landing)",
+      "story": "As a maintainer I want real screenshots regenerated on each release so that store tiles, help articles and landing loops show the actual product.",
+      "genz": "Real UI, current UI.",
+      "ac": [
+        "web/scripts/shots.mjs drives Playwright against the mock API demo accounts (MOCK_API_PORT) and the built extension (chromium with the unpacked .output/chrome-mv3) to capture: drawer review plan, fill on the /try form, inbox status, dashboard, settings billing — at 1280×800 (store), 390×844 (help) and 1440 (landing)",
+        "Outputs to web/public/help/<slug>/, job-autofill/store-assets/, web/public/v2/video (ffmpeg optional, documented); file names stable; a manifest with capture date",
+        "Runs locally and as a manual CI workflow; no fabricated data on screen (demo seed only)"
+      ],
+      "tests": [
+        "The script runs in CI dry mode (captures 2 shots); manifest written"
+      ],
+      "tech": "playwright (devDependency, CI-only acceptable per U19.3), web/scripts/mock-api.mjs demo seed, job-autofill build output"
+    },
+    {
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "extension",
+        "web"
+      ],
+      "deps": [
+        "M0.5"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/BROWSERS.md (Firefox needs a live smoke test)",
+        "ROADMAP.md Phase 15.3"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M10.4",
+      "epic": "M10",
+      "title": "Firefox AMO + Edge Add-ons presence linked from the site",
+      "benchmark": "G11 — Simplify and Teal list on Chrome + Firefox + Edge",
+      "story": "As a Firefox or Edge user I want the extension in my browser's store so that I do not have to sideload.",
+      "genz": "They use whatever browser the laptop came with.",
+      "ac": [
+        "AMO first submission after the live smoke test (BROWSERS.md); Edge Add-ons listing submitted (same bundle) or documented decision to point Edge at CWS; store URLs in web/src/content/support-matrix.ts; /extension and the footer use them",
+        "Support matrix flips browsers claim to ships for Firefox when AMO is live"
+      ],
+      "tests": [
+        "Drift test (M0.5); link test on store URLs (weekly external)"
+      ],
+      "tech": "job-autofill/BROWSERS.md, DEPLOY.md §8, publish-extension.yml AMO step"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension"
+      ],
+      "deps": [],
+      "relates": [
+        "E5.8"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "job-autofill/src/lib/analytics.js",
+        "docs/roadmap/COMPETITIVE-GAPS.md G10"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M10.5",
+      "epic": "M10",
+      "title": "Review prompt etiquette in the extension (after the 3rd successful fill, once per 90 days)",
+      "benchmark": "G10 — 4.8–4.9★ store ratings are the entry ticket; the prompt must never nag",
+      "story": "As a user who just had three good fills I want one polite ask to rate the extension, never again if I dismiss, so that ratings reflect real experience.",
+      "genz": "Ask once, after a win, with a real 'no'.",
+      "ac": [
+        "Shown in the drawer after the 3rd fill the user did not undo, ≤1 per 90 days, dismiss sticky, links to the detected browser's store review URL from the support matrix; never during a fill; respects a runtime kill flag (A5 extension remote config)",
+        "Event rate_prompt {shown|rated|dismissed} via the MP analytics; version bump"
+      ],
+      "tests": [
+        "Extension tests: counters, cool-down, dismiss persistence, kill flag"
+      ],
+      "tech": "job-autofill/entrypoints/panel, src/lib/storage.js counters"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "M1.4",
+        "M0.1"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/COMPETITIVE-LANDSCAPE.md §1 (JobRight badges, Product Hunt)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M10.6",
+      "epic": "M10",
+      "title": "Launch kit: Product Hunt / HN / community posts with honest copy and the demo",
+      "story": "As the owner I want a ready launch pack — tagline, first comment, screenshots, demo, FAQ answers — all register-approved so that launch day copy is true under scrutiny.",
+      "genz": "HN and PH readers test every claim.",
+      "ac": [
+        "docs/design/mkt/launch-kit.md (generated sections from the register) + assets from M10.3; a 'what does not work yet' paragraph included on purpose; UTM links per channel wired to M8.1 channels",
+        "No numbers except LiveStat values at the time (or none)"
+      ],
+      "tests": [
+        "Claims lint on the kit"
+      ],
+      "tech": "Markdown + assets; no code"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U19.3"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/HANDOFF-V2.md §2 ('never verified' list)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M11.1",
+      "epic": "M11",
+      "title": "Playwright smoke for every marketing route at 390/768/1440",
+      "story": "As a maintainer I want every public page loaded at three widths in CI so that a broken section or a horizontal scroll never ships.",
+      "genz": "390px is the primary viewport.",
+      "ac": [
+        "Spec iterates publicRoutes(): no console errors, no horizontal overflow, h1 present, primary CTA visible, screenshots as artefacts; mobile sheet opens/closes; carousel keyboard + reduced motion",
+        "Runs on PRs touching web/**; shares the U19.3 setup when it exists (otherwise brings a minimal config this story owns)"
+      ],
+      "tests": [
+        "The spec itself"
+      ],
+      "tech": "web/e2e/marketing.spec.ts, playwright.config.ts (projects mobile/tablet/desktop)"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U19.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/LANDING-V2-SPEC.md §11",
+        "web/src/components/marketing/nav.ts (Accessibility → /contact)"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M11.2",
+      "epic": "M11",
+      "title": "axe on marketing routes + the Accessibility page",
+      "story": "As a screen-reader or keyboard user I want the marketing site to pass AA and to find an accessibility statement so that I can use and trust it.",
+      "genz": "Accessibility is a baseline expectation.",
+      "ac": [
+        "@axe-core/playwright in the smoke spec: zero serious/critical violations on every public route; carousel/dropdown/sheet keyboard paths asserted",
+        "/accessibility statement page (what we test, known gaps, contact) — footer link becomes real",
+        "Contrast of the coloured headline words verified (deep tokens)"
+      ],
+      "tests": [
+        "axe assertions; Playwright keyboard tests"
+      ],
+      "tech": "web/e2e/a11y.spec.ts, web/src/app/(marketing)/accessibility/page.tsx"
+    },
+    {
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/public/v2/README.md",
+        "web/src/components/marketing/media.tsx"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M11.3",
+      "epic": "M11",
+      "title": "Image pipeline: real renders, AVIF/WebP, sizes, zero CLS",
+      "story": "As a phone visitor on 4G I want the landing page to load fast with no layout jumps so that the first impression is speed.",
+      "genz": "Speed is the feature.",
+      "ac": [
+        "web/public/v2 board-extracted PNGs replaced by the user's renders (owed) and converted by a script to AVIF/WebP with width variants; every next/image has sizes; hero photo priority; fallbacks keep aspect boxes",
+        "Lighthouse budget (M3.6) met on /; total image bytes on / ≤ 600 KB on mobile"
+      ],
+      "tests": [
+        "Lighthouse CI; CLS assertion in Playwright"
+      ],
+      "tech": "web/scripts/images.mjs (sharp as a devDependency is acceptable, CI/local only), media.tsx"
+    },
+    {
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "P0.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "CLAUDE.md (shared edge Caddy — never run ours)",
+        "DEPLOY.md"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M11.4",
+      "epic": "M11",
+      "title": "Cache headers for marketing and ISR routes behind the shared edge Caddy",
+      "story": "As the owner I want marketing pages cached at the edge so that a traffic spike from a post never touches the API.",
+      "genz": "—",
+      "ac": [
+        "Next sets Cache-Control (s-maxage=3600, stale-while-revalidate=86400) on marketing/content/programmatic routes and no-store on app/auth; documented for the shared Caddyfile owner (we never run our own Caddy)",
+        "Verified with a curl matrix in DEPLOY.md"
+      ],
+      "tests": [
+        "Header test per route kind"
+      ],
+      "tech": "next.config.ts headers(), route segment config revalidate"
+    },
+    {
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "relates": [
+        "U19.4"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "docs/roadmap/areas/user.json U19.4"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "M11.5",
+      "epic": "M11",
+      "title": "i18n-ready marketing strings (extraction, no translation yet)",
+      "story": "As a future translator I want marketing copy in message files so that a second language is a content task, not a refactor.",
+      "genz": "—",
+      "ac": [
+        "Marketing copy (sections, nav, pricing labels — not content markdown) moved to web/src/messages/en/marketing.ts with a t() helper; claims stay in the register (the register becomes per-locale later)",
+        "No visual change; lint rule flags new hard-coded JSX strings in components/marketing"
+      ],
+      "tests": [
+        "Snapshot equality before/after; lint fixture"
+      ],
+      "tech": "web/src/messages/en/*, eslint rule (no-literal-string scoped)"
+    }
+  ]
+}

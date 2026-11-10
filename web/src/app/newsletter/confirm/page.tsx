@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import NewsletterAction from "@/components/NewsletterAction";
 
 export const metadata: Metadata = {
-  title: "Confirm subscription · Kiwiply",
+  title: "Confirm subscription",
   robots: { index: false, follow: false },
 };
 

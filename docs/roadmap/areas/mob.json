@@ -1,0 +1,647 @@
+{
+  "area": "mob",
+  "name": "Mobile app & PWA",
+  "prefix": "N",
+  "kind": "cross-cutting",
+  "updated": "2026-10-11",
+  "epics": [
+    { "id": "N0", "name": "Platform decision & mobile web baseline", "goal": "PWA-first with a gated native shell; the head, standalone-mode rules, keyboard and touch behaviour every phone page inherits.", "priority": "P0" },
+    { "id": "N1", "name": "Share to Kiwiply (capture on the phone)", "goal": "A job link shared from any phone app becomes a saved application with a JD snapshot in two taps; Android via Web Share Target, iOS via paste/Shortcut until a native share extension.", "priority": "P0" },
+    { "id": "N2", "name": "Send to laptop (cross-device apply)", "goal": "Queue a job on the phone, fill it on the laptop: hand-off state on the application, a 'From your phone' list in the extension drawer, nudges, and QR pairing for the first install.", "priority": "P0" },
+    { "id": "N3", "name": "Apply on the phone (honest assist)", "goal": "When there is no extension: a one-tap 'My answers' copy sheet, resume PDF into the ATS file picker, the drawer on Firefox for Android as an experiment, Safari iOS extension only inside the shell.", "priority": "P1" },
+    { "id": "N4", "name": "Mobile push & badges", "goal": "The mobile delivery rules on top of U7/U17: iOS install gate, app-icon badges, notification actions, subscription liveness, per-platform etiquette caps.", "priority": "P1" },
+    { "id": "N5", "name": "Offline & flaky networks", "goal": "One network-aware fetch layer, low-data mode, read snapshots for Saved/Applications/queue and the share outbox — the only queued write in the product.", "priority": "P1" },
+    { "id": "N6", "name": "Native shell (gated)", "goal": "A Capacitor/TWA wrapper around the same web app, built only when the §4 gate in platform-decision.md passes: iOS Share Extension, native push, biometrics, store listings.", "priority": "P2" },
+    { "id": "N7", "name": "Store payment compliance", "goal": "Stripe stays the only truth: the PWA sells as the web does; a shell never uses IAP, links out where lawful (US) and is status-only elsewhere, via one purchaseSurface resolver.", "priority": "P1" },
+    { "id": "N8", "name": "Mobile QA, devices & analytics", "goal": "Playwright mobile projects, a real-device smoke, the mobile event taxonomy and the dashboards that decide the native-shell gate.", "priority": "P1" }
+  ],
+  "stories": [
+    {
+      "id": "N0.1", "epic": "N0", "title": "Platform decision adopted: PWA-first, native shell gated on metrics", "status": "not_started", "size": "S", "owners": ["web"],
+      "deps": [], "relates": ["U17.1", "U17.2"], "supersedes": [],
+      "story": "As the product owner I want the PWA-vs-native decision recorded with a measurable gate so that no session re-litigates it and the shell is built only when iOS demand is proven.",
+      "genz": "They expect an app icon and the share sheet; we give them the icon now and promise the share sheet only where we can deliver it.",
+      "ac": [
+        "docs/design/mob/platform-decision.md §0 decisions + §4 gate thresholds are referenced from ROADMAP.md (one paragraph) and PROGRESS.md 'Locked decisions'",
+        "The six gate metrics exist as named queries in the mobile event taxonomy (N8.3) so the N6.1 review can be run from the admin analytics page",
+        "web/README or web/CLAUDE.md states: no static export, no second client, shell = wrapper only"
+      ],
+      "tests": ["Doc-sync test (vitest): the metric names listed in platform-decision.md §4 exist in web/src/lib/events.ts (after N8.3)"],
+      "tech": "ROADMAP.md, PROGRESS.md, docs/design/mob/platform-decision.md", "evidence": ["docs/design/mob/platform-decision.md"],
+      "design": "docs/design/mob/platform-decision.md", "critical": true
+    },
+    {
+      "id": "N0.2", "epic": "N0", "title": "Mobile head: viewport-fit, theme-color light/dark, Apple metas, maskable + badge icons, safe-area tokens", "status": "not_started", "size": "S", "owners": ["web", "ui"],
+      "deps": [], "relates": ["U17.1", "U0.1", "U0.3"], "supersedes": [],
+      "story": "As a phone user I want Kiwiply to respect my notch, status bar and dark mode so that the installed app looks native.",
+      "genz": "Dark mode and edge-to-edge are table stakes; a white status bar over a dark app reads as broken.",
+      "ac": [
+        "web/src/app/layout.tsx exports `viewport` (width, initialScale, viewportFit: cover, themeColor per color-scheme) and metadata.appleWebApp/icons/manifest per platform-decision.md §2.1",
+        "web/public/icons/{192,512,maskable-512,apple-touch-icon,badge-96}.png generated from brand/ (brand/README.md lists them as served copies)",
+        "globals.css defines --safe-top/right/bottom/left from env(safe-area-inset-*); AppShell header and the bottom tab bar (U0.1) consume them",
+        "All text inputs render ≥16px font on phones (no iOS focus zoom); buttons set touch-action: manipulation",
+        "iOS 26 install sheet copy (U17.2) updated: 'Add to Home Screen' is enough; the 'Open as Web App' toggle is mentioned"
+      ],
+      "tests": ["vitest snapshot of the viewport/metadata exports", "Playwright iPhone project: computed padding-top of the header equals the emulated safe-area inset; no input zoom (font-size ≥ 16px assertion)"],
+      "tech": "web/src/app/layout.tsx, web/src/app/globals.css, web/public/icons/*, packages/ui tokens (safe-area vars)", "evidence": ["web/src/app/layout.tsx (no viewport export, no manifest/appleWebApp)", "web/public (no icons set)"],
+      "design": "docs/design/mob/platform-decision.md", "critical": false
+    },
+    {
+      "id": "N0.3", "epic": "N0", "title": "Standalone-mode rules: displayMode/platform helpers, external links, OAuth/Stripe round-trips, history-backed sheets, cold/warm deep links", "status": "not_started", "size": "M", "owners": ["web", "ui"],
+      "deps": [], "relates": ["U17.2", "U15.1", "U1.8", "U0.2"], "supersedes": [],
+      "story": "As an installed-app user I want links, sign-in, checkout and the back gesture to behave like an app so that I am never stranded in a chrome-less Safari sheet or kicked out of the app.",
+      "genz": "JobRight's top store complaint is deep links that forget the app is installed; we don't ship that bug.",
+      "ac": [
+        "web/src/lib/pwa.ts exports displayMode() → browser|standalone|shell and platform() → ios|android|desktop; both attached as event props",
+        "External hrefs (postings, Reply in Gmail, Portal) open with rel=noopener in the system browser; same-origin navigation stays in scope",
+        "Google/Apple sign-in and Stripe Checkout/Portal return into the standalone window; no flow depends on sessionStorage set before the hop (state in URL/server)",
+        "@kiwiply/ui Sheet/Dialog gain `historyEntry` so Android back closes them; Escape unchanged on desktop",
+        "Deep links /applications?open=, /jobs?job=, /share?url= work cold and warm (notificationclick focuses the existing window)"
+      ],
+      "tests": ["Playwright standalone project: external link opens a new context; back gesture (history.back) closes a sheet; cold deep link lands on the right route; login?next round-trip preserved", "vitest: displayMode()/platform() UA matrix"],
+      "tech": "web/src/lib/pwa.ts, packages/ui Sheet (historyEntry), web/src/components/billing/SuccessPoller.tsx, web/src/app/login/*", "evidence": ["web/src/app/connect/page.tsx (outside the (app) group — the pattern /share reuses)", "docs/HANDOFF-V2.md §2 (touch interactions never verified)"],
+      "design": "docs/design/mob/platform-decision.md", "critical": true
+    },
+    {
+      "id": "N0.4", "epic": "N0", "title": "Keyboard & input hygiene on phones: autocomplete/inputmode/enterkeyhint everywhere, visualViewport-anchored action bars", "status": "not_started", "size": "S", "owners": ["web", "ui"],
+      "deps": [], "relates": ["U0.1", "U19.1"], "supersedes": [],
+      "story": "As a phone user I want the right keyboard for each field and the Save button to stay above the keyboard so that forms are fast with one thumb.",
+      "genz": "Every extra keyboard switch is a reason to bail.",
+      "ac": [
+        "Every form field in web/src/components/{auth,onboarding,app-v3,settings} declares autocomplete, inputmode and enterkeyhint (lint rule in packages/ui or eslint custom rule)",
+        "Sticky action bars (Save, Send to laptop, Send message) re-anchor to visualViewport so they sit above the keyboard on iOS and Android",
+        "Bottom tab bar hides while visualViewport.height < 75% of innerHeight (coordinates with U0.1)"
+      ],
+      "tests": ["eslint rule test for missing inputmode/autocomplete on <input>", "Playwright iPhone: focus an input → action bar bounding box bottom ≤ visualViewport bottom"],
+      "tech": "packages/ui Input/Field, web eslint config, web/src/components/app-shell/AppShell.tsx", "evidence": ["commit 58af9fe (44px controls) — no input attributes pass"],
+      "design": "docs/design/mob/platform-decision.md", "critical": false
+    },
+    {
+      "id": "N0.5", "epic": "N0", "title": "Touch baseline: overscroll containment, in-page pull-to-refresh on lists, long-press action sheets, haptics", "status": "not_started", "size": "S", "owners": ["web", "ui"],
+      "deps": ["U0.2"], "relates": ["U6.5", "U5.1"], "supersedes": [],
+      "story": "As a phone user I want lists to refresh with a pull and rows to offer actions on long-press so that the app feels native, not like a website.",
+      "genz": "Gestures are the native-app grammar they have used since childhood.",
+      "ac": [
+        "overscroll-behavior-y: contain on scroll containers and sheets (no rubber-band through sheets)",
+        "Pull-to-refresh component in @kiwiply/ui used on Jobs, Applications, Saved (standalone Chrome disables native PTR)",
+        "Long-press on a row opens the same action sheet the kebab opens; navigator.vibrate(10) on destructive confirms (Android only, no-op elsewhere)"
+      ],
+      "tests": ["Playwright Pixel project: touch drag from top triggers refresh callback; long-press (600 ms) opens the sheet", "vitest: PullToRefresh threshold logic"],
+      "tech": "packages/ui PullToRefresh.tsx + useLongPress, web/src/components/app-v3/{jobs,applications,saved}", "evidence": ["web/src/components/app-shell/AppShell.tsx:293 (main scroll container)"],
+      "design": "docs/design/mob/platform-decision.md", "critical": false
+    },
+    {
+      "id": "N0.6", "epic": "N0", "title": "'On your phone' honest page + phone-aware CTAs (install the app, not 'Add to Chrome')", "status": "not_started", "size": "S", "owners": ["web"],
+      "deps": [], "relates": ["U20.3", "U2.7", "U20.1"], "supersedes": [],
+      "story": "As a phone visitor I want to see what Kiwiply does on my phone and how the laptop fits so that I am not sent to a Chrome Web Store page I cannot use.",
+      "genz": "Honesty about what works where beats a dead CTA every time.",
+      "ac": [
+        "/help/on-your-phone (or the marketing equivalent the mkt area names) lists: works on phone (search, save, share-to-Kiwiply, alerts, tracker, answers sheet), works on laptop (autofill), and the hand-off between them",
+        "Marketing and /connect CTAs on a phone UA say 'Get the app on your phone' (install card/sheet) + 'Send the extension to my laptop' instead of 'Add to Chrome'",
+        "/connect on a phone shows the 'open this on your laptop' state with the QR/email option (coordinates with U20.1 and N2.5)"
+      ],
+      "tests": ["Playwright iPhone + Pixel: marketing hero CTA text; /connect phone state", "vitest: CTA selector by platform()"],
+      "tech": "web/src/app/(marketing)/*, web/src/app/connect/page.tsx, web/src/lib/pwa.ts", "evidence": ["web/src/app/connect/page.tsx (no-extension state only)", "docs/design/user/onboarding-activation.md ('the extension is a desktop step')"],
+      "design": "docs/design/mob/platform-decision.md", "critical": false
+    },
+    {
+      "id": "N0.7", "epic": "N0", "title": "Existing mobile polish — 44px controls, 2×2 stat tiles, shell bottom padding, floating widgets (baseline)", "status": "done", "size": "M", "owners": ["web", "ui"],
+      "deps": [], "relates": ["U0.6"], "supersedes": [],
+      "story": "As a phone user I want the existing pages to hold at 390px so that nothing overflows or hides behind floating buttons.",
+      "genz": "Baseline, not a feature.",
+      "ac": ["Shipped on version2: shared 44px controls, stat tiles 2×2, tabs/kebab/links, shell bottom padding under floating widgets, user/org/admin page passes"],
+      "tests": ["npm test -w web (tsc + eslint) green; visual checks by eye per HANDOFF-V2 — no automated mobile test yet (N8.1)"],
+      "tech": "web/src/components/app-shell/AppShell.tsx, packages/ui controls", "evidence": ["commits 58af9fe, f057de9, a275c37, 2226f27, 792c800, 2a62116, 2653462, 0c59c8d"],
+      "design": null, "critical": false
+    },
+
+    {
+      "id": "N1.1", "epic": "N1", "title": "Web Share Target: share_target in the manifest + /share route + Save sheet (Android/Chromium)", "status": "not_started", "size": "M", "owners": ["web"],
+      "deps": ["U17.1", "N1.2"], "relates": ["U5.1", "U20.2", "U17.2"], "supersedes": [],
+      "story": "As a phone user I want to share a job link from LinkedIn, TikTok, Instagram or Chrome straight to Kiwiply so that it is saved in two taps without copying anything.",
+      "genz": "Discovery happens in TikTok/Instagram/LinkedIn on the phone; the share sheet is the universal 'send this somewhere' they already use.",
+      "benchmark": "G14 (P0, tagged N). Teal/Huntr need their extension or in-app browser to save; nobody is a share-sheet target. Huntr's App Store reviews: 'can't create entries from LinkedIn or Indeed'.",
+      "ac": [
+        "manifest.webmanifest gains share_target {action:'/share', method:'GET', params:{title,text,url}}; Kiwiply appears in the Android share sheet once installed",
+        "web/src/app/share/page.tsx lives outside the (app) group; signed-out → /login?next=/share?… preserving params; URL taken from url or the first https:// in text (LinkedIn app shares the link in text)",
+        "Save sheet shows the resolved card (title, company, location, ATS, posted) with confidence-based editable fields; Save → toast with 8 s Undo; 'Save & send to laptop' also queues (N2.1 when present, else hidden)",
+        "history.replaceState so Back from the sheet returns to Saved, not to /share",
+        "Share payload validated: https only, ≤2 KB url, ≤1 KB title/text, HTML stripped; nothing is stored until Save is tapped"
+      ],
+      "tests": ["Playwright Pixel project: GET /share?url=… signed-in → sheet → row appears in Saved; signed-out → login → sheet; invalid URL → error state", "vitest: URL extraction from url/text; payload validation"],
+      "tech": "web/public/manifest.webmanifest, web/src/app/share/page.tsx, web/src/components/share/SaveSheet.tsx, web/src/lib/share.ts", "evidence": ["web/public (no manifest)", "web/src/app/connect/page.tsx (outside-group pattern)"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": true
+    },
+    {
+      "id": "N1.2", "epic": "N1", "title": "POST /api/jobs/resolve — URL normaliser + honest metadata (public ATS APIs, OG/JSON-LD, walled hosts never fetched) + JD snapshot", "status": "not_started", "size": "M", "owners": ["API"],
+      "deps": ["A5.1"], "relates": ["U4.1", "U6.1"], "supersedes": [],
+      "story": "As the share flow I want one endpoint that turns a shared URL into a job card with the description captured so that saves are rich without scraping anything.",
+      "genz": "They share links without titles; the card has to fill itself.",
+      "benchmark": "G4 (JD snapshot + resume link, P0) applied to phone saves; G14. Resolution uses the same public ATS board APIs the ingest already calls — no scraping (locked).",
+      "ac": [
+        "Normalisation: strip utm_*/gh_src/lever-source/ref params, lowercase host, drop fragments/trailing slash; deterministic table-tested",
+        "ATS detection by host → Greenhouse/Lever/Ashby/Workable/SmartRecruiters via their public APIs; Workday and unknown public hosts → one GET (10 s, 1 MB, text/html, no cookies, fixed UA) parsing JSON-LD JobPosting then OpenGraph; walled hosts (linkedin.com, indeed.com, glassdoor.com, ziprecruiter.com) → no fetch, title/company from the shared text, needsConfirm",
+        "Response ResolvedJob {normalizedUrl, host, ats, postingId?, title?, company?, location?, remote?, salary?, descriptionText? (≤ 20 KB), confidence, needsConfirm[], existingApplicationId?}; matches an ingested job_posting by normalized URL when present",
+        "SSRF guard: https+443 only, DNS-resolved IP not private/link-local/loopback, no redirect to non-https, max 3 redirects; rate limit setting `ratelimit.jobs_resolve.per_min` (default 20 per user); never 5xx for a dead page (confidence LOW)",
+        "Flag `flag.share_resolve` (A5.3, default on; a property until A5.3 exists)"
+      ],
+      "tests": ["JobResolveServiceTest: normalisation table, per-ATS parsers on recorded fixtures (api/src/test/resources/resolve/*), walled-host no-fetch, SSRF refusals, redirect cap, size cap", "JobResolveResourceIT: 422 invalid, 429 limit, existingApplicationId when a row matches"],
+      "tech": "api/src/main/java/com/dossier/api/service/jobs/JobResolveService.java (reuse the ATS clients under service/jobs/*), web/rest/JobResolveResource.java, config property dossier.share.walled-hosts", "evidence": ["api/.../service/jobs/* (Greenhouse/Lever/Ashby clients from 13.6)", "job-autofill/src/lib/job-enrich.js (in-page enrichment the API lacks)"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": true
+    },
+    {
+      "id": "N1.3", "epic": "N1", "title": "Share save → SAVED application with source_detail, normalized_url dedupe, description snapshot, undo; 'already in your tracker' state", "status": "not_started", "size": "S", "owners": ["API", "web"], "deps": ["N1.2"], "relates": ["U5.1", "U6.1", "U20.2"], "supersedes": [],
+      "story": "As a phone user I want a shared job to land in my tracker exactly once, with the description kept, so that the laptop and the resume tools can use it later.",
+      "genz": "No duplicates, no 'where did it go' — it is in Saved before they switch back to TikTok.",
+      "ac": ["Liquibase: application + source_detail, normalized_url (index), description_text (MEDIUMTEXT, ≤ 20 KB) — additive; ApplicationSyncResource upsert dedupes on normalized_url as well as externalJobId/jobUrl", "POST /api/applications from /share writes status SAVED, source 'web', source_detail PHONE_SHARE|PHONE_PASTE|IOS_SHORTCUT, posting_id when resolved", "Duplicate → sheet shows 'Already in your tracker (Applied 3 Oct)' with Open instead of Save", "Undo within 8 s deletes the row (hard delete of a just-created SAVED row only)", "Extension mirror sees the row on its next pull (sync signal 'changed' sent after save)"],
+      "tests": ["ApplicationShareIT: dedupe by normalized_url, source_detail stored, description cap, undo path; extension pull includes the row (ApplicationSyncResource list)", "Playwright: duplicate share shows the tracker state"],
+      "tech": "api Liquibase 2026101xxxxx_application_share.xml, ApplicationSyncResource.java:40-63, web/src/components/share/SaveSheet.tsx, web/src/lib/extension-signal.ts",
+      "evidence": ["job-autofill/src/lib/app-tracking.js:56-71 (buildApplication, source)", "api/.../ApplicationSyncResource.java (upsert dedupe on externalJobId/jobUrl)"], "design": "docs/design/mob/share-target-and-handoff.md", "critical": true,
+      "benchmark": "G4: the JD text and resume id live on the application row; Teal/Simplify store the JD at save time."
+    },
+    {
+      "id": "N1.4", "epic": "N1", "title": "iOS capture path: 'Paste a link' on Saved, foreground paste chip, downloadable 'Save to Kiwiply' Shortcut + help page", "status": "not_started", "size": "M", "owners": ["web"],
+      "deps": ["N1.1"], "relates": ["U5.1", "N6.3"], "supersedes": [],
+      "story": "As an iPhone user I want a one-tap way to save a copied job link, and an optional share-sheet Shortcut, so that iOS is not a second-class phone until the native share extension exists.",
+      "genz": "iPhone share-sheet parity matters to the half of the audience on iOS; a Shortcut is a one-time setup they already know from TikTok download hacks.",
+      "benchmark": "G14 on iOS. No competitor PWA offers an iOS share path; Huntr/Teal rely on native apps for it.",
+      "ac": [
+        "Saved header on iOS (platform()==='ios') shows [Paste a link]: reads the clipboard on tap (iOS paste bubble), extracts the first URL, opens the Save sheet (N1.1) with src=PHONE_PASTE; no URL → inline field",
+        "Foreground chip 'Save the link you copied?' appears on visibilitychange→visible only when the clipboard read is user-initiated (chip tap); never a silent read",
+        "web/public/shortcuts/Save-to-Kiwiply.shortcut + /help/save-on-iphone with 3 screenshots; the Shortcut opens https://kiwiply.com/share?url=…&src=ios-shortcut",
+        "Copy states plainly: 'until Apple lets web apps join the share sheet'"
+      ],
+      "tests": ["Playwright iPhone project with clipboard-read permission: Paste a link → sheet; no-URL fallback", "Manual (N8.2): Shortcut from Safari and the LinkedIn app"],
+      "tech": "web/src/components/app-v3/saved/SavedV3Page.tsx, web/src/lib/share.ts, web/public/shortcuts/*, web/src/app/help/save-on-iphone", "evidence": ["MDN: share_target not supported in Safari (AUDIT-mob.md §4 platform facts)"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": false
+    },
+    {
+      "id": "N1.5", "epic": "N1", "title": "Share outbox: offline saves queued in IndexedDB, replayed on focus/online/Background Sync", "status": "not_started", "size": "M", "owners": ["web"],
+      "deps": ["N1.3", "U17.1"], "relates": ["U17.4", "N5.2"], "supersedes": [],
+      "story": "As a phone user on a bad connection I want a shared job to be saved anyway so that I never lose a link I found on the train.",
+      "genz": "Spotty data on transit is where they scroll jobs.",
+      "ac": [
+        "kiwiply-outbox IndexedDB store {id, kind: SAVE|QUEUE, payload, createdAt, attempts}; a failed POST from the Save sheet writes a row and shows 'Saved — will sync when you're online'",
+        "Replay on online event, on visibilitychange→visible, and via SW 'sync' tag kiwiply-outbox where Background Sync exists; server upsert makes replays idempotent",
+        "Max 5 attempts → row shows 'Couldn't sync — retry' in Saved; cleared on sign-out",
+        "This is the only queued write; every other offline write stays disabled (pwa-push.md §3)"
+      ],
+      "tests": ["vitest: outbox add/replay/attempt logic with fake IDB (fake-indexeddb)", "Playwright Pixel: route-block the API → share → outbox row → unblock → replayed, row in Saved"],
+      "tech": "web/src/lib/outbox.ts, web/public/sw.js (sync handler), web/src/components/share/SaveSheet.tsx", "evidence": ["docs/design/user/pwa-push.md §3 (no queued writes — this story is the one exception)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": false
+    },
+    {
+      "id": "N1.6", "epic": "N1", "title": "Share OUT: navigator.share for a job (to a friend, with referral) and for recap/outcome cards in social formats", "status": "not_started", "size": "S", "owners": ["web"], "deps": [], "relates": ["U16.3", "U16.4", "O6.6", "M6.5"], "supersedes": [],
+      "story": "As a phone user I want to send a job or my weekly card to a friend with the system share sheet so that Kiwiply spreads the way the audience shares everything else.",
+      "genz": "Growth is a share sheet, not a 'copy link' button.",
+      "ac": ["Job card/sheet 'Share' → navigator.share({title, text, url: posting URL + ?ref=<referral code when U16.4 exists>}); fallback copy-link toast", "Recap/outcome card (U16.3) 'Share image' → navigator.share({files:[png]}) in 1080×1920 and 1080×1080; no personal data by default, opt-in to company names", "Events share_out {kind: job|card, platformHint}"],
+      "tests": ["vitest: share payload builder; fallback when navigator.share is absent", "Playwright iPhone: share button invokes a stubbed navigator.share with files"],
+      "tech": "web/src/lib/share.ts (shareOut), app-v3 job card + recap card components",
+      "evidence": ["docs/roadmap/areas/user.json U16.3 (shareable card) — social sizes/privacy default not specified"], "design": null, "critical": false,
+      "benchmark": "G35 (shareable outcome cards for TikTok/Instagram, U/M): this story is the phone delivery of U16.3's card — files via navigator.share, 1080×1920 and square, counts not company names by default."
+    },
+
+    {
+      "id": "N2.1", "epic": "N2", "title": "Hand-off model + API: handoff_state on application, queue/unqueue/opened endpoints, count on GET /api/profile/version, expiry job (setting)", "status": "not_started", "size": "M", "owners": ["API"],
+      "deps": ["A5.1"], "relates": ["U6.1", "U20.5", "U5.2"], "supersedes": [],
+      "story": "As a phone user I want to flag a saved job 'do this on my laptop' so that the laptop knows what to fill when I sit down.",
+      "genz": "Find it on the phone at lunch, fill it on the laptop at night — the loop nobody else closes.",
+      "benchmark": "No competitor has a phone→laptop queue (COMPETITIVE-LANDSCAPE.md feature matrix: hand-off row is ◐/○ for all 11). Glassdoor: mobile applicants complete 53 % fewer applications — the queue moves completion to the desktop.",
+      "ac": [
+        "Liquibase (additive): application + handoff_state NONE|QUEUED|OPENED|DONE|EXPIRED, handoff_queued_at, handoff_opened_at, handoff_opened_on, handoff_note (≤140); index (user_id, handoff_state, handoff_queued_at)",
+        "POST /api/applications/{id}/handoff/queue {note?} · /unqueue · /opened {ua} (idempotent, owner-only); GET /api/applications/handoff?state=QUEUED → list for the extension/desktop web",
+        "GET /api/profile/version adds handoffQueued:int (ProfileVersionVM) — never 404, cheap COUNT with the index",
+        "Submit-detect (ApplicationSyncResource upsert to APPLIED) flips QUEUED/OPENED → DONE; nightly job expires QUEUED older than setting `handoff.expiry_days` (default 14) → EXPIRED and emits STALE_NUDGE (digest-only) once",
+        "DSAR export includes the hand-off fields with the application"
+      ],
+      "tests": ["ApplicationHandoffIT: queue→opened→done; unqueue; re-queue; expiry job; idempotency; foreign-user 404; handoffQueued on /api/profile/version", "ProfileVersionVM serialisation test"],
+      "tech": "api Liquibase 2026101xxxxx_application_handoff.xml, web/rest/ApplicationHandoffResource.java, service/ApplicationHandoffService.java, ProfileResource.java:58-73 + vm/ProfileVersionVM.java, ApplicationSyncResource.java", "evidence": ["api/.../web/rest/ProfileResource.java:58-73 (version endpoint carries plan already)", "job-autofill/src/lib/app-tracking.js:102-109 (submit-detect → APPLIED upsert)"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": true
+    },
+    {
+      "id": "N2.2", "epic": "N2", "title": "Extension: 'From your phone' list in the drawer home, action badge from handoffQueued on the 15-min alarm, Open & fill → opened", "status": "not_started", "size": "M", "owners": ["extension"],
+      "deps": ["N2.1"], "relates": ["U20.5", "U20.2"], "supersedes": [],
+      "story": "As a laptop user I want the drawer to show the jobs I queued on my phone and open each one ready to fill so that the hand-off takes one click.",
+      "genz": "The laptop should already know what they decided at lunch.",
+      "ac": [
+        "src/lib/sync.js checkAndPull reads handoffQueued from /api/profile/version and sets chrome.action badge text (count, cleared at 0); web KIWIPLY_SYNC 'changed' triggers the same pull immediately",
+        "Drawer home (entrypoints/panel) renders 'From your phone (N)' with title · company · note; Open & fill → chrome.tabs.create(url) + POST handoff/opened {ua summary}; Dismiss → unqueue; empty state hidden",
+        "Fill proceeds as on any page; nothing is submitted (locked); the section refreshes after a fill",
+        "Firefox build: same via the relay/alarm; no new permissions (notifications permission is N2.4)",
+        "Versions bumped (wxt.config.ts + package.json)"
+      ],
+      "tests": ["npm test: checkAndPull badge from version payload (0/3); drawer section renders 0/1/3 items; Open & fill posts opened; dismiss unqueues (fake provider)", "Smoke: load unpacked, queue from the web, badge appears within one alarm tick"],
+      "tech": "job-autofill/src/lib/sync.js, src/background/service-worker.js:436-464, entrypoints/panel/home-actions.ts, src/lib/tracking.js (new TrackingProvider methods: listHandoff, handoffOpened, handoffUnqueue — canonical DTOs only)", "evidence": ["job-autofill/src/background/service-worker.js:436-464 (SYNC_ALARM, checkAndPull)", "job-autofill/entrypoints/panel/home-actions.ts (drawer home actions)"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": true
+    },
+    {
+      "id": "N2.3", "epic": "N2", "title": "Web: 'Send to laptop' on job cards/sheets/Saved rows with states (waiting → opened on Chrome · MacBook → applied), desktop 'Open & fill now' when the extension is present", "status": "not_started", "size": "M", "owners": ["web", "ui"],
+      "deps": ["N2.1"], "relates": ["U5.1", "U4.3", "U20.3", "U6.3"], "supersedes": [],
+      "story": "As a phone user I want one tap to queue a job and a clear status of what happened on the laptop so that I trust the loop.",
+      "genz": "Status is the feature — 'Opened on your MacBook at 10:42' is the kind of receipt they screenshot.",
+      "ac": [
+        "Send-to-laptop action (icon in @kiwiply/ui) on job cards, the job detail sheet, Saved rows and the share Save sheet; optional note; optimistic state with rollback toast",
+        "Row states: Waiting on your laptop [Un-queue] · Opened on <browser · device> at <time> · Applied ✓ · Expired (Still want it?)",
+        "Desktop web with the extension detected (extension-signal ping, U20.3) renders 'Open & fill now' instead (opens the posting and sends the drawer-open hint); desktop without the extension renders the install card + plain 'Open posting'",
+        "Events handoff_queued/unqueued with platform/displayMode props"
+      ],
+      "tests": ["Playwright iPhone: queue → state text; un-queue; desktop project with a stubbed extension ping → 'Open & fill now'", "vitest: state label mapping from handoff fields"],
+      "tech": "packages/ui icons (laptop-arrow), web/src/components/app-v3/{jobs,saved,applications}/*, web/src/lib/handoff.ts, web/src/lib/extension-signal.ts", "evidence": ["web/src/components/app-v3/saved/SavedV3Page.tsx (sample data today)", "web/src/lib/extension-signal.ts (ping transport)"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": true
+    },
+    {
+      "id": "N2.4", "epic": "N2", "title": "Laptop nudges: once-a-day desktop notification from the extension while the queue is non-empty + 'Tonight: 3 jobs ready' digest section via the engine", "status": "not_started", "size": "S", "owners": ["extension", "API"],
+      "deps": ["N2.1", "U7.1"], "relates": ["U7.5", "U7.3"], "supersedes": [],
+      "story": "As a user I want a gentle reminder on the laptop that my phone queue is waiting so that the jobs I found do not expire unread.",
+      "genz": "One nudge, on the right device, at the right time; never a push to the phone that started it.",
+      "ac": [
+        "Extension: on the sync alarm, if handoffQueued > 0 and no notification today (chrome.storage stamp) → chrome.notifications 'N jobs from your phone are waiting' (counts only); off switch in options; requires the optional 'notifications' permission requested on first enable (Chrome/Edge/Firefox)",
+        "API: new kind HANDOFF_EVENING published at the user's digest time when QUEUED > 0 and nothing opened today; digest-only email section; in-app row; push off (policy locked in alerts-notifications.md kinds table extension)",
+        "Respects quiet hours (engine) and the user's channel matrix"
+      ],
+      "tests": ["npm test: notification once per day with a fake clock; permission gate", "NotificationPolicyTest: HANDOFF_EVENING defaults digest-only; DigestSchedulerIT includes the section once"],
+      "tech": "job-autofill/src/background/service-worker.js, entrypoints/options, wxt.config.ts optional_permissions; api NotificationKind + DigestScheduler", "evidence": ["docs/design/user/alerts-notifications.md §1 kinds table (no hand-off kinds yet)"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": false
+    },
+    {
+      "id": "N2.5", "epic": "N2", "title": "Install from the phone: QR + one-time link to /connect?k= (10 min, single-use) alongside the U2.7 email", "status": "not_started", "size": "S", "owners": ["web", "API", "ui"],
+      "deps": ["U2.7", "A5.1"], "relates": ["U20.1", "U2.7"], "supersedes": [],
+      "story": "As a phone-first user I want to point my laptop's camera at a code to install and connect the extension so that the first hand-off takes a minute, not an email hunt.",
+      "genz": "QR codes are muscle memory (menus, tickets); email is where links go to die.",
+      "ac": [
+        "POST /api/handoff-links → {token, url, expiresAt} (rate setting `ratelimit.handoff_link.per_hour`, default 3 per user; 32 random bytes stored hashed; single-use; 10 min)",
+        "Phone sheet 'Install on your laptop': inline SVG QR (helper added to packages/ui, no runtime dep), Email me the link (U2.7 endpoint), Copy link",
+        "/connect?k=… on the laptop: token exchanged server-side for intent only (never authenticates); signed-in → extension install/connect flow → lands on the queue; signed-out → /login with k preserved; expired/used → plain /connect with a note",
+        "Events handoff_link_created/used"
+      ],
+      "tests": ["HandoffLinkIT: single use, expiry, rate limit, wrong user cannot consume for another account's intent", "Playwright desktop: /connect?k= states; vitest: QR SVG helper renders a valid module grid for a known string"],
+      "tech": "api web/rest/HandoffLinkResource.java + Liquibase handoff_link table, web/src/app/connect/page.tsx, packages/ui QrCode.tsx, web/src/components/app-v3/home (checklist card)", "evidence": ["docs/design/user/onboarding-activation.md (POST /api/account/send-extension-link, 3/day)", "web/src/app/connect/page.tsx"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": false
+    },
+    {
+      "id": "N2.6", "epic": "N2", "title": "Autopilot source: queued hand-off items are offered as a batch on the laptop (prepare-only, never submit) — P2 flag", "status": "not_started", "size": "S", "owners": ["API", "extension"],
+      "deps": ["N2.1"], "relates": [], "supersedes": [],
+      "story": "As an Autopilot user I want the jobs I queued from my phone to be the first candidates in tonight's batch so that the phone becomes the remote control for the laptop.",
+      "genz": "Pick on the phone, let the laptop prepare, review and submit yourself.",
+      "benchmark": "Simplify Autopilot/JobRight agent apply in the cloud; locked: Autopilot prepares in the user's own browser (300/month, 30/day) and stops before submit — the queue only orders the batch.",
+      "ac": [
+        "When Phase 19 exists: autopilot_item creation takes QUEUED hand-off rows first (ordered by handoff_queued_at), respecting entitlement `autopilot.apps_per_day` (catalog default 30); items keep handoff_note as the resume hint",
+        "Hand-off state moves to OPENED when the batch opens the page and DONE only on the user's own submit (submit-detect)",
+        "Behind feature flag autopilot.handoffSource; no behaviour change without it"
+      ],
+      "tests": ["AutopilotBatchPlannerTest: ordering and cap with queued rows; state transitions"],
+      "tech": "api service/autopilot/* (Phase 19), job-autofill drawer batch list", "evidence": ["ROADMAP.md Phase 19 (Autopilot prepares, never submits)"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": false
+    },
+
+    {
+      "id": "N3.1", "epic": "N3", "title": "'My answers' copy sheet on the phone: grouped profile values + learned answers, one-tap copy, 'I applied' in one tap", "status": "not_started", "size": "M", "owners": ["web"], "deps": [], "relates": ["U13.2", "U6.2", "U2.8", "U13.4"], "supersedes": [],
+      "story": "As an iPhone user applying on my phone I want every answer I would have autofilled one tap away so that a mobile application takes minutes, not the 80 % longer Glassdoor measured.",
+      "genz": "Honest assist beats fake autofill; copy-paste with big targets is what they do already — we just remove the hunting.",
+      "ac": ["/answers page and a bottom sheet from any job row: groups Contact · Links · Work · Eligibility · EEO (collapsed, optional) · Learned · Resume, keyed by the same canonical field map the extension fills (contract test imports job-autofill/src/lib/field-map.js)", "Each value: label, value, [Copy] with a 'copied ✓' state; clipboard fallback via a select-all field; no values in events (answer_copied {group} only)", "Header states 'No autofill on iPhone yet — copy in one tap'; Android Firefox users see the drawer hint (N3.2) instead", "[I applied to this job] → PATCH status APPLIED with source_detail PHONE_MANUAL; hand-off row (if any) → DONE"],
+      "tests": ["vitest contract: groups cover every field-map key that has a bio.payload source; copy fallback", "Playwright iPhone (clipboard-read permission): copy email → clipboard; I applied moves the row"],
+      "tech": "web/src/app/(app)/answers/page.tsx, web/src/components/app-v3/answers/AnswersSheet.tsx, web/src/lib/answers.ts (reads /api/profile, /api/profile/suggestions, /api/profile/resumes)",
+      "evidence": ["job-autofill/src/lib/field-map.js (canonical keys)", "api/.../ProfileSuggestionResource (learned answers)"], "design": "docs/design/mob/phone-apply-assist.md", "critical": true,
+      "benchmark": "G7 (My Answers bank, U) is the web editor of learned answers; this is its phone-apply twin. Teal/Huntr mobile apps are tracker-only; none offers an answers sheet."
+    },
+    {
+      "id": "N3.2", "epic": "N3", "title": "Firefox for Android experiment: responsive drawer (≤480px bottom sheet), real-device smoke on 3 ATS pages, go/no-go recorded", "status": "not_started", "size": "M", "owners": ["extension"],
+      "deps": [], "relates": ["N8.2"], "supersedes": [],
+      "story": "As an Android user on Firefox I want the autofill drawer to work on my phone so that 'autofill on Android' can be a real claim — or an honest no.",
+      "genz": "Android + Firefox is a small but real slice; a cheap experiment beats a vague promise.",
+      "benchmark": "G11 (Firefox/Safari presence, E) — this is the Android half. No autofill competitor claims phone autofill; password managers prove the pattern (and its flakiness) on Firefox Android.",
+      "ac": [
+        "Panel iframe host (background.ts injection) and panel CSS: ≤480px → fixed bottom sheet 60vh, full width, drag handle; drawer layout stacks; fill overlay readable at 390px",
+        "Smoke on a real Android device (Firefox ≥ 142): Greenhouse, Lever, Workday fixtures — fill ≥ 80 % of the desktop field count, never touches the page's submit; results + screenshots recorded in PROGRESS.md",
+        "Go → AMO listing + /help say 'Autofill on Android: Firefox' and N0.6 copy updates; No-go → gecko_android floor stays, no claim anywhere",
+        "No new permissions; versions bumped"
+      ],
+      "tests": ["npm test: panel CSS snapshot at 390px; existing fixture harness run at a 390px viewport", "Manual device smoke checklist (N8.2)"],
+      "tech": "job-autofill/entrypoints/background.ts (iframe host styles), entrypoints/panel/*.css, wxt.config.ts:109", "evidence": ["job-autofill/wxt.config.ts:109 (gecko_android strict_min_version 142, 'Android is not a target we test')"],
+      "design": "docs/design/mob/phone-apply-assist.md", "critical": false
+    },
+    {
+      "id": "N3.3", "epic": "N3", "title": "Resume on the phone: share the PDF into Files/the ATS picker via navigator.share({files}), download fallback, copy summary", "status": "not_started", "size": "S", "owners": ["web"],
+      "deps": [], "relates": ["R3.3", "R2.6"], "supersedes": [],
+      "story": "As a phone applicant I want to hand my resume PDF to the ATS upload control from Kiwiply so that I do not need a laptop to attach it.",
+      "genz": "Files app + share sheet is how they move documents; email-to-self is a last resort.",
+      "ac": [
+        "Resume rows and the Answers sheet: [Share PDF] → navigator.share({files:[File]}) when canShare({files}) (iOS 15+, Chrome Android); else [Download]",
+        "Source: Resume Builder export when the resume is builder-made (R3.3), else the stored upload (GET /api/profile/resumes/{id}/file)",
+        "[Copy summary] copies the resume summary text for 'paste your resume' fields"
+      ],
+      "tests": ["vitest: canShare branching; Playwright iPhone: share invoked with a File (stubbed navigator.share)"],
+      "tech": "web/src/components/app-v3/resume-builder/*, web/src/lib/share.ts", "evidence": ["api/.../ResumeFileResource (file download exists)"],
+      "design": "docs/design/mob/phone-apply-assist.md", "critical": false
+    },
+    {
+      "id": "N3.4", "epic": "N3", "title": "Safari iOS web extension inside the native shell (WXT safari target) — P2, gated by N6", "status": "not_started", "size": "L", "owners": ["extension"],
+      "deps": ["N6.2"], "relates": ["N3.2"], "supersedes": [],
+      "story": "As an iPhone user I want the autofill drawer in Safari so that the phone can fill, not only capture.",
+      "genz": "The only path to real iOS autofill; worth it only once the shell exists for other reasons.",
+      "benchmark": "G11 (Safari presence). 1Password/Bitwarden ship Safari iOS extensions through their apps — the proven pattern.",
+      "ac": [
+        "WXT safari build (xcrun safari-web-extension-converter) packaged inside mobile-shell/ios; drawer uses the N3.2 responsive layout",
+        "Fill works on the Greenhouse/Lever/Workday fixtures in Safari iOS; never submits; per-ATS kill switch honoured",
+        "App Store review notes explain the extension; listing says 'Autofill in Safari on iPhone'"
+      ],
+      "tests": ["Fixture harness in Safari (WebKit Playwright project) at 390px; manual device smoke"],
+      "tech": "job-autofill (safari target), mobile-shell/ios", "evidence": ["AUDIT-mob.md §4 (Safari is the only iOS browser with extensions)"],
+      "design": "docs/design/mob/phone-apply-assist.md", "critical": false
+    },
+
+    {
+      "id": "N4.1", "epic": "N4", "title": "iOS push gate: pre-prompt becomes the Add-to-Home-Screen sheet when not installed; permission only in standalone after a tap; wantsPush carried over", "status": "not_started", "size": "S", "owners": ["web"],
+      "deps": ["U7.4", "U17.2"], "relates": ["U7.3"], "supersedes": [],
+      "story": "As an iPhone user I want Kiwiply to tell me pings need the home-screen app before asking so that I never see a prompt that cannot work.",
+      "genz": "A dead permission prompt is the fastest way to look broken.",
+      "ac": [
+        "On ios + browser display mode, 'turn on pings' opens the 2-step install sheet (N0.2 copy) and stores wantsPush=true (localStorage, try/catch)",
+        "In standalone with wantsPush, the pre-prompt sheet shows once on first open; Notification.requestPermission only inside the tap handler",
+        "Denied → recorded (pushDenied), never re-asked; Settings explains the iOS Settings path",
+        "Feature flag notifications.push per platform (A5.3 when it exists)"
+      ],
+      "tests": ["Playwright iPhone browser vs standalone projects: sheet vs prompt; requestPermission stub called only after tap", "vitest: gate matrix (platform × displayMode × permission state)"],
+      "tech": "web/src/lib/pwa.ts (push gate), web/src/components/app-shell/InstallCard.tsx, settings notifications panel", "evidence": ["docs/design/user/alerts-notifications.md §3 (iOS: push only inside the installed PWA)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": false
+    },
+    {
+      "id": "N4.2", "epic": "N4", "title": "App-icon badge: setAppBadge(unread) from the SW on push and from the page; cleared when the bell opens", "status": "not_started", "size": "S", "owners": ["web", "API"],
+      "deps": ["U7.4"], "relates": ["U7.6"], "supersedes": [],
+      "story": "As an installed-app user I want the icon to show how many things need me so that I check Kiwiply like any app.",
+      "genz": "Badges are the heartbeat of a home-screen app.",
+      "ac": [
+        "Push payload carries unread (COUNT UNREAD at send time); sw.js calls navigator.setAppBadge(unread) when supported",
+        "Page sets the badge after GET /api/notifications and clears it on bell open / read-all; no-op where unsupported",
+        "Badge never exceeds 99; a 0 clears"
+      ],
+      "tests": ["vitest: badge helper no-op without API; Playwright standalone: fake push event → setAppBadge spy called with the count"],
+      "tech": "web/public/sw.js, web/src/lib/badge.ts, web/src/components/app-shell/NotificationBell.tsx; api PushSender payload", "evidence": ["web/src/components/app-shell/NotificationBell.tsx (unread list exists)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": false
+    },
+    {
+      "id": "N4.3", "epic": "N4", "title": "Notification actions: per-kind SW actions (See jobs / Mute this alert, Open / Add note, Prep) with a same-origin action endpoint", "status": "not_started", "size": "M", "owners": ["web", "API"],
+      "deps": ["U7.4", "U7.2"], "relates": ["U9.4", "U6.3"], "supersedes": [],
+      "story": "As a phone user I want to act on a ping from the lock screen so that a useless alert can be muted in one tap and a useful one opened in one.",
+      "genz": "Indeed/LinkedIn get one-star reviews for alert spam; the mute action is our answer.",
+      "benchmark": "Indeed app reviews: notification bugs and spam (bestjobsearchapps 2026); unstar: no major app offers a per-alert mute from the notification.",
+      "ac": [
+        "ACTIONS map per kind in sw.js (≤ 2 actions); notificationclick routes action → POST /api/notifications/{id}/action {action} with credentials; default → focus/open the validated same-origin link",
+        "API: action endpoint (owner-only, idempotent): MUTE_ALERT pauses the alert, ADD_NOTE opens the detail with the note sheet (link), PREP links to U9",
+        "Offline/failed action → open the link instead",
+        "CSRF: same-origin + SameSite cookie + Origin check (U1.1)"
+      ],
+      "tests": ["NotificationActionIT: ownership, idempotency, MUTE_ALERT pauses; Playwright standalone: fake push with actions → click 'mute' → intercepted POST"],
+      "tech": "web/public/sw.js, api web/rest/NotificationResource.java (action), JobAlertService.pause", "evidence": ["docs/design/user/pwa-push.md §2 (notificationclick without actions)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": false
+    },
+    {
+      "id": "N4.4", "epic": "N4", "title": "Subscription liveness: verify/re-subscribe on every app open (iOS drops subs), platform/display_mode/last_seen columns, 'Your devices' list in Settings", "status": "not_started", "size": "M", "owners": ["web", "API"],
+      "deps": ["U7.4"], "relates": ["U1.4", "U7.3"], "supersedes": [],
+      "story": "As an iPhone user I want pings to keep working after a quiet week so that the first alert that matters is not silently lost.",
+      "genz": "Silent breakage is worse than no feature.",
+      "ac": [
+        "push_subscription + platform, display_mode, last_seen_at, kind (WEBPUSH|NATIVE) — additive",
+        "On visibilitychange→visible: compare pushManager.getSubscription() with GET /api/push/subscriptions/me?endpointHash=; missing/changed + permission granted → re-subscribe; permission denied → POST disable",
+        "Settings › Notifications › Your devices lists platform · display mode · last seen · on/off; endpoint never shown",
+        "last_seen batched ≤ 1/hour"
+      ],
+      "tests": ["PushSubscriptionIT: liveness answers, platform stored, disable path; vitest: liveness state machine; Playwright standalone: subscription removed → re-subscribed (stubbed pushManager)"],
+      "tech": "api Liquibase push_subscription alter, PushSubscriptionResource, web/src/lib/pwa.ts (subscribe/verify), settings devices panel", "evidence": ["docs/design/user/alerts-notifications.md §1 push_subscription (no platform column)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": true
+    },
+    {
+      "id": "N4.5", "epic": "N4", "title": "Mobile etiquette caps: pushes/day per phone device from setting `notify.mobile_daily_cap` (default 3), device-tz quiet hours default, 'why this ping' + mute-kind deep link", "status": "not_started", "size": "S", "owners": ["API", "web"],
+      "deps": ["U7.1", "U7.3", "N4.4", "A5.1"], "relates": [], "supersedes": [],
+      "story": "As a phone user I want Kiwiply to be the quietest job app on my phone so that I keep its pings on.",
+      "genz": "Quiet by default is a trust feature; the ones who want more can turn it up.",
+      "benchmark": "Indeed/LinkedIn notification-spam complaints; JobRight pushes instant alerts by default. We cap and explain.",
+      "ac": [
+        "Policy step reads the subscription's platform: phone classes cap at setting `notify.mobile_daily_cap` (default 3; A5.1); overflow rolls into the digest",
+        "Quiet hours default from the device tz reported at subscribe time; user-set stays authoritative",
+        "Every push body ends with nothing extra, but the notification's data.link carries ?why=<kind>; the opened page shows a one-line 'You got this because …' with [Mute this kind] → /settings/notifications?kind="
+      ],
+      "tests": ["PushPolicyTest: cap per device class and day boundary in the user's tz; overflow → DIGEST state", "Playwright: why-line renders and mute navigates"],
+      "tech": "api NotificationPolicy/PushSender, runtime settings; web notifications settings panel", "evidence": ["docs/design/user/alerts-notifications.md §2 (push ≤ 10/day, not per device)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": false
+    },
+
+    {
+      "id": "N5.1", "epic": "N5", "title": "Network-aware fetch layer: timeouts, idempotent retry with jitter, offline banner, low-data mode flag", "status": "not_started", "size": "M", "owners": ["web"],
+      "deps": [], "relates": ["U0.4", "U19.5"], "supersedes": [],
+      "story": "As a phone user on a weak signal I want pages to fail fast and say so instead of spinning forever so that I know whether to retry.",
+      "genz": "A spinner that never ends is a broken app; an honest 'you're offline' is fine.",
+      "ac": [
+        "web/src/lib/net.ts wraps client fetches: 10 s GET / 30 s upload timeouts, one retry with jitter on network error/502/503 for GET and idempotent PUT; errors typed (Offline, Timeout, Http)",
+        "Offline banner in the app shell driven by online/offline events + a failed-probe fallback; dismisses on recovery",
+        "Low-data mode when navigator.connection.saveData or effectiveType ∈ {slow-2g, 2g}: <html data-saver>, Link prefetch off, next/image smaller sizes, no decorative art",
+        "Client errors from net.ts feed U19.5 monitoring when it exists"
+      ],
+      "tests": ["vitest: timeout/retry matrix, error typing, low-data detection", "Playwright Pixel: route abort → banner; restore → banner gone"],
+      "tech": "web/src/lib/net.ts, web/src/components/app-shell/OfflineBanner.tsx, globals.css [data-saver]", "evidence": ["web/src/lib/api.ts (server fetch helper; client fetches are ad hoc today)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": false
+    },
+    {
+      "id": "N5.2", "epic": "N5", "title": "Read snapshots + outbox for Saved, Applications and the hand-off queue (extends U17.4); offline 'Send to laptop' queued", "status": "not_started", "size": "M", "owners": ["web"],
+      "deps": ["U17.4", "N1.5", "N2.1"], "relates": ["U6.2", "U5.1"], "supersedes": [],
+      "story": "As a phone user offline I want to see my saved jobs and queue one for the laptop so that the commute is still useful.",
+      "genz": "Offline-tolerant is the difference between an app and a website.",
+      "ac": [
+        "kiwiply-snap per user ≤ 500 KB: Saved, Applications list, queue counts; banner 'Offline — showing what you had at 10:42'; writes disabled except Send to laptop → outbox QUEUE op (idempotent server-side)",
+        "Snapshot refreshed after each successful load; cleared on sign-out; never read by the SW",
+        "Outbox replay order preserved; conflicts resolved by the server (last write wins on handoff_state)"
+      ],
+      "tests": ["vitest: snapshot write/read/size cap; outbox QUEUE op replay", "Playwright Pixel: load → offline → reload shows snapshot + banner → queue → online → state updated"],
+      "tech": "web/src/lib/snapshot.ts (U17.4), web/src/lib/outbox.ts (N1.5), app-v3 saved/applications pages", "evidence": ["docs/design/user/pwa-push.md §3 (snapshots P2, writes disabled)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": false
+    },
+    {
+      "id": "N5.3", "epic": "N5", "title": "Cellular budgets: image sizes per breakpoint, no autoplay, prefetch only off low-data, 3G Lighthouse run in CI", "status": "not_started", "size": "S", "owners": ["web"],
+      "deps": ["U17.3", "N5.1"], "relates": [], "supersedes": [],
+      "story": "As a phone user on 3G I want the app to stay under a data budget so that it opens in under three seconds on a bad day.",
+      "genz": "Students and new grads are on cheap plans; data matters.",
+      "ac": [
+        "next/image sizes attribute on every image; marketing hero media lazy and poster-first; no autoplay video in the app",
+        "lighthouserc.json adds a 3G-throttled run for /dashboard and /jobs with total transfer ≤ 400 KB on first load (mobile preset stays at 600 KB)",
+        "data-saver mode verified: no prefetch requests observed in the Playwright network log"
+      ],
+      "tests": ["CI Lighthouse 3G job; Playwright: count of prefetch requests = 0 under data-saver"],
+      "tech": "web/lighthouserc.json, .github/workflows/ci.yml, app-v3 components", "evidence": ["docs/design/user/pwa-push.md §0.5 (budgets at the mobile preset only)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": false
+    },
+
+    {
+      "id": "N6.1", "epic": "N6", "title": "Native-shell gate review: run the six metrics at +60 days, go/no-go memo, TWA vs Capacitor choice for Android", "status": "not_started", "size": "S", "owners": ["web"],
+      "deps": ["N8.3", "N1.1", "N2.3", "U18.3"], "relates": ["A11.4"], "supersedes": [],
+      "story": "As the product owner I want a numbers-based decision on building a store app so that we spend the sessions only if iOS users are hitting the wall.",
+      "genz": "Build the app icon in the store only when they ask for it with their behaviour.",
+      "ac": [
+        "Admin analytics (or a script over product_event) prints the six platform-decision.md §4 metrics for the last 60 days",
+        "Memo in PROGRESS.md: go/no-go per threshold; if go, Android path chosen (TWA default) and N6.2–N6.6 scheduled; if no-go, next review date set",
+        "No code beyond the metrics query"
+      ],
+      "tests": ["Query test over fixture events reproduces the memo numbers"],
+      "tech": "web/src/app/(admin)/admin/analytics (A11.4) or scripts/mobile-gate.mjs over the events API", "evidence": ["docs/design/mob/platform-decision.md §4"],
+      "design": "docs/design/mob/platform-decision.md", "critical": false
+    },
+    {
+      "id": "N6.2", "epic": "N6", "title": "Capacitor shell (iOS; Android via TWA or Capacitor) loading kiwiply.com: splash, status bar, universal/app links, bridge, minimum-version config", "status": "not_started", "size": "L", "owners": ["web", "API"],
+      "deps": ["N6.1", "N0.3", "N7.1"], "relates": [], "supersedes": [],
+      "story": "As an iPhone user I want Kiwiply in the App Store so that it is discoverable and gets the native share sheet and push.",
+      "genz": "Store presence is credibility for this audience; the app must still be the same app.",
+      "benchmark": "Teal, Huntr, JobRight ship native apps that are tracker/feed only; ours wraps the full product. Bare wrappers risk Apple Guideline 4.2 — N6.3–N6.5 are the native value.",
+      "ac": [
+        "mobile-shell/ workspace member; capacitor.config.ts server.url=https://kiwiply.com, allowNavigation kiwiply.com only; UA suffix KiwiplyShell/<v>; window.KiwiplyShell bridge {version, platform, storefront, openExternal, push, biometrics}",
+        "web/public/.well-known/{apple-app-site-association,assetlinks.json} served; deep links open the shell cold/warm",
+        "GET /api/mobile/config {minShellVersion, linkoutStorefronts, features} backed by runtime settings; older shells show an update screen",
+        "No static export; Next config unchanged; web detects the shell only for display rules"
+      ],
+      "tests": ["vitest: shell detection + bridge fallbacks; API IT for /api/mobile/config; manual device: cold/warm deep links, external link opens Safari"],
+      "tech": "mobile-shell/*, web/src/lib/pwa.ts (shell detection), web/public/.well-known/*, api MobileConfigResource", "evidence": ["web/next.config.ts (output standalone — must not change)"],
+      "design": "docs/design/mob/platform-decision.md", "critical": true
+    },
+    {
+      "id": "N6.3", "epic": "N6", "title": "iOS Share Extension → /share (the one capture path a PWA cannot offer on iPhone)", "status": "not_started", "size": "M", "owners": ["web"],
+      "deps": ["N6.2", "N1.1"], "relates": ["N1.4"], "supersedes": [],
+      "story": "As an iPhone user I want Kiwiply in the share sheet so that saving from LinkedIn/TikTok is the same two taps as on Android.",
+      "genz": "This is the feature that justifies the store app on iOS.",
+      "benchmark": "G14 on iOS, natively. Huntr/Teal iOS apps can receive shares; their reviews say they still can't create from LinkedIn/Indeed — ours resolves the URL honestly (N1.2).",
+      "ac": [
+        "ShareExtension target accepts URLs/text, opens the shell at /share?url=…&src=SHELL_SHARE; source_detail SHELL_SHARE stored",
+        "Works cold and warm; signed-out → login round-trip keeps params",
+        "N1.4's Shortcut help page notes the native path when the shell is installed"
+      ],
+      "tests": ["Manual device: share from Safari, LinkedIn, TikTok; Playwright cannot cover the extension — the /share page tests (N1.1) cover the web side"],
+      "tech": "mobile-shell/ios/ShareExtension, web/src/app/share/page.tsx", "evidence": ["AUDIT-mob.md §4 (no Web Share Target in Safari)"],
+      "design": "docs/design/mob/share-target-and-handoff.md", "critical": false
+    },
+    {
+      "id": "N6.4", "epic": "N6", "title": "Native push bridge: APNs/FCM tokens as push_subscription kind=NATIVE; same engine, second transport; badge via bridge", "status": "not_started", "size": "M", "owners": ["API", "web"],
+      "deps": ["N6.2", "N4.4"], "relates": ["U7.4"], "supersedes": [],
+      "story": "As a shell user I want reliable native pings so that iOS does not drop my alerts the way web push can.",
+      "genz": "Reliability is the second reason for the store app.",
+      "ac": [
+        "Bridge registers for push and POSTs {token, kind: NATIVE_IOS|NATIVE_ANDROID} to /api/push/subscriptions; PushSender gains an APNs/FCM transport (keys in env, never in the bundle)",
+        "Payload, caps, quiet hours, actions identical to web push; badge set via the bridge",
+        "Invalid token → disabled like 410"
+      ],
+      "tests": ["PushSenderTest with fake APNs/FCM transports; PushSubscriptionIT kind NATIVE; manual device delivery"],
+      "tech": "api service/push/* (transport interface), mobile-shell bridge, web/src/lib/pwa.ts", "evidence": ["docs/design/user/alerts-notifications.md §3 (web-push only)"],
+      "design": "docs/design/mob/mobile-push-offline.md", "critical": false
+    },
+    {
+      "id": "N6.5", "epic": "N6", "title": "Biometric unlock + passkeys/OAuth in the shell (ASWebAuthenticationSession / Custom Tabs), Home-Screen widget 'jobs waiting on your laptop'", "status": "not_started", "size": "M", "owners": ["web"],
+      "deps": ["N6.2", "U1.2"], "relates": ["U1.3"], "supersedes": [],
+      "story": "As a shell user I want Face ID to reopen Kiwiply and a widget showing my queue so that the app earns its place on the home screen.",
+      "genz": "Face ID and widgets are what 'real app' means to them; also Apple's 4.2 evidence.",
+      "ac": [
+        "Biometric gate (optional, Settings) in front of the web view on resume after 5 min; passkeys work through the system WebAuthn in the shell's web view; Google/Apple sign-in via ASWebAuthenticationSession/Custom Tabs, never an embedded web view",
+        "iOS/Android widget reads GET /api/applications/handoff count via the session cookie (or a short-lived token) and deep-links to Saved",
+        "Review notes list these as native functionality"
+      ],
+      "tests": ["Manual device; vitest for the bridge call fallbacks on the web"],
+      "tech": "mobile-shell/*, web/src/lib/pwa.ts", "evidence": ["docs/design/mob/platform-decision.md §3"],
+      "design": "docs/design/mob/platform-decision.md", "critical": false
+    },
+    {
+      "id": "N6.6", "epic": "N6", "title": "Store listings: privacy labels/data safety, review notes (4.2 evidence), screenshots per storefront, age rating, in-app review prompt policy", "status": "not_started", "size": "M", "owners": ["web"], "deps": ["N6.2", "N7.3", "A5.1"], "relates": ["E5.8"], "supersedes": [],
+      "story": "As the owner I want the store submissions to be honest and pass review so that the shell ships without a rejection loop.",
+      "genz": "They read privacy labels; honesty is visible there.",
+      "ac": ["Apple privacy nutrition labels + Play Data safety filled from the T-area privacy register (email, name, profile, resumes, inbox metadata (Pro), diagnostics); 'data not linked' not claimed", "Review notes: Share Extension, native push, biometrics, widget, universal links; demo account for reviewers (DEMO_ENABLED server config)", "Screenshots without prices outside the US storefront; age rating 4+/Everyone; account deletion reachable in-app (exists on the web)", "In-app review prompt (SKStoreReviewController / In-App Review API) at most one per setting `mob.review_prompt.interval_days` (default 90) after a successful save/hand-off; dismiss sticky"],
+      "tests": ["Checklist reviewed with the trust area; vitest for the review-prompt gating logic"],
+      "tech": "mobile-shell/*, docs/design/mob/store-payments.md §3",
+      "evidence": ["api/.../AccountDeletionResource (in-app deletion exists)"], "design": "docs/design/mob/store-payments.md", "critical": false,
+      "benchmark": "G10 (in-product review prompt, E/M): applies to the shell only — a PWA has no store rating. Prompt once after the 3rd successful hand-off or save, 90-day cool-down, never after an error."
+    },
+
+    {
+      "id": "N7.1", "epic": "N7", "title": "purchaseSurface() resolver (web | pwa | shell-linkout | shell-status-only) + GET /api/mobile/config; billing UI branches once", "status": "not_started", "size": "M", "owners": ["web", "API"], "deps": [], "relates": ["U15.1", "U15.2", "A5.1", "B2.1", "B11.2"], "supersedes": [],
+      "story": "As the owner I want one function to decide whether a surface may show prices and a checkout so that Stripe stays the only truth and no shell ever sells through IAP.",
+      "genz": "Published prices everywhere we are allowed; no store-only pricing games.",
+      "ac": ["web/src/lib/purchase-surface.ts: inputs displayMode, shell {platform, storefront}, rules from GET /api/mobile/config {linkoutStorefronts:['US'], …}; unknown storefront → status-only", "UpgradeSheet (U15.1), PlanCard, /pricing and the Settings billing panel branch on purchaseSurface() only; PWA = identical to web", "Status-only copy has no price, no button, no 'Upgrade' verb; link-out copy 'Continue on kiwiply.com' opens the system browser", "A3.3 margin calculator gains a per-surface fee column (Play external-links fee) so the guard can reject a surface", "purchaseSurface recorded as an event prop on upgrade_sheet_shown"],
+      "tests": ["vitest 12-case matrix + copy snapshots; MobileConfigResourceIT (setting → payload, default [])", "Playwright: PWA shows prices; shell UA non-US → status-only; shell UA US → link-out"],
+      "tech": "web/src/lib/purchase-surface.ts, web/src/components/billing/*, web/src/components/pricing/*, api web/rest/MobileConfigResource.java",
+      "evidence": ["api/.../BillingResource, EntitlementService (unchanged)", "web/src/lib/billing.ts"], "design": "docs/design/mob/store-payments.md", "critical": true,
+      "benchmark": "Teal/Simplify/JobRight one-star themes are billing surprises; we keep one price list and one checkout. Apple US link-out lawful since May 2025 (status under appeal); Google Play external links since 2025-10-29."
+    },
+    {
+      "id": "N7.2", "epic": "N7", "title": "Link-out checkout from the shell (US): system browser → Stripe Checkout → universal link back → SuccessPoller", "status": "not_started", "size": "M", "owners": ["web"],
+      "deps": ["N6.2", "N7.1"], "relates": ["U15.1"], "supersedes": [],
+      "story": "As a US shell user I want to upgrade by paying on kiwiply.com in my browser so that the shell never touches a payment.",
+      "genz": "One checkout they already trust (Stripe), no store middleman.",
+      "ac": [
+        "openExternal accepts only kiwiply.com / checkout.stripe.com / billing.stripe.com URLs; Checkout success_url is a universal link the shell claims; SuccessPoller polls GET /api/billing/me until the webhook lands",
+        "If the universal link fails, the browser page itself shows success and the shell reflects the plan on next open (plan on GET /api/profile/version)",
+        "Portal (cancel/card) also via the system browser"
+      ],
+      "tests": ["Playwright shell-UA project: button → openExternal spy with the Checkout URL; success page without the shell; vitest URL allow-list"],
+      "tech": "web/src/components/billing/{UpgradeSheet,SuccessPoller}.tsx, mobile-shell bridge openExternal", "evidence": ["web/src/components/billing/SuccessPoller.tsx"],
+      "design": "docs/design/mob/store-payments.md", "critical": false
+    },
+    {
+      "id": "N7.3", "epic": "N7", "title": "Store-compliance checklist + lawyer-review items (Apple 3.1.1/3.1.3 US carve-out, Play external-links enrolment + fee reporting, privacy labels) with quarterly re-check", "status": "not_started", "size": "S", "owners": ["web"], "deps": ["N7.1"], "relates": ["T0.2", "T1.5"], "supersedes": [],
+      "story": "As the owner I want the legal position written down with dates and owners so that a court decision becomes a config flip, not a scramble.",
+      "genz": "Boring, but it is what keeps the prices honest.",
+      "ac": ["docs/design/mob/store-payments.md §3 items tracked in PROGRESS.md with ⚖ marks handed to the trust area's lawyer list; quarterly calendar reminder recorded", "Google external-content-links program enrolment + fee reporting owner named before any US Android link-out; Apple current guideline text pasted with the date checked", "linkoutStorefronts is a runtime setting; a flip to [] is tested to make the shell status-only worldwide"],
+      "tests": ["API IT: setting flip → /api/mobile/config → purchaseSurface status-only (vitest)"],
+      "tech": "docs, PROGRESS.md, runtime settings",
+      "evidence": ["AUDIT-mob.md §4 platform facts (Epic/Apple, Google Play dates)"], "design": "docs/design/mob/store-payments.md", "critical": false
+    },
+
+    {
+      "id": "N8.1", "epic": "N8", "title": "Playwright mobile projects: iPhone 14 (WebKit) + Pixel 7 (Chromium) + standalone display-mode, touch enabled; visual smoke at 390px light/dark", "status": "not_started", "size": "M", "owners": ["web"],
+      "deps": ["U19.3"], "relates": ["U19.2", "A15.1", "O15.5"], "supersedes": [],
+      "story": "As a developer I want every N-story's tests to run on emulated phones in CI so that 'tests green' means the phone path works.",
+      "genz": "Nothing here is real until it runs on a phone profile.",
+      "ac": [
+        "playwright.config.ts projects: iphone-14 (devices['iPhone 14'], WebKit), pixel-7 (Chromium, hasTouch), standalone (Chromium with display-mode emulation + UA flag); mock API + demo account like U19.3",
+        "CI job web-e2e-mobile runs the N tagged specs; visual smoke screenshots for /dashboard, /jobs, /saved, /applications at 390px light+dark",
+        "Clipboard-read, notifications and geolocation permissions configured per project"
+      ],
+      "tests": ["The suite itself; a sanity spec per project asserting UA/touch/display-mode"],
+      "tech": "web/playwright.config.ts, .github/workflows/ci.yml, web/e2e/mobile/*", "evidence": [".github/workflows/ci.yml (no browser jobs)", "docs/HANDOFF-V2.md §2 (touch never verified)"],
+      "design": null, "critical": true
+    },
+    {
+      "id": "N8.2", "epic": "N8", "title": "Real-device smoke checklist (iOS Safari + installed, Chrome Android + installed, Firefox Android) run before each release; results in the handoff", "status": "not_started", "size": "S", "owners": ["web", "extension"],
+      "deps": [], "relates": ["N3.2", "N1.4"], "supersedes": [],
+      "story": "As the owner I want a 15-minute device checklist so that emulation blind spots (share sheet, push permission, clipboard, Shortcut) are caught by a human.",
+      "genz": "Their phone, not our emulator, is the truth.",
+      "ac": [
+        "docs/HANDOFF-ROADMAP.md (or a docs/mobile-smoke.md referenced from it) lists the steps: install, share from LinkedIn/TikTok, paste-a-link, push opt-in + a test ping, offline reload, Send to laptop → extension badge, Firefox Android fill",
+        "Each release notes pass/fail per device with OS versions",
+        "Known-issue list feeds N stories"
+      ],
+      "tests": ["n/a (manual); the checklist includes the expected automated spec ids"],
+      "tech": "docs", "evidence": ["docs/HANDOFF-V2.md §6 (unresolved phone-render report)"],
+      "design": null, "critical": false
+    },
+    {
+      "id": "N8.3", "epic": "N8", "title": "Mobile event taxonomy: pwa_installed, display_mode/platform props, share_target_received, paste_link, handoff_*, push_platform_optin, offline_banner, purchase_surface", "status": "not_started", "size": "S", "owners": ["web", "API"],
+      "deps": ["U18.1"], "relates": ["U18.2", "U18.3"], "supersedes": [],
+      "story": "As the owner I want the phone funnel measured so that the native-shell gate and push etiquette are decided from numbers.",
+      "genz": "Measure quietly, no PII, opt-out honoured (U18.4).",
+      "ac": [
+        "Schema entries (U18.1 registry) for: pwa_installed, app_opened {displayMode, platform}, share_target_received {src, ats, confidence}, paste_link_used, handoff_queued/opened/done/expired, handoff_link_created/used, push_optin {platform, displayMode, result}, badge_set, offline_banner_shown, outbox_replayed, answer_copied {group}, purchase_surface_shown",
+        "Props never include URLs, titles or values — only enums/counts",
+        "Nightly rollups (U18.3) expose the six gate metrics by name"
+      ],
+      "tests": ["Schema validation tests for each event; rollup query test reproduces metric names from platform-decision.md §4"],
+      "tech": "web/src/lib/events.ts, api product_event schema registry (U18.1)", "evidence": ["web/src/lib/analytics.ts (GA4 helper only; no product events)"],
+      "design": "docs/design/mob/platform-decision.md", "critical": false
+    },
+    {
+      "id": "N8.4", "epic": "N8", "title": "Admin tiles: install rate, iOS/Android split, share-capture per WAU, hand-off completion, push opt-in by platform (feeds N6.1)", "status": "not_started", "size": "S", "owners": ["web"],
+      "deps": ["N8.3", "U18.3"], "relates": ["A11.4", "A11.5"], "supersedes": [],
+      "story": "As the owner I want the phone metrics on the admin analytics page so that the gate review is a glance, not a script.",
+      "genz": "n/a (internal).",
+      "ac": [
+        "Admin analytics (A11.4) gains a 'Phone' card group with the six gate metrics for 7/30/60 days, real data only (SampleTag policy A15.4)",
+        "Each tile links to the platform-decision.md threshold it feeds"
+      ],
+      "tests": ["Playwright admin: tiles render from fixture rollups; no sample fallback in prod mode"],
+      "tech": "web/src/components/admin-v3/analytics/*", "evidence": ["docs/roadmap/areas/admin.json A11.4 (analytics page real)"],
+      "design": null, "critical": false
+    }
+  ]
+}

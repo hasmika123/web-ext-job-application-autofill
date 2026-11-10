@@ -1,4 +1,5 @@
 import { serverApiFetch } from "@/lib/api";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * POST /api/billing/checkout — start a Stripe Checkout and return `{url}` for the browser to
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
       method: "POST",
       body: JSON.stringify({ plan: body.plan }),
     });
+    const demo = await demoReadOnly(res);
+    if (demo) return demo;
     const text = await res.text();
     return new Response(text, { status: res.status, headers: { "content-type": "application/json" } });
   } catch {

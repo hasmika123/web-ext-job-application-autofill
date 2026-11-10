@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        E2E-U4.0 - job search v0 over the posting store we already have (docs/design/user/job-search-matching.md
+        sections 3 and 5). No new source of postings: this only makes `job_posting` searchable.
+
+        `job_posting.search_text` is title + company + location + the first 4 000 characters of the description,
+        lower-cased; `ft_job_posting_search (title, company, search_text)` is the FULLTEXT index the search
+        reads (MySQL / InnoDB boolean mode). `ix_job_posting_pub (published_at DESC, id)` serves "newest first".
+        `JobIngestService` fills `search_text` for every new posting; the second changeset fills the rows that
+        are already stored. `job_source.platform` is the lower-cased `ats` (greenhouse / lever / ashby), the name
+        the extension's adapters go by.
+
+        `job_feedback` is what a user said about a posting (`kind`, not `signal`: SIGNAL is a MySQL keyword): HIDE (this posting) or HIDE_COMPANY (this company,
+        kept by `company_key` after the posting is purged). A hidden posting never shows in that user's search.
+        When the posting is purged `posting_id` becomes NULL: a HIDE row is then inert (and swept by the next
+        ingest), a HIDE_COMPANY row keeps hiding the company. Rows go with the account (cascade) and are exported
+        with it.
+        Additive.
+    -->
+    <changeSet id="20261013050000-1" author="dossier">
+        <addColumn tableName="job_posting">
+            <column name="search_text" type="${clobType}"/>
+        </addColumn>
+        <addColumn tableName="job_source">
+            <column name="platform" type="varchar(24)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261013050000-2" author="dossier">
+        <sql>
+            UPDATE job_source SET platform = LOWER(ats) WHERE platform IS NULL;
+            UPDATE job_posting SET search_text = LOWER(CONCAT_WS(' ', title, company, location, LEFT(description_text, 4000))) WHERE search_text IS NULL;
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261013050000-3" author="dossier" dbms="mysql">
+        <sql>
+            CREATE FULLTEXT INDEX ft_job_posting_search ON job_posting (title, company, search_text);
+            CREATE INDEX ix_job_posting_pub ON job_posting (published_at DESC, id);
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261013050000-4" author="dossier">
+        <createTable tableName="job_feedback">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="posting_id" type="bigint"/>
+            <column name="kind" type="varchar(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="company_key" type="varchar(160)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="job_feedback" columnNames="user_id, posting_id, kind" constraintName="ux_job_feedback_user_posting_kind"/>
+        <createIndex tableName="job_feedback" indexName="ix_job_feedback_user_company">
+            <column name="user_id"/>
+            <column name="company_key"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="job_feedback"
+            baseColumnNames="user_id"
+            constraintName="fk_job_feedback_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+            baseTableName="job_feedback"
+            baseColumnNames="posting_id"
+            constraintName="fk_job_feedback_posting_id"
+            referencedTableName="job_posting"
+            referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+</databaseChangeLog>

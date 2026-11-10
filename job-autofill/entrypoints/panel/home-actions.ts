@@ -84,7 +84,8 @@ function fileToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export type Account = { connected: boolean; who: string };
+/** `title` / `subtitle` = JAF.workspace.accountChip: `Personal` or `<Org> · Enterprise`, with the email beneath. Never the login. */
+export type Account = { connected: boolean; kind: "PERSONAL" | "ENTERPRISE"; title: string; subtitle: string };
 
 /**
  * Read the live connected-account status straight from the session token (not the cached store),
@@ -95,7 +96,8 @@ export async function readAccount(): Promise<Account> {
   const tok: any = await new Promise((res) =>
     chrome.storage.local.get("trackingAuth", (o) => res((o && o.trackingAuth) || {})),
   );
-  return { connected: !!(tok && tok.access), who: tok.username || "your account" };
+  const chip = JAF().workspace.accountChip(tok);
+  return { connected: !!(tok && tok.access), kind: chip.kind, title: chip.title, subtitle: chip.subtitle };
 }
 
 /**
@@ -145,6 +147,14 @@ export async function refreshMirror(): Promise<void> {
     // and pulls only when it differs from the one we hold. It stamps __profileVersion +
     // __lastPull itself, so there is nothing to save here.
     await JAF().sync.checkAndPull(provider, S, settings);
+    // Resumes uploaded on the web: fetch their files once (a few at most), so the picker shows "PDF" and a
+    // fill attaches them without an upload in the drawer. Best-effort, cached under the local id.
+    try {
+      const pending = (await S.getResumes()).filter((r: any) => !r.archived && !r.hasFile && r.serverId != null && r.r2ObjectKey).slice(0, 5);
+      for (const r of pending) await JAF().sync.ensureResumeFile(provider, S, r);
+    } catch {
+      /* offline-friendly */
+    }
     // Learned answers are a separate, local-first store — a push+merge, not part of the
     // profile version — so it runs whether or not the mirror moved. It used to sit behind
     // the same throttle, so it now runs on every drawer open rather than at most once per
@@ -166,7 +176,12 @@ export async function loadData(): Promise<HomeData> {
 
 export type FillResult = { ok: true; adapter: string } | { ok: false; error: string };
 
-export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Promise<FillResult> {
+export async function fillPage(
+  resume: any,
+  bio: any,
+  autoAdvance: boolean,
+  opportunity?: { orgId: number; id: number } | null,
+): Promise<FillResult> {
   const S = JAF().storage;
   const SCH = JAF().schema;
   const settings = await S.getSettings();
@@ -193,6 +208,15 @@ export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Pro
   // EEO/demographic answers are always included (the user opts in via their web bio; blanks fill nothing).
   const values = SCH.buildFillValues(bio, resume, { includeEEO: true });
 
+  // A resume created on the web is a record here until its PDF has been fetched once (pull-only).
+  if (!resume.hasFile) {
+    try {
+      const provider = JAF().sync.providerFromSettings(settings, JAF().tracking.chromeTokenStore());
+      if (await provider.isAuthenticated()) resume = await JAF().sync.ensureResumeFile(provider, S, resume);
+    } catch {
+      /* offline: the fill goes on without the file */
+    }
+  }
   let file: any = null;
   if (resume.hasFile) {
     const blob = await S.getResumeFile(resume.id);
@@ -201,7 +225,7 @@ export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Pro
   const resumeRef = { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label };
   const resp = await sendTo(
     tab.id,
-    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef, salary } },
+    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef, salary, opportunity: opportunity || null } },
     frameId,
   );
   if (resp && resp.ok) return { ok: true, adapter: resp.adapter };

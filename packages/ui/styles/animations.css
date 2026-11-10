@@ -24,6 +24,18 @@
   }
 }
 
+@keyframes kiwi-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .kiwi-fade-in {
   animation: kiwi-fade-in 0.2s ease-out both;
 }
@@ -32,9 +44,15 @@
   animation: kiwi-slide-up 0.22s ease-out both;
 }
 
+/* A picked chip: one 150 ms pop (1 to 1.04 and back). */
+.kiwi-pop {
+  animation: kiwi-pop 0.15s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kiwi-fade-in,
-  .kiwi-slide-up {
+  .kiwi-slide-up,
+  .kiwi-pop {
     animation: none;
   }
 }

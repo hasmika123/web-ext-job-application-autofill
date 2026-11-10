@@ -4,7 +4,9 @@ import com.dossier.api.domain.User;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -51,6 +53,37 @@ public class MailService {
         this.templateEngine = templateEngine;
     }
 
+    // X2.10: the organization look for an enterprise account's mail. Field-injected and optional (tests build this class by hand): absent = personal mail.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.EnterpriseMailContext enterpriseMail;
+
+    /** Test seam: the organization-mail context when the class is built by hand. */
+    void setEnterpriseMail(com.dossier.api.service.ent.EnterpriseMailContext enterpriseMail) {
+        this.enterpriseMail = enterpriseMail;
+    }
+
+    private java.util.Optional<com.dossier.api.service.ent.EnterpriseMailContext.Ctx> enterpriseOf(User user) {
+        return enterpriseMail == null ? java.util.Optional.empty() : enterpriseMail.forUser(user);
+    }
+
+    /**
+     * The model of an enterprise account's e-mail (X2.10): the organization's name, colour and logo, the organization host's policy pages in the
+     * footer (none when it has no host yet) and workspace wording. Never a link to kiwiply.com.
+     */
+    private Context enterpriseContext(User user, com.dossier.api.service.ent.EnterpriseMailContext.Ctx ent, String baseUrl) {
+        Context context = new Context(Locale.ENGLISH);
+        context.setVariable(USER, user);
+        context.setVariable("name", user.getFirstName() != null && !user.getFirstName().isBlank() ? user.getFirstName() : user.getLogin());
+        context.setVariable(BASE_URL, baseUrl == null ? ent.origin() : baseUrl);
+        context.setVariable("orgName", ent.orgName());
+        context.setVariable("policyBase", ent.policyBase());
+        context.setVariable("brand", ent.brand().brandHex());
+        context.setVariable("logoUrl", ent.brand().logoUrl());
+        context.setVariable("theme", "enterprise");
+        context.setVariable("assetBase", jHipsterProperties.getMail().getBaseUrl() + "/email"); // the art lives in web/public/email
+        return context;
+    }
+
     @Async
     public void sendEmail(String to, String subject, String content, boolean isMultipart, boolean isHtml) {
         sendEmailSync(to, subject, content, isMultipart, isHtml);
@@ -87,6 +120,10 @@ public class MailService {
     }
 
     private void sendEmailFromTemplateSync(User user, String templateName, String titleKey) {
+        sendEmailFromTemplateSync(user, templateName, titleKey, jHipsterProperties.getMail().getBaseUrl());
+    }
+
+    private void sendEmailFromTemplateSync(User user, String templateName, String titleKey, String baseUrl) {
         if (user.getEmail() == null) {
             LOG.debug("Email doesn't exist for user '{}'", user.getLogin());
             return;
@@ -94,7 +131,7 @@ public class MailService {
         Locale locale = Locale.forLanguageTag(user.getLangKey());
         Context context = new Context(locale);
         context.setVariable(USER, user);
-        context.setVariable(BASE_URL, jHipsterProperties.getMail().getBaseUrl());
+        context.setVariable(BASE_URL, baseUrl);
         String content = templateEngine.process(templateName, context);
         String subject = messageSource.getMessage(titleKey, null, locale);
         sendEmailSync(user.getEmail(), subject, content, false, true);
@@ -119,6 +156,18 @@ public class MailService {
     @Async
     public void sendStatusChangeEmail(User user, String company, String role, String stage, String link) {
         if (user.getEmail() == null) return;
+        var ent = enterpriseOf(user);
+        if (ent.isPresent()) {
+            Context context = enterpriseContext(user, ent.get(), null);
+            context.setVariable("company", company);
+            context.setVariable("role", role);
+            context.setVariable("stage", stage);
+            context.setVariable("link", link);
+            String subject = messageSource.getMessage("OFFER".equals(stage) ? "email.status.offer.title" : "email.status.interview.title", new Object[] { company }, Locale.ENGLISH);
+            context.setVariable("subject", subject);
+            sendEmailSync(user.getEmail(), subject, templateEngine.process("mail/statusChangeEnterpriseEmail", context), false, true);
+            return;
+        }
         Locale locale = Locale.forLanguageTag(user.getLangKey() == null ? "en" : user.getLangKey());
         Context context = new Context(locale);
         context.setVariable("name", user.getFirstName() != null && !user.getFirstName().isBlank() ? user.getFirstName() : user.getLogin());
@@ -132,9 +181,218 @@ public class MailService {
         sendEmailSync(user.getEmail(), subject, content, false, true);
     }
 
+    /**
+     * E2E-U7.0: a notice of any kind the user has switched email on for (and that is not held back by quiet
+     * hours). The subject is the notice's own title; {@code kindTitle} names what it is about. Sent to the
+     * account's own address.
+     */
+    @Async
+    public void sendNotificationEmail(User user, String kindTitle, String title, String body, String link) {
+        if (user.getEmail() == null) return;
+        var ent = enterpriseOf(user);
+        if (ent.isPresent()) {
+            Context context = enterpriseContext(user, ent.get(), null);
+            context.setVariable("kind", kindTitle);
+            context.setVariable("subject", title);
+            context.setVariable("body", body);
+            context.setVariable("link", link);
+            sendEmailSync(user.getEmail(), title, templateEngine.process("mail/notificationEnterpriseEmail", context), false, true);
+            return;
+        }
+        Locale locale = Locale.forLanguageTag(user.getLangKey() == null ? "en" : user.getLangKey());
+        Context context = new Context(locale);
+        context.setVariable("name", user.getFirstName() != null && !user.getFirstName().isBlank() ? user.getFirstName() : user.getLogin());
+        context.setVariable("kind", kindTitle);
+        context.setVariable("subject", title);
+        context.setVariable("body", body);
+        context.setVariable("link", link);
+        String content = templateEngine.process("mail/notificationEmail", context);
+        sendEmailSync(user.getEmail(), title, content, false, true);
+    }
+
+    /**
+     * Story K10.3: a plan, add-on or price is being retired (or, once the date has passed, the account moved to Free). The words are written by the retirement notice composer
+     * from the copy register and arrive in the model, already in the user's language: subject, preheader, kicker, line1, line2, intro, stripTitle, stripText, paragraphs, emphasis,
+     * button, footer, link. Sent to the account's own address; carries no secret.
+     */
+    @Async
+    public void sendRetirementNoticeEmail(User user, Map<String, Object> model) {
+        if (user.getEmail() == null) return;
+        Locale locale = Locale.forLanguageTag(user.getLangKey() == null ? "en" : user.getLangKey());
+        Context context = new Context(locale);
+        model.forEach(context::setVariable);
+        context.setVariable("assetBase", jHipsterProperties.getMail().getBaseUrl() + "/email"); // the art lives in web/public/email
+        String content = templateEngine.process("mail/retirementNotice", context);
+        sendEmailSync(user.getEmail(), String.valueOf(model.get("subject")), content, false, true);
+    }
+
+    /**
+     * Privacy (T1.3): the three moments of a self-service account deletion. {@code stage} is SCHEDULED, CANCELLED or COMPLETED; {@code when} is the readable date and time the
+     * erasure becomes final (SCHEDULED only, null otherwise). It goes to {@code to}, the account's own address (for COMPLETED, the address read just before the erasure), carries no
+     * name and no account data, and a failure is logged without the address and never fails the caller.
+     */
+    @Async
+    public void sendAccountDeletionEmail(String to, String stage, String when) {
+        if (to == null || to.isBlank()) return;
+        try {
+            String key = "email.deletion." + stage.toLowerCase(Locale.ROOT) + ".";
+            Locale locale = Locale.ENGLISH;
+            boolean scheduled = "SCHEDULED".equals(stage);
+            Object[] args = scheduled ? new Object[] { when } : null;
+            String base = jHipsterProperties.getMail().getBaseUrl();
+            Context context = new Context(locale);
+            String subject = messageSource.getMessage(key + "title", args, locale);
+            context.setVariable("subject", subject);
+            context.setVariable("pre", messageSource.getMessage(key + "pre", args, locale));
+            context.setVariable("kicker", messageSource.getMessage(key + "kicker", null, locale));
+            context.setVariable("line1", messageSource.getMessage(key + "l1", null, locale));
+            context.setVariable("line2", messageSource.getMessage(key + "l2", null, locale));
+            context.setVariable("intro", messageSource.getMessage(key + "intro", args, locale));
+            context.setVariable("button", messageSource.getMessage(key + "button", null, locale));
+            context.setVariable("stripTitle", messageSource.getMessage(key + "strip.title", null, locale));
+            context.setVariable("stripText", messageSource.getMessage(key + "strip.text", args, locale));
+            context.setVariable("footer", messageSource.getMessage(key + "notyou", null, locale));
+            context.setVariable("link", scheduled ? base + "/settings" : base);
+            context.setVariable("assetBase", base + "/email"); // the art lives in web/public/email
+            sendEmailSync(to, subject, templateEngine.process("mail/accountDeletionEmail", context), false, true);
+        } catch (RuntimeException e) {
+            LOG.warn("Account-deletion e-mail could not be sent ({})", e.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * O2.2: an organization invited someone by email. Goes to the invited ADDRESS (they may not have an account yet), so it
+     * does not take a {@link User}. Says who invited them, what role, what the org pays for, when the link stops working and
+     * the "Not you?" line (onboarding-invites.md section 3.2). The link carries the one-time token; it is never logged.
+     */
+    public void sendOrgInviteEmail(String to, String name, String orgName, String inviterName, String roleWord, List<String> pays, String link, String expires) {
+        sendOrgInviteEmail(to, name, orgName, inviterName, roleWord, pays, link, expires, null, null);
+    }
+
+    /**
+     * The organization-branded form (X1.8/X1.15): {@code logoUrl} is the org logo (null until branding supplies one: the template then
+     * shows the name only) and {@code message} the inviter's optional personal note, plain text, escaped by the template.
+     */
+    @Async
+    public void sendOrgInviteEmail(String to, String name, String orgName, String inviterName, String roleWord, List<String> pays, String link, String expires, String message, String logoUrl) {
+        if (to == null || to.isBlank()) return;
+        Locale locale = Locale.ENGLISH;
+        String inviter = inviterName == null || inviterName.isBlank() ? "The " + orgName + " team" : inviterName;
+        Context context = new Context(locale);
+        context.setVariable("name", name);
+        context.setVariable("org", orgName);
+        context.setVariable("inviter", inviter);
+        context.setVariable("role", roleWord);
+        context.setVariable("pays", pays == null ? List.of() : pays);
+        context.setVariable("paysList", pays == null ? "" : String.join(", ", pays));
+        context.setVariable("link", link);
+        context.setVariable("policyBase", originOf(link)); // the footer's Privacy / Terms / Help point at the host the invitation link is on
+        context.setVariable("expires", expires);
+        context.setVariable("message", message == null || message.isBlank() ? null : message);
+        context.setVariable("logoUrl", logoUrl);
+        String subject = messageSource.getMessage(
+            inviterName == null || inviterName.isBlank() ? "email.invite.title.anon" : "email.invite.title",
+            inviterName == null || inviterName.isBlank() ? new Object[] { orgName } : new Object[] { inviterName, orgName },
+            locale
+        );
+        context.setVariable("subject", subject);
+        String content = templateEngine.process("mail/orgInviteEmail", context);
+        sendEmailSync(to, subject, content, false, true);
+    }
+
+    @Async
+    public void sendPasswordResetMail(User user, String baseUrl) {
+        LOG.debug("Sending password reset email to '{}' (organization host)", user.getEmail());
+        if (sendEnterpriseReset(user, baseUrl)) return;
+        sendEmailFromTemplateSync(user, "mail/passwordResetEmail", "email.reset.title", baseUrl);
+    }
+
     @Async
     public void sendPasswordResetMail(User user) {
         LOG.debug("Sending password reset email to '{}'", user.getEmail());
+        if (sendEnterpriseReset(user, null)) return;
         sendEmailFromTemplateSync(user, "mail/passwordResetEmail", "email.reset.title");
+    }
+
+    /** X2.10: the reset mail of an enterprise account is the organization's, in its theme. False for a personal account (the caller sends the personal one). */
+    private boolean sendEnterpriseReset(User user, String baseUrl) {
+        if (user.getEmail() == null) return true; // nothing to send, either way
+        var ent = enterpriseOf(user);
+        if (ent.isEmpty()) return false;
+        Context context = enterpriseContext(user, ent.get(), baseUrl);
+        String subject = messageSource.getMessage("email.adminreset.title2", new Object[] { ent.get().orgName() }, Locale.ENGLISH);
+        context.setVariable("subject", subject);
+        sendEmailSync(user.getEmail(), subject, templateEngine.process("mail/passwordResetEnterpriseEmail", context), false, true);
+        return true;
+    }
+
+    /**
+     * "Your account is ready": an administrator created an account for this person (the owner, by the Kiwiply app admin; an
+     * employee, by an Org Admin). The e-mail NEVER carries the temporary password or any other secret: the creator gives it to
+     * the person separately, so an inbox alone cannot sign in. A mail failure is logged (no address, no secret) and never
+     * fails the caller.
+     */
+    @Async
+    public void sendAccountCreatedEmail(String to, String name, String orgName, String creatorName, String roleLabel, String workspaceLabel, boolean owner, String signInUrl, String expiresText, TenantMailBrand brand) {
+        if (to == null || to.isBlank()) return;
+        try {
+            Locale locale = Locale.ENGLISH;
+            Context context = accountContext(locale, to, name, orgName, signInUrl, expiresText, brand);
+            context.setVariable("workspaceLabel", workspaceLabel == null || workspaceLabel.isBlank() ? null : workspaceLabel);
+            context.setVariable("creatorName", creatorName == null || creatorName.isBlank() ? "Your administrator" : creatorName);
+            context.setVariable("roleLabel", roleLabel);
+            context.setVariable("owner", owner);
+            String subject = messageSource.getMessage("email.created.title", new Object[] { orgName }, locale);
+            context.setVariable("subject", subject);
+            sendEmailSync(to, subject, templateEngine.process("mail/accountCreatedEmail", context), false, true);
+        } catch (RuntimeException e) {
+            LOG.warn("Account-created e-mail could not be sent ({})", e.getClass().getSimpleName());
+        }
+    }
+
+    /** "Your password was reset by an administrator". Like {@link #sendAccountCreatedEmail} it never carries the new password. */
+    @Async
+    public void sendAdminPasswordResetEmail(String to, String name, String orgName, String actorName, String signInUrl, String expiresText, TenantMailBrand brand) {
+        if (to == null || to.isBlank()) return;
+        try {
+            Locale locale = Locale.ENGLISH;
+            Context context = accountContext(locale, to, name, orgName, signInUrl, expiresText, brand);
+            context.setVariable("actorName", actorName == null || actorName.isBlank() ? "Your administrator" : actorName);
+            String subject = messageSource.getMessage("email.adminreset.title", null, locale);
+            context.setVariable("subject", subject);
+            sendEmailSync(to, subject, templateEngine.process("mail/passwordResetByAdminEmail", context), false, true);
+        } catch (RuntimeException e) {
+            LOG.warn("Admin password-reset e-mail could not be sent ({})", e.getClass().getSimpleName());
+        }
+    }
+
+    /** The model both account e-mails share. {@code to} is the recipient's own address, shown back to them in the login-details card. Never a secret. */
+    private Context accountContext(Locale locale, String to, String name, String orgName, String signInUrl, String expiresText, TenantMailBrand brand) {
+        TenantMailBrand b = brand == null ? TenantMailBrand.KIWIPLY : brand;
+        Context context = new Context(locale);
+        context.setVariable("name", name == null || name.isBlank() ? null : name);
+        context.setVariable("orgName", orgName);
+        context.setVariable("signInUrl", signInUrl);
+        context.setVariable("policyBase", originOf(signInUrl)); // the footer links to this host's own policy pages (docs/enterprise-v2/62)
+        context.setVariable("expires", expiresText);
+        context.setVariable("brand", b.brandHex());
+        context.setVariable("logoUrl", b.logoUrl());
+        context.setVariable("theme", "enterprise");
+        context.setVariable("assetBase", jHipsterProperties.getMail().getBaseUrl() + "/email"); // the art lives in web/public/email
+        context.setVariable("email", to);
+        return context;
+    }
+
+    /** {@code scheme://authority} of an absolute http(s) URL, else null: the organization's own host, used to build its policy-page links. */
+    static String originOf(String url) {
+        if (url == null || url.isBlank()) return null;
+        try {
+            java.net.URI u = java.net.URI.create(url.strip());
+            String scheme = u.getScheme();
+            if (u.getHost() == null || scheme == null || !(scheme.equals("https") || scheme.equals("http"))) return null;
+            return scheme + "://" + u.getAuthority();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

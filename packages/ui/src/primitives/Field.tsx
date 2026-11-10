@@ -53,7 +53,7 @@ export default function Field({ label, hint, error, required, className, htmlFor
       {label != null && (
         <label htmlFor={id} className="mb-1.5 block text-[12.5px] font-semibold text-ink-soft">
           {label}
-          {required && <span className="ml-0.5 text-danger">*</span>}
+          {required && <span className="ml-0.5 text-danger-text">*</span>}
         </label>
       )}
 
@@ -62,7 +62,7 @@ export default function Field({ label, hint, error, required, className, htmlFor
         : injectControlProps(children, { id, describedBy, invalid })}
 
       {invalid ? (
-        <p id={msgId} className="mt-1.5 text-[12.5px] font-medium text-danger">
+        <p id={msgId} className="mt-1.5 text-[12.5px] font-medium text-danger-text">
           {error}
         </p>
       ) : hint != null ? (

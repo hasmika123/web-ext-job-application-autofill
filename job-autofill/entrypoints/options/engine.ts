@@ -5,3 +5,4 @@
  */
 import "../../src/lib/storage.js";
 import "../../src/lib/tracking.js";
+import "../../src/lib/workspace.js"; // pure: accountChip (the account label, never the login)

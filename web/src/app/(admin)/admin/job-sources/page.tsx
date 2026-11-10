@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
-import JobSourcesPanel, { type JobSourcesView } from "@/components/admin/JobSourcesPanel";
+import type { JobSourcesView } from "@/components/admin/JobSourcesPanel";
+import JobSourcesBoard from "@/components/admin-v3/job-sources/JobSourcesBoard";
+import { AdminHero } from "@/components/admin-v3/common";
 
 export const metadata: Metadata = {
-  title: "Job sources · Admin · Kiwiply",
+  title: "Job sources · Admin",
   robots: { index: false, follow: false },
 };
 
@@ -11,32 +13,18 @@ export const metadata: Metadata = {
  * Admin job sources (Phase 13.6a): the public Greenhouse / Lever / Ashby boards daily job matches
  * read — the verified seed list, companies users applied to, and boards added here — with each
  * board's last read, plus what the last nightly run did. Add a board, switch one off, or read them
- * all now.
+ * all now. Presentation: admin-v3/job-sources/JobSourcesBoard (board 16).
  */
 export default async function AdminJobSourcesPage() {
   const res = await serverApiFetch("/api/admin/job-sources");
   if (!res.ok) {
     return (
-      <div className="mx-auto max-w-5xl">
-        <h1 className="font-display text-[26px] font-bold tracking-tight text-ink">Job sources</h1>
-        <div className="mt-4 rounded-[var(--radius)] border border-line bg-paper p-6 text-sm text-ink-soft">
-          Couldn&apos;t load the job sources.
-        </div>
+      <div className="mx-auto max-w-[1500px] space-y-4">
+        <AdminHero title="Job Sources" subtitle="Connect and manage job sources to import jobs from multiple platforms." note="More jobs. Happier teams." />
+        <div className="rounded-2xl border border-v2-line/70 bg-paper p-6 text-sm text-ink-soft">Couldn&apos;t load the job sources.</div>
       </div>
     );
   }
   const data = (await res.json()) as JobSourcesView;
-  return (
-    <div className="mx-auto max-w-5xl">
-      <header className="mb-6">
-        <h1 className="font-display text-[26px] font-bold tracking-tight text-ink">Job sources</h1>
-        <p className="mt-1 text-sm text-ink-soft">
-          The public job boards daily job matches read, every night at 02:00 UTC
-          {data.nightlyEnabled ? "" : " (switched off on this server)"}. Postings first published in the last 48 hours are kept
-          for 7 days.
-        </p>
-      </header>
-      <JobSourcesPanel initial={data} />
-    </div>
-  );
+  return <JobSourcesBoard initial={data} />;
 }

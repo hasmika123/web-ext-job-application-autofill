@@ -59,7 +59,7 @@ Confirmed against the bundled docs (`node_modules/next/dist/docs/01-app/02-guide
   Never inline an `<svg>` icon — an ESLint `no-restricted-syntax` rule fails the build
   (exception: `src/app/opengraph-image.tsx`, which next/og needs self-contained). New shared
   visual → add it to `packages/ui` first (see `packages/ui/README.md`).
-- **Tests**: `npm test` = `tsc --noEmit && eslint .` (run `npm run build -w web` / `npm test -w web`
+- **Tests**: `npm test` = `tsc --noEmit && eslint . && vitest run` (unit tests only: `npm run test:unit`; run `npm run build -w web` / `npm test -w web`
   from the root, or `npm run build` from `web/`). `npm run build` is the strongest gate.
 - **This machine's npm shell**: a poisoned `COMSPEC` env var breaks npm spawns; `web/.npmrc`
   pins `script-shell`. NOTE: in the workspace, npm **ignores** nested `web/.npmrc` — root installs

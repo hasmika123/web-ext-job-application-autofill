@@ -161,7 +161,14 @@ application:
 # Dossier application properties (prod)
 # ===================================================================
 dossier:
+  tenant-host:
+    require-secret: true
+    allow-localhost-tenants: false
   storage:
+    driver: ${DOSSIER_STORAGE_DRIVER:local}
+    local:
+      root: ${DOSSIER_STORAGE_LOCAL_ROOT:/srv/uploads}
+    # The keys below apply only when driver=s3 (ignored under local).
     # AWS S3 (private bucket). Leave the endpoint EMPTY so the SDK uses the default AWS
     # endpoint for the region; set it only for an S3-compatible store (MinIO/R2). region,
     # bucket and credentials come from the environment. path-style-access is FALSE for AWS
@@ -197,7 +204,8 @@ dossier:
       pro3mo-budget-usd: ${DOSSIER_AI_PRO_3MO_BUDGET_USD:8.0}
       soft-cap-percent: ${DOSSIER_AI_SOFT_CAP_PERCENT:80}
       economy-model: ${DOSSIER_AI_ECONOMY_MODEL:}
-      # Per-feature kill switch, comma-separated: draft, pick, map, enrich, parse, match, fit, tailor, jobs, inbox.
+      # Per-feature kill switch, comma-separated: draft, pick, map, enrich, parse, match, fit, tailor, jobs, inbox,
+      # and the Resume Builder's rewrite, summary, suggest, cover, translate.
       disabled-tasks: ${DOSSIER_AI_DISABLED_TASKS:}
       # Model per task; blank = dossier.ai.model.
       models:
@@ -215,6 +223,13 @@ dossier:
         jobs: ${DOSSIER_AI_MODEL_JOBS:}
         # Reading job emails the rules can't settle (14.4a) — Flash-Lite; unset = the default model.
         inbox: ${DOSSIER_AI_MODEL_INBOX:}
+        # Resume Builder AI (R4.1, Pro) - rewrite lines, generate a summary, suggestion cards, cover letters,
+        # translation. Unset = the default model (Flash-Lite); DEPLOY.md section 10.1.
+        rewrite: ${DOSSIER_AI_MODEL_REWRITE:}
+        summary: ${DOSSIER_AI_MODEL_SUMMARY:}
+        suggest: ${DOSSIER_AI_MODEL_SUGGEST:}
+        cover: ${DOSSIER_AI_MODEL_COVER:}
+        translate: ${DOSSIER_AI_MODEL_TRANSLATE:}
     max-output-tokens: ${DOSSIER_AI_MAX_OUTPUT_TOKENS:400}
     # Structured resume parsing (POST /api/ai/parse-resume) — full-resume JSON output,
     # so a much roomier cap than a 2-4 sentence draft. Same provider/model/key/quota.
