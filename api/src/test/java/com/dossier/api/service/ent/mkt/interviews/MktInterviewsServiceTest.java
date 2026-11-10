@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -161,7 +161,7 @@ class MktInterviewsServiceTest {
             return p;
         });
 
-        service = new MktInterviewsService(scope, interviews, metas, prep, feedback, events, audit, new MktInterviewPrepTx(prep), Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new MktInterviewsService(scope, interviews, metas, prep, feedback, events, audit, new MktInterviewPrepProvisioner(prep), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private java.util.stream.Stream<TalentInterview> live() {
@@ -436,8 +436,8 @@ class MktInterviewsServiceTest {
     @Test
     void aRequestThatLosesTheFirstTouchRaceReadsWhatTheWinnerCommittedInsteadOfFailing() {
         story();
-        // another page (home / interviews) created the checklist a moment ago: our create hits the unique key, the fresh read sees the winner's rows
-        MktInterviewPrepTx racing = mock(MktInterviewPrepTx.class);
+        // another page (home / interviews) created the checklist a moment ago: our snapshot read still sees none, but the locking read taken under
+        // the per-interview named lock sees the winner's rows, so nothing is inserted (no unique-key clash) and the page shows the winner's checklist
         List<MktInterviewPrepItem> winners = new java.util.ArrayList<>();
         for (int p = 0; p < MktInterviewsService.DEFAULT_PREP.size(); p++) {
             MktInterviewPrepItem it = new MktInterviewPrepItem();
@@ -448,10 +448,11 @@ class MktInterviewsServiceTest {
             it.setPosition(p + 1);
             winners.add(it);
         }
-        when(racing.create(eq(ORG), eq(2L), anyList(), any())).thenThrow(new org.springframework.dao.DataIntegrityViolationException("uk_mkt_interview_prep_position"));
-        when(racing.read(ORG, 2L)).thenReturn(winners);
-        MktInterviewsService s = new MktInterviewsService(scope, interviews, metas, prep, feedback, events, audit, racing, Clock.fixed(NOW, ZoneOffset.UTC));
-        assertThat(s.checklist(me, 2L).items()).extracting(i -> i.id()).containsExactly(900L, 901L, 902L, 903L, 904L, 905L, 906L);
+        when(prep.lockByOrgIdAndInterviewId(ORG, 2L)).thenReturn(winners);
+        assertThat(service.checklist(me, 2L).items()).extracting(i -> i.id()).containsExactly(900L, 901L, 902L, 903L, 904L, 905L, 906L);
+        verify(prep, never()).save(any(MktInterviewPrepItem.class));
+        verify(prep).takeCreateLock(eq(ORG), eq(2L), anyInt());
+        verify(prep).releaseCreateLock(ORG, 2L);
     }
 
     @Test
