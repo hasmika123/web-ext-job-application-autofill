@@ -129,6 +129,59 @@ const oneColItems = ys.map((y, i) => ({ x: 60, y, w: 300, str: "Line " + i }));
 const reconOne = core.reconstructPdfText(oneColItems);
 ok("single-col: preserved top-to-bottom", reconOne.startsWith("Line 0") && reconOne.trimEnd().endsWith("Line 9"), JSON.stringify(reconOne));
 
+// --- Real PDF layouts (demo persona, pdf.js items) -------------------------
+const PDFS = require(path.join(__dirname, "fixtures", "resume-pdf-items.js"));
+const pdfText = (pages) => pages.map((p) => core.reconstructPdfText(p)).join("\n\n");
+const JOBS = [
+  ["Senior Platform Engineer", "Brightwave Systems", "Mar 2022", "Present", 5],
+  ["Data Engineer", "Copperline Analytics", "Jun 2019", "Feb 2022", 4],
+  [null, "Meridian Logistics Tech", "Jul 2017", "May 2019", 3],
+];
+for (const [layout, pages] of Object.entries(PDFS)) {
+  const r = core.heuristicStructure(pdfText(pages));
+  const tag = "pdf " + layout + ": ";
+  ok(tag + "3 jobs", r.experience.length === 3, JSON.stringify(r.experience.map((e) => e.title + " @ " + e.company)));
+  JOBS.forEach(([title, company, start, end, n], i) => {
+    const e = r.experience[i] || {};
+    ok(tag + "job " + (i + 1), (!title || e.title === title) && e.company === company && e.startDate === start && e.endDate === end && (e.bullets || []).length === n, JSON.stringify(e));
+  });
+  ok(tag + "bullets have no glyphs", r.experience.every((e) => e.bullets.every((b) => /^[A-Z]/.test(b))), JSON.stringify(r.experience.map((e) => e.bullets[0])));
+  ok(tag + "2 degrees", r.education.length === 2 && r.education[0].school === "The University of Texas at Dallas" && r.education[0].degree === "M.S" && r.education[0].field === "Computer Science" && r.education[0].endDate === "2017"
+    && r.education[1].school === "Jawaharlal Nehru Technological University, Hyderabad" && r.education[1].degree === "B.Tech" && r.education[1].endDate === "2015", JSON.stringify(r.education));
+  ok(tag + "4 certifications", r.certifications.length === 4 && r.certifications[1] === "Certified Kubernetes Administrator (CKA)", JSON.stringify(r.certifications));
+  ok(tag + "no junk languages", r.languages.length === 0, JSON.stringify(r.languages));
+  const lower = r.skills.map((x) => x.toLowerCase());
+  ok(tag + "skills", ["aws", "kubernetes", "python", "snowflake", "argo cd", "slos", "java"].every((x) => lower.includes(x)) && !lower.some((x) => /languages|cloud|certif|[()]/.test(x)), JSON.stringify(r.skills));
+  ok(tag + "skill groups", r.skillGroups.length >= 4 && r.skillGroups.every((g) => g.name && g.skills.length), JSON.stringify(r.skillGroups.map((g) => g.name)));
+  ok(tag + "projects", r.projects.length === 2 && r.projects[0].name === "airflow-k8s-starter (open source)", JSON.stringify(r.projects));
+  ok(tag + "contact", core.parseBio(pdfText(pages)).email === "anika.rao@aarunatech.com");
+}
+const tableText = pdfText(PDFS.TABLE);
+const table = core.heuristicStructure(tableText);
+ok("pdf TABLE: date joins its title row (0.75pt off)", /Brightwave Systems, Austin, TX\tMar 2022 - Present/.test(tableText), JSON.stringify(tableText.slice(0, 1400)));
+ok("pdf TABLE: shape bullets from indentation, wrapped line joined", tableText.includes("• Lead a team of 4 building the company's data platform on AWS EKS: 120+ Airflow pipelines feeding analytics for 6 product teams."), tableText);
+ok("pdf TABLE: wrapped table cell joined", table.skills.includes("incident response") && table.skillGroups.some((g) => g.name === "DevOps & Reliability" && g.skills.includes("SLOs")), JSON.stringify(table.skillGroups));
+ok("pdf TABLE: Languages row is a skill group", table.skillGroups.some((g) => g.name === "Languages" && g.skills.join() === "Python,SQL,Go,Bash,Java"), JSON.stringify(table.skillGroups));
+ok("pdf TABLE: city + country location", table.experience[2] && table.experience[2].title === "Software Engineer, Infrastructure" && table.experience[2].location === "Hyderabad, India", JSON.stringify(table.experience[2]));
+
+// Heading rules on plain text.
+const listRow = core.heuristicStructure("SKILLS\nLanguages Python, SQL, Go\nEXPERIENCE\nEngineer, Acme  2020 - 2022\n- Did things");
+ok("'Languages <list>' is not the Languages heading", listRow.languages.length === 0 && listRow.experience.length === 1, JSON.stringify(listRow));
+const spaced = core.heuristicStructure("Jane Doe\nWORK E XPERIENCE\nEngineer, Acme  2020 - 2022\n- Did things\nPROJECTS & COMMUNIT Y\n- Tool: does a thing");
+ok("letter-spaced headings detected", spaced.experience.length === 1 && spaced.projects.length === 1, JSON.stringify(spaced));
+ok("middle initial untouched", core.parseBio("JOHN A SMITH\njohn@x.com").lastName === "A SMITH");
+const certs = core.heuristicStructure("SKILLS\nPython, Java\nCERTIFICATIONS\n- AWS Certified Developer\nPMP");
+ok("certifications are a section, not a skills sub-heading", certs.certifications.join("|") === "AWS Certified Developer|PMP" && !certs.skills.includes("PMP"), JSON.stringify(certs));
+
+// An indented line that no other line shares (a centered contact line) is not a bullet.
+const lone = core.reconstructPdfText([
+  { x: 40, y: 700, w: 100, str: "Jane Doe" }, { x: 60, y: 685, w: 300, str: "jane@x.com | Austin, TX" },
+  { x: 40, y: 660, w: 80, str: "SUMMARY" }, { x: 40, y: 645, w: 400, str: "Engineer who builds things." },
+  { x: 40, y: 620, w: 80, str: "SKILLS" }, { x: 40, y: 605, w: 200, str: "Python, Java" },
+  { x: 40, y: 580, w: 80, str: "EDUCATION" }, { x: 40, y: 565, w: 200, str: "State University" },
+]);
+ok("lone indented line is not a bullet", !lone.includes("•"), JSON.stringify(lone));
+
 // --- LLM pre-processing: cleanForLlm + looksGarbled ------------------------
 ok("exports cleanForLlm", typeof core.cleanForLlm === "function");
 ok("exports looksGarbled", typeof core.looksGarbled === "function");
