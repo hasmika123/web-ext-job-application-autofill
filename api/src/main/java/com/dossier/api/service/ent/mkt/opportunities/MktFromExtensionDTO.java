@@ -88,7 +88,7 @@ public final class MktFromExtensionDTO {
         String extensionVersion
     ) {}
 
-    /** One consultant of the call. {@code reason} is only present when nothing was assigned: CONSULTANT_INACTIVE, NOT_IN_SCOPE or RESUME_NOT_APPROVED. */
+    /** One consultant of the call. {@code reason} is only present when nothing was assigned: CONSULTANT_INACTIVE, NOT_IN_SCOPE, RESUME_NOT_APPROVED or APPROVAL_PENDING (parked for a manager). */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ConsultantResult(Long consultantId, Long opportunityId, boolean existing, String reason) {}
 

@@ -85,6 +85,12 @@ public final class MarketingAssignmentsDTO {
 
     public record RestoreRequest(List<RestoreRow> rows) {}
 
+    /** One move of a rebalance: this consultant goes to that marketer. */
+    public record Move(Long consultantId, Long toMarketerMemberId) {}
+
+    /** The Marketing Manager's rebalance: several moves in one call, one optional reason for all of them. */
+    public record RebalanceRequest(List<Move> moves, String reason) {}
+
     public record AddMarketerRequest(Long memberId, Integer capacity, String title) {}
 
     public record UpdateMarketerRequest(Integer capacity, String status, String title) {}

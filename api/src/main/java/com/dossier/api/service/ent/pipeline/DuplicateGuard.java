@@ -56,13 +56,39 @@ public class DuplicateGuard {
     public static final String AUDIT_OVERRIDE = "PIPELINE_DUPLICATE_OVERRIDE";
     public static final int REASON_MAX = 200;
 
-    /** The caller's answer to a warning. */
-    public record Confirm(boolean confirmed, String reason) {
-        public static final Confirm NONE = new Confirm(false, null);
+    /**
+     * The caller's answer to a warning. {@code approvedByMemberId} / {@code requestedByMemberId} are set only when a Marketing Manager has decided a held override
+     * (MM-02, policy REQUIRE_APPROVAL): the guard then lets the call through under the manager's authority and names both people in the audit row.
+     */
+    public record Confirm(boolean confirmed, String reason, Long approvedByMemberId, Long requestedByMemberId) {
+        public static final Confirm NONE = new Confirm(false, null, null, null);
+
+        public Confirm(boolean confirmed, String reason) {
+            this(confirmed, reason, null, null);
+        }
 
         public static Confirm of(Boolean confirmed, String reason) {
             return confirmed == null && reason == null ? NONE : new Confirm(Boolean.TRUE.equals(confirmed), reason);
         }
+
+        /** A manager's approval of the override the marketer asked for with {@code reason}. */
+        public static Confirm approved(String reason, Long approvedByMemberId, Long requestedByMemberId) {
+            return new Confirm(true, reason, approvedByMemberId, requestedByMemberId);
+        }
+
+        /** True when a manager decided this override (the hold is lifted for the call). */
+        public boolean approvedByManager() {
+            return approvedByMemberId != null;
+        }
+    }
+
+    /**
+     * Where an override that policy REQUIRE_APPROVAL sends to a manager goes: given the findings and the marketer's stated reason, it records the request and
+     * returns the 409 to throw ({@code DUPLICATE_APPROVAL_REQUIRED} with the request id). Absent (record-time callers), REQUIRE_APPROVAL refuses like BLOCK.
+     */
+    @FunctionalInterface
+    public interface Hold {
+        OrgException hold(List<Finding> findings, String reason);
     }
 
     /** One reason the pair looks like a duplicate. */
@@ -174,6 +200,17 @@ public class DuplicateGuard {
      */
     @Transactional(noRollbackFor = OrgException.class)
     public List<Finding> enforce(OrgMembership me, Long consultantId, ClientRequirement job, Confirm confirm) {
+        return enforce(me, consultantId, job, confirm, null);
+    }
+
+    /**
+     * {@link #enforce(OrgMembership, Long, ClientRequirement, Confirm)} with somewhere to send an override that policy REQUIRE_APPROVAL holds for a manager (MM-02).
+     * REQUIRE_APPROVAL: without a confirmation it is 409 DUPLICATE_WARNING (asking for the reason to send); with one it is {@code hold}'s exception, and a call a
+     * manager has already approved ({@link Confirm#approvedByManager}) goes through and is audited at HIGH naming the approver and the requester. With no
+     * {@code hold} (the caller cannot park the work) it is refused as DUPLICATE_BLOCKED. WARN and BLOCK behave exactly as before.
+     */
+    @Transactional(noRollbackFor = OrgException.class)
+    public List<Finding> enforce(OrgMembership me, Long consultantId, ClientRequirement job, Confirm confirm, Hold hold) {
         Long orgId = me.orgId();
         List<Finding> found = findings(orgId, consultantId, job);
         if (found.isEmpty()) return found;
@@ -187,12 +224,27 @@ public class DuplicateGuard {
             throw OrgException.coded(409, CODE_BLOCKED, first + " Your organization does not allow this.", extra);
         }
         Confirm c = confirm == null ? Confirm.NONE : confirm;
+        boolean needsApproval = PipelineGuardSettings.REQUIRE_APPROVAL.equals(policy);
         if (!c.confirmed()) {
-            throw OrgException.coded(409, CODE_WARNING, first + " Confirm with a reason to go ahead.", extra);
+            if (needsApproval) extra.put("policy", PipelineGuardSettings.REQUIRE_APPROVAL);
+            throw OrgException.coded(409, CODE_WARNING, first + (needsApproval ? " Send it to a manager for approval with a reason." : " Confirm with a reason to go ahead."), extra);
         }
         String reason = c.reason() == null ? "" : c.reason().strip();
         if (reason.isEmpty() || reason.length() > REASON_MAX) throw OrgException.coded(400, "VALIDATION", "duplicateReason: enter 1 to " + REASON_MAX + " characters", Map.of("field", "duplicateReason"));
         SensitiveContent.check("duplicateReason", "duplicateReason", reason);
+        if (needsApproval) {
+            if (c.approvedByManager()) {
+                audit.record(
+                    orgId, me.login(), me.role(), AUDIT_OVERRIDE, "CONSULTANT", null, String.valueOf(consultantId),
+                    "requirement " + job.getId() + "; " + String.join(",", found.stream().map(Finding::rule).toList()) + "; approved by member " + c.approvedByMemberId()
+                        + (c.requestedByMemberId() == null ? "" : ", requested by member " + c.requestedByMemberId()) + "; reason: " + reason,
+                    null, null, null, "HIGH"
+                );
+                return found;
+            }
+            if (hold == null) throw OrgException.coded(409, CODE_BLOCKED, first + " Your organization needs a manager's approval for this and it cannot be asked for here.", extra);
+            throw hold.hold(found, reason);
+        }
         audit.record(me, AUDIT_OVERRIDE, "CONSULTANT", null, String.valueOf(consultantId),
             "requirement " + job.getId() + "; " + String.join(",", found.stream().map(Finding::rule).toList()) + "; reason: " + reason);
         return found;

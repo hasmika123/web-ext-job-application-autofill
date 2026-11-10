@@ -2,6 +2,7 @@ package com.dossier.api.service.ent.reports;
 
 import com.dossier.api.service.dto.ent.ReportsDTO;
 import com.dossier.api.service.ent.export.CsvSafe;
+import com.dossier.api.service.ent.mgmt.TeamScope;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgMembership;
 import org.springframework.stereotype.Service;
@@ -25,9 +26,15 @@ public class OrgReportsExportService {
 
     @Transactional
     public String exportCsv(OrgMembership me, String range) {
-        ReportsDTO.Overview o = reports.overview(me, range);
+        return exportCsv(me, range, null);
+    }
+
+    /** The same export over a Marketing Manager's team ({@code team} non-null: the caller has been through TeamScope); the audit row says so. */
+    @Transactional
+    public String exportCsv(OrgMembership me, String range, TeamScope.View team) {
+        ReportsDTO.Overview o = reports.overview(me, range, team);
         String csv = toCsv(o);
-        audit.record(me, OrgAuditService.EXPORT, OrgAuditService.TARGET_REPORT, null, me.orgId().toString(), "overview range=" + o.rangeDays() + "d");
+        audit.record(me, OrgAuditService.EXPORT, OrgAuditService.TARGET_REPORT, null, me.orgId().toString(), "overview range=" + o.rangeDays() + "d" + (team == null ? "" : " team"));
         return csv;
     }
 

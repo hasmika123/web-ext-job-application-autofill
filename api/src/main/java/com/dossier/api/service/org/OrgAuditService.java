@@ -63,6 +63,12 @@ public class OrgAuditService {
     public static final String EXPORT = "EXPORT";
     /** X9.15: the nightly retention job deleted old application / interview / submission history rows (one SYSTEM row per organization per run; counts only). */
     public static final String HISTORY_PURGED = "HISTORY_PURGED";
+    /** Marketing Manager approvals (MM-02): a request opened, approved, rejected, withdrawn or expired. The target type is {@code MKT_APPROVAL_REQUEST}. */
+    public static final String MKT_APPROVAL_OPEN = "MKT_APPROVAL_OPEN";
+    public static final String MKT_APPROVAL_APPROVE = "MKT_APPROVAL_APPROVE";
+    public static final String MKT_APPROVAL_REJECT = "MKT_APPROVAL_REJECT";
+    public static final String MKT_APPROVAL_WITHDRAW = "MKT_APPROVAL_WITHDRAW";
+    public static final String MKT_APPROVAL_EXPIRE = "MKT_APPROVAL_EXPIRE";
     /** X9.15: a marketer saved a job onto an assigned consultant's own tracker (MEDIUM; the beneficiary is the consultant's login). */
     public static final String MARKETER_SAVE_FOR_CONSULTANT = "MARKETER_SAVE_FOR_CONSULTANT";
 

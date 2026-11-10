@@ -471,7 +471,10 @@ public class MktOpportunitiesService {
         return assigned.existing() ? "ALREADY_ASSIGNED" : null;
     }
 
-    private static final Set<String> GUARD_CODES = Set.of(DuplicateGuard.CODE_WARNING, DuplicateGuard.CODE_BLOCKED, DuplicateGuard.CODE_CAP, "VALIDATION");
+    private static final Set<String> GUARD_CODES = Set.of(
+        DuplicateGuard.CODE_WARNING, DuplicateGuard.CODE_BLOCKED, DuplicateGuard.CODE_CAP, "VALIDATION",
+        "APPROVAL_PENDING", "DUPLICATE_APPROVAL_REQUIRED" // MM-02: parked for a Marketing Manager; the single call raises it with the request id
+    );
 
     private static OrgException assignError(String code) {
         return switch (code) {

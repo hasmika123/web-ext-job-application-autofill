@@ -17,6 +17,7 @@ import com.dossier.api.service.dto.ent.ReportsDTO.Tile;
 import com.dossier.api.service.dto.ent.ReportsDTO.WeekPoint;
 import com.dossier.api.service.ent.applications.ApplicationNames;
 import com.dossier.api.service.ent.applications.ApplicationStages;
+import com.dossier.api.service.ent.mgmt.TeamScope;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
@@ -92,7 +93,33 @@ public class OrgReportsService {
 
     @Transactional(readOnly = true)
     public ReportsDTO.Overview overview(OrgMembership me, String rangeParam) {
-        if (me == null || me.scopeFor(PERMISSION).filter(sc -> sc == PermissionScope.ORG).isEmpty()) throw new OrgNotFoundException();
+        return overview(me, rangeParam, null);
+    }
+
+    /** Which consultants (and marketers) a report counts: everyone of the organization, or the Marketing Manager's team. */
+    private record Team(boolean all, List<Long> ids, TeamScope.View view) {
+        static Team of(TeamScope.View view) {
+            if (view == null || view.all()) return new Team(true, List.of(-1L), view);
+            return new Team(false, view.consultantIds().isEmpty() ? List.of(-1L) : List.copyOf(view.consultantIds()), view);
+        }
+
+        boolean hasMarketer(Long memberId) {
+            return view == null || view.all() || view.hasMarketer(memberId);
+        }
+    }
+
+    /**
+     * The overview projected to a Marketing Manager's team ({@code team} non-null; the caller has been through {@link TeamScope}, which is the gate, so the ORG-scope
+     * rule below does not apply): the same figures over the consultants the team's marketers carry, and the team's marketers. A null team is the Org Admin page, unchanged.
+     */
+    @Transactional(readOnly = true)
+    public ReportsDTO.Overview overview(OrgMembership me, String rangeParam, TeamScope.View teamView) {
+        if (teamView == null) {
+            if (me == null || me.scopeFor(PERMISSION).filter(sc -> sc == PermissionScope.ORG).isEmpty()) throw new OrgNotFoundException();
+        } else if (me == null || !teamView.orgId().equals(me.orgId())) {
+            throw new OrgNotFoundException();
+        }
+        Team t = Team.of(teamView);
         int days = parseRange(rangeParam);
         Long org = me.orgId();
         Instant now = Instant.now(clock);
@@ -101,15 +128,15 @@ public class OrgReportsService {
         Instant fromInstant = from.atStartOfDay().toInstant(ZoneOffset.UTC);
         Instant tomorrow = today.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
 
-        Roster roster = roster(org);
-        Funnel funnel = funnel(org, today, from, now);
-        Interviews interviews = interviews(org, fromInstant, now, tomorrow);
-        Placements placements = placements(org, today, from);
-        FirstSubmission first = firstSubmission(org, fromInstant);
+        Roster roster = roster(org, t);
+        Funnel funnel = funnel(org, t, today, from, now);
+        Interviews interviews = interviews(org, t, fromInstant, now, tomorrow);
+        Placements placements = placements(org, t, today, from);
+        FirstSubmission first = firstSubmission(org, t, fromInstant);
 
-        long prevApplied = repo.countApplied(org, from.minusDays(days), from);
-        long prevCompleted = repo.countCompletedInterviews(org, fromInstant.minus(Duration.ofDays(days)), fromInstant);
-        long onBench = repo.roster(org).stream().filter(r -> "AVAILABLE".equals(r[1]) && "ACTIVE".equals(r[0])).mapToLong(r -> ((Number) r[2]).longValue()).sum();
+        long prevApplied = repo.countApplied(org, t.all(), t.ids(), from.minusDays(days), from);
+        long prevCompleted = repo.countCompletedInterviews(org, t.all(), t.ids(), fromInstant.minus(Duration.ofDays(days)), fromInstant);
+        long onBench = repo.roster(org, t.all(), t.ids()).stream().filter(r -> "AVAILABLE".equals(r[1]) && "ACTIVE".equals(r[0])).mapToLong(r -> ((Number) r[2]).longValue()).sum();
         List<Tile> tiles = List.of(
             new Tile("consultants", "Active consultants", (double) roster.total(), null, "count"),
             new Tile("onBench", "Available and in marketing", (double) onBench, null, "count"),
@@ -119,16 +146,16 @@ public class OrgReportsService {
             new Tile("timeToSubmit", "Median time to first submission", first.medianHours(), null, "hours")
         );
 
-        return new ReportsDTO.Overview(org, now, days, tiles, roster, funnel, interviews, placements, topClients(org, today), marketers(org), first);
+        return new ReportsDTO.Overview(org, now, days, tiles, roster, funnel, interviews, placements, topClients(org, t, today), marketers(org, t), first);
     }
 
     /* ── consultants ─────────────────────────────────────────────────────────────────────────────────────── */
 
-    private Roster roster(Long org) {
+    private Roster roster(Long org, Team t) {
         Map<String, Long> marketing = new HashMap<>();
         Map<String, Long> availability = new HashMap<>();
         long total = 0;
-        for (Object[] r : repo.roster(org)) {
+        for (Object[] r : repo.roster(org, t.all(), t.ids())) {
             long n = ((Number) r[2]).longValue();
             total += n;
             marketing.merge(String.valueOf(r[0]), n, Long::sum);
@@ -151,18 +178,18 @@ public class OrgReportsService {
 
     /* ── applications ────────────────────────────────────────────────────────────────────────────────────── */
 
-    private Funnel funnel(Long org, LocalDate today, LocalDate from, Instant now) {
+    private Funnel funnel(Long org, Team t, LocalDate today, LocalDate from, Instant now) {
         Map<String, Long> byStage = new HashMap<>();
         long total = 0;
-        for (Object[] r : repo.stageCounts(org, from)) {
+        for (Object[] r : repo.stageCounts(org, t.all(), t.ids(), from)) {
             long n = ((Number) r[1]).longValue();
             byStage.merge(String.valueOf(r[0]), n, Long::sum);
             total += n;
         }
         Instant weekAgo = now.minus(Duration.ofDays(7));
         Instant twoWeeksAgo = now.minus(Duration.ofDays(14));
-        Map<String, Long> thisWeek = entries(org, weekAgo, now.plusSeconds(1));
-        Map<String, Long> lastWeek = entries(org, twoWeeksAgo, weekAgo);
+        Map<String, Long> thisWeek = entries(org, t, weekAgo, now.plusSeconds(1));
+        Map<String, Long> lastWeek = entries(org, t, twoWeeksAgo, weekAgo);
         List<StageRow> stages = new ArrayList<>();
         for (String s : ApplicationStages.ORDER) {
             long tw = thisWeek.getOrDefault(s, 0L);
@@ -172,20 +199,20 @@ public class OrgReportsService {
         LocalDate weekStartNow = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         Map<LocalDate, Long> perWeek = new TreeMap<>();
         for (LocalDate w = from.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)); !w.isAfter(weekStartNow); w = w.plusWeeks(1)) perWeek.put(w, 0L);
-        for (Object[] r : repo.appliedPerDay(org, from, today.plusDays(1))) {
+        for (Object[] r : repo.appliedPerDay(org, t.all(), t.ids(), from, today.plusDays(1))) {
             LocalDate w = ((LocalDate) r[0]).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
             perWeek.merge(w, ((Number) r[1]).longValue(), Long::sum);
         }
         List<WeekPoint> weekly = new ArrayList<>();
         perWeek.forEach((w, n) -> weekly.add(new WeekPoint(w.toString(), n, 0)));
-        long appliedThisWeek = repo.countApplied(org, today.minusDays(6), today.plusDays(1));
-        long appliedLastWeek = repo.countApplied(org, today.minusDays(13), today.minusDays(6));
+        long appliedThisWeek = repo.countApplied(org, t.all(), t.ids(), today.minusDays(6), today.plusDays(1));
+        long appliedLastWeek = repo.countApplied(org, t.all(), t.ids(), today.minusDays(13), today.minusDays(6));
         return new Funnel(total, appliedThisWeek, appliedLastWeek, deltaPct(appliedThisWeek, appliedLastWeek), stages, weekly);
     }
 
-    private Map<String, Long> entries(Long org, Instant from, Instant to) {
+    private Map<String, Long> entries(Long org, Team t, Instant from, Instant to) {
         Map<String, Long> out = new HashMap<>();
-        for (Object[] r : repo.stageEntries(org, from, to)) out.put(String.valueOf(r[0]), ((Number) r[1]).longValue());
+        for (Object[] r : repo.stageEntries(org, t.all(), t.ids(), from, to)) out.put(String.valueOf(r[0]), ((Number) r[1]).longValue());
         return out;
     }
 
@@ -196,13 +223,13 @@ public class OrgReportsService {
 
     /* ── interviews ──────────────────────────────────────────────────────────────────────────────────────── */
 
-    private Interviews interviews(Long org, Instant from, Instant now, Instant tomorrow) {
+    private Interviews interviews(Long org, Team t, Instant from, Instant now, Instant tomorrow) {
         long scheduled = 0, completed = 0, cancelled = 0, awaiting = 0;
         LocalDate fromDay = from.atOffset(ZoneOffset.UTC).toLocalDate();
         LocalDate weekStartNow = tomorrow.minusSeconds(1).atOffset(ZoneOffset.UTC).toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         Map<LocalDate, long[]> perWeek = new TreeMap<>();
         for (LocalDate w = fromDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)); !w.isAfter(weekStartNow); w = w.plusWeeks(1)) perWeek.put(w, new long[2]);
-        for (Object[] r : repo.interviews(org, from, tomorrow)) {
+        for (Object[] r : repo.interviews(org, t.all(), t.ids(), from, tomorrow)) {
             Instant at = (Instant) r[0];
             String status = String.valueOf(r[1]);
             scheduled++;
@@ -215,7 +242,7 @@ public class OrgReportsService {
                 if ("COMPLETED".equals(status)) bucket[1]++;
             }
         }
-        long upcoming = repo.interviews(org, now, now.plus(Duration.ofDays(14))).stream().filter(r -> "SCHEDULED".equals(r[1])).count();
+        long upcoming = repo.interviews(org, t.all(), t.ids(), now, now.plus(Duration.ofDays(14))).stream().filter(r -> "SCHEDULED".equals(r[1])).count();
         List<WeekPoint> weekly = new ArrayList<>();
         perWeek.forEach((w, b) -> weekly.add(new WeekPoint(w.toString(), b[0], b[1])));
         return new Interviews(scheduled, completed, cancelled, awaiting, upcoming, weekly);
@@ -223,14 +250,14 @@ public class OrgReportsService {
 
     /* ── placements ──────────────────────────────────────────────────────────────────────────────────────── */
 
-    private Placements placements(Long org, LocalDate today, LocalDate rangeFrom) {
+    private Placements placements(Long org, Team t, LocalDate today, LocalDate rangeFrom) {
         YearMonth thisMonth = YearMonth.from(today);
         YearMonth first = thisMonth.minusMonths(MONTHS - 1L);
         LocalDate since = first.atDay(1).isBefore(rangeFrom) ? first.atDay(1) : rangeFrom;
         Map<YearMonth, long[]> months = new LinkedHashMap<>();
         for (int i = 0; i < MONTHS; i++) months.put(first.plusMonths(i), new long[2]);
         long startedInRange = 0, endedInRange = 0;
-        for (Object[] r : repo.placementDates(org, since)) {
+        for (Object[] r : repo.placementDates(org, t.all(), t.ids(), since)) {
             LocalDate start = (LocalDate) r[0];
             LocalDate end = (LocalDate) r[1];
             boolean ended = "ENDED".equals(r[2]) && end != null && !end.isAfter(today);
@@ -247,21 +274,21 @@ public class OrgReportsService {
         }
         List<MonthPoint> out = new ArrayList<>();
         months.forEach((ym, v) -> out.add(new MonthPoint(ym.toString(), v[0], v[1])));
-        return new Placements(repo.countActivePlacements(org, today), startedInRange, endedInRange, out);
+        return new Placements(repo.countActivePlacements(org, t.all(), t.ids(), today), startedInRange, endedInRange, out);
     }
 
-    private List<ClientRow> topClients(Long org, LocalDate today) {
+    private List<ClientRow> topClients(Long org, Team t, LocalDate today) {
         List<ClientRow> out = new ArrayList<>();
-        for (Object[] r : repo.topClients(org, today, PageRequest.of(0, TOP_CLIENTS))) out.add(new ClientRow(String.valueOf(r[0]), ((Number) r[1]).longValue()));
+        for (Object[] r : repo.topClients(org, t.all(), t.ids(), today, PageRequest.of(0, TOP_CLIENTS))) out.add(new ClientRow(String.valueOf(r[0]), ((Number) r[1]).longValue()));
         return out;
     }
 
     /* ── marketers ───────────────────────────────────────────────────────────────────────────────────────── */
 
-    private List<MarketerRow> marketers(Long org) {
+    private List<MarketerRow> marketers(Long org, Team t) {
         Map<Long, long[]> perMarketer = new LinkedHashMap<>();
-        for (Object[] r : repo.assignedConsultants(org)) perMarketer.computeIfAbsent((Long) r[0], k -> new long[2])[0] = ((Number) r[1]).longValue();
-        for (Object[] r : repo.openOpportunities(org, CLOSED_OPPORTUNITY_STATES)) perMarketer.computeIfAbsent((Long) r[0], k -> new long[2])[1] = ((Number) r[1]).longValue();
+        for (Object[] r : repo.assignedConsultants(org)) if (t.hasMarketer((Long) r[0])) perMarketer.computeIfAbsent((Long) r[0], k -> new long[2])[0] = ((Number) r[1]).longValue();
+        for (Object[] r : repo.openOpportunities(org, CLOSED_OPPORTUNITY_STATES)) if (t.hasMarketer((Long) r[0])) perMarketer.computeIfAbsent((Long) r[0], k -> new long[2])[1] = ((Number) r[1]).longValue();
         Map<Long, String> display = names.memberNames(org, new HashSet<>(perMarketer.keySet()));
         List<MarketerRow> out = new ArrayList<>();
         perMarketer.forEach((id, v) -> {
@@ -277,9 +304,9 @@ public class OrgReportsService {
 
     /* ── time to first submission ────────────────────────────────────────────────────────────────────────── */
 
-    private FirstSubmission firstSubmission(Long org, Instant from) {
+    private FirstSubmission firstSubmission(Long org, Team t, Instant from) {
         List<Double> hours = new ArrayList<>();
-        for (Object[] r : repo.firstSubmissions(org, from)) {
+        for (Object[] r : repo.firstSubmissions(org, t.all(), t.ids(), from)) {
             Instant created = (Instant) r[0];
             Instant submitted = (Instant) r[1];
             if (created == null || submitted == null) continue;

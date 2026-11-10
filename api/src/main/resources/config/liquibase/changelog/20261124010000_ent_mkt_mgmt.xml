@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Marketing Manager workspace (docs/enterprise-v2/deferred/marketing-manager.md section 3; story MM-01). Owned by the Marketing Manager API ONLY.
+        Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL + FK organization, every index starts with org_id, composite tenant FKs to the
+        parent's (org_id, id) unique key, varchar enum names, DATETIME(6) UTC, one precondition-guarded changeSet per table or column, additive only, no sensitive PII).
+
+        - mkt_approval_request: one generic manager approval (kinds OPPORTUNITY_ASSIGN, DUPLICATE_OVERRIDE, RESUME_RELEASE); a generated active_key keeps ONE open request per subject and kind.
+        - mkt_escalation / mkt_escalation_event: what a manager must look at (rules + manual raises) and the append-only trail of each; a generated open_key keeps a rule from raising the same thing twice while it is open.
+        - mkt_opportunity.approval_request_id: the pending manager approval that holds an assignment (null for every row today).
+        Free-text columns hold short notes only; none can hold an identity document, a tax or bank number or a date of birth (the service scans every write).
+    -->
+
+    <changeSet id="mkt-mgmt-1-mkt_approval_request" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_approval_request"/></not></preConditions>
+        <createTable tableName="mkt_approval_request">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <!-- OPPORTUNITY_ASSIGN / DUPLICATE_OVERRIDE / RESUME_RELEASE -->
+            <column name="kind" type="varchar(30)"><constraints nullable="false"/></column>
+            <!-- MKT_OPPORTUNITY / MKT_SUBMISSION / TALENT_APPLICATION / ORG_RESUME -->
+            <column name="subject_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="subject_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requested_by_member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requested_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <!-- metadata only: "Anika Rao to Stripe, SWE II" -->
+            <column name="title" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(500)"/>
+            <!-- the pending action arguments (ids, flags, the duplicate reason); scanned for sensitive content on write -->
+            <column name="payload_json" type="json"/>
+            <!-- PENDING / APPROVED / REJECTED / WITHDRAWN / EXPIRED -->
+            <column name="status" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="decided_by_member_id" type="bigint"/>
+            <column name="decided_at" type="${datetimeType}"/>
+            <column name="decision_note" type="varchar(300)"/>
+            <column name="expires_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <!-- Generated column: Liquibase has no portable syntax for it, so plain MySQL DDL. One open request per subject and kind. -->
+        <sql dbms="mysql">
+            ALTER TABLE mkt_approval_request ADD COLUMN active_key VARCHAR(120)
+                GENERATED ALWAYS AS (IF(status = 'PENDING', CONCAT(org_id, ':', subject_type, ':', subject_id, ':', kind), NULL)) STORED
+        </sql>
+        <addForeignKeyConstraint baseTableName="mkt_approval_request" baseColumnNames="org_id" constraintName="fk_mkt_approval_request_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_approval_request" baseColumnNames="org_id, consultant_id" constraintName="fk_mkt_approval_request_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_approval_request" baseColumnNames="org_id, requested_by_member_id" constraintName="fk_mkt_approval_request_requester" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_approval_request" baseColumnNames="org_id, decided_by_member_id" constraintName="fk_mkt_approval_request_decider" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_approval_request" columnNames="org_id, id" constraintName="uk_mkt_approval_request_org_id"/>
+        <createIndex tableName="mkt_approval_request" indexName="uk_mkt_approval_request_active" unique="true"><column name="active_key"/></createIndex>
+        <createIndex tableName="mkt_approval_request" indexName="ix_mkt_approval_request_status"><column name="org_id"/><column name="status"/><column name="requested_at"/></createIndex>
+        <createIndex tableName="mkt_approval_request" indexName="ix_mkt_approval_request_requester"><column name="org_id"/><column name="requested_by_member_id"/><column name="status"/></createIndex>
+        <createIndex tableName="mkt_approval_request" indexName="ix_mkt_approval_request_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id can be undone. The table and its data stay. -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_approval_request" constraintName="fk_mkt_approval_request_requester"/>
+            <dropForeignKeyConstraint baseTableName="mkt_approval_request" constraintName="fk_mkt_approval_request_decider"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="mkt-mgmt-2-mkt_escalation" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_escalation"/></not></preConditions>
+        <createTable tableName="mkt_escalation">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <!-- STALLED_OPPORTUNITY / OVERDUE_FOLLOWUP / UNANSWERED_QUESTION / OVERLOADED_MARKETER / MANUAL / APPROVAL_AGING -->
+            <column name="kind" type="varchar(30)"><constraints nullable="false"/></column>
+            <!-- LOW / MEDIUM / HIGH -->
+            <column name="severity" type="varchar(10)"><constraints nullable="false"/></column>
+            <!-- MKT_OPPORTUNITY / MKT_FOLLOWUP / CWS_QUESTION / MARKETER / MKT_APPROVAL_REQUEST / CONSULTANT -->
+            <column name="subject_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="subject_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"/>
+            <column name="marketer_member_id" type="bigint"/>
+            <column name="title" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(500)"/>
+            <!-- which rule raised it; null = a manual raise -->
+            <column name="rule_key" type="varchar(40)"/>
+            <column name="raised_by_member_id" type="bigint"/>
+            <column name="raised_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <!-- OPEN / ACKNOWLEDGED / SNOOZED / RESOLVED / DISMISSED -->
+            <column name="status" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="assignee_member_id" type="bigint"/>
+            <column name="snoozed_until" type="${datetimeType}"/>
+            <column name="resolved_by_member_id" type="bigint"/>
+            <column name="resolved_at" type="${datetimeType}"/>
+            <column name="resolution" type="varchar(300)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <!-- Generated column: a rule never raises the same thing twice while it is open (manual raises have no rule_key and are not deduplicated). -->
+        <sql dbms="mysql">
+            ALTER TABLE mkt_escalation ADD COLUMN open_key VARCHAR(140)
+                GENERATED ALWAYS AS (IF(status IN ('OPEN','ACKNOWLEDGED','SNOOZED') AND rule_key IS NOT NULL, CONCAT(org_id, ':', rule_key, ':', subject_type, ':', subject_id), NULL)) STORED
+        </sql>
+        <addForeignKeyConstraint baseTableName="mkt_escalation" baseColumnNames="org_id" constraintName="fk_mkt_escalation_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="mkt_escalation" columnNames="org_id, id" constraintName="uk_mkt_escalation_org_id"/>
+        <createIndex tableName="mkt_escalation" indexName="uk_mkt_escalation_open" unique="true"><column name="open_key"/></createIndex>
+        <createIndex tableName="mkt_escalation" indexName="ix_mkt_escalation_status"><column name="org_id"/><column name="status"/><column name="severity"/><column name="raised_at"/></createIndex>
+        <createIndex tableName="mkt_escalation" indexName="ix_mkt_escalation_marketer"><column name="org_id"/><column name="marketer_member_id"/><column name="status"/></createIndex>
+        <createIndex tableName="mkt_escalation" indexName="ix_mkt_escalation_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="mkt-mgmt-3-mkt_escalation_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_escalation_event"/></not></preConditions>
+        <createTable tableName="mkt_escalation_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="escalation_id" type="bigint"><constraints nullable="false"/></column>
+            <!-- RAISED / ACKNOWLEDGED / ASSIGNED / SNOOZED / COMMENTED / RESOLVED / DISMISSED / REOPENED -->
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="note" type="varchar(500)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_escalation_event" baseColumnNames="org_id" constraintName="fk_mkt_escalation_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <!-- Owned detail (R4): the trail goes with its escalation, which is never hard-deleted outside the retention job and an organization purge. -->
+        <addForeignKeyConstraint baseTableName="mkt_escalation_event" baseColumnNames="org_id, escalation_id" constraintName="fk_mkt_escalation_event_escalation" referencedTableName="mkt_escalation" referencedColumnNames="org_id, id" onDelete="CASCADE"/>
+        <createIndex tableName="mkt_escalation_event" indexName="ix_mkt_escalation_event_escalation"><column name="org_id"/><column name="escalation_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="mkt-mgmt-4-mkt_opportunity_approval_request_id" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="mkt_opportunity" columnName="approval_request_id"/></not></preConditions>
+        <addColumn tableName="mkt_opportunity">
+            <column name="approval_request_id" type="bigint"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="mkt_opportunity" baseColumnNames="org_id, approval_request_id" constraintName="fk_mkt_opportunity_approval" referencedTableName="mkt_approval_request" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="mkt_opportunity" indexName="ix_mkt_opportunity_approval"><column name="org_id"/><column name="approval_request_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

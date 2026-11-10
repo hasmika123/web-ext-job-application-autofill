@@ -158,6 +158,7 @@ public final class DataMap {
             "subscription_change", "talent_application", "talent_application_event", "talent_application_note", "talent_interview",
             "talent_interview_event", "talent_interview_feedback", "talent_interview_interviewer", "talent_placement", "usage_alert", "usage_counter",
             "usage_event",
+            "mkt_approval_request", "mkt_escalation", "mkt_escalation_event",
             // Sprint 2 "prepare": a consultant's prepared-application batches. They carry the organization and seat/match ids, never an account
             "prepare_event", "prepare_item", "prepare_session"
         )) {

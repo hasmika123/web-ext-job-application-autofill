@@ -22,6 +22,7 @@ import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Row;
 import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Skill;
 import com.dossier.api.service.ent.resumes.OrgResumeApproval;
 import com.dossier.api.service.ent.resumes.OrgResumeLinkService;
+import com.dossier.api.service.ent.mkt.approvals.ApprovalHolds;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
@@ -86,6 +87,10 @@ public class MktResumesService {
     /** Fingerprint lookup for the approval pin (X7.4); absent in hand-wired unit tests. */
     @Autowired(required = false)
     private OrgResumeApproval approvals;
+
+    /** Where a resume that org settings send through a Marketing Manager first is parked (MM-02); absent in hand-wired unit tests. */
+    @Autowired(required = false)
+    private ApprovalHolds holds;
 
     @Autowired
     public MktResumesService(MktScope scope, MktResumeRepository resumes, MktResumeEventRepository events, OrgAuditService audit, AuthorizationService authorization) {
@@ -189,6 +194,15 @@ public class MktResumesService {
         OrgResume r = item.resume();
         if ("PENDING".equals(r.getApprovalStatus())) return detailOf(me, view, item);
         Instant now = clock.instant();
+        // MM-02: org.resumes.manager_review (off by default). A resume made for the consultant goes to a Marketing Manager first; the consultant's own approval
+        // is never replaced, it is only asked for once the manager releases the resume (see releaseApproved). Already waiting for a manager: nothing changes.
+        if (holds != null && OrgResumeLinkService.requiresConsultantApproval(r) && holds.reviewsResumes(view.orgId())) {
+            if (holds.holdResume(me, r.getConsultantId(), r.getId(), r.getName())) {
+                MktResumeEvent held = event(me, r, MktResumeEvent.MANAGER_REVIEW_REQUESTED, null, now);
+                return detailOf(me, view, reload(view, item, held));
+            }
+            return detailOf(me, view, item);
+        }
         r.setApprovalStatus("PENDING");
         r.setApprovedAt(null);
         r.setApprovedByMemberId(null);
@@ -196,6 +210,34 @@ public class MktResumesService {
         MktResumeEvent e = event(me, r, MktResumeEvent.APPROVAL_REQUESTED, null, now);
         audit.record(me, "MARKETER_APPROVAL_REQUEST", OrgAuditService.TARGET_RESUME, null, String.valueOf(r.getId()), "version=" + r.getVersionNo());
         return detailOf(me, view, reload(view, item, e));
+    }
+
+    /**
+     * A Marketing Manager released a resume held by {@code org.resumes.manager_review} (MM-02): the version is marked as reviewed and the EXISTING approval request
+     * to the consultant is sent, exactly as if the marketer had sent it ({@link #requestApproval}). The consultant still decides; nothing is approved here.
+     * Called by {@code ApprovalService} inside the manager's decision; the manager's permission and team were checked there.
+     */
+    @Transactional
+    public void releaseApproved(OrgMembership manager, Long resumeId) {
+        MktScope.View everyone = new MktScope.View(manager.orgId(), manager.memberId(), true, java.util.Set.of());
+        Item item = one(everyone, resumeId);
+        OrgResume r = item.resume();
+        Instant now = clock.instant();
+        event(manager, r, MktResumeEvent.MANAGER_REVIEWED, null, now);
+        if ("PENDING".equals(r.getApprovalStatus())) return; // the consultant was already asked
+        r.setApprovalStatus("PENDING");
+        r.setApprovedAt(null);
+        r.setApprovedByMemberId(null);
+        resumes.saveAndFlush(r);
+        event(manager, r, MktResumeEvent.APPROVAL_REQUESTED, null, now);
+    }
+
+    /** A Marketing Manager declined to release the resume: it stays as it is, with their note on its history. */
+    @Transactional
+    public void releaseDeclined(OrgMembership manager, Long resumeId, String note) {
+        MktScope.View everyone = new MktScope.View(manager.orgId(), manager.memberId(), true, java.util.Set.of());
+        OrgResume r = one(everyone, resumeId).resume();
+        event(manager, r, MktResumeEvent.MANAGER_DECLINED, note == null ? null : (note.length() > 200 ? note.substring(0, 200) : note), clock.instant());
     }
 
     /** Flag a resume as needing an update. Already flagged: nothing changes. Cleared by the next edit. */
@@ -438,6 +480,9 @@ public class MktResumesService {
             case MktResumeEvent.APPROVAL_REQUESTED -> "resume sent for approval";
             case MktResumeEvent.APPROVED -> "resume approved";
             case MktResumeEvent.MARKED_FOR_UPDATE -> "resume marked for update";
+            case MktResumeEvent.MANAGER_REVIEW_REQUESTED -> "resume sent to a manager for review";
+            case MktResumeEvent.MANAGER_REVIEWED -> "resume reviewed by a manager";
+            case MktResumeEvent.MANAGER_DECLINED -> "manager declined to release the resume";
             case "PRIMARY_SET" -> "resume made primary";
             case "DETAILS_CHANGED" -> "resume details changed";
             case "DECIDED" -> "resume decision recorded";

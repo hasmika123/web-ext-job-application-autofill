@@ -25,7 +25,15 @@ public class EnterpriseHistorySettings {
 
     /** Months of history kept for {@code orgId}; 0 keeps it for the life of the record. */
     public int retentionMonths(Long orgId) {
-        String key = EnterpriseSettingKeys.HISTORY_RETENTION_MONTHS;
+        return months(orgId, EnterpriseSettingKeys.HISTORY_RETENTION_MONTHS);
+    }
+
+    /** Months a Marketing Manager approval request or escalation is kept for {@code orgId} (registry default 36); 0 keeps it for the life of the organization. */
+    public int mktMgmtMonths(Long orgId) {
+        return months(orgId, EnterpriseSettingKeys.HISTORY_MKT_MGMT_MONTHS);
+    }
+
+    private int months(Long orgId, String key) {
         int global = settings.getInt(key);
         if (orgId == null) return global;
         var def = EnterpriseSettingKeys.find(key);

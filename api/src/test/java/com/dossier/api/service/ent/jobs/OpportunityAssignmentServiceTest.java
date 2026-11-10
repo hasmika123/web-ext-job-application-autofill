@@ -598,4 +598,80 @@ class OpportunityAssignmentServiceTest {
     void withoutGuardsWiredNothingIsAsked() {
         assertThat(assign(null).created()).isTrue(); // the unit-test construction: no guard bean, no question
     }
+
+    // ---- the manager holds (MM-02): every default changes nothing ---------------------------------------------------------------------
+
+    private com.dossier.api.service.ent.mkt.approvals.ApprovalHolds held() {
+        var holds = org.mockito.Mockito.mock(com.dossier.api.service.ent.mkt.approvals.ApprovalHolds.class);
+        service.setHolds(holds);
+        return holds;
+    }
+
+    @Test
+    void withTheSettingsAtTheirDefaultsAHoldWiredInChangesNothing() {
+        var guard = guarded();
+        var holds = held(); // holdsAssignment answers false: org.pipeline.manager_approval is NEVER
+        assertThat(assign(null).created()).isTrue();
+        assertThat(world.matchStore.values()).extracting(RequirementMatch::getStatus).containsExactly("ASSIGNED");
+        verify(holds, never()).holdAssignment(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aManagerApprovalSettingParksTheAssignmentAfterTheGuardsAndWritesNothingInThisTransaction() {
+        var guard = guarded();
+        var holds = held();
+        org.mockito.Mockito.when(holds.holdsAssignment(ORG, CON)).thenReturn(true);
+        OrgException parked = OrgException.coded(409, "APPROVAL_PENDING", "Sent to a manager.", java.util.Map.of("requestId", 5L));
+        org.mockito.Mockito.when(holds.holdAssignment(eq(me), any(), eq(CON), any(), any())).thenReturn(parked);
+        assertThatThrownBy(() -> assign(Options.none().withOwner(ME).askingInterest().withOpportunity("Lead with Java", "HIGH", null))).isSameAs(parked);
+        verify(guard).assertOpenCap(ORG, CON);
+        verify(guard).enforce(eq(me), eq(CON), any(), any(), any()); // the duplicate guard ran first, with somewhere to send a confirmed override
+        assertThat(world.matchStore).isEmpty(); // the parked pair is written by the hold in a transaction of its own
+        assertThat(world.oppStore).isEmpty();
+        var spec = org.mockito.ArgumentCaptor.forClass(com.dossier.api.service.ent.mkt.approvals.ApprovalHolds.Spec.class);
+        verify(holds).holdAssignment(eq(me), any(), eq(CON), spec.capture(), any());
+        assertThat(spec.getValue().ownerMemberId()).isEqualTo(ME);
+        assertThat(spec.getValue().askInterest()).isTrue();
+        assertThat(spec.getValue().marketerNote()).isEqualTo("Lead with Java");
+        assertThat(spec.getValue().priority()).isEqualTo("HIGH");
+    }
+
+    @Test
+    void aConfirmedDuplicateUnderRequireApprovalIsSentToAManager() {
+        var guard = guarded();
+        var holds = held();
+        OrgException parked = OrgException.coded(409, "DUPLICATE_APPROVAL_REQUIRED", "Sent to a manager.", java.util.Map.of("requestId", 6L));
+        org.mockito.Mockito.when(holds.holdDuplicate(eq(me), any(), eq(CON), any(), any(), eq("The client asked for both"))).thenReturn(parked);
+        org.mockito.Mockito.doAnswer(call -> {
+            com.dossier.api.service.ent.pipeline.DuplicateGuard.Hold hold = call.getArgument(4);
+            throw hold.hold(java.util.List.of(), "The client asked for both"); // what the real guard does under REQUIRE_APPROVAL
+        }).when(guard).enforce(any(OrgMembership.class), eq(CON), any(), any(), any());
+        assertThatThrownBy(() -> assign(Options.none().confirmingDuplicate(new com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm(true, "The client asked for both")))).isSameAs(parked);
+        assertThat(world.matchStore).isEmpty();
+        verify(holds, never()).holdAssignment(any(), any(), any(), any(), any()); // the duplicate request comes first; the approval of it lifts both holds
+    }
+
+    @Test
+    void aManagersApprovalLiftsTheHoldAndTheAssignmentGoesThroughTheSameChecks() {
+        var guard = guarded();
+        var holds = held();
+        org.mockito.Mockito.when(holds.holdsAssignment(ORG, CON)).thenReturn(true);
+        var approved = com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm.approved("The client asked for both", 90L, ME);
+        assertThat(assign(Options.none().confirmingDuplicate(approved)).created()).isTrue();
+        verify(guard).assertOpenCap(ORG, CON); // the cap and the duplicate guard are kept
+        verify(guard).enforce(eq(me), eq(CON), any(), eq(approved), any());
+        verify(holds, never()).holdsAssignment(any(), any());
+        verify(holds, never()).holdAssignment(any(), any(), any(), any(), any());
+        assertThat(world.matchStore.values()).extracting(RequirementMatch::getStatus).containsExactly("ASSIGNED");
+    }
+
+    @Test
+    void aPairThatIsAlreadyLiveIsNeverHeld() {
+        var guard = guarded();
+        var holds = held();
+        assign(null);
+        org.mockito.Mockito.when(holds.holdsAssignment(ORG, CON)).thenReturn(true);
+        assertThat(assign(null).existing()).isTrue();
+        verify(holds, never()).holdAssignment(any(), any(), any(), any(), any());
+    }
 }

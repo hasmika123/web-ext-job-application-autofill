@@ -65,4 +65,11 @@ public interface OrgScopeRepository extends Repository<OrgMember, Long> {
         "and a.health = com.dossier.api.domain.enumeration.AssignmentHealth.OK"
     )
     List<Long> findConsultantIdsWithEffectiveAssignments(@Param("orgId") Long orgId, @Param("now") java.time.Instant now);
+
+    /** MM-01: every live (INVITED, ACTIVE, SUSPENDED) member of the organization (what an ORG scope reaches). */
+    @Query(
+        "select m.id from OrgMember m where m.orgId = :orgId and m.status in " +
+        "(com.dossier.api.domain.enumeration.OrgMemberStatus.INVITED, com.dossier.api.domain.enumeration.OrgMemberStatus.ACTIVE, com.dossier.api.domain.enumeration.OrgMemberStatus.SUSPENDED)"
+    )
+    List<Long> findLiveMemberIds(@Param("orgId") Long orgId);
 }

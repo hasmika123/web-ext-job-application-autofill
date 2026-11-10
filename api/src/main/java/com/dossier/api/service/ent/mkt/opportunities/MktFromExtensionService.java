@@ -64,6 +64,8 @@ public class MktFromExtensionService {
     public static final String REASON_NOT_IN_SCOPE = "NOT_IN_SCOPE";
     public static final String REASON_INACTIVE = OpportunityAssignmentService.CONSULTANT_INACTIVE;
     public static final String REASON_RESUME = "RESUME_NOT_APPROVED";
+    /** MM-02: the assignment was parked for a Marketing Manager's approval (org.pipeline.manager_approval): the job is saved, the consultant has not been put in front of it yet. */
+    public static final String REASON_APPROVAL = "APPROVAL_PENDING";
     public static final int MAX_SKILLS = 8;
     public static final int MAX_CONSULTANTS = 20;
 
@@ -223,6 +225,7 @@ public class MktFromExtensionService {
             return new ConsultantResult(consultantId, null, false, REASON_NOT_IN_SCOPE);
         } catch (OrgException refused) {
             if (REASON_RESUME.equals(refused.getCode())) return new ConsultantResult(consultantId, null, false, REASON_RESUME);
+            if (REASON_APPROVAL.equals(refused.getCode()) || "DUPLICATE_APPROVAL_REQUIRED".equals(refused.getCode())) return new ConsultantResult(consultantId, null, false, REASON_APPROVAL);
             throw refused; // JOB_NOT_OPEN and friends fail the whole call
         }
     }
