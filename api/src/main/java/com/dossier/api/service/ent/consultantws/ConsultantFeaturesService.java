@@ -76,6 +76,23 @@ public class ConsultantFeaturesService {
         this.clock = clock;
     }
 
+    private com.dossier.api.service.ent.licenses.OrgLicenseGate licenses;
+
+    /** Optional (LICENCES-BUILD.md L5): the licence reader. With it, whether a feature is on comes from the consultant's own licence. */
+    @Autowired(required = false)
+    public void setLicenses(com.dossier.api.service.ent.licenses.OrgLicenseGate licenses) {
+        this.licenses = licenses;
+    }
+
+    /** The licence add-on behind each card of the page. */
+    static final java.util.Map<String, String> LICENSE_KEY = java.util.Map.of(
+        "job-matching", com.dossier.api.service.entitlement.FeatureKeys.AI_JOB_MATCHING,
+        "resume-tailoring", com.dossier.api.service.entitlement.FeatureKeys.AI_RESUME_TAILORING,
+        "interview-prep", com.dossier.api.service.entitlement.FeatureKeys.INTERVIEW_AI_PREP,
+        "application-tracking", com.dossier.api.service.entitlement.FeatureKeys.INBOX_MONITORING,
+        "resume-optimization", com.dossier.api.service.entitlement.FeatureKeys.RESUME_OPTIMIZATION
+    );
+
     /** One static catalog entry (the admin catalog stand-in). */
     record Def(String key, String title, String description, String tone, String icon, boolean premium, Integer allowance, String unit, String usedNote, String href, String actionLabel, boolean overview) {}
 
@@ -113,6 +130,8 @@ public class ConsultantFeaturesService {
         int appsNow = count(apps, TalentApplication::getCreatedAt, monthStart, null);
         int appsPrev = count(apps, TalentApplication::getCreatedAt, prevStart, monthStart);
 
+        // With the licence reader, "on" is the consultant's own licence; allowances are still the catalog stand-ins (sample) until usage is metered.
+        java.util.Map<String, Integer> licensed = licenses == null ? null : licenses.liveFeatures(org, c.getId(), now);
         List<Feature> features = catalog().stream().map(d -> {
             Integer used = null;
             Integer last = null;
@@ -122,7 +141,9 @@ public class ConsultantFeaturesService {
                 case "application-tracking" -> { used = apps.size(); last = appsPrev; }
                 default -> { }
             }
-            return new Feature(d.key(), d.title(), d.description(), d.tone(), d.icon(), "ENABLED", d.premium(), d.allowance(), used, last, d.unit(), d.usedNote(), d.allowance() == null ? null : resetsOn, d.href(), d.actionLabel(), d.overview(), true);
+            String status = licensed == null || licensed.containsKey(LICENSE_KEY.get(d.key())) ? "ENABLED" : "NOT_AVAILABLE";
+            boolean sample = licensed == null || d.allowance() != null;
+            return new Feature(d.key(), d.title(), d.description(), d.tone(), d.icon(), status, d.premium(), d.allowance(), used, last, d.unit(), d.usedNote(), d.allowance() == null ? null : resetsOn, d.href(), d.actionLabel(), d.overview(), sample);
         }).toList();
 
         long active = features.stream().filter(f -> "ENABLED".equals(f.status())).count();
@@ -133,10 +154,13 @@ public class ConsultantFeaturesService {
 
         Feature credits = features.stream().filter(f -> "resume-tailoring".equals(f.key())).findFirst().orElse(null);
         Long creditsLeft = credits == null || credits.allowance() == null ? null : (long) Math.max(0, credits.allowance() - (credits.used() == null ? 0 : credits.used()));
+        // with a real licence, never show credits that are not counted (tailoring has no metered action yet) or that the licence does not carry
+        if (licensed != null && (credits == null || credits.used() == null || !"ENABLED".equals(credits.status()))) creditsLeft = null;
         long expiring = !renewsOn.isAfter(today.plusDays(30)) ? 1 : 0;
 
-        Tiles tiles = new Tiles(active, true, creditsLeft, credits == null ? null : credits.allowance(), true, usedThisMonth, delta, premium, true, expiring, renewsOn, true);
-        return new Response(org, now, c.getDisplayName(), true, tiles, features);
+        boolean real = licensed != null;
+        Tiles tiles = new Tiles(active, !real, creditsLeft, creditsLeft == null && real ? null : credits == null ? null : credits.allowance(), true, usedThisMonth, delta, premium, !real, expiring, renewsOn, true);
+        return new Response(org, now, c.getDisplayName(), !real, tiles, features);
     }
 
     private static <T> int count(List<T> rows, Function<T, Instant> at, Instant from, Instant before) {

@@ -34,7 +34,7 @@ class PrepareBatchEntitlementTest {
     ConsultantProfileRepository consultants = mock(ConsultantProfileRepository.class);
     ConsultantLicenseRepository licenses = mock(ConsultantLicenseRepository.class);
     LicenseFeatureRepository features = mock(LicenseFeatureRepository.class);
-    PrepareBatchEntitlement entitlement = new PrepareBatchEntitlement(settings, consultants, licenses, features);
+    PrepareBatchEntitlement entitlement = new PrepareBatchEntitlement(settings, consultants, new com.dossier.api.service.ent.licenses.OrgLicenseGate(licenses, features, mock(com.dossier.api.repository.catalog.FeatureDefinitionRepository.class)));
 
     ConsultantProfile profile = new ConsultantProfile();
 
@@ -59,6 +59,7 @@ class PrepareBatchEntitlementTest {
         l.setStatus(licenseStatus);
         l.setStartsAt(Instant.now().minus(Duration.ofDays(30)));
         when(licenses.findByOrgIdAndStatusIn(eq(ORG), any())).thenReturn(List.of(l));
+        when(licenses.findByOrgIdAndConsultantIdOrderByStartsAtDesc(ORG, CONSULTANT)).thenReturn(List.of(l));
         LicenseFeature f = new LicenseFeature();
         f.setOrgId(ORG);
         f.setLicenseId(LICENSE);
@@ -66,6 +67,7 @@ class PrepareBatchEntitlementTest {
         f.setLive(live);
         f.setStartsAt(Instant.now().minus(Duration.ofDays(30)));
         when(features.findByOrgIdAndLicenseIdIn(eq(ORG), any())).thenReturn(List.of(f));
+        when(features.findByOrgIdAndLicenseIdOrderByIdAsc(ORG, LICENSE)).thenReturn(List.of(f));
     }
 
     @Test
@@ -107,6 +109,7 @@ class PrepareBatchEntitlementTest {
         licensed("ACTIVE", PrepareBatchEntitlement.FEATURE, false);
         assertThat(entitlement.check(ORG, SEAT).reason()).isEqualTo(PrepareBatchEntitlement.NO_LICENSE);
         when(licenses.findByOrgIdAndStatusIn(eq(ORG), any())).thenReturn(List.of());
+        when(licenses.findByOrgIdAndConsultantIdOrderByStartsAtDesc(ORG, CONSULTANT)).thenReturn(List.of());
         assertThat(entitlement.check(ORG, SEAT).reason()).isEqualTo(PrepareBatchEntitlement.NO_LICENSE);
     }
 

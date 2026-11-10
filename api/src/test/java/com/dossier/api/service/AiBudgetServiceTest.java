@@ -379,4 +379,53 @@ class AiBudgetServiceTest {
         assertThat(AiBudgetService.centsToMicros(500)).isEqualTo(FIVE_DOLLARS);
         assertThat(AiBudgetService.monthStart()).isBefore(AiBudgetService.resetsAt());
     }
+
+    // ---- enterprise accounts: the organization licence (LICENCES-BUILD.md L2) -------------------
+
+    private static final String ENT = "ent#7#anika.rao";
+
+    private com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess licensed(long cents) {
+        com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess access = Mockito.mock(com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess.class);
+        when(access.aiBudgetCents(ENT)).thenReturn(cents);
+        service.setEnterpriseLicenses(access);
+        return access;
+    }
+
+    @Test
+    void anEnterpriseAccountWithAnAiAddOnIsMeteredAgainstItsLicenceBudget() {
+        licensed(500); // $5 a month from its add-ons
+        when(calls.costSince(eq(ENT), any(Instant.class))).thenReturn(FIVE_DOLLARS / 4);
+        Decision d = service.decide(ENT, AiTask.DRAFT);
+        assertThat(d.verdict()).isEqualTo(Verdict.OK);
+        assertThat(d.budgeted()).isTrue();
+        assertThat(d.used()).isEqualTo(25);
+        Mockito.verify(entitlement, Mockito.never()).isPro(ENT); // its personal plan is never asked (decision O4)
+    }
+
+    @Test
+    void anEnterpriseAccountWhoseLicenceCarriesNoAiHasNoServerAi() {
+        licensed(0);
+        assertThat(service.decide(ENT, AiTask.DRAFT).verdict()).isEqualTo(Verdict.PRO_REQUIRED);
+        assertThat(service.usage(ENT).metered()).isEqualTo("count");
+    }
+
+    @Test
+    void anEnterpriseLicenceBudgetIsSpentLikeAnyOther() {
+        licensed(500);
+        when(calls.costSince(eq(ENT), any(Instant.class))).thenReturn(FIVE_DOLLARS);
+        assertThat(service.decide(ENT, AiTask.DRAFT).verdict()).isEqualTo(Verdict.EXHAUSTED);
+    }
+
+    @Test
+    void anAdminOverrideStillOutranksTheLicence() {
+        licensed(500);
+        AiQuotaOverride o = new AiQuotaOverride();
+        o.setLogin(ENT);
+        o.setMonthlyBudgetCents(1000);
+        when(overrides.findById(ENT)).thenReturn(Optional.of(o));
+        when(calls.costSince(eq(ENT), any(Instant.class))).thenReturn(FIVE_DOLLARS);
+        Decision d = service.decide(ENT, AiTask.DRAFT);
+        assertThat(d.verdict()).isEqualTo(Verdict.OK); // $5 of the override's $10
+        assertThat(d.used()).isEqualTo(50);
+    }
 }

@@ -120,14 +120,21 @@ public class AiBudgetService {
     }
 
     /**
-     * This user's budget and its window — an admin override (the calendar month), else Pro's (the
-     * billing period) — or empty for a Free user.
+     * This user's budget and its window — an admin override (the calendar month), else for an enterprise
+     * account its licence's AI add-ons (the calendar month), else Pro's (the billing period) — or empty
+     * for a Free user or an enterprise account whose licence carries no AI.
      */
     Optional<Window> window(String login, Instant now) {
         // An admin override outranks the plan (a locked decision): it opens the gate AND sets the budget.
         Optional<AiQuotaOverride> override = overrideRepository.findById(login);
         if (override.isPresent()) {
             return Optional.of(new Window(centsToMicros(override.get().getMonthlyBudgetCents()), monthStart(now), resetsAt(now)));
+        }
+        // An enterprise account never has a personal plan (decision O4): its AI budget is its organization licence's AI add-ons (LICENCES-BUILD.md L2).
+        if (com.dossier.api.config.Constants.isEnterpriseLogin(login)) {
+            long cents = enterpriseLicenses == null ? 0 : enterpriseLicenses.aiBudgetCents(login);
+            if (cents <= 0) return Optional.empty();
+            return Optional.of(new Window(centsToMicros((int) Math.min(cents, Integer.MAX_VALUE)), monthStart(now), resetsAt(now)));
         }
         if (!entitlementService.isPro(login)) return Optional.empty();
         Window legacy = proWindow(subscriptions.findOneByUserLogin(login).orElse(null), now);
@@ -142,6 +149,14 @@ public class AiBudgetService {
     }
 
     private com.dossier.api.service.entitlement.ShadowComparator shadow;
+
+    private com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess enterpriseLicenses;
+
+    /** Optional: the enterprise licence reader. Without it (plain unit tests) an enterprise account has no AI budget unless an admin override gives one. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setEnterpriseLicenses(com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess enterpriseLicenses) {
+        this.enterpriseLicenses = enterpriseLicenses;
+    }
 
     /** Optional (K7.2): the catalog resolver's comparator. Without it the budget is exactly the legacy one, as in every plain unit test. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)

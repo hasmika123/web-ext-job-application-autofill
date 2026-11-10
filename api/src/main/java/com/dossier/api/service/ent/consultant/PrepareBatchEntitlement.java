@@ -1,14 +1,9 @@
 package com.dossier.api.service.ent.consultant;
 
-import com.dossier.api.domain.ent.billing.ConsultantLicense;
-import com.dossier.api.domain.ent.billing.LicenseFeature;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
-import com.dossier.api.repository.ent.billing.ConsultantLicenseRepository;
-import com.dossier.api.repository.ent.billing.LicenseFeatureRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
+import com.dossier.api.service.ent.licenses.OrgLicenseGate;
 import com.dossier.api.service.entitlement.FeatureKeys;
-import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -35,9 +30,6 @@ public class PrepareBatchEntitlement {
     public static final String ORG_OFF = "ORG_OFF";
     public static final String NO_LICENSE = "NO_LICENSE";
 
-    /** License states that still grant their features: a license that is ending keeps them until it ends. */
-    private static final Set<String> GRANTING = Set.of("ACTIVE", "CANCEL_AT_PERIOD_END");
-
     /** The answer. {@code reason} is a stable code for a refusal and null when allowed. */
     public record Decision(boolean allowed, String reason) {
         public static final Decision ALLOWED = new Decision(true, null);
@@ -48,14 +40,12 @@ public class PrepareBatchEntitlement {
 
     private final PrepareBatchSettings settings;
     private final ConsultantProfileRepository consultants;
-    private final ConsultantLicenseRepository licenses;
-    private final LicenseFeatureRepository features;
+    private final OrgLicenseGate licenses;
 
-    public PrepareBatchEntitlement(PrepareBatchSettings settings, ConsultantProfileRepository consultants, ConsultantLicenseRepository licenses, LicenseFeatureRepository features) {
+    public PrepareBatchEntitlement(PrepareBatchSettings settings, ConsultantProfileRepository consultants, OrgLicenseGate licenses) {
         this.settings = settings;
         this.consultants = consultants;
         this.licenses = licenses;
-        this.features = features;
     }
 
     @Transactional(readOnly = true)
@@ -65,37 +55,17 @@ public class PrepareBatchEntitlement {
         if (!settings.orgEnabled(orgId)) return new Decision(false, ORG_OFF);
         ConsultantProfile profile = consultants.findByOrgIdAndMemberId(orgId, memberId).orElse(null);
         if (profile == null || !"ACTIVE".equals(profile.getStatus()) || profile.getId() == null) return new Decision(false, NO_LICENSE);
-        return licensed(orgId).contains(profile.getId()) ? Decision.ALLOWED : new Decision(false, NO_LICENSE);
+        return licenses.has(orgId, profile.getId(), FEATURE) ? Decision.ALLOWED : new Decision(false, NO_LICENSE);
     }
 
     /** For the Org Admin's settings page: how many active consultants' licenses include the add-on. */
     @Transactional(readOnly = true)
     public Coverage coverage(Long orgId) {
         if (orgId == null) return new Coverage(0, 0);
-        Set<Long> licensed = licensed(orgId);
+        Set<Long> licensed = licenses.consultantsWith(orgId, FEATURE);
         List<ConsultantProfile> active = consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(orgId, "ACTIVE");
         int n = 0;
         for (ConsultantProfile c : active) if (licensed.contains(c.getId())) n++;
         return new Coverage(n, active.size());
-    }
-
-    /** The consultant ids of the organization with a live license that carries the add-on now. */
-    private Set<Long> licensed(Long orgId) {
-        Instant now = Instant.now();
-        Set<Long> out = new HashSet<>();
-        List<ConsultantLicense> live = licenses.findByOrgIdAndStatusIn(orgId, GRANTING);
-        Set<Long> ids = new HashSet<>();
-        for (ConsultantLicense l : live) if (current(l.getStartsAt(), l.getEndsAt(), now)) ids.add(l.getId());
-        if (ids.isEmpty()) return out;
-        Set<Long> licensesWithFeature = new HashSet<>();
-        for (LicenseFeature f : features.findByOrgIdAndLicenseIdIn(orgId, ids)) {
-            if (FEATURE.equals(f.getFeatureKey()) && Boolean.TRUE.equals(f.getLive()) && current(f.getStartsAt(), f.getEndsAt(), now)) licensesWithFeature.add(f.getLicenseId());
-        }
-        for (ConsultantLicense l : live) if (licensesWithFeature.contains(l.getId())) out.add(l.getConsultantId());
-        return out;
-    }
-
-    private static boolean current(Instant start, Instant end, Instant now) {
-        return (start == null || !start.isAfter(now)) && (end == null || end.isAfter(now));
     }
 }
