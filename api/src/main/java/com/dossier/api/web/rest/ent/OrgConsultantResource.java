@@ -44,6 +44,13 @@ public class OrgConsultantResource {
     private final ConsultantWriteService write;
     private final IdempotencyService idempotency;
     private final DemoGuard demoGuard;
+    private com.dossier.api.service.ent.consultants.ConsultantImportService importer;
+
+    /** The CSV import (ONBOARDING-BUILD.md A3); set by Spring, absent in plain resource tests. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setImporter(com.dossier.api.service.ent.consultants.ConsultantImportService importer) {
+        this.importer = importer;
+    }
 
     public OrgConsultantResource(ConsultantQueryService query, ConsultantWriteService write, IdempotencyService idempotency, DemoGuard demoGuard) {
         this.query = query;
@@ -139,6 +146,39 @@ public class OrgConsultantResource {
     @OrgPermissionRequired
     public List<ConsultantDTO.JobOption> jobOptions(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long consultantId) {
         return write.jobOptions(me, consultantId);
+    }
+
+    @Operation(
+        summary = "Check a CSV import of consultants (writes nothing)",
+        description = "consultants.edit. Body {rows: [{name, email, jobTitle, location, workMode, years, skills[], department, invite}]} (at most 500). One verdict per row: READY, INVALID (field + reason), DUPLICATE, SENSITIVE; and whether a READY row would be invited (WILL_INVITE, NOT_ASKED, ALREADY_MEMBER, NO_PERMISSION)."
+    )
+    @PostMapping("/import/check")
+    @OrgPermissionRequired
+    public com.dossier.api.service.ent.consultants.ConsultantImportService.CheckResult importCheck(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestBody com.dossier.api.service.ent.consultants.ConsultantImportService.ImportRequest body
+    ) {
+        return importer.check(me, body);
+    }
+
+    @Operation(
+        summary = "Import consultants from a CSV",
+        description = "consultants.edit (+ members.invite to invite). Same body as /import/check. Re-checks every row and creates the READY ones; a ticked row is invited first (Consultant role), so its profile links to the invited seat. One row's failure never stops the others. Idempotency-Key required. Answers the summary (added, invited, skipped with reasons) and writes one CONSULTANT_IMPORT audit row plus the usual row per consultant and invitation."
+    )
+    @PostMapping("/import")
+    @OrgPermissionRequired
+    public ResponseEntity<com.dossier.api.service.ent.consultants.ConsultantImportService.ApplyResult> importApply(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestHeader(value = "Idempotency-Key", required = false) String key,
+        @RequestBody com.dossier.api.service.ent.consultants.ConsultantImportService.ImportRequest body,
+        HttpServletRequest request
+    ) {
+        demoGuard.assertNotDemo();
+        write.gate(me, ConsultantAccess.EDIT);
+        IdempotencyService.Outcome<com.dossier.api.service.ent.consultants.ConsultantImportService.ApplyResult> out = idempotency.executeInSteps(
+            me, key, true, "POST", request.getRequestURI(), body, 200, com.dossier.api.service.ent.consultants.ConsultantImportService.ApplyResult.class, () -> importer.apply(me, body)
+        );
+        return reply(out);
     }
 
     @Operation(

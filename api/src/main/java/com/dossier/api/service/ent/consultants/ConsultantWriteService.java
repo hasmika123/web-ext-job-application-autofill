@@ -137,11 +137,32 @@ public class ConsultantWriteService {
 
     // ---- create ---------------------------------------------------------------------------------------------------------------
 
+    /**
+     * Every check of {@link #create}, in the same order, without writing anything (the CSV import's Check step, docs/enterprise-v2/ONBOARDING-BUILD.md):
+     * the field rules, the never-collected values, the department, and a consultant with the same email. Throws what create would throw; the caller gates.
+     */
+    @Transactional(readOnly = true)
+    public void checkCreate(Long orgId, CreateRequest in) {
+        if (in == null) throw OrgException.invalid("body", "send the consultant's details");
+        text("displayName", in.displayName(), 2, 120, true);
+        String email = email(in.email());
+        text("jobTitle", in.jobTitle(), 0, 120, false);
+        text("locationLabel", in.locationLabel(), 0, 120, false);
+        workMode(in.workMode());
+        years(in.yearsExperience());
+        skills(in.skills());
+        if (in.departmentGroupId() != null) department(orgId, in.departmentGroupId());
+        long dup = em.createQuery("select count(c) from ConsultantProfile c where c.orgId = :o and lower(c.email) = :e", Long.class)
+            .setParameter("o", orgId).setParameter("e", email).getSingleResult();
+        if (dup > 0) throw OrgException.coded(409, CODE_CONSULTANT_EXISTS, "A consultant with this email already exists", Map.of("field", "email"));
+    }
+
     @Transactional
     public ConsultantDTO.Detail create(OrgMembership me, CreateRequest in) {
         gate(me, ConsultantAccess.EDIT);
         if (in == null) throw OrgException.invalid("body", "send the consultant's details");
         Long orgId = me.orgId();
+        checkCreate(orgId, in); // the one set of rules, shared with the CSV import's Check
         String name = text("displayName", in.displayName(), 2, 120, true);
         String email = email(in.email());
         String title = text("jobTitle", in.jobTitle(), 0, 120, false);
