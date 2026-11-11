@@ -33,6 +33,7 @@ import {
   type PatchBody,
   type UndoPlan,
 } from "@/lib/ent/consultants";
+import ImportConsultantsSheet from "./ImportConsultantsSheet";
 import { AddConsultantDialog, ApplicationDialog, BulkAvailabilityDialog, DepartmentDialog, LicenseDialog, LinkMemberDialog, MarketerDialog, type Outcome } from "./Dialogs";
 import DetailSheet, { type FlowKind } from "./DetailSheet";
 import { ConsultantsTable, Pagination } from "./ConsultantsTable";
@@ -92,6 +93,7 @@ export default function ConsultantsPage({ orgId, permissions }: ConsultantsPageP
   const [moreOpen, setMoreOpen] = useState(false);
   const [flow, setFlow] = useState<Flow>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [linkable, setLinkable] = useState<{ loading: boolean; items: LinkableMember[] }>({ loading: false, items: [] });
   // the "Existing person" picker of Add consultant: read when the dialog opens
   useEffect(() => {
@@ -431,9 +433,14 @@ export default function ConsultantsPage({ orgId, permissions }: ConsultantsPageP
                 {list.status === "ok" ? `${total.toLocaleString("en-US")} ${total === 1 ? "consultant" : "consultants"}` : "Consultants"}
               </h2>
               {canEdit && (
-                <Button type="button" variant="accent" onClick={() => setAddOpen(true)} data-add-consultant>
-                  <PlusIcon size={16} aria-hidden /> Add consultant
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setImportOpen(true)} data-import-consultants>
+                    Import from CSV
+                  </Button>
+                  <Button type="button" variant="accent" onClick={() => setAddOpen(true)} data-add-consultant>
+                    <PlusIcon size={16} aria-hidden /> Add consultant
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -575,6 +582,17 @@ export default function ConsultantsPage({ orgId, permissions }: ConsultantsPageP
         />
       </div>
 
+      {importOpen ? (
+        <ImportConsultantsSheet
+          orgId={orgId}
+          canInvite={can("members.invite")}
+          onClose={() => setImportOpen(false)}
+          onImported={(r) => {
+            if (r.added > 0) refresh();
+            toast({ title: `${r.added} consultant${r.added === 1 ? "" : "s"} added`, description: r.invited ? `${r.invited} invited to join.` : undefined, variant: "success" });
+          }}
+        />
+      ) : null}
       <AddConsultantDialog open={addOpen} onClose={() => setAddOpen(false)} departments={filters.departments} linkable={linkable.items} onCreate={createConsultant} />
       <LinkMemberDialog
         open={flow?.kind === "link"}
