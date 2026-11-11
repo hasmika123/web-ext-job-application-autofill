@@ -72,6 +72,13 @@ Story-level notes from Task 5: **D2** keeps X12.2/X12.9 (Autopilot feed for assi
 
 > Each is financial or contractual, or touches a locked pricing rule. Safe defaults are applied; nothing blocks Phase 5. Owning docs: `20`–`29`.
 
+> **Answered 2026-11-11 (user, for B3/B4, `ORG-BILLING-BUILD.md`):**
+> - C1–C10 take their **safe defaults** as written below.
+> - Organizations pay by **invoice within 15 days** (send-invoice).
+> - The one-time **setup fee goes on the first invoice**, and the organization is usable at once (no `PENDING_SETUP_FEE` gate). Organizations
+>   that already exist are not charged one.
+> - Build order: the pages first, then Stripe.
+
 | # | Question | Options | Recommendation | Safe default applied | Owning doc |
 |---|---|---|---|---|---|
 | **C1** | **Enterprise credits / refunds.** Locked: no refunds, cancel anytime. Enterprise contracts sometimes require service credits (SLA, outage, disputed usage). | (a) Keep "no refunds"; add **credits** only: `creditCustomerBalance` behind `enterprise.billing.credits` (default off), platform-admin, two-person rule, HIGH audit, shown on the org's invoices page. (b) Allow pro-rated refunds for enterprise orgs (reverses a locked rule). (c) Nothing: handle outside Stripe. | **(a)** | (a) with the flag **off** — no code path issues a credit | 27 §7, 26 §3 |
