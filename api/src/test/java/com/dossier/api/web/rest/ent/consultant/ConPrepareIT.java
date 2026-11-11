@@ -98,6 +98,7 @@ class ConPrepareIT {
     @Autowired private FeatureDefinitionRepository featureDefs;
     @Autowired private ConsultantLicenseRepository licenses;
     @Autowired private LicenseFeatureRepository licenseFeatures;
+    @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes;
 
     private OrgFixtures fx;
     private Organization a;
@@ -350,6 +351,47 @@ class ConPrepareIT {
     }
 
     // ---- prepare ----------------------------------------------------------------------------------------------------
+
+    /** One of {@code c}'s organization resumes (PINNED-RESUME-BUILD.md): {@code kind} ORG_MANAGED needs their approval; {@code resumeId} is the person resume behind it. */
+    private com.dossier.api.domain.ent.talent.OrgResume orgResume(ConsultantProfile c, String name, String kind, String status, long resumeId) {
+        com.dossier.api.domain.ent.talent.OrgResume r = new com.dossier.api.domain.ent.talent.OrgResume();
+        r.setOrgId(c.getOrgId());
+        r.setConsultantId(c.getId());
+        r.setMemberId(c.getMemberId());
+        r.setResumeId(resumeId);
+        r.setKind(kind);
+        r.setName(name);
+        r.setApprovalStatus(status);
+        r.setCreatedAt(Instant.now());
+        r.setUpdatedAt(Instant.now());
+        return orgResumes.saveAndFlush(r);
+    }
+
+    private void pin(RequirementMatch m, com.dossier.api.domain.ent.talent.OrgResume r) {
+        MktOpportunity o = opportunities.findByOrgIdAndMatchId(a.getId(), m.getId()).orElseThrow();
+        o.setPinnedOrgResumeId(r.getId());
+        opportunities.save(o);
+        em.flush();
+    }
+
+    @Test
+    void anApprovedResumeTheMarketerChoseGoesWithItsJobAndOneWaitingForApprovalHoldsTheJobBack() throws Exception {
+        pin(mine, orgResume(anika, "Anika - Java", "ORG_MANAGED", "APPROVED", 9001L));
+        pin(mine2, orgResume(anika, "Anika - Kotlin (tailored)", "ORG_MANAGED", "PENDING", 9002L));
+        JsonNode d = json(call("prep-anika", post(base(a)).content(ids(mine, mine2))), 200);
+        assertThat(d.path("jobs")).hasSize(1);
+        assertThat(d.path("jobs").get(0).path("matchId").asLong()).isEqualTo(mine.getId());
+        assertThat(d.path("jobs").get(0).path("resumeId").asLong()).as("the person resume behind the approved choice").isEqualTo(9001L);
+        assertThat(d.path("skipped").toString()).contains("RESUME_NEEDS_APPROVAL").contains(String.valueOf(mine2.getId()));
+    }
+
+    @Test
+    void aChoiceTheConsultantSentBackFallsBackToTheUsualPick() throws Exception {
+        pin(mine, orgResume(anika, "Anika - old", "ORG_MANAGED", "REJECTED", 9003L));
+        JsonNode d = json(call("prep-anika", post(base(a)).content(ids(mine))), 200);
+        assertThat(d.path("jobs")).hasSize(1);
+        assertThat(d.path("jobs").get(0).path("resumeId").isNull() || d.path("jobs").get(0).path("resumeId").isMissingNode()).isTrue();
+    }
 
     @Test
     void preparesTheEligibleOpeningsAndListsTheOthersWithAReason() throws Exception {

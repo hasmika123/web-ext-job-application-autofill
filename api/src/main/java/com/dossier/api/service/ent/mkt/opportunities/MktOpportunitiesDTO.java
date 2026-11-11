@@ -71,7 +71,19 @@ public final class MktOpportunitiesDTO {
      */
     public record Info(String question, String answer, boolean awaitingAnswer) {}
 
-    public record Detail(Item item, List<Item> alternatives, List<Activity> events, Info info) {}
+    public record Detail(Item item, List<Item> alternatives, List<Activity> events, Info info, PinnedResume resume, List<ResumeChoice> resumeChoices) {}
+
+    /**
+     * The resume a marketer chose for this job (PINNED-RESUME-BUILD.md). {@code state}: READY (Prepare attaches it), NEEDS_APPROVAL (waits for the
+     * consultant; Prepare asks them first), UNUSABLE (sent back since it was chosen: Prepare uses the usual pick).
+     */
+    public record PinnedResume(Long orgResumeId, String name, String state, String chosenBy, java.time.Instant chosenAt) {}
+
+    /** One of the consultant's resumes the marketer may choose, with its state (READY or NEEDS_APPROVAL) and whether it is their primary. */
+    public record ResumeChoice(Long orgResumeId, String name, String state, boolean primary) {}
+
+    /** Body of PUT .../{id}/resume: the consultant's org resume to use for this job, or null to go back to the usual pick. */
+    public record PinResumeRequest(Long orgResumeId) {}
 
     /** The answer of a write: the row as it is now, and a short sentence the page shows. {@code changed} is false when the request was already made a moment ago. */
     public record ActionResult(Item item, String message, boolean changed) {}

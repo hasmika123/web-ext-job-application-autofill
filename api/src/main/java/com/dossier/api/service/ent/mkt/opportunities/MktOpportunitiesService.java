@@ -197,7 +197,8 @@ public class MktOpportunitiesService {
             .filter(o -> o.getInfoRequest() != null && !o.getInfoRequest().isBlank())
             .map(o -> new Info(o.getInfoRequest(), o.getInfoAnswer(), "NEEDS_INFO".equals(o.getState()) && "ASSIGNED".equals(row.r().matchStatus())))
             .orElse(null);
-        return new Detail(item(row, names, now), alternatives.stream().map(a -> item(a, names, now)).toList(), activity(timeline), info);
+        MktOpportunity opp = repo.findByOrgIdAndMatchId(view.orgId(), id).orElse(null);
+        return new Detail(item(row, names, now), alternatives.stream().map(a -> item(a, names, now)).toList(), activity(timeline), info, pinned(view.orgId(), opp), resumeChoices(view.orgId(), row.r().consultantId()));
     }
 
     /** Consultants the caller may see and open jobs, for the Add Opportunity dialog. */
@@ -524,6 +525,73 @@ public class MktOpportunitiesService {
         record(opp, "INFO_PROVIDED", me.memberId(), "answered the consultant's question", now);
         audit.record(me, "MARKETER_OPPORTUNITY_INFO_ANSWER", "OPPORTUNITY", null, String.valueOf(id), "consultant " + raw.consultantId());
         return result(view, id, "Your answer was sent to " + raw.consultantName() + ".", true, now);
+    }
+
+    private com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes;
+
+    /** Optional: the organization resume directory (PINNED-RESUME-BUILD.md). Without it no resume can be chosen for a job (plain unit tests). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setOrgResumes(com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes) {
+        this.orgResumes = orgResumes;
+    }
+
+    /**
+     * Choose which of the consultant's resumes goes with this job, or clear the choice ({@code orgResumeId} null) (PINNED-RESUME-BUILD.md, gap D3).
+     * The job must be assigned; the resume must be the consultant's own and ready or waiting for their approval (a resume they sent back is 409
+     * {@code RESUME_NOT_CHOOSABLE}); another consultant's resume or an unknown id is 404. A choice that changes nothing writes nothing; otherwise one
+     * timeline line, one {@code MARKETER_OPPORTUNITY_RESUME} audit row and a notice to the consultant. Answers the detail.
+     */
+    @Transactional
+    public Detail pinResume(OrgMembership me, Long id, Long orgResumeId) {
+        MktScope.View view = scope.resolve(me, PERMISSION);
+        Instant now = clock.instant();
+        MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
+        scope.require(view, raw.consultantId());
+        MktOpportunity opp = raw.oppId() == null ? null : repo.lockByOrgIdAndId(view.orgId(), raw.oppId()).orElse(null);
+        if (opp == null || !"ASSIGNED".equals(raw.matchStatus())) throw OrgException.coded(409, "NOT_ASSIGNED", "Choose a resume once the job is assigned.", Map.of());
+        com.dossier.api.domain.ent.talent.OrgResume chosen = null;
+        if (orgResumeId != null) {
+            if (orgResumes == null) throw new OrgNotFoundException();
+            chosen = orgResumes.findByOrgIdAndId(view.orgId(), orgResumeId).filter(r -> raw.consultantId().equals(r.getConsultantId())).orElseThrow(OrgNotFoundException::new);
+            if (!PinnedResumes.choosable(chosen)) {
+                throw OrgException.coded(409, "RESUME_NOT_CHOOSABLE", "This resume can't be used: the consultant sent it back, or it has no file.", Map.of("orgResumeId", orgResumeId));
+            }
+        }
+        if (java.util.Objects.equals(opp.getPinnedOrgResumeId(), orgResumeId)) return detail(me, id);
+        opp.setPinnedOrgResumeId(orgResumeId);
+        opp.setPinnedByMemberId(orgResumeId == null ? null : me.memberId());
+        opp.setPinnedAt(orgResumeId == null ? null : now);
+        opp.setUpdatedAt(now);
+        repo.save(opp);
+        String name = chosen == null ? null : chosen.getName();
+        record(opp, chosen == null ? "RESUME_CLEARED" : "RESUME_CHOSEN", me.memberId(), chosen == null ? "went back to the consultant's usual resume" : "chose the resume \"" + name + "\"", now);
+        audit.record(me, "MARKETER_OPPORTUNITY_RESUME", "OPPORTUNITY", null, String.valueOf(id), "consultant " + raw.consultantId() + (chosen == null ? ", cleared" : ", org resume " + orgResumeId));
+        if (notifier != null && chosen != null) {
+            String job = raw.jobTitle() == null ? "an opportunity" : raw.jobTitle();
+            String body = PinnedResumes.state(chosen) == PinnedResumes.State.NEEDS_APPROVAL
+                ? "Your marketer chose \"" + name + "\" for " + job + ". It needs your approval before it is used."
+                : "Your marketer chose \"" + name + "\" for " + job + ". It is used when you prepare this job.";
+            notifier.push(view.orgId(), raw.consultantId(), "resume:" + raw.oppId() + ":" + now.getEpochSecond(), CwsNotification.JOB_MATCH, "Resume Chosen For A Job", body.length() > 300 ? body.substring(0, 300) : body,
+                CwsNotification.MEDIUM, "View", "/w/consultant/opportunities", "OPPORTUNITY", id);
+        }
+        return detail(me, id);
+    }
+
+    private PinnedResume pinned(Long orgId, MktOpportunity opp) {
+        if (opp == null || opp.getPinnedOrgResumeId() == null || orgResumes == null) return null;
+        com.dossier.api.domain.ent.talent.OrgResume r = orgResumes.findByOrgIdAndId(orgId, opp.getPinnedOrgResumeId()).orElse(null);
+        if (r == null) return null;
+        String by = opp.getPinnedByMemberId() == null ? null : memberNames(orgId, Set.of(opp.getPinnedByMemberId())).get(opp.getPinnedByMemberId());
+        return new PinnedResume(r.getId(), r.getName(), PinnedResumes.state(r).name(), by, opp.getPinnedAt());
+    }
+
+    private List<ResumeChoice> resumeChoices(Long orgId, Long consultantId) {
+        if (orgResumes == null || consultantId == null) return List.of();
+        return orgResumes.findByOrgIdAndConsultantId(orgId, consultantId).stream()
+            .filter(PinnedResumes::choosable)
+            .sorted(Comparator.comparing((com.dossier.api.domain.ent.talent.OrgResume r) -> !r.isPrimaryForOrg()).thenComparing(r -> r.getName() == null ? "" : r.getName()))
+            .map(r -> new ResumeChoice(r.getId(), r.getName(), PinnedResumes.state(r).name(), r.isPrimaryForOrg()))
+            .toList();
     }
 
     private void record(MktOpportunity opp, String kind, Long actor, String text, Instant now) {

@@ -45,8 +45,15 @@ public final class OpportunitiesDTO {
         String quickInfo,
         boolean sourceSample,
         boolean infoAnswered,
-        List<String> allowedActions
+        List<String> allowedActions,
+        ChosenResume resume
     ) {}
+
+    /**
+     * The resume the marketer chose for this job (PINNED-RESUME-BUILD.md), or null for the usual pick. {@code state}: READY (Prepare attaches it),
+     * NEEDS_APPROVAL (the consultant approves it first: Prepare names it and the click approves it), UNUSABLE (sent back: the usual pick is used).
+     */
+    public record ChosenResume(Long orgResumeId, String name, String state, String chosenBy) {}
 
     /** What the right rail's "Recommended Next Steps" are derived from. */
     public record NextSteps(int toRespond, Integer soonestDueDays, int resumeGaps, int upcomingInterviews, boolean hasMarketer) {}

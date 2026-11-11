@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The resume chosen for a job (docs/enterprise-v2/PINNED-RESUME-BUILD.md, gap D3). Purely additive.
+          - mkt_opportunity.pinned_org_resume_id: the consultant's org_resume a marketer chose for this job (null = the usual pick);
+          - pinned_by_member_id, pinned_at: who chose it and when.
+    -->
+    <changeSet id="ent-opp-resume-1-columns" author="ent">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="mkt_opportunity" columnName="pinned_org_resume_id"/></not></preConditions>
+        <addColumn tableName="mkt_opportunity">
+            <column name="pinned_org_resume_id" type="bigint"/>
+            <column name="pinned_by_member_id" type="bigint"/>
+            <column name="pinned_at" type="datetime(6)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>
