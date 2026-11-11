@@ -44,6 +44,16 @@ export async function proxyPatch(orgId: string, sub: string, id: string, req: Re
   return forward(`${base(orgId)}/${id}${sub}`, { method: "PATCH", body: JSON.stringify(obj) });
 }
 
+/** PUT with a JSON object body of only the `allowed` fields (the resume chosen for a job). */
+export async function proxyPut(orgId: string, sub: string, id: string, req: Request, allowed: readonly string[]): Promise<Response> {
+  if (!ID.test(orgId) || !ID.test(id)) return notFound();
+  const obj = await readObject(req);
+  if (!obj) return badBody("Send a JSON object.");
+  const extra = Object.keys(obj).find((k) => !allowed.includes(k));
+  if (extra) return badBody(`Unknown field: ${extra}.`);
+  return forward(`${base(orgId)}/${id}${sub}`, { method: "PUT", body: JSON.stringify(obj) });
+}
+
 /** The CSV download: streamed through as a file (the shared `forward` expects JSON). */
 export async function proxyCsv(req: Request, orgId: string): Promise<Response> {
   if (!ID.test(orgId)) return notFound();

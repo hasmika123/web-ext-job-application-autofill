@@ -263,6 +263,7 @@
 | X4.1 | Permission Sets (board tab/KPI) has no concept in 05: shown as a read-only grouping of the registry by the five categories; "Permission Sets 23" counts permission FAMILIES (groups of related keys), the donut counts KEYS per category. Honest numbers only: no sparklines or "vs last month" (no history exists). | as built | `OrgRoleWriteService.overview`, `RolesPage` |
 
 ## Log
+- 2026-11-10 — **The resume chosen for a job (D3)** on `ent-pinned-resume`: `mkt_opportunity.pinned_org_resume_id` + `PUT mkt/opportunities/{id}/resume`; the consultant sees it; Prepare attaches it once approved (`RESUME_NEEDS_APPROVAL` otherwise). `docs/enterprise-v2/PINNED-RESUME-BUILD.md`.
 - 2026-11-10 — **Real consultant licences without money** on `ent-licences` (user decision: nothing billed yet). One licence reader (`OrgLicenseGate`) behind the inbox, Prepare, AI budget, builder AI/tailoring and My Features; licence admin API `/api/orgs/{orgId}/licenses`; Consultant Licenses page `/w/admin/licenses`; offboarding step 500 ends a leaving consultant's licence. `docs/enterprise-v2/LICENCES-BUILD.md`.
 - 2026-10-12 — Phase 0 complete on `enterprise-v2` (Fable). Roadmap area `ent` registered, 109 stories, 0 dangling ids.
 - 2026-10-12 — Session B (Fable, branch `ev2-design-b`): docs 10–16, stories X2.1–X2.14 / X3.1–X3.8 / X4.1–X4.6 / X4.9 fully specified (112 stories, 0 dangling), escalations B1–B8, E1/E2/E3/E5 recorded as answered.

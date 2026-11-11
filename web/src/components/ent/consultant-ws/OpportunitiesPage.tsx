@@ -265,7 +265,7 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice, prepare,
                   <td className={cn(TD, "max-w-[190px]")}>
                     <span className="block font-semibold text-ink">{r.title}</span>
                     {r.skills.length ? <span className="block truncate text-[12px] text-muted">{r.skills.slice(0, 3).join(" | ")}</span> : null}
-                    <TailoredRowNote title={r.title} company={r.company} />
+                    {r.resume ? <ChosenResumeNote row={r} /> : <TailoredRowNote title={r.title} company={r.company} />}
                     {prepare.active ? <PrepareWhy row={r} p={prepare} /> : null}
                   </td>
                   <td className={TD}>
@@ -778,5 +778,26 @@ export default function ConsultantOpportunitiesPage(props: OpportunitiesPageProp
       <PageTabs label="Opportunities views" tabs={TAB_LABELS} value={tab} onChange={setTab} />
       {tab === "matches" ? <ConsultantMatchesPage orgId={props.orgId} /> : tab === "browse" ? <JobDiscoveryPage orgId={props.orgId} /> : <AssignedOpportunities {...props} />}
     </div>
+  );
+}
+
+/** The resume the marketer chose for this job (PINNED-RESUME-BUILD.md): which one, who chose it, and whether it waits for the consultant. */
+function ChosenResumeNote({ row }: { row: OppRow }) {
+  const c = row.resume;
+  if (!c) return null;
+  const who = c.chosenBy ?? "Your marketer";
+  if (c.state === "UNUSABLE") {
+    return <span data-chosen-resume="unusable" className="mt-0.5 block text-[11.5px] text-muted">You sent back the resume {who} chose; your usual resume is used.</span>;
+  }
+  return (
+    <span data-chosen-resume={c.state === "NEEDS_APPROVAL" ? "waiting" : "ready"} className="mt-0.5 block text-[11.5px] text-ink-soft">
+      Resume chosen by {who}: <b className="font-semibold text-ink">{c.name}</b>
+      {c.state === "NEEDS_APPROVAL" ? (
+        <>
+          {" "}· needs your approval ·{" "}
+          <a href="/w/consultant/resumes" className="font-semibold text-accent-deep underline">View</a>
+        </>
+      ) : null}
+    </span>
   );
 }

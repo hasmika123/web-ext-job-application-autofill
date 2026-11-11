@@ -41,6 +41,25 @@ export interface OppRow extends JobSource {
   /** The marketer answered the consultant's question (the answer is on the detail). */
   infoAnswered: boolean;
   allowedActions: OppAction[];
+  /** The resume the marketer chose for this job (PINNED-RESUME-BUILD.md), or null for the consultant's usual one. */
+  resume: ChosenResume | null;
+}
+
+/**
+ * `state`: READY (Prepare attaches it), NEEDS_APPROVAL (the consultant approves it first: Prepare names it and their click approves it),
+ * UNUSABLE (they sent it back: the usual resume is used).
+ */
+export interface ChosenResume {
+  orgResumeId: number;
+  name: string;
+  state: "READY" | "NEEDS_APPROVAL" | "UNUSABLE";
+  chosenBy: string | null;
+}
+
+function chosenResumeOf(v: unknown): ChosenResume | null {
+  if (!isObj(v) || typeof v.orgResumeId !== "number") return null;
+  const state = v.state === "READY" || v.state === "NEEDS_APPROVAL" ? v.state : "UNUSABLE";
+  return { orgResumeId: v.orgResumeId, name: typeof v.name === "string" && v.name ? v.name : "Resume", state, chosenBy: strOrNull(v.chosenBy) };
 }
 
 export interface NextSteps {
@@ -139,6 +158,7 @@ export function parseRow(o: unknown): OppRow | null {
     assignedAt: strOrNull(o.assignedAt),
     infoAnswered: o.infoAnswered === true,
     allowedActions: Array.isArray(o.allowedActions) ? (o.allowedActions.filter((a): a is OppAction => typeof a === "string" && ACTIONS.includes(a))) : defaultActions(status, interestSent),
+    resume: chosenResumeOf(o.resume),
     ...parseJobSource(o),
   };
 }

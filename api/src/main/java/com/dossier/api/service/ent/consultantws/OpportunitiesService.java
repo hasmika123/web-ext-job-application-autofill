@@ -34,6 +34,7 @@ import com.dossier.api.service.ent.authz.Beneficiary;
 import com.dossier.api.service.ent.consultant.ConOpportunityService;
 import com.dossier.api.service.ent.consultant.ConScope;
 import com.dossier.api.service.ent.consultantws.ConsultantHomeDTO.Tile;
+import com.dossier.api.service.ent.consultantws.OpportunitiesDTO.ChosenResume;
 import com.dossier.api.service.ent.consultantws.OpportunitiesDTO.Detail;
 import com.dossier.api.service.ent.consultantws.OpportunitiesDTO.NextSteps;
 import com.dossier.api.service.ent.consultantws.OpportunitiesDTO.Outcome;
@@ -587,6 +588,7 @@ public class OpportunitiesService {
         final Map<Long, ConsultantWsJobSourceReader.Info> sourceInfo;
         final Map<Long, String> marketerNames;
         final String assignmentMarketer;
+        final Map<Long, com.dossier.api.domain.ent.talent.OrgResume> myResumes;
 
         Ctx(Long org, ConsultantProfile c, List<RequirementMatch> list) {
             List<Long> reqIds = list.stream().map(RequirementMatch::getRequirementId).distinct().toList();
@@ -603,6 +605,10 @@ public class OpportunitiesService {
             Optional<MarketerAssignment> assignment = assignments.findByOrgIdAndConsultantId(org, c.getId()).filter(a -> "ACTIVE".equals(a.getStatus()));
             Set<Long> ids = new HashSet<>();
             list.stream().map(RequirementMatch::getAssignedByMemberId).filter(Objects::nonNull).forEach(ids::add);
+            oppByMatch.values().stream().map(MktOpportunity::getPinnedByMemberId).filter(Objects::nonNull).forEach(ids::add);
+            boolean anyPinned = oppByMatch.values().stream().anyMatch(o -> o.getPinnedOrgResumeId() != null);
+            myResumes = !anyPinned || orgResumes == null ? Map.of()
+                : orgResumes.findByOrgIdAndConsultantId(org, c.getId()).stream().collect(Collectors.toMap(com.dossier.api.domain.ent.talent.OrgResume::getId, Function.identity(), (a, b) -> a));
             assignment.map(MarketerAssignment::getMarketerMemberId).ifPresent(ids::add);
             marketerNames = names(org, ids);
             assignmentMarketer = assignment.map(a -> marketerNames.get(a.getMarketerMemberId())).orElse(null);
@@ -611,6 +617,14 @@ public class OpportunitiesService {
         Optional<CwsOpportunityResponse> responseOf(Long requirementId) {
             return Optional.ofNullable(responseByReq.get(requirementId));
         }
+    }
+
+    private com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes;
+
+    /** Optional: the organization resume directory, for the resume a marketer chose for a job (PINNED-RESUME-BUILD.md). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setOrgResumes(com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes) {
+        this.orgResumes = orgResumes;
     }
 
     private Ctx context(Long org, ConsultantProfile c, List<RequirementMatch> list) {
@@ -658,7 +672,16 @@ public class OpportunitiesService {
             m.getId(), r.getId(), r.getTitle(), skills.stream().map(RequirementSkill::getSkill).limit(3).toList(), cl == null ? null : cl.getName(),
             r.getLocation(), r.getWorkMode(), marketer, status, priority, priorityDerived,
             due, dueDerived, (int) ChronoUnit.DAYS.between(today, due), score, missing, sent, assignedAt,
-            src.sourceUrl(), src.sourceName(), src.quickInfo(), src.sample(), answered, actionsFor(status, sent, OPEN_JOB.contains(r.getStatus()))
+            src.sourceUrl(), src.sourceName(), src.quickInfo(), src.sample(), answered, actionsFor(status, sent, OPEN_JOB.contains(r.getStatus())), chosen(opp, ctx)
         );
+    }
+
+    /** The resume the marketer chose for this job, as the consultant sees it (their own resumes only). */
+    private static ChosenResume chosen(MktOpportunity opp, Ctx ctx) {
+        if (opp == null || opp.getPinnedOrgResumeId() == null) return null;
+        com.dossier.api.domain.ent.talent.OrgResume r = ctx.myResumes.get(opp.getPinnedOrgResumeId());
+        if (r == null) return null;
+        String by = opp.getPinnedByMemberId() == null ? null : ctx.marketerNames.get(opp.getPinnedByMemberId());
+        return new ChosenResume(r.getId(), r.getName(), com.dossier.api.service.ent.mkt.opportunities.PinnedResumes.state(r).name(), by);
     }
 }

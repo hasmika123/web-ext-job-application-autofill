@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -134,6 +135,16 @@ public class MktOpportunitiesResource {
     @OrgPermissionRequired
     public ActionResult request(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long id, @RequestBody RequestKind body) {
         return service.requestFromConsultant(me, id, body == null ? null : body.kind());
+    }
+
+    @Operation(
+        summary = "Choose the resume for this job (PINNED-RESUME-BUILD.md)",
+        description = "Body {orgResumeId} (one of the consultant's own resumes, ready or waiting for their approval) or {orgResumeId: null} to go back to the usual pick. 409 NOT_ASSIGNED, 409 RESUME_NOT_CHOOSABLE (sent back or no file); another consultant's resume is 404. Prepare attaches it once the consultant has approved it. Answers the detail."
+    )
+    @PutMapping("/{id}/resume")
+    @OrgPermissionRequired
+    public Detail pinResume(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long id, @RequestBody(required = false) PinResumeRequest body) {
+        return service.pinResume(me, id, body == null ? null : body.orgResumeId());
     }
 
     @Operation(summary = "Answer the consultant's question (state stays NEEDS_INFO; the consultant moves on). 409 NO_OPEN_INFO_REQUEST when nothing is waiting; 422 SENSITIVE_CONTENT. Never changes the consultant's state.")

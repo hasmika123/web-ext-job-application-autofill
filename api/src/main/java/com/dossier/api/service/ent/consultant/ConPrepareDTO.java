@@ -12,7 +12,15 @@ public final class ConPrepareDTO {
     private ConPrepareDTO() {}
 
     /** One opening to open in a tab. */
-    public record Job(Long matchId, String url, String title, String company) {}
+    /**
+     * One opening of the batch. {@code resumeId}: the consultant's own resume to attach on THIS job, the one their marketer chose and they approved
+     * (PINNED-RESUME-BUILD.md); null = the usual pick.
+     */
+    public record Job(Long matchId, String url, String title, String company, Long resumeId) {
+        public Job(Long matchId, String url, String title, String company) {
+            this(matchId, url, title, company, null);
+        }
+    }
 
     /** An opening that was asked for but is not prepared, with the reason ({@code NOT_ELIGIBLE}, {@code JOB_NOT_OPEN}, {@code NO_URL}). */
     public record Skipped(Long matchId, String reason) {}

@@ -678,6 +678,8 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/bulk-assign", Case.mkt(200, "MARKETER_OPPORTUNITY_BULK_ASSIGN", w -> "{\"ids\":[" + w.mktMatchId + "]}", World::approveResume)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/notify", Case.mkt(200, "MARKETER_OPPORTUNITY_NOTIFY", w -> null, World::mktAwaitingInterest)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/request", Case.mkt(200, "MARKETER_OPPORTUNITY_REQUEST", w -> "{\"kind\":\"RESUME\"}", null)),
+        // The resume for a job (PINNED-RESUME-BUILD.md): going back to the usual pick on an assigned job that has no choice changes nothing, so it writes no audit row.
+        Map.entry("PUT /api/orgs/{orgId}/mkt/opportunities/{id}/resume", Case.mkt(200, null, w -> "{\"orgResumeId\":null}", World::mktAssignOpportunity)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/withdraw", Case.mkt(200, "MARKETER_OPPORTUNITY_WITHDRAW", w -> "{\"reason\":\"The client paused hiring for this role.\"}", World::mktAssignOpportunity)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/reassign", Case.mkt(200, "MARKETER_OPPORTUNITY_REASSIGN", w -> "{\"consultantId\":" + w.consultantId + "}", World::mktReassignable)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/answer-info",Case.mkt(200, "MARKETER_OPPORTUNITY_INFO_ANSWER", w -> "{\"answer\":\"Yes, a W2 option is available.\"}", World::mktNeedsInfo)),

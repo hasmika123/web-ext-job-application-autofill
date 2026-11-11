@@ -57,6 +57,11 @@ describe("wire parsers", () => {
     expect(c?.jobs).toEqual([{ matchId: 1, url: "https://x.example/1", title: "A", company: "Co" }]);
     expect(c?.skipped).toEqual([{ matchId: 2, reason: "NO_URL" }]);
     expect(parseCreated({ sessionId: null, expiresAt: null, jobs: [], skipped: [], remainingToday: 30, remainingMonth: 300 })?.sessionId).toBeNull();
+    // PINNED-RESUME-BUILD.md: the server names the approved resume the marketer chose for a job; the extension attaches exactly that one
+    const pinned = parseCreated({ sessionId: 8, expiresAt: null, jobs: [{ matchId: 1, url: "https://x.example/1", title: "A", resumeId: 9001 }, { matchId: 2, url: "https://x.example/2", title: "B", resumeId: 0 }], skipped: [], remainingToday: 1, remainingMonth: 1 })!;
+    expect(pinned.jobs[0].resumeId).toBe(9001);
+    expect(pinned.jobs[1].resumeId).toBeUndefined();
+    expect(buildPrepareMessage(8, 2, pinned.jobs, "https://api.example").jobs[0]).toMatchObject({ matchId: 1, resumeId: 9001 });
     expect(parseCreated({})).toBeNull();
   });
   it("session: unknown states fall back to Waiting", () => {

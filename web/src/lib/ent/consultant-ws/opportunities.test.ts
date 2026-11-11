@@ -3,6 +3,7 @@ import { actionTarget, canRespond, daysLeftText, dueUrgent, nextSteps, parseDeta
 
 const tile = (value: number, extra: Record<string, unknown> = {}) => ({ value, previous: 1, deltaPct: 10, sparkline: [0, 1, 2], ...extra });
 const row = (over: Partial<OppRow> = {}): OppRow => ({
+  resume: null,
   matchId: 1, requirementId: 10, title: "Java Dev", skills: ["Java"], company: "TechCorp", location: "Austin, TX", workMode: "HYBRID", marketer: "Morgan",
   status: "NEW", priority: "HIGH", priorityDerived: false, dueOn: "2026-10-16", dueDerived: false, daysLeft: 2, score: 90, missingSkills: 0, interestSent: false, assignedAt: null, sourceUrl: null, sourceName: null, quickInfo: null, sourceSample: false, infoAnswered: false, allowedActions: [], ...over,
 });
@@ -33,6 +34,18 @@ describe("parseOpportunities", () => {
     expect(v.rows[1]).toMatchObject({ status: "NEW", priority: "MEDIUM", score: 100, marketer: null });
     expect(v.tiles.awaiting.deltaPct).toBeNull();
     expect(v.nextSteps).toMatchObject({ toRespond: 2, soonestDueDays: null, hasMarketer: false });
+  });
+  it("reads the resume the marketer chose for a job (PINNED-RESUME-BUILD.md)", () => {
+    const v = parseOpportunities({
+      orgId: 2,
+      tiles: { total: tile(1), high: tile(0), awaiting: tile(0), inReview: tile(0), declined: tile(0) },
+      rows: [row({ resume: { orgResumeId: 31, name: "Anika - ML", state: "NEEDS_APPROVAL", chosenBy: "Rahul Mehta" } }), row({ matchId: 2 }), row({ matchId: 3, resume: { orgResumeId: 9, state: "??" } as never })],
+      total: 3,
+      nextSteps: {},
+    })!;
+    expect(v.rows[0].resume).toEqual({ orgResumeId: 31, name: "Anika - ML", state: "NEEDS_APPROVAL", chosenBy: "Rahul Mehta" });
+    expect(v.rows[1].resume).toBeNull();
+    expect(v.rows[2].resume?.state).toBe("UNUSABLE");
   });
   it("is null for anything else", () => {
     expect(parseOpportunities(null)).toBeNull();

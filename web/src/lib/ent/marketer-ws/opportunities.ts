@@ -67,7 +67,15 @@ export interface OpportunitiesView {
 }
 /** The consultant's question and the marketer's answer (MKT-41). `awaitingAnswer`: the question is open and the marketer may answer it. */
 export interface InfoThread { question: string; answer: string; awaitingAnswer: boolean }
-export interface Detail { item: Opportunity; alternatives: Opportunity[]; events: Activity[]; info: InfoThread | null }
+/**
+ * The resume chosen for a job (PINNED-RESUME-BUILD.md). `state`: READY (Prepare attaches it), NEEDS_APPROVAL (waits for the consultant; Prepare asks
+ * them first), UNUSABLE (sent back since it was chosen: the consultant's usual resume is used).
+ */
+export type ResumeState = "READY" | "NEEDS_APPROVAL" | "UNUSABLE";
+export interface PinnedResume { orgResumeId: number; name: string; state: ResumeState; chosenBy: string | null; chosenAt: string | null }
+/** One of the consultant's resumes the marketer may choose. */
+export interface ResumeChoice { orgResumeId: number; name: string; state: ResumeState; primary: boolean }
+export interface Detail { item: Opportunity; alternatives: Opportunity[]; events: Activity[]; info: InfoThread | null; resume: PinnedResume | null; resumeChoices: ResumeChoice[] }
 export interface JobOption { id: number; title: string; client: string; location: string }
 export interface Options { consultants: Option[]; jobs: JobOption[] }
 
@@ -157,7 +165,25 @@ export function parseDetail(raw: unknown): Detail | null {
   const item = parseOpportunity(raw.item);
   const i = isObj(raw.info) && str(raw.info.question) ? raw.info : null;
   const info: InfoThread | null = i ? { question: str(i.question), answer: str(i.answer), awaitingAnswer: i.awaitingAnswer === true } : null;
-  return item ? { item, alternatives: items(raw.alternatives), events: activityOf(raw.events), info } : null;
+  return item ? { item, alternatives: items(raw.alternatives), events: activityOf(raw.events), info, resume: pinnedOf(raw.resume), resumeChoices: arr(raw.resumeChoices).map(choiceOf).filter((c): c is ResumeChoice => c != null) } : null;
+}
+
+const RESUME_STATES: readonly ResumeState[] = ["READY", "NEEDS_APPROVAL", "UNUSABLE"];
+const stateOf = (v: unknown): ResumeState => (RESUME_STATES.includes(v as ResumeState) ? (v as ResumeState) : "UNUSABLE");
+
+function pinnedOf(raw: unknown): PinnedResume | null {
+  if (!isObj(raw) || !num(raw.orgResumeId)) return null;
+  return { orgResumeId: num(raw.orgResumeId), name: str(raw.name, "Resume"), state: stateOf(raw.state), chosenBy: orNull(raw.chosenBy), chosenAt: orNull(raw.chosenAt) };
+}
+
+function choiceOf(raw: Record<string, unknown>): ResumeChoice | null {
+  if (!num(raw.orgResumeId)) return null;
+  return { orgResumeId: num(raw.orgResumeId), name: str(raw.name, "Resume"), state: stateOf(raw.state), primary: raw.primary === true };
+}
+
+/** How a resume's state reads next to its name. */
+export function resumeStateLabel(s: ResumeState): string {
+  return s === "READY" ? "Approved" : s === "NEEDS_APPROVAL" ? "Waiting for the consultant's approval" : "Sent back by the consultant";
 }
 
 export function parseOptions(raw: unknown): Options {
@@ -280,6 +306,23 @@ export const requestFromConsultant = (orgId: number | string, id: number, kind: 
 export const notifyAwaiting = (orgId: number | string) => send(orgId, "/notify", "POST");
 /** Answers the consultant's open question. The consultant's own state never changes: only they move the opportunity on. */
 export const answerInfo = (orgId: number | string, id: number, answer: string) => send(orgId, `/${id}/answer-info`, "POST", { answer });
+/** Choose which of the consultant's resumes goes with this job (null = their usual resume). Answers the detail, not an action result. */
+export async function pinResume(orgId: number | string, id: number, orgResumeId: number | null): Promise<{ ok: true; detail: Detail } | { ok: false; error: string; code: string | null }> {
+  try {
+    const res = await fetch(`/api/orgs/${orgId}/mkt/opportunities/${id}/resume`, {
+      method: "PUT",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({ orgResumeId }),
+    });
+    const data: unknown = await res.json().catch(() => null);
+    const d = isObj(data) ? data : {};
+    if (!res.ok) return { ok: false, error: str(d.error, str(d.detail, "That didn't work. Nothing was changed.")), code: orNull(d.code) };
+    const detail = parseDetail(data);
+    return detail ? { ok: true, detail } : { ok: false, error: "That didn't work. Nothing was changed.", code: null };
+  } catch {
+    return { ok: false, error: "We couldn't reach the server. Check your connection.", code: null };
+  }
+}
 /** MKT-44: take an assignment back. The reason is required (1 to 200 characters); the consultant is told. */
 export const withdrawOpportunity = (orgId: number | string, id: number, reason: string) => send(orgId, `/${id}/withdraw`, "POST", { reason });
 /** MKT-44: offer a declined or withdrawn opportunity to another consultant of the caller's scope. */

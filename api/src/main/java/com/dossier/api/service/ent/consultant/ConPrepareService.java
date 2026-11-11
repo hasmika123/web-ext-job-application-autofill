@@ -58,6 +58,8 @@ public class ConPrepareService {
     public static final String NOT_ELIGIBLE = "NOT_ELIGIBLE";
     public static final String JOB_NOT_OPEN = "JOB_NOT_OPEN";
     public static final String NO_URL = "NO_URL";
+    /** The resume the marketer chose for this job still waits for the consultant's approval: nothing a marketer made is used until they approve it. */
+    public static final String RESUME_NEEDS_APPROVAL = "RESUME_NEEDS_APPROVAL";
     public static final String CAP_REACHED = "PREPARE_CAP_REACHED";
     public static final String SESSION_EXPIRED = "PREPARE_SESSION_EXPIRED";
     public static final String BATCH_TOO_LARGE = "PREPARE_BATCH_TOO_LARGE";
@@ -150,6 +152,10 @@ public class ConPrepareService {
         Map<Long, String> clientNames = clientIds.isEmpty() ? Map.of() : clients.findByOrgIdAndIdIn(org, clientIds).stream().filter(c -> org.equals(c.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, ClientAccount::getName, (a, b) -> a));
         Map<Long, ConsultantWsJobSourceReader.Info> urls = sources.load(org, reqIds);
         Map<Long, MktOpportunity> oppByMatch = opportunities.findByOrgIdAndMatchIdIn(org, ids).stream().collect(Collectors.toMap(MktOpportunity::getMatchId, o -> o, (a, b) -> a));
+        Map<Long, com.dossier.api.domain.ent.talent.OrgResume> myResumes = new HashMap<>();
+        if (orgResumes != null && oppByMatch.values().stream().anyMatch(o -> o.getPinnedOrgResumeId() != null)) {
+            for (com.dossier.api.domain.ent.talent.OrgResume r : orgResumes.findByOrgIdAndConsultantId(org, view.consultantId())) myResumes.put(r.getId(), r);
+        }
 
         List<ConPrepareDTO.Job> jobs = new ArrayList<>();
         List<ConPrepareDTO.Skipped> skipped = new ArrayList<>();
@@ -172,7 +178,16 @@ public class ConPrepareService {
                 skipped.add(new ConPrepareDTO.Skipped(id, NO_URL));
                 continue;
             }
-            jobs.add(new ConPrepareDTO.Job(id, url, r.getTitle(), r.getClientId() == null ? null : clientNames.get(r.getClientId())));
+            // the resume the marketer chose for this job: attached once the consultant approved it; a choice they sent back falls back to the usual pick
+            Long resumeId = null;
+            com.dossier.api.domain.ent.talent.OrgResume pinned = opp == null || opp.getPinnedOrgResumeId() == null ? null : myResumes.get(opp.getPinnedOrgResumeId());
+            com.dossier.api.service.ent.mkt.opportunities.PinnedResumes.State pin = com.dossier.api.service.ent.mkt.opportunities.PinnedResumes.state(pinned);
+            if (pin == com.dossier.api.service.ent.mkt.opportunities.PinnedResumes.State.NEEDS_APPROVAL) {
+                skipped.add(new ConPrepareDTO.Skipped(id, RESUME_NEEDS_APPROVAL));
+                continue;
+            }
+            if (pin == com.dossier.api.service.ent.mkt.opportunities.PinnedResumes.State.READY) resumeId = pinned.getResumeId();
+            jobs.add(new ConPrepareDTO.Job(id, url, r.getTitle(), r.getClientId() == null ? null : clientNames.get(r.getClientId()), resumeId));
             if (opp != null) opportunityOf.put(id, opp.getId());
         }
 
@@ -218,6 +233,14 @@ public class ConPrepareService {
         }
         audit.record(me, AUDIT_BATCH, "PREPARE_SESSION", null, String.valueOf(s.getId()), jobs.size() + " openings prepared in the consultant's own browser; nothing is submitted for them");
         return new ConPrepareDTO.Created(s.getId(), s.getExpiresAt(), jobs, skipped, rem.today() - jobs.size(), rem.month() - jobs.size());
+    }
+
+    private com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes;
+
+    /** Optional: the organization resume directory, for the resume a marketer chose for a job (PINNED-RESUME-BUILD.md). Without it every job uses the usual pick. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setOrgResumes(com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes) {
+        this.orgResumes = orgResumes;
     }
 
     // ---- events --------------------------------------------------------------------------------------------------------------

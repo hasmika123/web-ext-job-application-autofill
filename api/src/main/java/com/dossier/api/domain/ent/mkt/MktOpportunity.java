@@ -92,6 +92,16 @@ public class MktOpportunity implements Serializable {
     @Column(name = "approval_request_id")
     private Long approvalRequestId;
 
+    /** The consultant's org_resume a marketer chose for this job (PINNED-RESUME-BUILD.md); null = the usual pick. */
+    @Column(name = "pinned_org_resume_id")
+    private Long pinnedOrgResumeId;
+
+    @Column(name = "pinned_by_member_id")
+    private Long pinnedByMemberId;
+
+    @Column(name = "pinned_at")
+    private Instant pinnedAt;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -150,6 +160,12 @@ public class MktOpportunity implements Serializable {
     public void setClosedReason(String closedReason) { this.closedReason = closedReason; }
     public Long getApprovalRequestId() { return approvalRequestId; }
     public void setApprovalRequestId(Long approvalRequestId) { this.approvalRequestId = approvalRequestId; }
+    public Long getPinnedOrgResumeId() { return pinnedOrgResumeId; }
+    public void setPinnedOrgResumeId(Long pinnedOrgResumeId) { this.pinnedOrgResumeId = pinnedOrgResumeId; }
+    public Long getPinnedByMemberId() { return pinnedByMemberId; }
+    public void setPinnedByMemberId(Long pinnedByMemberId) { this.pinnedByMemberId = pinnedByMemberId; }
+    public Instant getPinnedAt() { return pinnedAt; }
+    public void setPinnedAt(Instant pinnedAt) { this.pinnedAt = pinnedAt; }
     public long getVersion() { return version; }
     public void setVersion(long version) { this.version = version; }
 }
