@@ -92,6 +92,42 @@ public class IdempotencyService {
         Class<T> type,
         Supplier<T> work
     ) {
+        return run(true, me, key, required, method, path, request, successStatus, type, work);
+    }
+
+    /**
+     * Like {@link #execute}, for work that commits in steps of its own (each in a transaction it opens, such as one per imported row) and is safe
+     * to repeat: the work runs with NO surrounding transaction, so it never holds a second database connection, and the reply is stored after it
+     * in a short transaction of its own. A replay returns the stored reply as usual. Because the work has already committed when the reply is
+     * stored, two callers racing on one key can both run it (the loser answers 409 {@code IDEMPOTENCY_IN_PROGRESS}); that is why the work must
+     * be safe to repeat.
+     */
+    public <T> Outcome<T> executeInSteps(
+        OrgMembership me,
+        String key,
+        boolean required,
+        String method,
+        String path,
+        Object request,
+        int successStatus,
+        Class<T> type,
+        Supplier<T> work
+    ) {
+        return run(false, me, key, required, method, path, request, successStatus, type, work);
+    }
+
+    private <T> Outcome<T> run(
+        boolean oneTransaction,
+        OrgMembership me,
+        String key,
+        boolean required,
+        String method,
+        String path,
+        Object request,
+        int successStatus,
+        Class<T> type,
+        Supplier<T> work
+    ) {
         if (key == null || key.isBlank()) {
             if (required) throw OrgException.coded(400, CODE_KEY_MISSING, "Send an Idempotency-Key header (a UUID) with this request", Map.of());
             return new Outcome<>(work.get(), successStatus, false);
@@ -114,20 +150,21 @@ public class IdempotencyService {
             return new Outcome<>(read(row, type), row.getStatus(), true);
         }
 
-        return tx.execute(status -> runOnce(me, existing, keyHash, requestHash, successStatus, now, work));
+        if (oneTransaction) return tx.execute(status -> store(me, existing, keyHash, requestHash, successStatus, now, work.get()));
+        T done = work.get();
+        return tx.execute(status -> store(me, existing, keyHash, requestHash, successStatus, now, done));
     }
 
-    private <T> Outcome<T> runOnce(
+    private <T> Outcome<T> store(
         OrgMembership me,
         Optional<IdempotencyRecord> existing,
         String keyHash,
         String requestHash,
         int successStatus,
         Instant now,
-        Supplier<T> work
+        T body
     ) {
         Long orgId = me.orgId();
-        T body = work.get();
         String text = write(body);
         IdempotencyRecord row = existing.orElseGet(IdempotencyRecord::new); // an expired row is reused in place (the unique key forbids a second one)
         row.setOrgId(orgId);

@@ -49,12 +49,12 @@
 | # | Item | Status | Size |
 |---|---|---|---|
 | A1 | Create the organization, its owner and its subdomain | **Built** (platform admin "Create organization") | — |
-| A2 | **Onboarding runbook and checklist**: create, enable modules, branding, invite people, give licences | Not written. The licence step has nothing behind it (B1). | S |
-| A3 | **Bulk import** of consultants and resumes (CSV / many files) | Not built. Only a bulk e-mail invite exists. A real consultancy arrives with 50–150 people. | M–L |
+| A2 ✅ | **Onboarding runbook and checklist**: create, enable modules, branding, invite people, give licences (written 2026-11-11, `ONBOARDING-RUNBOOK.md`) | Not written. The licence step has nothing behind it (B1). | S |
+| A3 ✅ | **Bulk import** of consultants and resumes (CSV / many files; consultants from a CSV with their invitation built 2026-11-11, `ONBOARDING-BUILD.md`; resumes in bulk left out by user decision) | Not built. Only a bulk e-mail invite exists. A real consultancy arrives with 50–150 people. | M–L |
 | A4 | **Custom domain** (e.g. `jobs.aaruna.com`): DNS check, certificate, Domains page | Tables and host lookup exist. Not built: the API, the checks and the page. | L |
 | A5 | **Edge Caddy change** for custom domains (on-demand certificates, deny rules) | Yours: you apply it on the shared box | yours |
 | A6 | **Extension works on a custom domain** (connect, Prepare batch) | Blocked: the extension trusts `*.kiwiply.com` only | M |
-| A7 | **Real enterprise accounts carry their organization** (the demo members were special-cased) | Check that invited and created accounts work in connect and profile-version without the demo special case | S |
+| A7 ✅ | **Real enterprise accounts carry their organization** (the demo members were special-cased; checked 2026-11-11, runbook §5) | Check that invited and created accounts work in connect and profile-version without the demo special case | S |
 | A8 | **Org terms / data processing agreement** at sign-up | Not built; legal text is yours | S + yours |
 
 ### B. Licences and billing

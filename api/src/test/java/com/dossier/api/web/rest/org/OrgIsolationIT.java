@@ -201,7 +201,8 @@ class OrgIsolationIT {
     /** What a legitimate marketer-tailoring call answers in this world (no licence or no organization account): a refusal that writes nothing. */
     private static final int TAILOR_REFUSED = 409;
 
-    private static final Map<String, Case> COVERAGE = new TreeMap<>(Map.ofEntries(
+    // explicit type arguments: inferring them across ~480 entries runs javac out of room on some CI runners
+    private static final Map<String, Case> COVERAGE = new TreeMap<String, Case>(Map.<String, Case>ofEntries(
         Map.entry("GET /api/orgs/{orgId}", Case.read()),
         Map.entry("PATCH /api/orgs/{orgId}", Case.write("{\"name\":\"Hijacked\"}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("POST /api/orgs/{orgId}/close", Case.write(null, 200, OrgAuditService.ORG_CLOSE)),
@@ -457,6 +458,9 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/job-options", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/consultants/linkable-members", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/member", Case.versioned(200, "CONSULTANT_UPDATE", w -> "{\"memberId\":" + w.member.getId() + "}", w -> null)),
+        // The CSV import (ONBOARDING-BUILD.md A3): the check writes nothing; an apply whose only row is refused creates nothing and writes the one summary row.
+        Map.entry("POST /api/orgs/{orgId}/consultants/import/check", Case.write("{\"rows\":[{\"name\":\"Isolation Row\",\"email\":\"iso.row@example.org\"}]}", 200, null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/import", Case.write("{\"rows\":[{\"name\":\"Isolation Row\",\"email\":\"not-an-email\"}]}", 200, "CONSULTANT_IMPORT")),
         Map.entry("POST /api/orgs/{orgId}/consultants", Case.write("{\"displayName\":\"Isolation Test\",\"email\":\"isolation.test@example.org\"}", 201, "CONSULTANT_CREATE")),
         Map.entry("PATCH /api/orgs/{orgId}/consultants/{consultantId}", Case.versioned(200, "CONSULTANT_UPDATE", w -> "{\"locationLabel\":\"Hijacked\"}", w -> w.consultantVersion)),
         Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/marketer", Case.versioned(200, "CONSULTANT_ASSIGN", w -> "{\"marketerMemberId\":" + w.member.getId() + "}", w -> null)),
