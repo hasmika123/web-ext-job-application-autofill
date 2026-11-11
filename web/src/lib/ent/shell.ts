@@ -15,7 +15,7 @@ const ADMIN_GROUP_LABELS: Record<string, string> = { people: "People", talent: "
  * Administration pages whose route is still the "on the way" placeholder, whether or not the API lists them for this member. Take a key out of this
  * set in the same change that builds its page (the sidebar test fails if one is both built and listed here).
  */
-export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set(["billing"]);
+export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set<string>([]);
 
 /**
  * The whole Administration menu in order, with its groups. The API sends only the items a member may open with their modules on; the others
@@ -40,7 +40,9 @@ const ADMIN_FULL: { key: string; label: string; icon: string; href: string; grou
   { key: "audit", label: "Audit Log", icon: "Shield", href: "/w/admin/audit", group: "organization" },
   { key: "branding", label: "Branding", icon: "Sparkles", href: "/w/admin/branding", group: "organization" },
   { key: "settings", label: "Settings", icon: "Gear", href: "/w/admin/settings", group: "organization" },
-  { key: "billing", label: "Plan & Billing", icon: "CreditCard", href: "/w/admin/billing", group: "organization" },
+  { key: "subscription", label: "Subscription", icon: "Layers", href: "/w/admin/subscription", group: "organization" },
+  { key: "billing", label: "Billing & Invoices", icon: "CreditCard", href: "/w/admin/billing", group: "organization" },
+  { key: "usage", label: "Feature Usage", icon: "BarChart", href: "/w/admin/usage", group: "organization" },
 ];
 
 export interface ShellNavItem extends NavItem {
