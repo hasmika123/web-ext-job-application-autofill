@@ -263,6 +263,7 @@
 | X4.1 | Permission Sets (board tab/KPI) has no concept in 05: shown as a read-only grouping of the registry by the five categories; "Permission Sets 23" counts permission FAMILIES (groups of related keys), the donut counts KEYS per category. Honest numbers only: no sparklines or "vs last month" (no history exists). | as built | `OrgRoleWriteService.overview`, `RolesPage` |
 
 ## Log
+- 2026-11-11 — **Marketer tailoring (D2)** on `ent-mkt-tailor`: `POST mkt/opportunities/{id}/tailor` + `.../tailor/{proposalId}/save`; consultant's licence (`ai.resume_tailoring`) and AI budget; keyword-coverage score; the result is an act-for resume waiting for approval, chosen for the job. `docs/enterprise-v2/MKT-TAILOR-BUILD.md`.
 - 2026-11-10 — **The resume chosen for a job (D3)** on `ent-pinned-resume`: `mkt_opportunity.pinned_org_resume_id` + `PUT mkt/opportunities/{id}/resume`; the consultant sees it; Prepare attaches it once approved (`RESUME_NEEDS_APPROVAL` otherwise). `docs/enterprise-v2/PINNED-RESUME-BUILD.md`.
 - 2026-11-10 — **Real consultant licences without money** on `ent-licences` (user decision: nothing billed yet). One licence reader (`OrgLicenseGate`) behind the inbox, Prepare, AI budget, builder AI/tailoring and My Features; licence admin API `/api/orgs/{orgId}/licenses`; Consultant Licenses page `/w/admin/licenses`; offboarding step 500 ends a leaving consultant's licence. `docs/enterprise-v2/LICENCES-BUILD.md`.
 - 2026-10-12 — Phase 0 complete on `enterprise-v2` (Fable). Roadmap area `ent` registered, 109 stories, 0 dangling ids.

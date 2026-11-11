@@ -12,6 +12,7 @@ const EMPTY_HAND: HandJobInput = { title: "", company: "", location: "", workMod
 import { isScored, scoreText } from "@/lib/ent/marketer-ws/score";
 import { DuplicateConfirmDialog, DuplicateNotice } from "../DuplicateConfirm";
 import { INTEREST_TONE, ResumeBadge } from "./bits";
+import TailorSheet from "./TailorSheet";
 
 /**
  * The dialogs of the Opportunities board. E1: every button here prepares or requests; nothing answers for a consultant or submits for one.
@@ -78,7 +79,8 @@ const USUAL = "__usual__";
  * The resume that goes with this job (PINNED-RESUME-BUILD.md): one of the consultant's own resumes, approved or still waiting for their approval.
  * Prepare attaches it once the consultant has approved it; a resume waiting for them is approved on their own click, never by the marketer (E1).
  */
-function ResumeBox({ orgId, id, resume, choices, onChanged }: { orgId: number; id: number; resume: PinnedResume | null; choices: ResumeChoice[]; onChanged: (d: Detail) => void }) {
+function ResumeBox({ orgId, id, resume, choices, consultant, jobTitle, onChanged }: { orgId: number; id: number; resume: PinnedResume | null; choices: ResumeChoice[]; consultant: string; jobTitle: string; onChanged: (d: Detail, message?: string) => void }) {
+  const [tailoring, setTailoring] = useState(false);
   const current = resume ? String(resume.orgResumeId) : USUAL;
   const [pick, setPick] = useState(current);
   const [busy, setBusy] = useState(false);
@@ -115,6 +117,26 @@ function ResumeBox({ orgId, id, resume, choices, onChanged }: { orgId: number; i
           </div>
         )}
         {resume?.state === "NEEDS_APPROVAL" ? <p className="text-[12px] text-muted">The consultant approves it before it is used. Prepare asks them.</p> : null}
+        {choices.length > 0 || resume ? (
+          <div>
+            <Button size="sm" variant="ghost" data-opp-tailor onClick={() => setTailoring(true)}>Tailor with AI</Button>
+            <span className="ml-2 text-[12px] text-muted">Makes a new version for this job from {pick === USUAL ? "the usual resume" : "the resume above"}; uses the consultant&apos;s AI budget.</span>
+          </div>
+        ) : null}
+        {tailoring ? (
+          <TailorSheet
+            orgId={orgId}
+            id={id}
+            consultant={consultant}
+            jobTitle={jobTitle}
+            orgResumeId={pick === USUAL ? null : Number(pick)}
+            onClose={() => setTailoring(false)}
+            onSaved={(a) => {
+              setTailoring(false);
+              if (a.detail) onChanged(a.detail, `Saved "${a.name}" for this job. It waits for the consultant's approval.`);
+            }}
+          />
+        ) : null}
         {error ? <p role="alert" className="text-[12.5px] text-danger-text">{error}</p> : null}
       </div>
     </Section>
@@ -252,7 +274,7 @@ export function DetailDialog({ orgId, id, mode, onClose, onReview, onChanged, bu
             {detail?.info ? <InfoBox orgId={orgId} id={o.id} info={detail.info} onAnswered={(answer) => setDetail((d) => (d && d.info ? { ...d, info: { ...d.info, answer } } : d))} /> : null}
 
             {o.status === "ASSIGNED" && detail ? (
-              <ResumeBox key={detail.resume ? detail.resume.orgResumeId : "usual"} orgId={orgId} id={o.id} resume={detail.resume} choices={detail.resumeChoices} onChanged={(d) => { setDetail(d); onChanged?.("Resume for this job saved."); }} />
+              <ResumeBox key={detail.resume ? detail.resume.orgResumeId : "usual"} orgId={orgId} id={o.id} resume={detail.resume} choices={detail.resumeChoices} consultant={o.consultant.name} jobTitle={o.jobTitle} onChanged={(d, message) => { setDetail(d); onChanged?.(message ?? "Resume for this job saved."); }} />
             ) : null}
 
             {onChanged ? <FollowUpBox orgId={orgId} o={o} onChanged={onChanged} /> : null}
