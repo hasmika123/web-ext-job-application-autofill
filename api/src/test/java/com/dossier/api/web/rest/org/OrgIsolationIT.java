@@ -442,6 +442,13 @@ class OrgIsolationIT {
         // Consultant licences (LICENCES-BUILD.md L3). The world's consultant has no licence: giving one is the 200 with one LICENSE_CHANGE row;
         // every change to a licence that does not exist is the 409 NO_LICENSE and writes nothing.
         Map.entry("GET /api/orgs/{orgId}/licenses", Case.read()),
+        // ORG-BILLING-BUILD.md step 1a: the billing pages, read-only
+        Map.entry("GET /api/orgs/{orgId}/billing/overview", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/billing", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/billing/invoices", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/billing/invoices/{invoiceId}", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/usage", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/usage/history", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/licenses/catalog", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/licenses/{consultantId}", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/licenses/{consultantId}", Case.write("{\"features\":[\"inbox.monitoring\"]}", 200, "LICENSE_CHANGE")),
@@ -786,6 +793,8 @@ class OrgIsolationIT {
         // The Marketing workspace (mkt/**) answers the generic 404 to EVERYONE, the owner included, while the marketing module is off for the org: switched on here so that the
         // hostile callers below are refused by the tenant and permission checks themselves, and the legitimate calls really run the services.
         settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_MARKETING, "{\"on\":true}", FLAG_WRITER, Instant.now()));
+        // The billing pages (ORG-BILLING-BUILD.md step 1a) answer the generic 404 to everyone while the billing module is off: on here, for the same reason as marketing
+        settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_BILLING, "{\"on\":true}", FLAG_WRITER, Instant.now()));
         // Prepare selected openings: the Kiwiply master switch is on so the Org Admin's settings route can be changed by its owner (the organization itself starts opted out)
         settingRows.save(new AppSetting(EnterpriseSettingKeys.PREPARE_ENABLED, "true", FLAG_WRITER, Instant.now()));
         settingsCache.invalidate();
@@ -846,6 +855,7 @@ class OrgIsolationIT {
 
     @Autowired private com.dossier.api.repository.ent.OrgMemberRoleRepository memberRoleRows;
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository consultantProfiles;
+    @Autowired private com.dossier.api.repository.ent.billing.OrgInvoiceRepository invoiceRows;
 
     /** Gives the seat the Consultant role; the consultant_profile is already there (every World seeds one for its owner). */
     private void makeConsultant(Long orgId, OrgMember seat) {
@@ -882,7 +892,7 @@ class OrgIsolationIT {
         String memberVersion;
         Long offboardingId;
         /** Consultant workspace: the rows of the owner's consultant profile (own-scoped; A's ids are named from B's org in the cross-tenant sweep). */
-        Long skillId, certId, prefId, resumeId, matchId, requirementId, savedSearchId;
+        Long skillId, certId, prefId, resumeId, matchId, requirementId, savedSearchId, invoiceId;
         /** The second set of consultant pages: an ASSIGNED match, a SCHEDULED and a COMPLETED interview, a prep session, a PENDING_APPROVAL submission, an application. */
         Long consultantId, clientId, assignedRequirementId, assignedMatchId, scheduledInterviewId, completedInterviewId, prepSessionId, submissionId, applicationId;
         /** The last eight pages: a task, a calendar entry, a PENDING_REVIEW offer with a future deadline, a checklist item of an ACTIVE placement, a notification. */
@@ -1113,6 +1123,18 @@ class OrgIsolationIT {
             ss.setName(prefix + " search");
             ss.setKeyword("java");
             savedSearchId = cwsSavedSearches.saveAndFlush(ss).getId();
+            // Billing & Invoices: one invoice of this organization (a LOCAL estimate)
+            com.dossier.api.domain.ent.billing.OrgInvoice inv = new com.dossier.api.domain.ent.billing.OrgInvoice();
+            inv.setOrgId(org.getId());
+            inv.setInvoiceNumber(prefix.toUpperCase() + "-0001");
+            inv.setPeriodStart(java.time.LocalDate.of(2026, 10, 1));
+            inv.setPeriodEnd(java.time.LocalDate.of(2026, 10, 31));
+            inv.setIssueDate(java.time.LocalDate.of(2026, 11, 1));
+            inv.setDueDate(java.time.LocalDate.of(2026, 11, 16));
+            inv.setDescription(prefix + " October");
+            inv.setAmountMinor(1499L);
+            inv.setAmountPaidMinor(0L);
+            invoiceId = invoiceRows.saveAndFlush(inv).getId();
             consultantId = cp.getId();
             cwsConsultantId = consultantId; // the Consultants page's fixture below overwrites consultantId; the consultant workspace helpers mean this one
             clientId = ca.getId();
@@ -1708,6 +1730,7 @@ class OrgIsolationIT {
             ids.put("category", "JOB_MATCH"); // a fixed notification category, not a row
             ids.put("consultantId", String.valueOf(consultantId));
             ids.put("resumeId", String.valueOf(resumeId));
+            ids.put("invoiceId", String.valueOf(invoiceId));
             ids.put("jobId", String.valueOf(jobId));
             ids.put("clientId", String.valueOf(jobClientId));
             ids.put("contactId", String.valueOf(clientContactId));

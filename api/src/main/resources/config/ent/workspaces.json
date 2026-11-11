@@ -216,12 +216,34 @@
           "group": "organization"
         },
         {
+          "key": "subscription",
+          "label": "Subscription",
+          "icon": "Layers",
+          "href": "/w/admin/subscription",
+          "needs": [
+            "billing.view"
+          ],
+          "module": "billing",
+          "group": "organization"
+        },
+        {
           "key": "billing",
-          "label": "Plan & Billing",
+          "label": "Billing & Invoices",
           "icon": "CreditCard",
           "href": "/w/admin/billing",
           "needs": [
             "billing.view"
+          ],
+          "module": "billing",
+          "group": "organization"
+        },
+        {
+          "key": "usage",
+          "label": "Feature Usage",
+          "icon": "BarChart",
+          "href": "/w/admin/usage",
+          "needs": [
+            "usage.view"
           ],
           "module": "billing",
           "group": "organization"

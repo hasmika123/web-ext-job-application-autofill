@@ -207,7 +207,7 @@ public final class EnterpriseSettingKeys {
                 + "on = enabled; an allow list of organization ids narrows it to those organizations (a pilot); deny always wins. Off = those routes answer 404.");
         flag(k, FLAG_DOMAINS, Risk.HIGH, "Custom-domain lifecycle and the certificate 'ask' endpoint answering for custom hostnames. Needs the master flag.");
         flag(k, FLAG_ROLES, Risk.MEDIUM, "Organization member permissions are read from role data (several roles per member, scopes) instead of the fixed role enum, and GET /api/orgs/{id}/roles answers. A member whose role data is missing or disagrees with the enum keeps the enum. Needs the master flag.");
-        flag(d, FLAG_BILLING, Risk.HIGH, "Enterprise license APIs and Stripe organization billing. Needs the master flag." + NOT_ENFORCED);
+        flag(k, FLAG_BILLING, Risk.HIGH, "Organization billing pages (Subscription, Billing & Invoices, Feature Usage) and the /api/orgs/{id}/billing and /usage APIs. Consultant licences do not need it. Nothing is charged until Stripe is connected for the organization (ORG-BILLING-BUILD.md). Needs the master flag.");
         flag(k, FLAG_MARKETING, Risk.MEDIUM, "Talent marketing workspace: the Marketing pages and the /api/orgs/{id}/mkt/** APIs. Needs the master flag.");
         flag(k, FLAG_CONSULTANT_JOBS, Risk.MEDIUM, "Consultant assigned jobs: the /api/orgs/{id}/con/** APIs, the consultant's Opportunities page and the extension's assigned-jobs list. Needs the master flag and the roles flag.");
         flag(d, FLAG_HR_FINANCE, Risk.MEDIUM, "HR and Finance record modules. Needs the master flag." + NOT_ENFORCED);
