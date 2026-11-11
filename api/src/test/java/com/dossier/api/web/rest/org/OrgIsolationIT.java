@@ -201,7 +201,8 @@ class OrgIsolationIT {
     /** What a legitimate marketer-tailoring call answers in this world (no licence or no organization account): a refusal that writes nothing. */
     private static final int TAILOR_REFUSED = 409;
 
-    private static final Map<String, Case> COVERAGE = new TreeMap<>(Map.ofEntries(
+    // explicit type arguments: inferring them across ~480 entries runs javac out of room on some CI runners
+    private static final Map<String, Case> COVERAGE = new TreeMap<String, Case>(Map.<String, Case>ofEntries(
         Map.entry("GET /api/orgs/{orgId}", Case.read()),
         Map.entry("PATCH /api/orgs/{orgId}", Case.write("{\"name\":\"Hijacked\"}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("POST /api/orgs/{orgId}/close", Case.write(null, 200, OrgAuditService.ORG_CLOSE)),
