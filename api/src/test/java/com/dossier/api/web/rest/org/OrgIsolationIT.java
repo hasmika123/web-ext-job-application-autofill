@@ -198,6 +198,9 @@ class OrgIsolationIT {
      * Every {@code /api/orgs/{orgId}/**} route, as {@code "METHOD pattern"}. A new org endpoint is NOT covered until it
      * has a line here, and {@link #everyOrgRouteIsListedInTheCoverageRegistry} fails until it does.
      */
+    /** What a legitimate marketer-tailoring call answers in this world (no licence or no organization account): a refusal that writes nothing. */
+    private static final int TAILOR_REFUSED = 409;
+
     private static final Map<String, Case> COVERAGE = new TreeMap<>(Map.ofEntries(
         Map.entry("GET /api/orgs/{orgId}", Case.read()),
         Map.entry("PATCH /api/orgs/{orgId}", Case.write("{\"name\":\"Hijacked\"}", 200, OrgAuditService.ORG_SETTINGS)),
@@ -679,6 +682,10 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/notify", Case.mkt(200, "MARKETER_OPPORTUNITY_NOTIFY", w -> null, World::mktAwaitingInterest)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/request", Case.mkt(200, "MARKETER_OPPORTUNITY_REQUEST", w -> "{\"kind\":\"RESUME\"}", null)),
         // The resume for a job (PINNED-RESUME-BUILD.md): going back to the usual pick on an assigned job that has no choice changes nothing, so it writes no audit row.
+        // Marketer tailoring (MKT-TAILOR-BUILD.md): the world's consultant holds no licence with ai.resume_tailoring (or has no organization account), so a
+        // legitimate call is refused before any AI runs and writes nothing; every hostile caller is the generic 404 first.
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/tailor", Case.mkt(TAILOR_REFUSED, null, w -> "{}", World::mktAssignOpportunity)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/tailor/{proposalId}/save", Case.mkt(TAILOR_REFUSED, null, w -> "{\"keep\":[\"summary\"]}", World::mktAssignOpportunity)),
         Map.entry("PUT /api/orgs/{orgId}/mkt/opportunities/{id}/resume", Case.mkt(200, null, w -> "{\"orgResumeId\":null}", World::mktAssignOpportunity)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/withdraw", Case.mkt(200, "MARKETER_OPPORTUNITY_WITHDRAW", w -> "{\"reason\":\"The client paused hiring for this role.\"}", World::mktAssignOpportunity)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/reassign", Case.mkt(200, "MARKETER_OPPORTUNITY_REASSIGN", w -> "{\"consultantId\":" + w.consultantId + "}", World::mktReassignable)),
@@ -1666,6 +1673,7 @@ class OrgIsolationIT {
             ids.put("alertKey", "MEMBERS_SUSPENDED");
             ids.put("id", "999999999"); // the consultant routes' opportunity id: nobody's, and the routes answer 404 before looking (the flag is off in this world)
             ids.put("suggestionId", "999999999"); // an inbox suggestion nobody owns: the routes answer 404 for the legitimate caller too
+            ids.put("proposalId", "999999999"); // a tailoring proposal nobody owns: the apply route refuses before it looks (no licence in this world)
             ids.put("holdId", "999999999"); // an inbox review item nobody owns: the review routes answer 404 for the legitimate caller too
             ids.put("eventId", "999999999"); // an application event nobody owns: the undo route answers 404 for the legitimate caller too
             ids.put("skillId", String.valueOf(skillId));

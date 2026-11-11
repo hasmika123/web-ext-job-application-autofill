@@ -145,6 +145,29 @@ public class ResumeTailorService {
         return propose(user, resume, app.getJobDescription(), app.getRoleTitle(), app.getCompany(), consent);
     }
 
+    /**
+     * Tailor {@code owner}'s {@code resume} to a job given as text, charging the OWNER's AI budget (a marketer acting for a consultant,
+     * docs/enterprise-v2/MKT-TAILOR-BUILD.md). The caller has already checked who may ask and that the owner's licence carries the feature; asking is
+     * the consent. The proposal is stored under the owner, so the same job and resume version is answered from the cache.
+     */
+    public Result proposeFor(User owner, Resume resume, String jobDescription, String role, String company) {
+        return propose(owner, resume, jobDescription, role, company, true);
+    }
+
+    /** A stored, checked proposal of {@code ownerUserId}: its source resume, that resume's hash at the time, and the checked result JSON. */
+    public record StoredProposal(Long proposalId, Long resumeId, String resumeHash, JsonNode result) {}
+
+    /** The proposal {@code proposalId} if {@code ownerUserId} owns it (another path applies it, e.g. into a builder document). */
+    public java.util.Optional<StoredProposal> stored(Long proposalId, Long ownerUserId) {
+        if (proposalId == null || ownerUserId == null) return java.util.Optional.empty();
+        return tailorRepository.findByIdAndUserId(proposalId, ownerUserId).map(r -> new StoredProposal(r.getId(), r.getResumeId(), r.getResumeHash(), readJson(r.getResultJson())));
+    }
+
+    /** The hash a proposal is pinned to: a proposal is applied only to the resume version it was made from. */
+    public static String hashOf(Resume r) {
+        return resumeHash(r);
+    }
+
     private Result propose(User user, Resume resume, String jobDescription, String role, String company, boolean consent) {
         if (!enabled || !provider.isConfigured()) {
             return new Result(Status.DISABLED, null, false, 0, 0, null);
