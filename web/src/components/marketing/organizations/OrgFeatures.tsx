@@ -72,8 +72,8 @@ const FEATURES: Feature[] = [
     mock: <SupportCoachesMock />,
   },
   {
-    title: "AI job matching",
-    body: "Find relevant opportunities with AI-powered matching.",
+    title: "Job matching",
+    body: "Find relevant opportunities, ranked by each person's skills, location and experience.",
     Icon: SparklesIcon,
     family: "pink",
     mock: <AiMatchingMock />,

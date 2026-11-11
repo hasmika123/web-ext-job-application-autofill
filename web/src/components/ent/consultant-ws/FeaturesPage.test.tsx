@@ -21,7 +21,7 @@ const full = (): W => ({
   entitlementsSample: true,
   tiles: { active: 5, activeSample: true, creditsLeft: 50, creditsTotal: 50, creditsSample: true, usedThisMonth: 6, usedDeltaPct: 20, premium: 3, premiumSample: true, expiringSoon: 1, renewsOn: "2026-10-31", expiringSample: true },
   features: [
-    feat({ key: "job-matching", title: "AI Job Matching", used: 2, unit: "matches", usedNote: "viewed this month" }),
+    feat({ key: "job-matching", title: "Job Matching", used: 2, unit: "matches", usedNote: "viewed this month" }),
     feat({ key: "resume-tailoring", title: "AI Resume Tailoring", premium: true, allowance: 50, used: null, resetsOn: "2026-11-01", actionLabel: "Use", href: "/w/consultant/resumes", overview: true }),
     feat({ key: "interview-prep", title: "Interview Prep", premium: true, allowance: 20, used: 18, unit: "sessions", resetsOn: "2026-11-01", actionLabel: "Use", href: "/w/consultant/interview-prep", overview: true }),
     feat({ key: "application-tracking", title: "Email Application Tracking", used: 1, unit: "applications", usedNote: "tracked", overview: true }),
