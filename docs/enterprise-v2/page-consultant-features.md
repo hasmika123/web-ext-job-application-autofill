@@ -16,7 +16,7 @@ AI resume tailoring / optimization action in the consultant workspace; interview
 pages), so there is no write, no new table, no migration and no seeder.
 
 ## Real vs SAMPLE
-- **Real (derived from the consultant's own rows, this calendar month UTC):** AI Job Matching used = own `cws_match_view` rows; Interview Prep used =
+- **Real (derived from the consultant's own rows, this calendar month UTC):** Job Matching (rule-based ranking, not AI; gap D5) used = own `cws_match_view` rows; Interview Prep used =
   own `cws_prep_session` rows; Email Application Tracking = own `talent_application` rows; "Features Used This Month" = the sum of the three, with the
   delta against the same sum for last month (null when last month was 0); reset date = first of next month.
 - **SAMPLE (`sample:true`, `SampleMark`):** which features exist, every status (all ENABLED), premium flags, allowances (matching unlimited, resume

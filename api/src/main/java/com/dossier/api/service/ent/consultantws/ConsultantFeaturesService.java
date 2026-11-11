@@ -98,9 +98,9 @@ public class ConsultantFeaturesService {
 
     static List<Def> catalog() {
         return List.of(
-            new Def("job-matching", "AI Job Matching", "Get AI-powered job matches based on your skills and preferences.", "accent", "search", false, null, "matches", "viewed this month", "/w/consultant/matches", "View", false),
+            new Def("job-matching", "Job Matching", "Job matches ranked by your skills, location and experience.", "accent", "search", false, null, "matches", "viewed this month", "/w/consultant/matches", "View", false),
             new Def("resume-tailoring", "AI Resume Tailoring", "Generate tailored resumes for specific job opportunities.", "violet", "file", true, 50, "credits", "used this month", "/w/consultant/resumes", "Use", true),
-            new Def("interview-prep", "Interview Prep", "Practice with AI-powered interview questions and feedback.", "green", "video", true, 20, "sessions", "used this month", "/w/consultant/interview-prep", "Use", true),
+            new Def("interview-prep", "Interview Prep", "Practice common interview questions and score your own answers.", "green", "video", true, 20, "sessions", "used this month", "/w/consultant/interview-prep", "Use", true),
             new Def("application-tracking", "Email Application Tracking", "Track your job applications and get status updates automatically.", "amber", "mail", false, null, "applications", "tracked", "/w/consultant/applications", "View", true),
             new Def("resume-optimization", "Resume Optimization", "Get AI recommendations to improve your resume and skills.", "coral", "sparkles", true, 20, "optimizations", "used this month", "/w/consultant/resumes", "Use", true)
         );

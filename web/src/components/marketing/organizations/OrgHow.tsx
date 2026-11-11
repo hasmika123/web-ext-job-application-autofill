@@ -41,7 +41,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Match opportunities",
-    body: "Use AI to find the most relevant job opportunities for each person.",
+    body: "Find the most relevant job opportunities for each person, ranked by their skills and experience.",
     Icon: TargetIcon,
     family: "green",
     badge: "bg-v2-green",

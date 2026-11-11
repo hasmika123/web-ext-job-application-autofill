@@ -110,7 +110,7 @@ public class BillingDemoSeeder {
         new Feat("analytics_reporting", "Analytics & Reporting", "ANALYTICS", "reports", 500, "analytics", "Extended reporting and insights.", 2900, 16),
         new Feat("custom_fields", "Custom Fields", "PRODUCTIVITY", "records", 500, "fields", "Custom fields on profiles and applications.", 1900, 12),
         new Feat("resume_parsing", "Resume Parsing", "AI_FEATURE", "parses", 500, "parsing", "Parse resumes into structured profiles.", 2400, 10),
-        new Feat("candidate_matching", "Candidate Matching", "AI_FEATURE", "matches", 750, "matching", "AI-ranked consultant to job matches.", 3400, 10),
+        new Feat("candidate_matching", "Candidate Matching", "AI_FEATURE", "matches", 750, "matching", "Consultant-to-job matches ranked by skills, location and experience.", 3400, 10),
         new Feat("email_campaigns", "Email Campaigns", "MARKETING", "emails", 500, "email", "Outreach campaigns to clients and candidates.", 1900, 8),
         new Feat("interview_scheduling", "Interview Scheduling", "PRODUCTIVITY", "schedules", 300, "calendar", "Scheduling links and reminders.", 1500, 8),
         new Feat("job_postings", "Job Postings", "RECRUITING", "postings", 400, "briefcase", "Publish and track job postings.", 2900, 6),
