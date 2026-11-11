@@ -4,8 +4,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button, Input, MemberAvatar, Select, SheetFrame, Skeleton, Textarea, cn } from "@kiwiply/ui";
 import { relativeTime } from "@/lib/ent/dashboard";
 import {
-  DUPLICATE_WARNING, INTEREST_LABELS, answerInfo, checkHandJob, createJobByHand, fetchDetail, fetchOptions, fetchReady, followUpOf, matchTone, nextActionText, reassignOpportunity, withdrawOpportunity,
-  type Detail, type DuplicateFinding, type HandJobInput, type InfoThread, type JobOption, type Opportunity, type Option,
+  DUPLICATE_WARNING, INTEREST_LABELS, answerInfo, pinResume, resumeStateLabel, checkHandJob, createJobByHand, fetchDetail, fetchOptions, fetchReady, followUpOf, matchTone, nextActionText, reassignOpportunity, withdrawOpportunity,
+  type Detail, type DuplicateFinding, type HandJobInput, type InfoThread, type JobOption, type Opportunity, type Option, type PinnedResume, type ResumeChoice,
 } from "@/lib/ent/marketer-ws/opportunities";
 
 const EMPTY_HAND: HandJobInput = { title: "", company: "", location: "", workMode: "", description: "", jobUrl: "" };
@@ -68,6 +68,55 @@ function InfoBox({ orgId, id, info, onAnswered }: { orgId: number; id: number; i
           </div>
         </div>
       ) : null}
+    </Section>
+  );
+}
+
+const USUAL = "__usual__";
+
+/**
+ * The resume that goes with this job (PINNED-RESUME-BUILD.md): one of the consultant's own resumes, approved or still waiting for their approval.
+ * Prepare attaches it once the consultant has approved it; a resume waiting for them is approved on their own click, never by the marketer (E1).
+ */
+function ResumeBox({ orgId, id, resume, choices, onChanged }: { orgId: number; id: number; resume: PinnedResume | null; choices: ResumeChoice[]; onChanged: (d: Detail) => void }) {
+  const current = resume ? String(resume.orgResumeId) : USUAL;
+  const [pick, setPick] = useState(current);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const options = [
+    { value: USUAL, label: "The consultant's usual resume" },
+    ...choices.map((c) => ({ value: String(c.orgResumeId), label: `${c.name}${c.primary ? " (primary)" : ""}${c.state === "NEEDS_APPROVAL" ? " - waiting for approval" : ""}` })),
+  ];
+  const save = async () => {
+    setBusy(true);
+    setError("");
+    const r = await pinResume(orgId, id, pick === USUAL ? null : Number(pick));
+    setBusy(false);
+    if (r.ok) onChanged(r.detail);
+    else setError(r.error);
+  };
+  return (
+    <Section title="Resume for this job">
+      <div data-opp-resume className="flex flex-col gap-2">
+        {resume ? (
+          <p className="text-[13px] text-ink-soft">
+            <span className="font-semibold text-ink">{resume.name}</span> · {resumeStateLabel(resume.state)}
+            {resume.chosenBy ? <span className="text-muted"> · chosen by {resume.chosenBy}</span> : null}
+          </p>
+        ) : (
+          <p className="text-[13px] text-muted">No resume chosen: the consultant&apos;s usual resume is used.</p>
+        )}
+        {choices.length === 0 && !resume ? (
+          <p className="text-[12.5px] text-muted">This consultant has no resume you can choose yet.</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Select aria-label="Resume for this job" value={pick} onChange={setPick} options={options} className="min-w-[220px] flex-1" />
+            <Button size="sm" disabled={busy || pick === current} onClick={() => void save()} data-opp-resume-save>Use this resume</Button>
+          </div>
+        )}
+        {resume?.state === "NEEDS_APPROVAL" ? <p className="text-[12px] text-muted">The consultant approves it before it is used. Prepare asks them.</p> : null}
+        {error ? <p role="alert" className="text-[12.5px] text-danger-text">{error}</p> : null}
+      </div>
     </Section>
   );
 }
@@ -201,6 +250,10 @@ export function DetailDialog({ orgId, id, mode, onClose, onReview, onChanged, bu
             {o.reason ? <p className="mt-3 text-[13px] text-muted">Why it matches: {o.reason}</p> : null}
 
             {detail?.info ? <InfoBox orgId={orgId} id={o.id} info={detail.info} onAnswered={(answer) => setDetail((d) => (d && d.info ? { ...d, info: { ...d.info, answer } } : d))} /> : null}
+
+            {o.status === "ASSIGNED" && detail ? (
+              <ResumeBox key={detail.resume ? detail.resume.orgResumeId : "usual"} orgId={orgId} id={o.id} resume={detail.resume} choices={detail.resumeChoices} onChanged={(d) => { setDetail(d); onChanged?.("Resume for this job saved."); }} />
+            ) : null}
 
             {onChanged ? <FollowUpBox orgId={orgId} o={o} onChanged={onChanged} /> : null}
 

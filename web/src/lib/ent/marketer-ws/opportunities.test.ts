@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  DEFAULT_FILTERS, assignOpportunity, exportUrl, fetchOpportunities, matchTone, nextActionText, parseDetail, parseOpportunities, parseOpportunity, parseOptions, queryString,
+  DEFAULT_FILTERS, assignOpportunity, exportUrl, fetchOpportunities, matchTone, nextActionText, parseDetail, parseOpportunities, parseOpportunity, parseOptions, pinResume, queryString, resumeStateLabel,
   requestFromConsultant, setNextAction, sharePct, bulkAssign, notifyAwaiting, reviewOpportunity, createOpportunity,
 } from "./opportunities";
 
@@ -43,6 +43,39 @@ describe("parseOpportunities", () => {
     expect(d.events[0].text).toBe("x");
     expect(parseOptions({ consultants: [{ id: 1, name: "A" }], jobs: [{ id: 2, title: "T", client: "C" }] }).jobs[0]).toEqual({ id: 2, title: "T", client: "C", location: "" });
     expect(parseOptions(null)).toEqual({ consultants: [], jobs: [] });
+  });
+
+  it("reads the resume chosen for the job and the consultant's resumes to choose from (PINNED-RESUME-BUILD.md)", () => {
+    const d = parseDetail({
+      item: { id: 1 },
+      resume: { orgResumeId: 31, name: "Anika - ML (tailored)", state: "NEEDS_APPROVAL", chosenBy: "Rahul Mehta", chosenAt: "2026-11-10T12:00:00Z" },
+      resumeChoices: [{ orgResumeId: 31, name: "Anika - ML (tailored)", state: "NEEDS_APPROVAL", primary: false }, { orgResumeId: 30, name: "Anika", state: "READY", primary: true }, { bad: 1 }],
+    })!;
+    expect(d.resume).toEqual({ orgResumeId: 31, name: "Anika - ML (tailored)", state: "NEEDS_APPROVAL", chosenBy: "Rahul Mehta", chosenAt: "2026-11-10T12:00:00Z" });
+    expect(d.resumeChoices.map((c) => c.orgResumeId)).toEqual([31, 30]);
+    expect(resumeStateLabel("NEEDS_APPROVAL")).toMatch(/approval/);
+    expect(parseDetail({ item: { id: 1 } })!.resume).toBeNull();
+    expect(parseDetail({ item: { id: 1 }, resume: { orgResumeId: 9, state: "WEIRD" } })!.resume?.state).toBe("UNUSABLE");
+  });
+
+  it("saves the resume for a job with PUT and answers the new detail", async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({ item: { id: 5 }, resume: { orgResumeId: 30, name: "Anika", state: "READY" }, resumeChoices: [] }), { status: 200 });
+    }) as typeof fetch;
+    try {
+      const r = await pinResume(2, 5, 30);
+      expect(r.ok && r.detail.resume?.orgResumeId).toBe(30);
+      expect(calls[0].url).toBe("/api/orgs/2/mkt/opportunities/5/resume");
+      expect(calls[0].init.method).toBe("PUT");
+      expect(JSON.parse(String(calls[0].init.body))).toEqual({ orgResumeId: 30 });
+      await pinResume(2, 5, null);
+      expect(JSON.parse(String(calls[1].init.body))).toEqual({ orgResumeId: null });
+    } finally {
+      globalThis.fetch = real;
+    }
   });
 });
 

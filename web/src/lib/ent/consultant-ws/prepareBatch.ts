@@ -114,7 +114,8 @@ export function parseStatus(b: unknown): PrepareStatus | null {
 
 function parseJob(o: unknown): PrepareJob | null {
   if (!isObj(o) || typeof o.matchId !== "number" || typeof o.url !== "string") return null;
-  return { matchId: o.matchId, url: o.url, title: typeof o.title === "string" ? o.title : "", company: str(o.company) };
+  // resumeId: the resume the marketer chose for this job and the consultant approved (PINNED-RESUME-BUILD.md); the extension attaches exactly that one
+  return { matchId: o.matchId, url: o.url, title: typeof o.title === "string" ? o.title : "", company: str(o.company), ...(typeof o.resumeId === "number" && o.resumeId > 0 ? { resumeId: o.resumeId } : {}) };
 }
 
 export function parseCreated(b: unknown): PrepareCreated | null {
