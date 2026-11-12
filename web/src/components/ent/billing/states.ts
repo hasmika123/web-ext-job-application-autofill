@@ -6,6 +6,6 @@ export function registerBillingStates(): void {
     registerStateMap("billing-state", { SETUP: "grey-outline", ACTIVE: "green", PAST_DUE: "red", SUSPENDED: "grey", CANCELLED: "grey" });
   }
   if (!hasStateMap("invoice-state")) {
-    registerStateMap("invoice-state", { DRAFT: "grey-outline", OPEN: "amber", PAID: "green", VOID: "grey", UNCOLLECTIBLE: "red", OVERDUE: "red" });
+    registerStateMap("invoice-state", { DRAFT: "grey-outline", OPEN: "amber", PAID: "green", VOID: "grey", UNCOLLECTIBLE: "red", WRITTEN_OFF: "grey", OVERDUE: "red" });
   }
 }

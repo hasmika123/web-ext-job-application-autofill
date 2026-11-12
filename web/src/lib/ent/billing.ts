@@ -99,6 +99,8 @@ export interface InvoiceRow {
   currency: string;
   estimate: boolean;
   overdue: boolean;
+  /** Step 3a: Stripe's page to pay this open invoice; null otherwise. */
+  payUrl?: string | null;
 }
 
 export interface InvoicePage {
@@ -212,7 +214,7 @@ export const STATUS_LABEL: Record<string, string> = {
   CANCELLED: "Cancelled",
 };
 
-export const INVOICE_STATUS_LABEL: Record<string, string> = { DRAFT: "Draft", OPEN: "Open", PAID: "Paid", VOID: "Void", UNCOLLECTIBLE: "Uncollectible" };
+export const INVOICE_STATUS_LABEL: Record<string, string> = { DRAFT: "Draft", OPEN: "Open", PAID: "Paid", VOID: "Void", UNCOLLECTIBLE: "Uncollectible", WRITTEN_OFF: "Written off" };
 
 /** The words of an invoice line kind. */
 export const LINE_KIND_LABEL: Record<string, string> = {

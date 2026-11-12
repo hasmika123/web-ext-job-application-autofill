@@ -3,7 +3,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import PageHeader from "@/components/ent/shell/ShellContext";
-import { Button, EmptyState, ErrorState, ListSkeleton, Select, StatePill, Tab, TabList, TabPanel, TableSkeleton, Tabs } from "@kiwiply/ui";
+import { Button, buttonVariants, EmptyState, ErrorState, ListSkeleton, Select, StatePill, Tab, TabList, TabPanel, TableSkeleton, Tabs } from "@kiwiply/ui";
 import {
   INVOICE_STATUS_LABEL,
   LINE_KIND_LABEL,
@@ -257,6 +257,11 @@ function InvoicesTab({ orgId }: { orgId: number }) {
                       <StatePill domain="invoice-state" state={r.overdue ? "OVERDUE" : r.status} label={r.overdue ? `Overdue since ${day(r.dueDate)}` : INVOICE_STATUS_LABEL[r.status] ?? r.status} />
                     </td>
                     <td className="px-3 py-2.5 text-right">
+                      {r.payUrl ? (
+                        <a href={r.payUrl} target="_blank" rel="noopener noreferrer" className={`${buttonVariants("accent", "sm")} mr-2`} data-invoice-pay={r.id}>
+                          Pay
+                        </a>
+                      ) : null}
                       <Button type="button" size="sm" variant="ghost" aria-expanded={open === r.id} onClick={() => void toggle(r)} data-invoice-open={r.id}>
                         {open === r.id ? "Hide" : "Details"}
                       </Button>

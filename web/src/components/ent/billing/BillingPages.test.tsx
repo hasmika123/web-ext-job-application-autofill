@@ -31,7 +31,7 @@ const billing = {
   taxNote: "Taxes aren't calculated yet.",
 };
 const invoices = {
-  rows: [{ id: 41, number: "ACME-0041", kind: "RECURRING", periodStart: "2026-10-01", periodEnd: "2026-10-31", issueDate: "2026-11-01", dueDate: "2026-11-05", status: "OPEN", amountMinor: 127449, amountPaidMinor: 0, currency: "USD", estimate: true, overdue: true }],
+  rows: [{ id: 41, number: "ACME-0041", kind: "RECURRING", periodStart: "2026-10-01", periodEnd: "2026-10-31", issueDate: "2026-11-01", dueDate: "2026-11-05", status: "OPEN", amountMinor: 127449, amountPaidMinor: 0, currency: "USD", estimate: true, overdue: true, payUrl: "https://invoice.stripe.test/pay/41" }],
   page: 0,
   size: 25,
   total: 1,
@@ -139,6 +139,9 @@ describe("Billing & Invoices", () => {
     expect(urls).toContain("/api/orgs/2/billing/invoices?page=0");
     expect(screen.getByText(/Issued Nov 1, 2026 · Estimate/)).toBeTruthy();
     expect(screen.getByText("Overdue since Nov 5, 2026")).toBeTruthy();
+    const pay = document.querySelector<HTMLAnchorElement>("[data-invoice-pay='41']")!;
+    expect(pay.href).toBe("https://invoice.stripe.test/pay/41");
+    expect(pay.target).toBe("_blank");
     fireEvent.click(document.querySelector("[data-invoice-open='41']")!);
     await settle();
     expect(document.querySelector("[data-invoice-lines]")?.textContent).toMatch(/Base licence · 3 × \$14\.99\$44\.97/);
