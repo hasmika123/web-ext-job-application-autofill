@@ -83,6 +83,41 @@ export interface OrgDetail {
   audit: OrgAuditRow[];
 }
 
+/** The organization's billing as the platform admin sees it (ORG-BILLING-BUILD.md step 2); `account` is null until billing is started. */
+export interface OrgBilling {
+  orgId: number;
+  started: boolean;
+  stripeReady: boolean;
+  setupFeeExempt: boolean;
+  setupFeePriceMinor: number | null;
+  account: {
+    billingEmail: string;
+    currency: string;
+    collectionMethod: string;
+    periodStart: string | null;
+    periodEnd: string | null;
+    nextInvoiceOn: string | null;
+    source: "LOCAL" | "STRIPE" | string;
+    stripeCustomer: boolean;
+    setupFee: { status: "WAIVED" | "OWED" | "ADDED" | "PAID" | string; amountMinor: number | null; note: string | null } | null;
+    startedBy: string | null;
+    startedAt: string | null;
+  } | null;
+}
+
+/** "$500.00", or "Price not set" when the catalog has no published price (never $0). */
+export function feeText(minor: number | null | undefined): string {
+  if (minor == null) return "Price not set";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(minor / 100);
+}
+
+export const SETUP_FEE_LABEL: Record<string, string> = {
+  WAIVED: "Waived",
+  OWED: "Owed: added to the first invoice",
+  ADDED: "On the first invoice",
+  PAID: "Paid",
+};
+
 export interface LabelCheck {
   label: string;
   valid: boolean;
@@ -143,6 +178,7 @@ const ACTIONS: Record<string, string> = {
   ADMIN_HOSTNAME_SUSPEND: "Hostname suspended",
   ADMIN_HOSTNAME_RESUME: "Hostname resumed",
   ADMIN_OWNER_PASSWORD_RESET: "Owner password reset",
+  ADMIN_BILLING_START: "Billing started",
   ORG_CREATE: "Organization created",
   ORG_SUBDOMAIN_SET: "Subdomain set",
 };

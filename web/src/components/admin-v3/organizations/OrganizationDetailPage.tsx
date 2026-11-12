@@ -6,6 +6,7 @@ import { ArrowLeftIcon, BuildingIcon, Button, buttonVariants, ClockIcon, GlobeIc
 import { AdminHero, AdminPanel, AdminSaveProvider, AdminStatTiles, HistoryDrawer, StatusDot, useAdminSave } from "../common";
 import type { HistoryLoader } from "../common";
 import LabelField, { useLabelCheck } from "./LabelField";
+import OrgBillingPanel from "./OrgBillingPanel";
 import { SheetFrame } from "../common/ReasonSheet";
 import TempPasswordDialog from "@/components/ent/shared/TempPasswordDialog";
 import { adminFetch, type AdminOutcome } from "@/lib/admin-client";
@@ -189,6 +190,8 @@ function Inner({ initial, id }: { initial: OrgDetail | null; id: number }) {
           ))}
         </ul>
       </AdminPanel>
+
+      <OrgBillingPanel orgId={id} orgName={org.name} />
 
       <AdminPanel
         title="Hostnames"

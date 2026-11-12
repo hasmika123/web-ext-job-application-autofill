@@ -31,7 +31,14 @@ const detail = (over: Partial<OrgDetail> = {}): OrgDetail => ({
 });
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-const calls = () => (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => [String(c[0]).replace("/api/admin", ""), (c[1] as RequestInit | undefined)?.method ?? "GET", (c[1] as RequestInit | undefined)?.body ? JSON.parse((c[1] as RequestInit).body as string) : undefined]);
+/** The page's own calls (the Billing panel loads its status on its own; ORG-BILLING-BUILD.md step 2). */
+const calls = () =>
+  (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls
+    .map((c) => [String(c[0]).replace("/api/admin", ""), (c[1] as RequestInit | undefined)?.method ?? "GET", (c[1] as RequestInit | undefined)?.body ? JSON.parse((c[1] as RequestInit).body as string) : undefined])
+    .filter((c) => !String(c[0]).endsWith("/billing"));
+const notStarted = { orgId: 7, started: false, stripeReady: false, setupFeeExempt: false, setupFeePriceMinor: null, account: null };
+/** A fresh Response per call (a body can be read once): the Billing panel's status, else {@code body}. */
+const respond = (body: unknown, status = 200) => vi.fn(async (input: RequestInfo | URL) => (String(input).endsWith("/billing") ? json(notStarted) : json(body, status)));
 
 beforeEach(() => stubViewport(DESKTOP));
 afterEach(() => {
@@ -55,7 +62,7 @@ describe("OrganizationDetailPage", () => {
   });
 
   it("the enterprise switch asks for a reason, then posts it and shows the refreshed state", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(json(detail({ enterprise: { on: true, allowListed: true, denied: false, masterOn: true } })));
+    const fetchMock = respond(detail({ enterprise: { on: true, allowListed: true, denied: false, masterOn: true } }));
     vi.stubGlobal("fetch", fetchMock);
     show(<OrganizationDetailPage initial={detail()} id={7} />);
     fireEvent.click(screen.getByRole("switch", { name: /Enterprise for Acme Staffing/ }));
@@ -68,7 +75,7 @@ describe("OrganizationDetailPage", () => {
   });
 
   it("a module switch asks for a reason and posts the module key", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(json(detail({ modules: [{ key: "roles", label: "Roles and permissions", on: true, allowListed: true }] })));
+    const fetchMock = respond(detail({ modules: [{ key: "roles", label: "Roles and permissions", on: true, allowListed: true }] }));
     vi.stubGlobal("fetch", fetchMock);
     show(<OrganizationDetailPage initial={detail()} id={7} />);
     fireEvent.click(screen.getByRole("switch", { name: /Roles and permissions for Acme Staffing/ }));
@@ -80,7 +87,7 @@ describe("OrganizationDetailPage", () => {
 
   it("suspends a hostname with a reason and offers Resume afterwards", async () => {
     const suspended = detail({ hostnames: [{ ...detail().hostnames[0], status: "SUSPENDED", suspendedAt: "2026-10-02T10:00:00Z" }] });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json(suspended)));
+    vi.stubGlobal("fetch", respond(suspended));
     show(<OrganizationDetailPage initial={detail()} id={7} />);
     fireEvent.click(screen.getByRole("button", { name: "Suspend" }));
     await typeReason("Payment dispute under review");
@@ -134,9 +141,43 @@ describe("OrganizationDetailPage", () => {
 
   it("works on a phone and shows the load error with Try again when there is no organization", async () => {
     stubViewport(PHONE);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ error: "Couldn't load." }, 500)));
+    vi.stubGlobal("fetch", respond({ error: "Couldn't load." }, 500));
     show(<OrganizationDetailPage initial={null} id={7} />);
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("Couldn't load.")).toBeTruthy();
+  });
+
+  it("Billing: starts billing with the email, the waiver and a reason, then shows the account", async () => {
+    const started = {
+      ...notStarted,
+      started: true,
+      account: { billingEmail: "ap@acme.test", currency: "USD", collectionMethod: "SEND_INVOICE", periodStart: "2026-11-12", periodEnd: "2026-11-30", nextInvoiceOn: "2026-12-01", source: "LOCAL", stripeCustomer: false, setupFee: { status: "OWED", amountMinor: null, note: "Price not set yet." }, startedBy: "admin", startedAt: "2026-11-12T10:00:00Z" },
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => (String(input).endsWith("/billing/start") && init?.method === "POST" ? json(started) : json(notStarted)));
+    vi.stubGlobal("fetch", fetchMock);
+    show(<OrganizationDetailPage initial={detail()} id={7} />);
+    const form = await waitFor(() => {
+      const f = document.querySelector("[data-billing-start-form]");
+      if (!f) throw new Error("not yet");
+      return f as HTMLElement;
+    });
+    expect(form.textContent).toMatch(/Stripe is off: billing stays local and nothing is charged/);
+    expect(form.textContent).toMatch(/Price not set/);
+    fireEvent.change(within(form).getByLabelText("Billing email"), { target: { value: "ap@acme.test" } });
+    fireEvent.click(within(form).getByRole("switch", { name: "Waive the setup fee" }));
+    fireEvent.change(within(form).getByLabelText("Reason"), { target: { value: "Signed the order form" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Start billing" }));
+    await waitFor(() => expect(document.querySelector("[data-billing-started]")).toBeTruthy());
+    const post = fetchMock.mock.calls.find((c) => String(c[0]).endsWith("/billing/start"))!;
+    expect(JSON.parse(String((post[1] as RequestInit).body))).toEqual({ billingEmail: "ap@acme.test", waiveSetupFee: true, reason: "Signed the order form" });
+    expect(document.querySelector("[data-setup-fee='OWED']")?.textContent).toMatch(/first invoice · Price not set/);
+    expect(screen.getByText("Local: nothing is charged")).toBeTruthy();
+  });
+
+  it("Billing: an organization that existed before setup fees offers no waiver", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json({ ...notStarted, setupFeeExempt: true })));
+    show(<OrganizationDetailPage initial={detail()} id={7} />);
+    await waitFor(() => expect(document.querySelector("[data-fee-exempt]")).toBeTruthy());
+    expect(screen.queryByRole("switch", { name: "Waive the setup fee" })).toBeNull();
   });
 });

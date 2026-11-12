@@ -126,12 +126,44 @@ The direct `POST /licenses/{id}` and `PUT /licenses/{id}/features` stay. They no
 - `CostConfirmSheet` for commercial dependencies (no dependency rules exist yet);
 - bulk quotes, tiers, promotions and presets.
 
-## Step 2 and step 3 (later PRs)
-- **Step 2:**
-  - `createOrgCustomer` (`kiwiply_scope=org`, `org_id`), filling `org_billing_account.stripe_customer_id`;
-  - the setup fee as a pending invoice item that lands on the first invoice;
-  - the portal;
-  - `OrgBillingCustomerLookup`.
+## Step 2: start billing, the Stripe customer, the setup fee, the portal, the period rollover (this PR)
+**User decision 2026-11-12: the platform admin starts billing** for an organization, from a **Billing** panel on its page in the Kiwiply admin.
+
+**Starting** (`OrgBillingStartService`) creates the `org_billing_account`:
+- billing email, USD, invoices sent each period and paid within 15 days;
+- a first period from today to the end of the month;
+- the setup fee:
+  - **WAIVED** when the organization existed before this shipped (`organization.setup_fee_exempt`, set for every existing row by the changelog), or when the admin waives it with a reason;
+  - otherwise **OWED** at the published ORG one-time price of `ORG_SETUP_FEE`. With no price published, it stays OWED at "price not set" (never $0).
+
+**Stripe** is used only when the new setting **`enterprise.billing.stripe_enabled`** (default **off**) is on AND a Stripe key is configured:
+- one customer (`createOrgCustomer`, `kiwiply_scope=org`, key `orgcust-{orgId}`), mirrored to `organization.stripe_customer_id`;
+- an owed, priced fee becomes a **pending invoice item** (key `orgsetup-{orgId}`, status ADDED). It waits for the organization's first invoice, which step 3's subscription creates;
+- Stripe calls run first, so a failure saves nothing (502 `BILLING_PROVIDER`) and a retry reuses the same objects;
+- with the setting off, billing stays **local**: nothing is sent to Stripe and nothing is charged.
+
+**API:**
+- `GET /api/admin/orgs/{id}/billing` and `POST /api/admin/orgs/{id}/billing/start` (`ROLE_ADMIN`; body `{billingEmail, waiveSetupFee, reason}`; 409 `BILLING_STARTED`; admin audit `ORG_BILLING_START` + the organization's `ADMIN_BILLING_START`, HIGH);
+- `POST /api/orgs/{orgId}/billing/portal` (`billing.manage`, module billing): a Stripe portal session for the organization's own customer, back to `/w/admin/billing`. 409 `BILLING_NOT_CONNECTED` until it has one; audit `BILLING_PORTAL`.
+
+`billingConnected` now means the organization has its Stripe customer.
+
+**Period rollover** (`OrgBillingPeriodJob`, daily at 00:40 UTC with a job lease; `OrgBillingPeriodService`). For every account whose period ended:
+- finish the PENDING removals whose date came (APPLIED, add-on off);
+- while billing is local, write an **Estimate** invoice (`ACME-E0001`, `source = LOCAL`, due in 15 days) from the monthly amounts on the licences live at the period's end. Nothing priced means no invoice (never $0);
+- move the period on a calendar month at a time, catching up missed runs.
+
+**Web:**
+- the admin `OrgBillingPanel`: start form, or the account summary once started;
+- the Billing & Invoices page opens the portal when connected, and shows where invoices go and the setup fee;
+- BFF routes for both.
+
+**Not in step 2:**
+- `OrgBillingCustomerLookup` (step 3 routes webhooks with it);
+- changing the billing email after starting;
+- one-time Checkout for the fee (it goes on the first invoice instead, by decision).
+
+## Step 3 (next PR)
 - **Step 3:**
   - the Stripe `LicenseChangeApplier`: a send-invoice subscription, one item per price, prorations as invoice items, and removals with `proration_behavior=none`;
   - `OrgBillingWebhookHandler`: invoice, payment, failed payment → PAST_DUE, and the `paid_through` lapse;
@@ -161,4 +193,14 @@ The direct `POST /licenses/{id}` and `PUT /licenses/{id}/features` stay. They no
     - `LicenseQuoteIT` (setup without billing, stale, expired, used, period-end removal with Keep, tenant wall);
     - four `OrgIsolationIT` rows; the settings pins.
   - Web: `QuoteSummary`, the review → confirm sheet, Keep, the BFF routes, and tests.
-- **Next: step 2** (one Stripe customer per organization, the setup fee on the first invoice, the portal, `LocalPeriodRolloverJob`).
+- **Step 2 built (2026-11-12).**
+  - API:
+    - `OrgBillingStartService` (status, start), `OrgBillingPortalService`, `OrgBillingPeriodService` + `OrgBillingPeriodJob`;
+    - `StripeGateway.createOrgCustomer`;
+    - the changelog `20261129010000_ent_org_billing_start.xml` (account Stripe and setup-fee columns, `organization.setup_fee_exempt` set for existing rows);
+    - `enterprise.billing.stripe_enabled` (off).
+  - Tests: `OrgBillingStartServiceTest`, `OrgBillingStartIT` (admin start, portal refusal, rollover estimate + removal), one `OrgIsolationIT` row.
+  - Web: `OrgBillingPanel` on the admin organization page, and the portal and account rows on Billing & Invoices, with tests.
+- **Next: step 3** (the Stripe subscription and licence items, org webhooks, failed payments, the reconciler). Before anything is charged:
+  - B5 (prices published);
+  - `enterprise.billing.stripe_enabled` switched on.

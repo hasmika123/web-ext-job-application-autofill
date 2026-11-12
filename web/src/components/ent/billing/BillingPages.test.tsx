@@ -25,7 +25,7 @@ const billing = {
   orgName: "Acme",
   status: "ACTIVE",
   billingConnected: false,
-  account: { status: "ACTIVE", currency: "USD", collectionMethod: "SEND_INVOICE", billingCycle: "MONTH", periodStart: "2026-11-01", periodEnd: "2026-11-30", nextInvoiceOn: "2026-12-01", paidThroughOn: "2026-11-30", source: "LOCAL" },
+  account: { status: "ACTIVE", currency: "USD", collectionMethod: "SEND_INVOICE", billingCycle: "MONTH", periodStart: "2026-11-01", periodEnd: "2026-11-30", nextInvoiceOn: "2026-12-01", paidThroughOn: "2026-11-30", source: "LOCAL", billingEmail: "ap@acme.test", setupFeeStatus: "WAIVED", setupFeeAmountMinor: null },
   paymentMethod: { kind: "CARD", brand: "visa", last4: "4242", expMonth: 4, expYear: 2029 },
   contract: { name: "Acme 2026", reference: "AC-26", status: "ACTIVE", startsAt: "2026-01-01T00:00:00Z", endsAt: null, billingInterval: "MONTH" },
   taxNote: "Taxes aren't calculated yet.",
@@ -53,16 +53,19 @@ const history = { months: [{ period: "2026-10", matchViews: 1, prepSessions: 0, 
 
 let urls: string[];
 let overview: unknown;
+let account: unknown;
 beforeEach(() => {
   urls = [];
   overview = setupOverview;
+  account = billing;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
       urls.push(url);
       let json: unknown = {};
       if (url.endsWith("/billing/overview")) json = overview;
-      else if (url.endsWith("/billing")) json = billing;
+      else if (url.endsWith("/billing/portal")) json = { url: "https://billing.stripe.test/p/session" };
+      else if (url.endsWith("/billing")) json = account;
       else if (url.includes("/billing/invoices/41")) json = invoice;
       else if (url.includes("/billing/invoices")) json = invoices;
       else if (url.includes("/usage/history")) json = history;
@@ -110,6 +113,22 @@ describe("Billing & Invoices", () => {
     const portal = document.querySelector<HTMLButtonElement>("[data-billing-portal]")!;
     expect(portal.disabled).toBe(true);
     expect(portal.textContent).toBe("Billing isn't connected yet");
+  });
+
+  it("once Stripe bills the organization the portal opens; the account shows where invoices go and the setup fee", async () => {
+    account = { ...billing, billingConnected: true };
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    render(<BillingPage orgId={2} />);
+    await settle();
+    expect(screen.getByText("ap@acme.test")).toBeTruthy();
+    expect(screen.getByText("Waived")).toBeTruthy();
+    const portal = document.querySelector<HTMLButtonElement>("[data-billing-portal]")!;
+    expect(portal.disabled).toBe(false);
+    fireEvent.click(portal);
+    await settle();
+    expect(urls).toContain("/api/orgs/2/billing/portal");
+    expect(assign).toHaveBeenCalledWith("https://billing.stripe.test/p/session");
   });
 
   it("lists invoices as estimates, marks an overdue one and opens its lines", async () => {

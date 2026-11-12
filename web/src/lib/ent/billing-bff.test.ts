@@ -40,6 +40,14 @@ describe("billing BFF", () => {
     expect(serverApiFetch).not.toHaveBeenCalled();
   });
 
+  it("opens the billing portal with a bodiless POST, and only that route takes a POST", async () => {
+    await handleBilling(req("POST", "/api/orgs/2/billing/portal"), ctx("2", ["portal"]));
+    expect(serverApiFetch.mock.calls[0][0]).toBe("/api/orgs/2/billing/portal");
+    expect((serverApiFetch.mock.calls[0][1] as RequestInit).method).toBe("POST");
+    expect((serverApiFetch.mock.calls[0][1] as RequestInit).body).toBeUndefined();
+    expect((await handleUsage(req("POST", "/api/orgs/2/usage"), ctx("2"))).status).toBe(404);
+  });
+
   it("drops query values that are not plain words", () => {
     expect(cleanQuery("?period=2026-10%26x%3D1&months=6", ["period", "months"])).toBe("?months=6");
     expect(cleanQuery("", ["period"])).toBe("");
