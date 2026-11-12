@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Licence quotes (docs/enterprise-v2/ORG-BILLING-BUILD.md step 1b, ADR-019). Purely additive.
+          - license_quote: what one licence change will cost, shown before it is confirmed. It lives 15 minutes (enterprise.quote.ttl_minutes);
+            confirming re-prices the change and refuses it (QUOTE_STALE) when the licence or a price moved since. No money moves in step 1b.
+          - license_change.quote_id: the quote a change was confirmed from (null for changes made before quotes, and for suspend / reactivate / end).
+    -->
+    <changeSet id="ent-license-quote-1-table" author="ent">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="license_quote"/></not></preConditions>
+        <createTable tableName="license_quote">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="OPEN"><constraints nullable="false"/></column>
+            <column name="request_json" type="varchar(2000)"><constraints nullable="false"/></column>
+            <column name="lines_json" type="text"><constraints nullable="false"/></column>
+            <column name="totals_json" type="varchar(1000)"><constraints nullable="false"/></column>
+            <column name="inputs_hash" type="char(64)"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)"><constraints nullable="false"/></column>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="created_at" type="datetime(6)"><constraints nullable="false"/></column>
+            <column name="expires_at" type="datetime(6)"><constraints nullable="false"/></column>
+            <column name="confirmed_at" type="datetime(6)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="license_quote" baseColumnNames="org_id" constraintName="fk_license_quote_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <createIndex tableName="license_quote" indexName="ix_license_quote_org"><column name="org_id"/><column name="consultant_id"/><column name="created_at"/></createIndex>
+    </changeSet>
+
+    <changeSet id="ent-license-quote-2-change-column" author="ent">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="license_change" columnName="quote_id"/></not></preConditions>
+        <addColumn tableName="license_change">
+            <column name="quote_id" type="bigint"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

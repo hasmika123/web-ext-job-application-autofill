@@ -227,6 +227,7 @@ class SettingDefinitionsTest {
         assertValid(hosts, "\"kiwiply.com\"", false);
         assertKey("enterprise.tenant.cache_seconds", "60", 0, 600, Risk.LOW);
         assertKey("enterprise.tenant.rate_per_min", "120", 10, 6000, Risk.MEDIUM);
+        assertKey("enterprise.quote.ttl_minutes", "15", 1, 240, Risk.MEDIUM); // ORG-BILLING-BUILD.md step 1b: the licence quotes read it
     }
 
     @Test
@@ -235,7 +236,7 @@ class SettingDefinitionsTest {
         assertThat(deferred).contains(
             "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces",
             "enterprise.domains.subdomains_per_day", "enterprise.domains.recheck_hours", "enterprise.domains.grace_hours_before_suspend",
-            "org.consent.request_cooldown_days", "enterprise.billing.mode_default", "enterprise.quote.ttl_minutes", "enterprise.usage.retention_months"
+            "org.consent.request_cooldown_days", "enterprise.billing.mode_default", "enterprise.usage.retention_months"
         );
         for (String k : deferred) {
             assertThat(SettingDefinitions.find(k)).as("%s must not be offered in admin yet", k).isNull();

@@ -1,31 +1,41 @@
 package com.dossier.api.service.ent.licenses;
 
+import com.dossier.api.domain.catalog.ProductPrice;
 import com.dossier.api.domain.ent.billing.ConsultantLicense;
 import com.dossier.api.domain.ent.billing.FeatureDefinition;
 import com.dossier.api.domain.ent.billing.LicenseChange;
 import com.dossier.api.domain.ent.billing.LicenseFeature;
+import com.dossier.api.domain.ent.billing.OrgBillingAccount;
 import com.dossier.api.domain.ent.billing.OrgContractPrice;
 import com.dossier.api.domain.ent.billing.Product;
+import com.dossier.api.domain.ent.billing.SubscriptionChange;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.repository.catalog.FeatureDefinitionRepository;
 import com.dossier.api.repository.catalog.ProductRepository;
 import com.dossier.api.repository.ent.billing.ConsultantLicenseRepository;
 import com.dossier.api.repository.ent.billing.LicenseChangeRepository;
 import com.dossier.api.repository.ent.billing.LicenseFeatureRepository;
+import com.dossier.api.repository.ent.billing.OrgBillingAccountRepository;
 import com.dossier.api.repository.ent.billing.OrgContractPriceRepository;
+import com.dossier.api.repository.ent.billing.SubscriptionChangeRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
+import com.dossier.api.repository.sub.ProductPriceRepository;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.ent.consultants.ConsultantAccess;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -36,14 +46,18 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Consultant licences without money (LICENCES-BUILD.md L3; user decision 2026-11-10): an Org Admin gives a consultant a licence, chooses its add-ons,
- * suspends, reactivates or ends it, and the change works at once. Nothing is billed. A price is shown only where the organization has a contract price;
- * otherwise it is "not set". Every change writes an APPLIED {@code license_change} row and one {@code LICENSE_CHANGE} audit row.
+ * Consultant licences without money (LICENCES-BUILD.md L3; ORG-BILLING-BUILD.md step 1b): an Org Admin gives a consultant a licence, chooses its add-ons,
+ * suspends, reactivates or ends it. Nothing is billed. Every change writes {@code license_change} rows, one {@code LICENSE_CHANGE} audit row and one
+ * {@code subscription_change} line of the organization's subscription history.
  *
- * <p>Price quotes, confirmation and Stripe come later on top of this writer (DD-14); they change what a change costs, not what it grants.
+ * <p>Prices: the organization's contract price, else the catalog's active ORG monthly price, else "not set" (never $0).
  *
- * <p>Permissions: reads need {@code licenses.view}, writes {@code licenses.manage} (both ORG scope); everything else is a 404 (the isolation promise).
- * Rows are keyed by consultant, so the page never needs a licence id it has not seen.
+ * <p>When the organization has a billing period ({@code org_billing_account}), an add-on that is taken away stays until the period ends (C9: removals at
+ * period end): its {@code license_feature.ends_at} is the period end and a PENDING {@code license_change} can be undone until then. Without a billing period,
+ * which is every real organization until Stripe is connected, it stops at once. Giving the add-on back before it ends cancels the removal.
+ *
+ * <p>Changes of add-ons go through a quote first ({@link LicenseQuoteService}); suspend, reactivate and end are one-click. Permissions: reads need
+ * {@code licenses.view}, writes {@code licenses.manage} (both ORG scope); everything else is a 404. Rows are keyed by consultant.
  */
 @Service
 @Transactional
@@ -53,6 +67,7 @@ public class OrgLicenseService {
     public static final String MANAGE = "licenses.manage";
     public static final String AUDIT_ACTION = "LICENSE_CHANGE";
     static final String BASE_PRODUCT_CODE = "ORG_BASE_LICENSE";
+    static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US);
 
     /** The status a row shows. NONE = the consultant has no licence. */
     public enum Status {
@@ -67,6 +82,7 @@ public class OrgLicenseService {
 
     public record Catalog(String currency, Long basePriceMinor, List<AddOn> addOns, boolean billingConnected) {}
 
+    /** {@code endingFeatures}: the add-ons that are taken away at the end of the billing period (they still work until then). */
     public record Row(
         Long consultantId,
         String name,
@@ -78,12 +94,19 @@ public class OrgLicenseService {
         boolean priceSet,
         Instant since,
         Instant endsAt,
-        String suspendReason
+        String suspendReason,
+        List<String> endingFeatures
     ) {}
 
     public record Change(String kind, String featureKey, String summary, Instant at, Long actorMemberId) {}
 
-    public record Detail(Row row, List<Change> history) {}
+    /** A removal waiting for the end of the billing period; {@code changeId} undoes it ({@code DELETE /licenses/changes/{changeId}}). */
+    public record Scheduled(Long changeId, String featureKey, String name, Instant effectiveAt) {}
+
+    public record Detail(Row row, List<Change> history, List<Scheduled> scheduled) {}
+
+    /** The organization's current billing period: [start, end) as instants, and its last day. */
+    record Period(Instant start, Instant end, LocalDate lastDay) {}
 
     private final ConsultantProfileRepository consultants;
     private final ConsultantLicenseRepository licenses;
@@ -92,6 +115,9 @@ public class OrgLicenseService {
     private final ProductRepository products;
     private final FeatureDefinitionRepository definitions;
     private final OrgContractPriceRepository contractPrices;
+    private final ProductPriceRepository catalogPrices;
+    private final OrgBillingAccountRepository billingAccounts;
+    private final SubscriptionChangeRepository subscriptionChanges;
     private final ConsultantAccess access;
     private final OrgAuditService audit;
     private Clock clock = Clock.systemUTC();
@@ -104,6 +130,9 @@ public class OrgLicenseService {
         ProductRepository products,
         FeatureDefinitionRepository definitions,
         OrgContractPriceRepository contractPrices,
+        ProductPriceRepository catalogPrices,
+        OrgBillingAccountRepository billingAccounts,
+        SubscriptionChangeRepository subscriptionChanges,
         ConsultantAccess access,
         OrgAuditService audit
     ) {
@@ -114,6 +143,9 @@ public class OrgLicenseService {
         this.products = products;
         this.definitions = definitions;
         this.contractPrices = contractPrices;
+        this.catalogPrices = catalogPrices;
+        this.billingAccounts = billingAccounts;
+        this.subscriptionChanges = subscriptionChanges;
         this.access = access;
         this.audit = audit;
     }
@@ -123,7 +155,7 @@ public class OrgLicenseService {
         this.clock = clock;
     }
 
-    private Instant now() {
+    Instant now() {
         return Instant.now(clock).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
     }
 
@@ -133,11 +165,7 @@ public class OrgLicenseService {
     @Transactional(readOnly = true)
     public List<Row> list(OrgMembership me) {
         access.require(me, VIEW);
-        Instant now = now();
-        Prices prices = prices(me.orgId());
-        List<Row> out = new ArrayList<>();
-        for (ConsultantProfile c : consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(me.orgId(), "ACTIVE")) out.add(row(c, current(me.orgId(), c.getId()), prices, now));
-        return out;
+        return rowsFor(me.orgId());
     }
 
     /**
@@ -153,23 +181,14 @@ public class OrgLicenseService {
         return out;
     }
 
-    /** One consultant's licence and its history, newest first. */
+    /** One consultant's licence, its history (newest first) and the removals waiting for the end of the period. */
     @Transactional(readOnly = true)
     public Detail get(OrgMembership me, Long consultantId) {
         access.require(me, VIEW);
-        ConsultantProfile c = consultant(me.orgId(), consultantId);
-        Optional<ConsultantLicense> l = current(me.orgId(), c.getId());
-        List<Change> history = new ArrayList<>();
-        for (ConsultantLicense any : licenses.findByOrgIdAndConsultantIdOrderByStartsAtDesc(me.orgId(), c.getId())) {
-            for (LicenseChange ch : changes.findByOrgIdAndLicenseIdOrderByCreatedAtDesc(me.orgId(), any.getId())) {
-                history.add(new Change(ch.getKind(), ch.getFeatureKey(), ch.getSummary(), ch.getEffectiveAt(), ch.getActorMemberId()));
-            }
-        }
-        history.sort(Comparator.comparing(Change::at, Comparator.nullsLast(Comparator.reverseOrder())));
-        return new Detail(row(c, l, prices(me.orgId()), now()), history);
+        return detail(me.orgId(), consultant(me.orgId(), consultantId));
     }
 
-    /** The base licence and the add-ons an organization can give, with its contract price where one exists. */
+    /** The base licence and the add-ons an organization can give, with the price it would pay (contract, else catalog) or null. */
     @Transactional(readOnly = true)
     public Catalog catalog(OrgMembership me) {
         access.require(me, VIEW);
@@ -188,12 +207,17 @@ public class OrgLicenseService {
 
     /** Give a consultant a licence with these add-ons. 409 {@code ALREADY_LICENSED} when they hold one that is not ended. */
     public Detail give(OrgMembership me, Long consultantId, Set<String> featureKeys) {
+        return give(me, consultantId, featureKeys, null);
+    }
+
+    /** {@link #give}, recording the quote it was confirmed from. */
+    public Detail give(OrgMembership me, Long consultantId, Set<String> featureKeys, Long quoteId) {
         write(me);
         ConsultantProfile c = consultant(me.orgId(), consultantId);
         if (current(me.orgId(), c.getId()).filter(l -> !"ENDED".equals(l.getStatus())).isPresent()) throw conflict("ALREADY_LICENSED", "This consultant already has a licence.");
         Map<String, Product> addOns = addOnProducts();
         requireKnown(featureKeys, addOns);
-        Product base = products.findByCode(BASE_PRODUCT_CODE).orElseThrow(() -> new IllegalStateException("catalog product " + BASE_PRODUCT_CODE + " missing"));
+        Product base = baseProduct();
         Instant now = now();
         Prices prices = prices(me.orgId());
         ConsultantLicense l = new ConsultantLicense();
@@ -211,14 +235,24 @@ public class OrgLicenseService {
         l.setUpdatedAt(now);
         l = licenses.saveAndFlush(l);
         String batch = UUID.randomUUID().toString();
-        change(me, l, batch, "CREATE", null, "gave a licence", nz(prices.of(base.getId())), now);
-        for (String key : ordered(featureKeys)) addFeature(me, l, addOns.get(key), prices, batch, now);
-        audit.record(me, AUDIT_ACTION, "CONSULTANT", null, String.valueOf(c.getId()), "gave a licence" + (featureKeys.isEmpty() ? "" : " with " + String.join(", ", ordered(featureKeys))));
-        return get(me, c.getId());
+        change(me, l, batch, quoteId, "CREATE", null, "gave a licence", nz(prices.of(base.getId())), now);
+        for (String key : ordered(featureKeys)) addFeature(me, l, addOns.get(key), prices, batch, quoteId, now);
+        String what = "gave a licence" + (featureKeys.isEmpty() ? "" : " with " + String.join(", ", ordered(featureKeys)));
+        audit.record(me, AUDIT_ACTION, "CONSULTANT", null, String.valueOf(c.getId()), what + quoteNote(quoteId));
+        history(me, "ADDED", "Gave " + c.getDisplayName() + " a licence", 1, now);
+        return detail(me.orgId(), c);
     }
 
-    /** Make the licence carry exactly these add-ons: new ones start now, missing ones stop now. A change that changes nothing writes nothing. */
+    /** Make the licence carry exactly these add-ons. A change that changes nothing writes nothing. */
     public Detail setFeatures(OrgMembership me, Long consultantId, Set<String> featureKeys) {
+        return setFeatures(me, consultantId, featureKeys, null);
+    }
+
+    /**
+     * {@link #setFeatures}, recording the quote it was confirmed from. New add-ons start now. A missing one stops at the end of the billing period when
+     * there is one (a PENDING removal, see the class comment), otherwise now. An add-on whose removal is pending and that is asked for again is kept.
+     */
+    public Detail setFeatures(OrgMembership me, Long consultantId, Set<String> featureKeys, Long quoteId) {
         write(me);
         ConsultantProfile c = consultant(me.orgId(), consultantId);
         ConsultantLicense l = liveOrSuspended(me.orgId(), c.getId());
@@ -226,33 +260,73 @@ public class OrgLicenseService {
         requireKnown(featureKeys, addOns);
         Instant now = now();
         Prices prices = prices(me.orgId());
-        Map<String, LicenseFeature> live = new LinkedHashMap<>();
-        for (LicenseFeature f : features.findByOrgIdAndLicenseIdOrderByIdAsc(me.orgId(), l.getId())) if (OrgLicenseGate.live(f, now)) live.put(f.getFeatureKey(), f);
+        Optional<Period> period = period(me.orgId(), now);
+        Map<String, LicenseFeature> live = liveFeatures(l, now);
         String batch = UUID.randomUUID().toString();
-        List<String> added = new ArrayList<>();
-        List<String> removed = new ArrayList<>();
+        List<String> parts = new ArrayList<>();
         for (String key : ordered(featureKeys)) {
-            if (live.containsKey(key)) continue;
-            addFeature(me, l, addOns.get(key), prices, batch, now);
-            added.add(key);
+            LicenseFeature f = live.get(key);
+            if (f == null) {
+                addFeature(me, l, addOns.get(key), prices, batch, quoteId, now);
+                parts.add("added " + nameOf(key, addOns));
+            } else if (f.getEndsAt() != null) {
+                keep(me, l, f, batch, quoteId, addOns, now);
+                parts.add("kept " + nameOf(key, addOns));
+            }
         }
         for (LicenseFeature f : live.values()) {
-            if (featureKeys.contains(f.getFeatureKey())) continue;
-            f.setLive(false);
-            f.setEndsAt(now);
-            features.save(f);
-            change(me, l, batch, "REMOVE_FEATURE", f.getFeatureKey(), "removed " + nameOf(f.getFeatureKey(), addOns), -nz(f.getUnitAmountMinor()) * Math.max(1, f.getQuantity() == null ? 1 : f.getQuantity()), now);
-            removed.add(f.getFeatureKey());
+            if (featureKeys.contains(f.getFeatureKey()) || f.getEndsAt() != null) continue;
+            long delta = -nz(f.getUnitAmountMinor()) * qty(f);
+            String name = nameOf(f.getFeatureKey(), addOns);
+            if (period.isPresent()) {
+                f.setEndsAt(period.get().end());
+                features.save(f);
+                LicenseChange ch = newChange(l, batch, "REMOVE_FEATURE", f.getFeatureKey(), "removes " + name + " on " + DAY.format(period.get().lastDay().plusDays(1)), delta, period.get().end(), me.memberId());
+                ch.setStatus("PENDING");
+                ch.setAppliedAt(null);
+                ch.setQuoteId(quoteId);
+                changes.save(ch);
+                parts.add("removes " + name + " when the period ends");
+            } else {
+                f.setLive(false);
+                f.setEndsAt(now);
+                features.save(f);
+                change(me, l, batch, quoteId, "REMOVE_FEATURE", f.getFeatureKey(), "removed " + name, delta, now);
+                parts.add("removed " + name);
+            }
         }
-        if (!added.isEmpty() || !removed.isEmpty()) {
+        if (!parts.isEmpty()) {
             l.setUpdatedAt(now);
             licenses.save(l);
-            List<String> parts = new ArrayList<>();
-            if (!added.isEmpty()) parts.add("added " + String.join(", ", added));
-            if (!removed.isEmpty()) parts.add("removed " + String.join(", ", removed));
-            audit.record(me, AUDIT_ACTION, "CONSULTANT", null, String.valueOf(c.getId()), String.join("; ", parts));
+            String what = String.join("; ", parts);
+            audit.record(me, AUDIT_ACTION, "CONSULTANT", null, String.valueOf(c.getId()), what + quoteNote(quoteId));
+            history(me, "CHANGED", c.getDisplayName() + ": " + what, 0, now);
         }
-        return get(me, c.getId());
+        return detail(me.orgId(), c);
+    }
+
+    /** Undo a removal that waits for the end of the period: the add-on stays. 409 {@code NOT_PENDING} once it is undone or has happened. */
+    public Detail keepFeature(OrgMembership me, Long changeId) {
+        write(me);
+        if (changeId == null) throw new OrgNotFoundException();
+        LicenseChange ch = changes.findByOrgIdAndId(me.orgId(), changeId).orElseThrow(OrgNotFoundException::new);
+        ConsultantLicense l = licenses.findByOrgIdAndId(me.orgId(), ch.getLicenseId()).orElseThrow(OrgNotFoundException::new);
+        ConsultantProfile c = consultant(me.orgId(), l.getConsultantId());
+        Instant now = now();
+        if (!"PENDING".equals(ch.getStatus()) || !"REMOVE_FEATURE".equals(ch.getKind()) || !ch.getEffectiveAt().isAfter(now) || "ENDED".equals(l.getStatus())) {
+            throw conflict("NOT_PENDING", "This removal is no longer waiting. Reload to see the latest.");
+        }
+        LicenseFeature f = liveFeatures(l, now).get(ch.getFeatureKey());
+        Map<String, Product> addOns = addOnProducts();
+        if (f != null) keep(me, l, f, UUID.randomUUID().toString(), null, addOns, now);
+        else {
+            ch.setStatus("CANCELLED");
+            changes.save(ch);
+        }
+        String what = "kept " + nameOf(ch.getFeatureKey(), addOns);
+        audit.record(me, AUDIT_ACTION, "CONSULTANT", null, String.valueOf(c.getId()), what);
+        history(me, "CHANGED", c.getDisplayName() + ": " + what, 0, now);
+        return detail(me.orgId(), c);
     }
 
     /** Stop the licence now, keeping its add-ons for a reactivation. A reason is required. */
@@ -261,16 +335,16 @@ public class OrgLicenseService {
         String why = reason(reason);
         ConsultantProfile c = consultant(me.orgId(), consultantId);
         ConsultantLicense l = liveOrSuspended(me.orgId(), c.getId());
-        if ("SUSPENDED".equals(l.getStatus())) return get(me, c.getId());
+        if ("SUSPENDED".equals(l.getStatus())) return detail(me.orgId(), c);
         Instant now = now();
         l.setStatus("SUSPENDED");
         l.setSuspendedAt(now);
         l.setSuspendReason(why);
         l.setUpdatedAt(now);
         licenses.save(l);
-        change(me, l, UUID.randomUUID().toString(), "SUSPEND", null, "suspended: " + why, 0L, now);
+        change(me, l, UUID.randomUUID().toString(), null, "SUSPEND", null, "suspended: " + why, 0L, now);
         audit.record(me, AUDIT_ACTION, "CONSULTANT", null, String.valueOf(c.getId()), "suspended the licence: " + why);
-        return get(me, c.getId());
+        return detail(me.orgId(), c);
     }
 
     /** Turn a suspended licence back on, with the add-ons it had. */
@@ -278,16 +352,16 @@ public class OrgLicenseService {
         write(me);
         ConsultantProfile c = consultant(me.orgId(), consultantId);
         ConsultantLicense l = liveOrSuspended(me.orgId(), c.getId());
-        if (!"SUSPENDED".equals(l.getStatus())) return get(me, c.getId());
+        if (!"SUSPENDED".equals(l.getStatus())) return detail(me.orgId(), c);
         Instant now = now();
         l.setStatus("ACTIVE");
         l.setSuspendedAt(null);
         l.setSuspendReason(null);
         l.setUpdatedAt(now);
         licenses.save(l);
-        change(me, l, UUID.randomUUID().toString(), "REACTIVATE", null, "reactivated", 0L, now);
+        change(me, l, UUID.randomUUID().toString(), null, "REACTIVATE", null, "reactivated", 0L, now);
         audit.record(me, AUDIT_ACTION, "CONSULTANT", null, String.valueOf(c.getId()), "reactivated the licence");
-        return get(me, c.getId());
+        return detail(me.orgId(), c);
     }
 
     /** End the licence now, with its add-ons. A reason is required; giving a new licence later starts a new row (history stays). */
@@ -296,9 +370,11 @@ public class OrgLicenseService {
         String why = reason(reason);
         ConsultantProfile c = consultant(me.orgId(), consultantId);
         ConsultantLicense l = liveOrSuspended(me.orgId(), c.getId());
-        endNow(me, l, "REMOVED", why, now());
+        Instant now = now();
+        endNow(l, "REMOVED", why, now, me.memberId());
         audit.record(me, AUDIT_ACTION, "CONSULTANT", null, String.valueOf(c.getId()), "ended the licence: " + why);
-        return get(me, c.getId());
+        history(me, "REMOVED", "Ended " + c.getDisplayName() + "'s licence", -1, now);
+        return detail(me.orgId(), c);
     }
 
     /**
@@ -308,22 +384,58 @@ public class OrgLicenseService {
     public boolean endForSeat(Long orgId, Long consultantId, String endReason, Long actorMemberId) {
         Optional<ConsultantLicense> l = current(orgId, consultantId).filter(x -> !"ENDED".equals(x.getStatus()));
         if (l.isEmpty()) return false;
-        endNow(null, l.get(), endReason, endReason.toLowerCase(java.util.Locale.ROOT).replace('_', ' '), now(), actorMemberId);
+        endNow(l.get(), endReason, endReason.toLowerCase(Locale.ROOT).replace('_', ' '), now(), actorMemberId);
         return true;
     }
 
-    // ------------------------------------------------------------------------------------------ helpers
+    // ------------------------------------------------------------------------------------------ helpers (the quote service uses the package ones)
 
-    private void endNow(OrgMembership me, ConsultantLicense l, String endReason, String why, Instant now) {
-        endNow(me, l, endReason, why, now, me == null ? null : me.memberId());
+    private Detail detail(Long orgId, ConsultantProfile c) {
+        Optional<ConsultantLicense> l = current(orgId, c.getId());
+        Instant now = now();
+        List<Change> history = new ArrayList<>();
+        for (ConsultantLicense any : licenses.findByOrgIdAndConsultantIdOrderByStartsAtDesc(orgId, c.getId())) {
+            for (LicenseChange ch : changes.findByOrgIdAndLicenseIdOrderByCreatedAtDesc(orgId, any.getId())) {
+                if ("CANCELLED".equals(ch.getStatus())) continue;
+                history.add(new Change(ch.getKind(), ch.getFeatureKey(), ch.getSummary(), "PENDING".equals(ch.getStatus()) ? ch.getCreatedAt() : ch.getEffectiveAt(), ch.getActorMemberId()));
+            }
+        }
+        history.sort(Comparator.comparing(Change::at, Comparator.nullsLast(Comparator.reverseOrder())));
+        List<Scheduled> scheduled = new ArrayList<>();
+        if (l.isPresent() && !"ENDED".equals(l.get().getStatus())) {
+            Map<String, Product> addOns = addOnProducts();
+            for (LicenseChange ch : changes.findByOrgIdAndLicenseIdOrderByCreatedAtDesc(orgId, l.get().getId())) {
+                if (!"PENDING".equals(ch.getStatus()) || !ch.getEffectiveAt().isAfter(now)) continue;
+                scheduled.add(new Scheduled(ch.getId(), ch.getFeatureKey(), nameOf(ch.getFeatureKey(), addOns), ch.getEffectiveAt()));
+            }
+            scheduled.sort(Comparator.comparing(Scheduled::effectiveAt));
+        }
+        return new Detail(row(c, l, prices(orgId), now), history, scheduled);
     }
 
-    private void endNow(OrgMembership me, ConsultantLicense l, String endReason, String why, Instant now, Long actor) {
+    /** Cancel the pending removal of {@code f}: it has no end date again, and its PENDING change is CANCELLED. */
+    private void keep(OrgMembership me, ConsultantLicense l, LicenseFeature f, String batch, Long quoteId, Map<String, Product> addOns, Instant now) {
+        f.setEndsAt(null);
+        features.save(f);
+        for (LicenseChange ch : changes.findByOrgIdAndLicenseIdOrderByCreatedAtDesc(l.getOrgId(), l.getId())) {
+            if (!"PENDING".equals(ch.getStatus()) || !f.getFeatureKey().equals(ch.getFeatureKey())) continue;
+            ch.setStatus("CANCELLED");
+            changes.save(ch);
+        }
+        change(me, l, batch, quoteId, "KEEP_FEATURE", f.getFeatureKey(), "kept " + nameOf(f.getFeatureKey(), addOns), 0L, now);
+    }
+
+    private void endNow(ConsultantLicense l, String endReason, String why, Instant now, Long actor) {
         for (LicenseFeature f : features.findByOrgIdAndLicenseIdOrderByIdAsc(l.getOrgId(), l.getId())) {
             if (!Boolean.TRUE.equals(f.getLive())) continue;
             f.setLive(false);
             if (f.getEndsAt() == null || f.getEndsAt().isAfter(now)) f.setEndsAt(now);
             features.save(f);
+        }
+        for (LicenseChange pending : changes.findByOrgIdAndLicenseIdOrderByCreatedAtDesc(l.getOrgId(), l.getId())) {
+            if (!"PENDING".equals(pending.getStatus())) continue;
+            pending.setStatus("CANCELLED"); // the whole licence ends now: nothing waits for the period end any more
+            changes.save(pending);
         }
         l.setStatus("ENDED");
         l.setEndsAt(now);
@@ -334,7 +446,7 @@ public class OrgLicenseService {
         changes.save(ch);
     }
 
-    private void addFeature(OrgMembership me, ConsultantLicense l, Product p, Prices prices, String batch, Instant now) {
+    private void addFeature(OrgMembership me, ConsultantLicense l, Product p, Prices prices, String batch, Long quoteId, Instant now) {
         LicenseFeature f = new LicenseFeature();
         f.setOrgId(l.getOrgId());
         f.setLicenseId(l.getId());
@@ -348,11 +460,13 @@ public class OrgLicenseService {
         f.setAddedByMemberId(me.memberId());
         f.setCreatedAt(now);
         features.save(f);
-        change(me, l, batch, "ADD_FEATURE", p.getFeatureKey(), "added " + p.getName(), nz(prices.of(p.getId())), now);
+        change(me, l, batch, quoteId, "ADD_FEATURE", p.getFeatureKey(), "added " + p.getName(), nz(prices.of(p.getId())), now);
     }
 
-    private void change(OrgMembership me, ConsultantLicense l, String batch, String kind, String featureKey, String summary, long delta, Instant now) {
-        changes.save(newChange(l, batch, kind, featureKey, summary, delta, now, me.memberId()));
+    private void change(OrgMembership me, ConsultantLicense l, String batch, Long quoteId, String kind, String featureKey, String summary, long delta, Instant now) {
+        LicenseChange ch = newChange(l, batch, kind, featureKey, summary, delta, now, me.memberId());
+        ch.setQuoteId(quoteId);
+        changes.save(ch);
     }
 
     private static LicenseChange newChange(ConsultantLicense l, String batch, String kind, String featureKey, String summary, long delta, Instant now, Long actor) {
@@ -372,19 +486,38 @@ public class OrgLicenseService {
         return ch;
     }
 
+    /** One line of the organization's subscription history (the Subscription page's "changes"), with the live licence count after it. */
+    private void history(OrgMembership me, String kind, String summary, int delta, Instant now) {
+        SubscriptionChange s = new SubscriptionChange();
+        s.setOrgId(me.orgId());
+        s.setKind(kind);
+        s.setSummary(summary.length() > 200 ? summary.substring(0, 197) + "..." : summary);
+        s.setLicensesDelta(delta);
+        s.setLicensesTotalAfter((int) licenses.countLive(me.orgId()));
+        s.setActorMemberId(me.memberId());
+        s.setOccurredAt(now);
+        subscriptionChanges.save(s);
+    }
+
+    private static String quoteNote(Long quoteId) {
+        return quoteId == null ? "" : " (quote " + quoteId + ")";
+    }
+
     private Row row(ConsultantProfile c, Optional<ConsultantLicense> license, Prices prices, Instant now) {
-        if (license.isEmpty()) return new Row(c.getId(), c.getDisplayName(), c.getEmail(), c.getMemberId() != null, Status.NONE, List.of(), null, false, null, null, null);
+        if (license.isEmpty()) return new Row(c.getId(), c.getDisplayName(), c.getEmail(), c.getMemberId() != null, Status.NONE, List.of(), null, false, null, null, null, List.of());
         ConsultantLicense l = license.get();
         List<String> keys = new ArrayList<>();
+        List<String> ending = new ArrayList<>();
         long monthly = nz(l.getBaseAmountMinor());
-        boolean priceSet = l.getContractPriceId() != null;
+        boolean priceSet = l.getContractPriceId() != null || nz(l.getBaseAmountMinor()) > 0;
         boolean ended = "ENDED".equals(l.getStatus());
         for (LicenseFeature f : features.findByOrgIdAndLicenseIdOrderByIdAsc(l.getOrgId(), l.getId())) {
-            boolean keep = "SUSPENDED".equals(l.getStatus()) ? Boolean.TRUE.equals(f.getLive()) : OrgLicenseGate.live(f, now);
+            boolean keep = "SUSPENDED".equals(l.getStatus()) ? Boolean.TRUE.equals(f.getLive()) && (f.getEndsAt() == null || f.getEndsAt().isAfter(now)) : OrgLicenseGate.live(f, now);
             if (ended || !keep) continue;
             keys.add(f.getFeatureKey());
-            monthly += nz(f.getUnitAmountMinor()) * Math.max(1, f.getQuantity() == null ? 1 : f.getQuantity());
-            priceSet = priceSet || f.getContractPriceId() != null;
+            if (f.getEndsAt() != null) ending.add(f.getFeatureKey());
+            monthly += nz(f.getUnitAmountMinor()) * qty(f);
+            priceSet = priceSet || f.getContractPriceId() != null || nz(f.getUnitAmountMinor()) > 0;
         }
         Status status = switch (l.getStatus()) {
             case "ACTIVE" -> Status.ACTIVE;
@@ -393,11 +526,18 @@ public class OrgLicenseService {
             case "ENDED" -> Status.ENDED;
             default -> Status.NONE;
         };
-        return new Row(c.getId(), c.getDisplayName(), c.getEmail(), c.getMemberId() != null, status, keys, priceSet && !ended ? monthly : null, priceSet, l.getStartsAt(), l.getEndsAt(), l.getSuspendReason());
+        return new Row(c.getId(), c.getDisplayName(), c.getEmail(), c.getMemberId() != null, status, keys, priceSet && !ended ? monthly : null, priceSet, l.getStartsAt(), l.getEndsAt(), l.getSuspendReason(), ending);
+    }
+
+    /** The add-ons a licence carries now, by key (an add-on whose removal is pending is still here, with its {@code ends_at}). */
+    Map<String, LicenseFeature> liveFeatures(ConsultantLicense l, Instant now) {
+        Map<String, LicenseFeature> live = new LinkedHashMap<>();
+        for (LicenseFeature f : features.findByOrgIdAndLicenseIdOrderByIdAsc(l.getOrgId(), l.getId())) if (OrgLicenseGate.live(f, now)) live.put(f.getFeatureKey(), f);
+        return live;
     }
 
     /** The consultant's newest licence: the live or suspended one when there is one, else the newest (an ENDED one shows as ended). */
-    private Optional<ConsultantLicense> current(Long orgId, Long consultantId) {
+    Optional<ConsultantLicense> current(Long orgId, Long consultantId) {
         List<ConsultantLicense> all = licenses.findByOrgIdAndConsultantIdOrderByStartsAtDesc(orgId, consultantId);
         for (ConsultantLicense l : all) if (!"ENDED".equals(l.getStatus())) return Optional.of(l);
         return all.stream().findFirst();
@@ -407,20 +547,24 @@ public class OrgLicenseService {
         return current(orgId, consultantId).filter(l -> !"ENDED".equals(l.getStatus())).orElseThrow(() -> conflict("NO_LICENSE", "This consultant has no licence."));
     }
 
-    private ConsultantProfile consultant(Long orgId, Long consultantId) {
+    ConsultantProfile consultant(Long orgId, Long consultantId) {
         if (consultantId == null) throw new OrgNotFoundException();
         ConsultantProfile c = consultants.findByOrgIdAndId(orgId, consultantId).orElseThrow(OrgNotFoundException::new);
         if (!"ACTIVE".equals(c.getStatus())) throw new OrgNotFoundException();
         return c;
     }
 
-    private void write(OrgMembership me) {
+    void write(OrgMembership me) {
         access.require(me, MANAGE);
         access.requireWritable(me, MANAGE);
     }
 
+    Product baseProduct() {
+        return products.findByCode(BASE_PRODUCT_CODE).orElseThrow(() -> new IllegalStateException("catalog product " + BASE_PRODUCT_CODE + " missing"));
+    }
+
     /** The add-ons an organization can give: FEATURE products sold to organizations, by key. */
-    private Map<String, Product> addOnProducts() {
+    Map<String, Product> addOnProducts() {
         Map<String, Product> out = new LinkedHashMap<>();
         for (Product p : products.findByKindOrderBySortOrderAsc("FEATURE")) {
             if (p.getFeatureKey() == null || Boolean.FALSE.equals(p.getActive())) continue;
@@ -430,19 +574,35 @@ public class OrgLicenseService {
         return out;
     }
 
-    private static void requireKnown(Set<String> keys, Map<String, Product> addOns) {
+    /** The organization's billing period, when it has a billing account with one that has not ended (none until billing is set up). */
+    Optional<Period> period(Long orgId, Instant now) {
+        Optional<OrgBillingAccount> a = billingAccounts.findFirstByOrgId(orgId);
+        if (a.isEmpty() || a.get().getCurrentPeriodStart() == null || a.get().getCurrentPeriodEnd() == null) return Optional.empty();
+        LocalDate first = a.get().getCurrentPeriodStart();
+        LocalDate last = a.get().getCurrentPeriodEnd();
+        Instant start = first.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant end = last.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        if (!end.isAfter(start) || !end.isAfter(now)) return Optional.empty();
+        return Optional.of(new Period(start, end, last));
+    }
+
+    static void requireKnown(Set<String> keys, Map<String, Product> addOns) {
         for (String k : keys) {
             if (!addOns.containsKey(k)) throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Unknown add-on: " + k);
         }
     }
 
-    private static List<String> ordered(Set<String> keys) {
+    static List<String> ordered(Set<String> keys) {
         return new ArrayList<>(new LinkedHashSet<>(keys.stream().sorted().toList()));
     }
 
-    private static String nameOf(String key, Map<String, Product> addOns) {
+    static String nameOf(String key, Map<String, Product> addOns) {
         Product p = addOns.get(key);
         return p == null ? key : p.getName();
+    }
+
+    static long qty(LicenseFeature f) {
+        return Math.max(1, f.getQuantity() == null ? 1 : f.getQuantity());
     }
 
     private static String reason(String reason) {
@@ -452,16 +612,19 @@ public class OrgLicenseService {
         return r.length() > 200 ? r.substring(0, 200) : r;
     }
 
-    private static ResponseStatusException conflict(String code, String message) {
+    static ResponseStatusException conflict(String code, String message) {
         return new ResponseStatusException(HttpStatus.CONFLICT, code + ": " + message);
     }
 
-    private static long nz(Long v) {
+    static long nz(Long v) {
         return v == null ? 0L : v;
     }
 
-    /** The organization's current contract prices (version_to null), by product; empty when it has none, which means "price not set". */
-    private Prices prices(Long orgId) {
+    /**
+     * What the organization pays for a product, per month: its current contract price (version_to null), else the catalog's active ORG monthly price in
+     * the contract's currency (USD when there is no contract), else null, which means "price not set".
+     */
+    Prices prices(Long orgId) {
         Map<Long, OrgContractPrice> byProduct = new HashMap<>();
         for (OrgContractPrice p : contractPrices.findByOrgId(orgId)) {
             if (p.getVersionTo() != null || p.getOverrideAmountMinor() == null) continue;
@@ -469,13 +632,14 @@ public class OrgLicenseService {
             if (seen == null || p.getId() > seen.getId()) byProduct.put(p.getProductId(), p);
         }
         String currency = byProduct.values().stream().map(OrgContractPrice::getCurrency).filter(x -> x != null && !x.isBlank()).findFirst().orElse("USD");
-        return new Prices(byProduct, currency);
+        Map<Long, Optional<Long>> catalog = new HashMap<>();
+        return new Prices(byProduct, currency, pid -> catalog.computeIfAbsent(pid, k -> catalogPrices.findActive(k, "ORG", "MONTH", currency).map(ProductPrice::getAmountMinor)).orElse(null));
     }
 
-    private record Prices(Map<Long, OrgContractPrice> byProduct, String currency) {
+    record Prices(Map<Long, OrgContractPrice> byProduct, String currency, java.util.function.Function<Long, Long> catalog) {
         Long of(Long productId) {
             OrgContractPrice p = byProduct.get(productId);
-            return p == null ? null : p.getOverrideAmountMinor();
+            return p != null ? p.getOverrideAmountMinor() : catalog.apply(productId);
         }
 
         Long idOf(Long productId) {

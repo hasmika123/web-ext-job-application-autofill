@@ -35,3 +35,4 @@ ConsultantProfileResource#employmentTypes | values must be a subset of CONTRACT,
 OrgSettingsResource#putPrepare | body carries only enabled (boolean) and dailyCap, monthlyCap, maxBatch (whole numbers, range-checked); no text is stored
 OrgLicenseResource#give | features are catalog keys, each checked against the organization add-on products (422 otherwise); stores no text
 OrgLicenseResource#setFeatures | features are catalog keys, each checked against the organization add-on products (422 otherwise); stores no text
+OrgLicenseResource#quote | features are catalog keys, each checked against the organization add-on products (422 otherwise); the quote stores only those keys, never free text

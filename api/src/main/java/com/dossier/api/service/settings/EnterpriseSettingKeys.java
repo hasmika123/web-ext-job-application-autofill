@@ -222,6 +222,7 @@ public final class EnterpriseSettingKeys {
         k.add(new Key(HOSTS_TENANT_BASE_DOMAINS, Type.JSON, DEFAULT_TENANT_BASE_DOMAINS, null, null, null,
             "Base domains under which {label}.<base> can name an organization's subdomain, as a JSON list. Development hosts such as acme.localhost are enabled by the dev profile, not by this list.",
             EnterpriseSettingKeys::hostList, Risk.HIGH));
+        integer(k, QUOTE_TTL_MINUTES, 15, 1, 240, Risk.MEDIUM, "Minutes a licence-change quote stays valid before it must be priced again (ORG-BILLING-BUILD.md step 1b): confirming an older quote answers 410 QUOTE_EXPIRED.");
         integer(k, TENANT_CACHE_SECONDS, 60, 0, 600, Risk.LOW, "Seconds the API remembers which tenant a hostname belongs to. 0 = no caching. A tenant, hostname or status change evicts the entry at once on that instance.");
         integer(k, TENANT_RATE_PER_MIN, 120, 10, 6000, Risk.MEDIUM, "Requests per minute per hostname and visitor IP on GET /api/public/tenant.");
         k.add(new Key(JOBS_DETAIL_CAP, Type.ENUM, "MINIMAL", null, null, List.of("MINIMAL", "FULL"),
@@ -306,7 +307,6 @@ public final class EnterpriseSettingKeys {
         integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
         d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));
-        integer(d, QUOTE_TTL_MINUTES, 15, 1, 240, Risk.MEDIUM, "Minutes a license-change quote stays valid before it must be recomputed." + NOT_ENFORCED);
         integer(d, USAGE_RETENTION_MONTHS, 24, 3, 84, Risk.LOW, "Months of enterprise usage-ledger rows kept before they are purged." + NOT_ENFORCED);
 
         Map<String, Key> by = new LinkedHashMap<>();
