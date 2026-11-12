@@ -142,4 +142,27 @@ class OrgLicenseGateTest {
         assertThat(gate.has(null, CONSULTANT, FeatureKeys.INBOX_MONITORING)).isFalse();
         assertThat(gate.has(ORG, null, FeatureKeys.INBOX_MONITORING)).isFalse();
     }
+
+    /** ORG-BILLING-BUILD.md step 3b: an unpaid invoice pauses the add-ons from the pause date; the base licence (the workspace) keeps working. */
+    @Test
+    void aPastDueOrganizationsAddOnsPauseFromThePauseDateAndTheBaseLicenceKeepsWorking() {
+        com.dossier.api.repository.ent.billing.OrgBillingAccountRepository accounts = mock(com.dossier.api.repository.ent.billing.OrgBillingAccountRepository.class);
+        com.dossier.api.domain.ent.billing.OrgBillingAccount a = new com.dossier.api.domain.ent.billing.OrgBillingAccount();
+        a.setOrgId(ORG);
+        a.setStatus("PAST_DUE");
+        a.setFeaturesPausedFrom(java.time.LocalDate.of(2026, 11, 10));
+        when(accounts.findFirstByOrgId(ORG)).thenReturn(java.util.Optional.of(a));
+        OrgLicenseGate billed = new OrgLicenseGate(licenses, features, definitions, accounts);
+
+        org.assertj.core.api.Assertions.assertThat(billed.paused(ORG, NOW)).isTrue();
+        org.assertj.core.api.Assertions.assertThat(billed.liveFeatures(ORG, CONSULTANT, NOW)).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(billed.consultantsWith(ORG, FeatureKeys.INBOX_MONITORING, NOW)).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(billed.has(ORG, CONSULTANT, FeatureKeys.BASE_CONSULTANT, NOW)).as("the workspace keeps working").isTrue();
+
+        a.setFeaturesPausedFrom(java.time.LocalDate.of(2026, 11, 11));
+        org.assertj.core.api.Assertions.assertThat(billed.liveFeatures(ORG, CONSULTANT, NOW)).as("before the pause date everything works").containsKey(FeatureKeys.INBOX_MONITORING);
+        a.setStatus("ACTIVE");
+        a.setFeaturesPausedFrom(java.time.LocalDate.of(2026, 11, 1));
+        org.assertj.core.api.Assertions.assertThat(billed.liveFeatures(ORG, CONSULTANT, NOW)).as("paid: no pause").containsKey(FeatureKeys.INBOX_MONITORING);
+    }
 }

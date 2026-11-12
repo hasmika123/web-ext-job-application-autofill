@@ -85,6 +85,17 @@ describe("OrganizationDetailPage", () => {
     expect(calls()).toEqual([["/orgs/7/modules", "POST", { key: "roles", on: true, reason: "Part of the pilot scope" }]]);
   });
 
+  it("suspends the organization by hand with a reason, then offers Resume (step 3b)", async () => {
+    vi.stubGlobal("fetch", respond(detail({ status: "SUSPENDED" })));
+    show(<OrganizationDetailPage initial={detail()} id={7} />);
+    fireEvent.click(screen.getByRole("button", { name: "Suspend organization" }));
+    await typeReason("Invoice unpaid for two months");
+    const buttons = screen.getAllByRole("button", { name: "Suspend organization" }); // the panel's, then the reason sheet's confirm
+    fireEvent.click(buttons[buttons.length - 1]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Resume organization" })).toBeTruthy());
+    expect(calls()).toEqual([["/orgs/7/suspend", "POST", { reason: "Invoice unpaid for two months" }]]);
+  });
+
   it("suspends a hostname with a reason and offers Resume afterwards", async () => {
     const suspended = detail({ hostnames: [{ ...detail().hostnames[0], status: "SUSPENDED", suspendedAt: "2026-10-02T10:00:00Z" }] });
     vi.stubGlobal("fetch", respond(suspended));

@@ -14,6 +14,8 @@ import { POST as hostAction } from "./[id]/hostnames/[hid]/[action]/route";
 import { POST as resetOwner } from "./[id]/owner/reset-password/route";
 import { GET as billingStatus } from "./[id]/billing/route";
 import { POST as startBilling } from "./[id]/billing/start/route";
+import { POST as suspendOrg } from "./[id]/suspend/route";
+import { POST as resumeOrg } from "./[id]/resume/route";
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 const post = (url: string, body: unknown) => new Request(`http://localhost:3200${url}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -100,6 +102,15 @@ describe("mutations", () => {
     expect(JSON.parse(String((serverApiFetch.mock.calls[1][1] as RequestInit).body))).toEqual({ billingEmail: "ap@acme.test", waiveSetupFee: false, reason: "Signed the order form" });
     expect((await startBilling(post("/x", { billingEmail: "ap@acme.test", stripeCustomerId: "cus_1" }), ctx({ id: "7" }))).status).toBe(400);
     expect((await billingStatus(new Request("http://localhost:3200/x"), ctx({ id: "x" }))).status).toBe(404);
+  });
+
+  it("suspend and resume forward the reason only (step 3b)", async () => {
+    serverApiFetch.mockResolvedValue(json({ id: 7, status: "SUSPENDED" }));
+    await suspendOrg(post("/x", { reason: "Invoice unpaid for two months" }), ctx({ id: "7" }));
+    await resumeOrg(post("/x", { reason: "Paid in full" }), ctx({ id: "7" }));
+    expect(serverApiFetch.mock.calls.map((c) => c[0])).toEqual(["/api/admin/orgs/7/suspend", "/api/admin/orgs/7/resume"]);
+    expect((await suspendOrg(post("/x", { reason: "x", status: "ACTIVE" }), ctx({ id: "7" }))).status).toBe(400);
+    expect((await resumeOrg(post("/x", { reason: "x" }), ctx({ id: "x" }))).status).toBe(404);
   });
 
   it("hostname actions accept only suspend and resume on numeric ids", async () => {

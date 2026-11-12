@@ -26,7 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
  * is live when its flag is on and now is inside its own dates. A SUSPENDED or ENDED license grants nothing. Whether the person's seat and the
  * organization are live is the caller's question (the inbox asks it; Prepare reads the consultant profile): this class only answers for the license.
  *
- * <p>It never reads billing, prices or the personal subscription (decision O4: an enterprise account's only grant is its organization's license).
+ * <p>It never reads prices or the personal subscription (decision O4: an enterprise account's only grant is its organization's license). It reads one
+ * billing fact: a <b>pause</b> (ORG-BILLING-BUILD.md step 3b; user decision 2026-11-12). While the organization's billing account is PAST_DUE and its
+ * {@code features_paused_from} has come, the licensed add-ons (AI, inbox, Autopilot prepare, ...) grant nothing. The base licence, which is the
+ * consultant's workspace, keeps working, and paying lifts the pause at once.
  */
 @Service
 @Transactional(readOnly = true)
@@ -38,11 +41,33 @@ public class OrgLicenseGate {
     private final ConsultantLicenseRepository licenses;
     private final LicenseFeatureRepository features;
     private final FeatureDefinitionRepository definitions;
+    private final com.dossier.api.repository.ent.billing.OrgBillingAccountRepository accounts;
 
+    /** Without billing (unit tests): nothing is ever paused. */
     public OrgLicenseGate(ConsultantLicenseRepository licenses, LicenseFeatureRepository features, FeatureDefinitionRepository definitions) {
+        this(licenses, features, definitions, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OrgLicenseGate(
+        ConsultantLicenseRepository licenses,
+        LicenseFeatureRepository features,
+        FeatureDefinitionRepository definitions,
+        com.dossier.api.repository.ent.billing.OrgBillingAccountRepository accounts
+    ) {
         this.licenses = licenses;
         this.features = features;
         this.definitions = definitions;
+        this.accounts = accounts;
+    }
+
+    /** Whether the organization's licensed add-ons are paused for an unpaid invoice now (see the class comment). */
+    public boolean paused(Long orgId, Instant now) {
+        if (accounts == null || orgId == null) return false;
+        return accounts.findFirstByOrgId(orgId)
+            .filter(a -> "PAST_DUE".equals(a.getStatus()) && a.getFeaturesPausedFrom() != null)
+            .map(a -> !java.time.LocalDate.ofInstant(now, java.time.ZoneOffset.UTC).isBefore(a.getFeaturesPausedFrom()))
+            .orElse(false);
     }
 
     /** The consultant's license that grants right now, if any (the newest when, against the one-live-license rule, two overlap). */
@@ -65,7 +90,7 @@ public class OrgLicenseGate {
 
     public Map<String, Integer> liveFeatures(Long orgId, Long consultantId, Instant now) {
         Optional<ConsultantLicense> license = liveLicense(orgId, consultantId, now);
-        if (license.isEmpty()) return Map.of();
+        if (license.isEmpty() || paused(orgId, now)) return Map.of();
         Map<String, Integer> out = new LinkedHashMap<>();
         for (LicenseFeature f : features.findByOrgIdAndLicenseIdOrderByIdAsc(orgId, license.get().getId())) {
             if (live(f, now)) out.merge(f.getFeatureKey(), quantity(f), Integer::sum);
@@ -98,7 +123,7 @@ public class OrgLicenseGate {
 
     public Set<Long> consultantsWith(Long orgId, String featureKey, Instant now) {
         Set<Long> out = new HashSet<>();
-        if (orgId == null || featureKey == null) return out;
+        if (orgId == null || featureKey == null || paused(orgId, now)) return out;
         List<ConsultantLicense> granting = licenses.findByOrgIdAndStatusIn(orgId, GRANTING);
         Map<Long, Long> consultantOf = new HashMap<>();
         for (ConsultantLicense l : granting) if (grants(l, now)) consultantOf.put(l.getId(), l.getConsultantId());

@@ -99,8 +99,18 @@ describe("Subscription Overview", () => {
     render(<SubscriptionOverviewPage orgId={2} />);
     await settle();
     expect(screen.getByRole("alert").textContent).toMatch(/One invoice is overdue: \$50\.00, due since Nov 5, 2026/);
+    expect(document.querySelector("[data-billing-pause]")).toBeNull();
     expect(document.querySelector("[data-billing-recurring]")?.textContent).toBe("$1,274.49 / month");
     expect(document.querySelector("[data-billing-next]")?.textContent).toMatch(/~\$1,274\.49/);
+  });
+});
+
+describe("Subscription Overview: a paused organization (step 3b)", () => {
+  it("says the add-ons are paused since the pause date and that everything else keeps working", async () => {
+    overview = { ...setupOverview, status: "PAST_DUE", overdue: { invoices: 1, amountMinor: 5000, oldestDueOn: "2026-11-05" }, featuresPausedFrom: "2026-11-01" };
+    render(<SubscriptionOverviewPage orgId={2} />);
+    await settle();
+    expect(document.querySelector("[data-billing-pause]")?.textContent).toMatch(/are paused since Nov 1, 2026 .*Everything else keeps working/);
   });
 });
 

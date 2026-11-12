@@ -49,6 +49,18 @@ export interface Overview {
   contract: ContractSummary | null;
   overdue: Overdue | null;
   taxNote: string;
+  /** Step 3b: while past due, the first day the licensed add-ons pause (null otherwise). */
+  featuresPausedFrom?: string | null;
+}
+
+/** The pause sentence of the overdue banner: before the pause date, a warning; from it, what is paused. Null when nothing pauses. */
+export function pauseText(pausedFrom: string | null | undefined, today: Date = new Date()): string | null {
+  if (!pausedFrom) return null;
+  const from = new Date(`${pausedFrom}T00:00:00Z`);
+  const now = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  return from.getTime() > now.getTime()
+    ? `If it is still unpaid on ${day(pausedFrom)}, your consultants' licensed add-ons (AI help, inbox monitoring, Autopilot prepare) pause until it is paid.`
+    : `Your consultants' licensed add-ons (AI help, inbox monitoring, Autopilot prepare) are paused since ${day(pausedFrom)} and come back as soon as it is paid.`;
 }
 
 export interface Account {

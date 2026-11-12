@@ -388,6 +388,41 @@ public class AdminOrgService {
         }
     }
 
+    /**
+     * Suspend an organization (ORG-BILLING-BUILD.md step 3b; user decision 2026-11-12: suspension is the platform admin's call, never automatic). An
+     * ACTIVE or PAST_DUE organization becomes SUSPENDED: everyone can still read and leave, nobody can change anything (OrgStateRules), and nothing is
+     * deleted or ended, so {@link #resumeOrg} puts it back exactly as it was. 409 ORG_NOT_EDITABLE from any other state.
+     */
+    @Transactional
+    public Detail suspendOrg(Long orgId, String rawReason) {
+        Organization org = organizations.findByOrgId(orgId).orElseThrow(OrgNotFoundException::new);
+        String reason = requireReason(rawReason);
+        if (org.getStatus() != OrgStatus.ACTIVE && org.getStatus() != OrgStatus.PAST_DUE) {
+            throw new OrgException(409, OrgException.CODE_ORG_NOT_EDITABLE, "Only an active or past-due organization can be suspended.", null);
+        }
+        String before = org.getStatus().name();
+        org.setStatus(OrgStatus.SUSPENDED);
+        org.setUpdatedAt(Instant.now());
+        organizations.saveAndFlush(org);
+        record(orgId, AdminAuditService.ORG_SUSPEND, OrgAuditService.ADMIN_ORG_SUSPEND, reason, "status " + before + " -> SUSPENDED", null);
+        return detail(orgId);
+    }
+
+    /** Resume a suspended organization: ACTIVE again (its billing account keeps its own PAST_DUE until paid). 409 ORG_NOT_EDITABLE unless SUSPENDED. */
+    @Transactional
+    public Detail resumeOrg(Long orgId, String rawReason) {
+        Organization org = organizations.findByOrgId(orgId).orElseThrow(OrgNotFoundException::new);
+        String reason = requireReason(rawReason);
+        if (org.getStatus() != OrgStatus.SUSPENDED) {
+            throw new OrgException(409, OrgException.CODE_ORG_NOT_EDITABLE, "Only a suspended organization can be resumed.", null);
+        }
+        org.setStatus(OrgStatus.ACTIVE);
+        org.setUpdatedAt(Instant.now());
+        organizations.saveAndFlush(org);
+        record(orgId, AdminAuditService.ORG_RESUME, OrgAuditService.ADMIN_ORG_RESUME, reason, "status SUSPENDED -> ACTIVE", null);
+        return detail(orgId);
+    }
+
     private static String requireReason(String raw) {
         String reason = raw == null ? "" : raw.strip();
         if (reason.length() < SettingsException.REASON_MIN_LENGTH) {

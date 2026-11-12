@@ -78,7 +78,9 @@ public class OrgBillingReadService {
         List<Ending> ending,
         ContractSummary contract,
         Overdue overdue,
-        String taxNote
+        String taxNote,
+        /** Step 3b: while the account is past due, the first day its licensed add-ons pause (null otherwise). */
+        LocalDate featuresPausedFrom
     ) {}
 
     public record Account(
@@ -243,7 +245,8 @@ public class OrgBillingReadService {
             ending.size() > 20 ? ending.subList(0, 20) : ending,
             contract(orgId),
             overdue,
-            TAX_NOTE
+            TAX_NOTE,
+            account.filter(a -> "PAST_DUE".equals(a.getStatus())).map(OrgBillingAccount::getFeaturesPausedFrom).orElse(null)
         );
     }
 

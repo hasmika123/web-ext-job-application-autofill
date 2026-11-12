@@ -87,6 +87,10 @@ Story-level notes from Task 5: **D2** keeps X12.2/X12.9 (Autopilot feed for assi
 >   and Stripe sends and collects one `send_invoice` invoice, paid in 15 days. This replaces doc 26's subscription items, coupons and the 20-item fallback.
 > - **Billed in advance:** on the 1st, the month that starts, plus what the previous month still owes. The first invoice carries the setup fee and the
 >   first, partial month.
+>
+> **Answered 2026-11-12 (user, step 3b): pause, suspend by hand.** An unpaid invoice makes the organization past due; its licensed add-ons pause from the
+> day after the period it paid for (the workspace, reads, billing and exports keep working); reminders go to the billing contact and the owners and admins
+> weekly; paying lifts it at once. Suspending an organization is only ever the platform admin's action. This replaces doc 27 §5's automatic suspension.
 
 | # | Question | Options | Recommendation | Safe default applied | Owning doc |
 |---|---|---|---|---|---|
