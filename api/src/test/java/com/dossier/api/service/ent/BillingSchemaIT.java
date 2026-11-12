@@ -343,7 +343,7 @@ class BillingSchemaIT {
             }
         }
         assertThat(checked).isGreaterThan(80);
-        assertThat(scanner.findCandidateComponents("com.dossier.api.repository.ent.billing")).hasSize(19);
+        assertThat(scanner.findCandidateComponents("com.dossier.api.repository.ent.billing")).hasSize(20); // + LicenseQuoteRepository (ORG-BILLING-BUILD.md step 1b)
         assertThat(scanner.findCandidateComponents("com.dossier.api.repository.catalog")).hasSize(2);
     }
 }
