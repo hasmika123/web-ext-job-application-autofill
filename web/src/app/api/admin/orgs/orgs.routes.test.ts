@@ -12,6 +12,8 @@ import { POST as enterprise } from "./[id]/enterprise/route";
 import { POST as moduleSwitch } from "./[id]/modules/route";
 import { POST as hostAction } from "./[id]/hostnames/[hid]/[action]/route";
 import { POST as resetOwner } from "./[id]/owner/reset-password/route";
+import { GET as billingStatus } from "./[id]/billing/route";
+import { POST as startBilling } from "./[id]/billing/start/route";
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 const post = (url: string, body: unknown) => new Request(`http://localhost:3200${url}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -87,6 +89,17 @@ describe("mutations", () => {
     expect(serverApiFetch.mock.calls[0][0]).toBe("/api/admin/orgs/7/modules");
     expect((await moduleSwitch(post("/x", { key: "roles", flag: "flag.enterprise" }), ctx({ id: "7" }))).status).toBe(400);
     expect((await moduleSwitch(post("/x", { key: "roles" }), ctx({ id: "x" }))).status).toBe(404);
+  });
+
+  it("billing: the status is read and start forwards the email, the waiver and the reason only", async () => {
+    serverApiFetch.mockResolvedValue(json({ orgId: 7, started: false }));
+    await billingStatus(new Request("http://localhost:3200/x"), ctx({ id: "7" }));
+    expect(serverApiFetch.mock.calls[0][0]).toBe("/api/admin/orgs/7/billing");
+    await startBilling(post("/x", { billingEmail: "ap@acme.test", waiveSetupFee: false, reason: "Signed the order form" }), ctx({ id: "7" }));
+    expect(serverApiFetch.mock.calls[1][0]).toBe("/api/admin/orgs/7/billing/start");
+    expect(JSON.parse(String((serverApiFetch.mock.calls[1][1] as RequestInit).body))).toEqual({ billingEmail: "ap@acme.test", waiveSetupFee: false, reason: "Signed the order form" });
+    expect((await startBilling(post("/x", { billingEmail: "ap@acme.test", stripeCustomerId: "cus_1" }), ctx({ id: "7" }))).status).toBe(400);
+    expect((await billingStatus(new Request("http://localhost:3200/x"), ctx({ id: "x" }))).status).toBe(404);
   });
 
   it("hostname actions accept only suspend and resume on numeric ids", async () => {

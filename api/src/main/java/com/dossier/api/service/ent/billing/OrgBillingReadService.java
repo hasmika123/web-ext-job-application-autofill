@@ -90,7 +90,10 @@ public class OrgBillingReadService {
         LocalDate periodEnd,
         LocalDate nextInvoiceOn,
         LocalDate paidThroughOn,
-        String source
+        String source,
+        String billingEmail,
+        String setupFeeStatus,
+        Long setupFeeAmountMinor
     ) {}
 
     public record PaymentMethod(String kind, String brand, String last4, Integer expMonth, Integer expYear) {}
@@ -263,7 +266,7 @@ public class OrgBillingReadService {
         Long orgId = me.orgId();
         Optional<OrgBillingAccount> account = accounts.findFirstByOrgId(orgId);
         Account a = account
-            .map(x -> new Account(x.getStatus(), x.getCurrency(), x.getCollectionMethod(), x.getBillingCycle(), x.getCurrentPeriodStart(), x.getCurrentPeriodEnd(), x.getNextInvoiceOn(), x.getPaidThroughOn(), x.getSource()))
+            .map(x -> new Account(x.getStatus(), x.getCurrency(), x.getCollectionMethod(), x.getBillingCycle(), x.getCurrentPeriodStart(), x.getCurrentPeriodEnd(), x.getNextInvoiceOn(), x.getPaidThroughOn(), x.getSource(), x.getBillingEmail(), x.getSetupFeeStatus(), x.getSetupFeeAmountMinor()))
             .orElse(null);
         PaymentMethod pm = methods
             .findFirstByOrgIdAndDefaultMethodTrueAndStatus(orgId, "ACTIVE")
@@ -312,9 +315,9 @@ public class OrgBillingReadService {
         return account.map(OrgBillingAccount::getStatus).filter(s -> s != null && !s.isBlank()).orElse("SETUP");
     }
 
-    /** Money really moves only through Stripe (step 2): a LOCAL account is a record of what would be billed. */
+    /** Money really moves only through Stripe (step 2): connected once the organization has its Stripe customer; a LOCAL account is a record of what would be billed. */
     static boolean connected(Optional<OrgBillingAccount> account) {
-        return account.map(a -> "STRIPE".equals(a.getSource())).orElse(false);
+        return account.map(a -> a.getStripeCustomerId() != null && !a.getStripeCustomerId().isBlank()).orElse(false);
     }
 
     private ContractSummary contract(Long orgId) {

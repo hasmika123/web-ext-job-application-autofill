@@ -107,6 +107,9 @@ public class Organization implements Serializable {
         updatedAt = Instant.now();
     }
 
+    @Column(name = "setup_fee_exempt", nullable = false)
+    private boolean setupFeeExempt;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getSlug() { return slug; }
@@ -154,4 +157,6 @@ public class Organization implements Serializable {
     public boolean isSeparateAccounts() { return accountMode == OrgAccountMode.SEPARATE; }
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public boolean getSetupFeeExempt() { return setupFeeExempt; }
+    public void setSetupFeeExempt(boolean setupFeeExempt) { this.setupFeeExempt = setupFeeExempt; }
 }

@@ -78,6 +78,9 @@ Story-level notes from Task 5: **D2** keeps X12.2/X12.9 (Autopilot feed for assi
 > - The one-time **setup fee goes on the first invoice**, and the organization is usable at once (no `PENDING_SETUP_FEE` gate). Organizations
 >   that already exist are not charged one.
 > - Build order: the pages first, then Stripe.
+>
+> **Answered 2026-11-12 (user, step 2):** the **platform admin starts billing** for an organization (a Billing panel on its admin page: billing
+> email, waive the setup fee, reason). Not the org admin self-serve, and not automatically with the billing module.
 
 | # | Question | Options | Recommendation | Safe default applied | Owning doc |
 |---|---|---|---|---|---|

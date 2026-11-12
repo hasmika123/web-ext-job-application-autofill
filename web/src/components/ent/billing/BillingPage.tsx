@@ -13,6 +13,7 @@ import {
   day,
   methodText,
   money,
+  setupFeeText,
   type Billing,
   type InvoiceDetail,
   type InvoicePage,
@@ -68,7 +69,7 @@ export default function BillingPage({ orgId }: { orgId: number }) {
               <Tab value="contract">Contract</Tab>
             </TabList>
             <TabPanel value="account" className="pt-4">
-              <AccountTab b={billing} />
+              <AccountTab b={billing} orgId={orgId} />
             </TabPanel>
             <TabPanel value="invoices" className="pt-4">
               <InvoicesTab orgId={orgId} />
@@ -92,8 +93,22 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function AccountTab({ b }: { b: Billing }) {
+function AccountTab({ b, orgId }: { b: Billing; orgId: number }) {
   const a = b.account;
+  const [opening, setOpening] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
+  const openPortal = async () => {
+    setOpening(true);
+    setPortalError(null);
+    const r = await billingApi.portal(orgId);
+    if (r.ok && r.data.url) {
+      window.location.assign(r.data.url);
+      return;
+    }
+    setOpening(false);
+    setPortalError(r.ok ? "The billing portal didn't open. Try again." : r.message);
+  };
+  const fee = a ? setupFeeText(a.setupFeeStatus, a.setupFeeAmountMinor, a.currency) : null;
   return (
     <div className="grid gap-3 lg:grid-cols-2" data-billing-account>
       <section className={CARD} aria-label="Account">
@@ -103,6 +118,7 @@ function AccountTab({ b }: { b: Billing }) {
         </div>
         {a ? (
           <dl className="mt-2 text-[13px]">
+            {a.billingEmail ? <Row label="Invoices go to">{a.billingEmail}</Row> : null}
             <Row label="How it's paid">{collectionText(a.collectionMethod)}</Row>
             <Row label="Currency">{a.currency}</Row>
             <Row label="Billed">{a.billingCycle === "YEAR" ? "Every year" : "Every month"}</Row>
@@ -111,6 +127,7 @@ function AccountTab({ b }: { b: Billing }) {
             </Row>
             <Row label="Next invoice">{day(a.nextInvoiceOn)}</Row>
             <Row label="Paid through">{day(a.paidThroughOn)}</Row>
+            {fee ? <Row label="Setup fee">{fee}</Row> : null}
           </dl>
         ) : (
           <p className="mt-2 text-[13px] text-ink-soft" data-billing-setup>
@@ -126,9 +143,14 @@ function AccountTab({ b }: { b: Billing }) {
         <p className="mt-2 text-[13px] text-ink">{methodText(b.paymentMethod) ?? "No payment method on file."}</p>
         <p className="mt-1 text-[12px] text-muted">The card itself is held by Stripe; Kiwiply only keeps the brand and the last four digits.</p>
         <div className="mt-3">
-          <Button type="button" variant="ghost" disabled={!b.billingConnected} data-billing-portal>
-            {b.billingConnected ? "Open the billing portal" : "Billing isn't connected yet"}
+          <Button type="button" variant="ghost" disabled={!b.billingConnected || opening} onClick={() => void openPortal()} data-billing-portal>
+            {!b.billingConnected ? "Billing isn't connected yet" : opening ? "Opening…" : "Open the billing portal"}
           </Button>
+          {portalError && (
+            <p role="alert" className="mt-2 text-[12.5px] text-danger-text">
+              {portalError}
+            </p>
+          )}
         </div>
       </section>
     </div>

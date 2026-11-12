@@ -41,6 +41,7 @@ public class FakeStripeGateway implements StripeGateway {
     private int counter = 0;
 
     public void reset() {
+        orgCustomerCalls.clear();
         enabled = true;
         liveSubscription = false;
         failNextWrites = 0;
@@ -105,6 +106,16 @@ public class FakeStripeGateway implements StripeGateway {
 
     @Override
     public void cancelSubscription(String subscriptionId) {}
+
+    /** Organization customers made, as "orgId|email|name|key" (ORG-BILLING-BUILD.md step 2). */
+    public final List<String> orgCustomerCalls = new ArrayList<>();
+
+    @Override
+    public String createOrgCustomer(String billingEmail, String orgName, Long orgId, IdempotencyKey key) {
+        orgCustomerCalls.add(orgId + "|" + billingEmail + "|" + orgName + "|" + key.value());
+        maybeFail();
+        return replayOr(key, "cus_org_fake_" + (++counter));
+    }
 
     @Override
     public String createPortalSession(String customerId, String returnUrl) {

@@ -129,6 +129,8 @@ public final class EnterpriseSettingKeys {
     public static final String DEFAULT_POLICY_KINDS = "[\"PRIVACY\",\"TERMS\",\"ACCEPTABLE_USE\",\"SUPPORT_CONTACT\"]";
     public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
+    /** ORG-BILLING-BUILD.md step 2: when on (and Stripe is configured), starting billing creates the organization's Stripe customer and its setup-fee item. */
+    public static final String BILLING_STRIPE_ENABLED = "enterprise.billing.stripe_enabled";
     public static final String USAGE_RETENTION_MONTHS = "enterprise.usage.retention_months";
     /**
      * Change audit (docs/change-audit/README.md section 4.4, X9.15): months of application, interview and submission history an organization keeps.
@@ -222,6 +224,7 @@ public final class EnterpriseSettingKeys {
         k.add(new Key(HOSTS_TENANT_BASE_DOMAINS, Type.JSON, DEFAULT_TENANT_BASE_DOMAINS, null, null, null,
             "Base domains under which {label}.<base> can name an organization's subdomain, as a JSON list. Development hosts such as acme.localhost are enabled by the dev profile, not by this list.",
             EnterpriseSettingKeys::hostList, Risk.HIGH));
+        k.add(new Key(BILLING_STRIPE_ENABLED, Type.BOOL, "false", null, null, null, "Organization billing with Stripe (ORG-BILLING-BUILD.md step 2): when on and a Stripe key is configured, starting billing for an organization creates its Stripe customer and puts the setup fee (when it is owed and priced) on its first invoice. Off = billing stays local: nothing is sent to Stripe and nothing is charged.", null, Risk.HIGH));
         integer(k, QUOTE_TTL_MINUTES, 15, 1, 240, Risk.MEDIUM, "Minutes a licence-change quote stays valid before it must be priced again (ORG-BILLING-BUILD.md step 1b): confirming an older quote answers 410 QUOTE_EXPIRED.");
         integer(k, TENANT_CACHE_SECONDS, 60, 0, 600, Risk.LOW, "Seconds the API remembers which tenant a hostname belongs to. 0 = no caching. A tenant, hostname or status change evicts the entry at once on that instance.");
         integer(k, TENANT_RATE_PER_MIN, 120, 10, 6000, Risk.MEDIUM, "Requests per minute per hostname and visitor IP on GET /api/public/tenant.");

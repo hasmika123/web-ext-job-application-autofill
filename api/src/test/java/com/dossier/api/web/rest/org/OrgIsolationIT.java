@@ -447,6 +447,8 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/billing", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/billing/invoices", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/billing/invoices/{invoiceId}", Case.read()),
+        // ORG-BILLING-BUILD.md step 2: the world has no Stripe customer, so a legitimate call is 409 BILLING_NOT_CONNECTED and writes nothing
+        Map.entry("POST /api/orgs/{orgId}/billing/portal", Case.write(null, 409, null)),
         Map.entry("GET /api/orgs/{orgId}/usage", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/usage/history", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/licenses/catalog", Case.read()),

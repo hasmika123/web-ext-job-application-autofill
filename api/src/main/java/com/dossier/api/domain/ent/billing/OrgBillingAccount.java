@@ -62,6 +62,27 @@ public class OrgBillingAccount implements Serializable {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Column(name = "stripe_customer_id", length = 64)
+    private String stripeCustomerId;
+
+    @Column(name = "setup_fee_status", length = 12)
+    private String setupFeeStatus;
+
+    @Column(name = "setup_fee_amount_minor")
+    private Long setupFeeAmountMinor;
+
+    @Column(name = "setup_fee_item_id", length = 64)
+    private String setupFeeItemId;
+
+    @Column(name = "setup_fee_note", length = 200)
+    private String setupFeeNote;
+
+    @Column(name = "started_by_login", length = 100)
+    private String startedByLogin;
+
+    @Column(name = "started_at")
+    private java.time.Instant startedAt;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }
@@ -94,4 +115,18 @@ public class OrgBillingAccount implements Serializable {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public String getStripeCustomerId() { return stripeCustomerId; }
+    public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
+    public String getSetupFeeStatus() { return setupFeeStatus; }
+    public void setSetupFeeStatus(String setupFeeStatus) { this.setupFeeStatus = setupFeeStatus; }
+    public Long getSetupFeeAmountMinor() { return setupFeeAmountMinor; }
+    public void setSetupFeeAmountMinor(Long setupFeeAmountMinor) { this.setupFeeAmountMinor = setupFeeAmountMinor; }
+    public String getSetupFeeItemId() { return setupFeeItemId; }
+    public void setSetupFeeItemId(String setupFeeItemId) { this.setupFeeItemId = setupFeeItemId; }
+    public String getSetupFeeNote() { return setupFeeNote; }
+    public void setSetupFeeNote(String setupFeeNote) { this.setupFeeNote = setupFeeNote; }
+    public String getStartedByLogin() { return startedByLogin; }
+    public void setStartedByLogin(String startedByLogin) { this.startedByLogin = startedByLogin; }
+    public java.time.Instant getStartedAt() { return startedAt; }
+    public void setStartedAt(java.time.Instant startedAt) { this.startedAt = startedAt; }
 }

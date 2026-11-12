@@ -13,6 +13,7 @@ import com.dossier.api.service.dto.AdminOrgDTOs.ResetResult;
 import com.dossier.api.service.dto.AdminOrgDTOs.SubdomainRequest;
 import com.dossier.api.service.dto.AdminOrgDTOs.Summary;
 import com.dossier.api.service.ent.AdminOrgService;
+import com.dossier.api.service.ent.billing.OrgBillingStartService;
 import com.dossier.api.service.org.OrgException;
 import java.util.List;
 import org.springframework.data.domain.Page;
@@ -43,9 +44,11 @@ import tech.jhipster.web.util.PaginationUtil;
 public class AdminOrgResource {
 
     private final AdminOrgService service;
+    private final OrgBillingStartService billing;
 
-    public AdminOrgResource(AdminOrgService service) {
+    public AdminOrgResource(AdminOrgService service, OrgBillingStartService billing) {
         this.service = service;
+        this.billing = billing;
     }
 
     /** {@code status}: an organization status; {@code type}: an organization type; {@code enterprise}: true / false = switched on / off for the organization. */
@@ -115,5 +118,20 @@ public class AdminOrgResource {
     @PostMapping("/{id}/hostnames/{hid}/resume")
     public Detail resume(@PathVariable("id") Long id, @PathVariable("hid") Long hid, @RequestBody ReasonRequest req) {
         return service.resumeHostname(id, hid, req == null ? null : req.reason());
+    }
+
+    /** ORG-BILLING-BUILD.md step 2: the organization's billing account, its setup fee and whether Stripe is used; account null until billing is started. */
+    @GetMapping("/{id}/billing")
+    public OrgBillingStartService.Status billing(@PathVariable("id") Long id) {
+        return billing.status(id);
+    }
+
+    /**
+     * Start billing for the organization (the platform admin's call, user decision 2026-11-12). Body {billingEmail, waiveSetupFee, reason}. 409
+     * BILLING_STARTED, 502 BILLING_PROVIDER (nothing saved; retry is safe). Audit ORG_BILLING_START + the organization's ADMIN_BILLING_START (HIGH).
+     */
+    @PostMapping("/{id}/billing/start")
+    public OrgBillingStartService.Status startBilling(@PathVariable("id") Long id, @RequestBody OrgBillingStartService.StartRequest req) {
+        return billing.start(id, req);
     }
 }

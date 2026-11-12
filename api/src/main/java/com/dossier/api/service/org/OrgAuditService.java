@@ -97,6 +97,9 @@ public class OrgAuditService {
     public static final String ADMIN_ENTERPRISE_OFF = "ADMIN_ENTERPRISE_OFF";
     public static final String ADMIN_MODULE_ON = "ADMIN_MODULE_ON";
     public static final String ADMIN_MODULE_OFF = "ADMIN_MODULE_OFF";
+    public static final String ADMIN_BILLING_START = "ADMIN_BILLING_START";
+    /** ORG-BILLING-BUILD.md step 2: an Org Admin opened the Stripe billing portal. */
+    public static final String BILLING_PORTAL = "BILLING_PORTAL";
     public static final String ADMIN_HOSTNAME_SUSPEND = "ADMIN_HOSTNAME_SUSPEND";
     public static final String ADMIN_HOSTNAME_RESUME = "ADMIN_HOSTNAME_RESUME";
     public static final String ADMIN_ACCOUNT_MIGRATE = "ADMIN_ACCOUNT_MIGRATE";

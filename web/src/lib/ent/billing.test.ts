@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectionText, day, lastMonths, meterPercent, methodText, money, monthName, recurringText } from "./billing";
+import { collectionText, day, lastMonths, meterPercent, methodText, money, monthName, recurringText, setupFeeText } from "./billing";
 
 /** ORG-BILLING-BUILD.md step 1a: money comes from minor units only, and a missing price says so instead of $0. */
 describe("billing helpers", () => {
@@ -24,6 +24,14 @@ describe("billing helpers", () => {
     expect(methodText(null)).toBeNull();
     expect(collectionText("SEND_INVOICE")).toBe("An invoice each period, paid within 15 days");
     expect(collectionText(undefined)).toBe("-");
+  });
+
+  it("the setup fee in words: waived, paid, or on the first invoice (never $0)", () => {
+    expect(setupFeeText("WAIVED", null)).toBe("Waived");
+    expect(setupFeeText("PAID", 50000)).toBe("Paid");
+    expect(setupFeeText("ADDED", 50000)).toBe("On your first invoice: $500.00");
+    expect(setupFeeText("OWED", null)).toBe("On your first invoice (price to be confirmed)");
+    expect(setupFeeText(null, null)).toBeNull();
   });
 
   it("meters and the month picker", () => {

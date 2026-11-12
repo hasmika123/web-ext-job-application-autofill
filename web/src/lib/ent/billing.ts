@@ -61,6 +61,10 @@ export interface Account {
   nextInvoiceOn: string | null;
   paidThroughOn: string | null;
   source: string;
+  /** Step 2: where invoices go, and the setup fee (WAIVED, OWED, ADDED, PAID; amount null = price not set). */
+  billingEmail?: string | null;
+  setupFeeStatus?: string | null;
+  setupFeeAmountMinor?: number | null;
 }
 
 export interface PaymentMethod {
@@ -259,16 +263,16 @@ export function lastMonths(now: Date, n: number): string[] {
 
 // ------------------------------------------------------------------------------------------------ client
 
-async function call<T>(url: string): Promise<Result<T>> {
+async function call<T>(url: string, method: "GET" | "POST" = "GET"): Promise<Result<T>> {
   let res: Response;
   try {
-    res = await fetch(url, { cache: "no-store", headers: { accept: "application/json" } });
+    res = await fetch(url, { method, cache: "no-store", headers: { accept: "application/json" } });
   } catch {
     return { ok: false, status: 0, message: "We couldn't reach the server. Check your connection." };
   }
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (res.ok) return { ok: true, data: body as T };
-  const message = typeof body.detail === "string" ? body.detail : typeof body.error === "string" ? body.error : "";
+  const message = typeof body.detail === "string" ? body.detail : typeof body.error === "string" ? body.error : typeof body.message === "string" && !body.message.startsWith("error.") ? body.message : "";
   return { ok: false, status: res.status, message: res.status === 404 ? "This page isn't open to you." : message || "Something went wrong. Try again." };
 }
 
@@ -285,4 +289,14 @@ export const billingApi = {
   invoice: (orgId: number | string, id: number) => call<InvoiceDetail>(`${org(orgId)}/billing/invoices/${id}`),
   usage: (orgId: number | string, period: string | null) => call<Usage>(`${org(orgId)}/usage${period ? `?period=${encodeURIComponent(period)}` : ""}`),
   history: (orgId: number | string, months: number) => call<History>(`${org(orgId)}/usage/history?months=${months}`),
+  /** Step 2: a Stripe billing portal session for the organization's own customer; the page goes there. */
+  portal: (orgId: number | string) => call<{ url: string }>(`${org(orgId)}/billing/portal`, "POST"),
 };
+
+/** The setup fee in words: "Waived", "On your first invoice: $500.00", "On your first invoice (price to be confirmed)", "Paid". */
+export function setupFeeText(status: string | null | undefined, amountMinor: number | null | undefined, currency = "USD"): string | null {
+  if (!status) return null;
+  if (status === "WAIVED") return "Waived";
+  if (status === "PAID") return "Paid";
+  return amountMinor == null ? "On your first invoice (price to be confirmed)" : `On your first invoice: ${money(amountMinor, currency)}`;
+}

@@ -202,6 +202,14 @@ public interface StripeGateway {
 
     void setCancelAtPeriodEnd(String subscriptionId, boolean cancel, IdempotencyKey key);
 
+    /**
+     * One Stripe customer for an organization (docs/enterprise-v2/26 s1, ORG-BILLING-BUILD.md step 2): metadata {@code app=kiwiply},
+     * {@code kiwiply_scope=org}, {@code org_id}; never a person's own customer. Returns the customer id. The key makes a retry return the same customer.
+     */
+    default String createOrgCustomer(String billingEmail, String orgName, Long orgId, IdempotencyKey key) {
+        throw new StripeGatewayException("Billing is not enabled", StripeGatewayException.Kind.NOT_ENABLED, null, null);
+    }
+
     /** A Kiwiply-computed proration as a pending invoice item on the customer. Returns the invoice item id. */
     String createInvoiceItem(
         String customerId,
