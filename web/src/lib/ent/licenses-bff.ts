@@ -4,12 +4,17 @@ import { notFound, orgOk } from "@/lib/ent/members-bff";
 /**
  * The BFF half of the Consultant Licenses page: ONE handler serves every `/api/orgs/{orgId}/licenses/**` route. It checks the SHAPE of the call
  * (numeric ids, a known route, a JSON object body) and forwards to the API, which owns every rule (licenses.view / licenses.manage, the tenant wall,
- * one live licence per consultant). Anything not listed is a 404 from this layer, never an open proxy.
+ * one live licence per consultant, quote prices and expiry). Anything not listed is a 404 from this layer, never an open proxy.
  */
 const ID = "\\d{1,18}";
+const KEY = /^[A-Za-z0-9_-]{8,128}$/;
 const ROUTES: { method: string; pattern: RegExp; body: boolean }[] = [
   { method: "GET", pattern: /^$/, body: false },
   { method: "GET", pattern: /^catalog$/, body: false },
+  { method: "POST", pattern: /^quotes$/, body: true },
+  { method: "GET", pattern: new RegExp(`^quotes/${ID}$`), body: false },
+  { method: "POST", pattern: new RegExp(`^quotes/${ID}/confirm$`), body: false },
+  { method: "DELETE", pattern: new RegExp(`^changes/${ID}$`), body: false },
   { method: "GET", pattern: new RegExp(`^${ID}$`), body: false },
   { method: "POST", pattern: new RegExp(`^${ID}$`), body: true },
   { method: "PUT", pattern: new RegExp(`^${ID}/features$`), body: true },
@@ -28,6 +33,11 @@ export async function handle(request: Request, ctx: { params: Promise<{ orgId: s
     const body = await readObject(request);
     if (!body) return badBody("Send a JSON object.");
     init.body = JSON.stringify(body);
+  }
+  const key = request.headers.get("idempotency-key");
+  if (key) {
+    if (!KEY.test(key)) return badBody("Idempotency-Key must be 8 to 128 letters, digits, dashes or underscores.");
+    init.headers = { "Idempotency-Key": key };
   }
   return forward(target, init);
 }
