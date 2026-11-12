@@ -340,6 +340,10 @@ public class StripeGatewayImpl implements StripeGateway {
                 if (invoice.getParent() != null && invoice.getParent().getSubscriptionDetails() != null) {
                     metadata = invoice.getParent().getSubscriptionDetails().getMetadata();
                     app = metadata == null ? null : metadata.get("app");
+                } else if (invoice.getMetadata() != null && !invoice.getMetadata().isEmpty()) {
+                    // An organization invoice Kiwiply composed (ORG-BILLING-BUILD.md step 3a) carries its own kiwiply_scope / org_id.
+                    metadata = invoice.getMetadata();
+                    app = metadata.get("app");
                 }
             }
         }
@@ -583,6 +587,30 @@ public class StripeGatewayImpl implements StripeGateway {
             }
             return c.invoiceItems().create(b.build(), o).getId();
         });
+    }
+
+    @Override
+    public InvoiceSummary createOrgInvoice(String customerId, int daysUntilDue, String description, java.util.Map<String, String> metadata, IdempotencyKey key) {
+        String id = write("create the organization invoice", key, (c, o) ->
+            c.invoices().create(
+                com.stripe.param.InvoiceCreateParams.builder()
+                    .setCustomer(customerId)
+                    .setCollectionMethod(com.stripe.param.InvoiceCreateParams.CollectionMethod.SEND_INVOICE)
+                    .setDaysUntilDue((long) daysUntilDue)
+                    .setPendingInvoiceItemsBehavior(com.stripe.param.InvoiceCreateParams.PendingInvoiceItemsBehavior.INCLUDE)
+                    .setAutoAdvance(false)
+                    .setDescription(description)
+                    .putAllMetadata(withApp(metadata))
+                    .build(),
+                o
+            ).getId()
+        );
+        write("finalize the organization invoice", key.child("finalize"), (c, o) ->
+            c.invoices().finalizeInvoice(id, com.stripe.param.InvoiceFinalizeInvoiceParams.builder().build(), o).getId()
+        );
+        return write("send the organization invoice", key.child("send"), (c, o) ->
+            toSummary(c.invoices().sendInvoice(id, com.stripe.param.InvoiceSendInvoiceParams.builder().build(), o))
+        );
     }
 
     @Override

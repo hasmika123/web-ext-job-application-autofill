@@ -163,13 +163,66 @@ The direct `POST /licenses/{id}` and `PUT /licenses/{id}/features` stay. They no
 - changing the billing email after starting;
 - one-time Checkout for the fee (it goes on the first invoice instead, by decision).
 
-## Step 3 (next PR)
-- **Step 3:**
-  - the Stripe `LicenseChangeApplier`: a send-invoice subscription, one item per price, prorations as invoice items, and removals with `proration_behavior=none`;
-  - `OrgBillingWebhookHandler`: invoice, payment, failed payment → PAST_DUE, and the `paid_through` lapse;
-  - `OrgSeatReconciler` → `billing_drift`;
-  - test-clock ITs.
-- Prices must be published by the user (B5) before anything is charged.
+## Step 3a: Kiwiply-built Stripe invoices, in advance (this PR)
+**User decisions 2026-11-12.** These replace doc 26's subscription-items model for organizations.
+
+**Kiwiply builds each invoice.** There is no Stripe subscription, no Stripe price per catalog item, no coupon and no 20-item limit. Kiwiply composes the invoice at the licences' exact prices (contract or catalog), and Stripe sends it and collects the payment.
+
+**Billed in advance.** On the 1st, the invoice covers the month that starts.
+
+**When a billing period P closes and N starts** (`OrgInvoiceComposer`, called by the period job for an account with a Stripe customer):
+- **N in advance:**
+  - every licence and add-on live when N starts, at the monthly amount recorded on it;
+  - suspended licences are billed (C2: no credit); ended ones are not.
+- **The rest of P:** what was live during P but not already billed for P in advance, prorated over the calendar month (`PricingEngine.prorate`). That means:
+  - additions made during P;
+  - the whole first, partial period from the day billing started.
+
+  Removals and ends give no credit (no refunds).
+- **The setup fee, once:**
+  - the pending item made when billing started;
+  - or, if the fee was unpriced then and has a published price now, an item made here;
+  - its status becomes INVOICED, then PAID with the invoice.
+- **Nothing priced and no fee:** no invoice (never $0).
+
+**Stripe side:**
+- each line is an invoice item;
+- then `createOrgInvoice` creates one invoice with `send_invoice`, 15 days to pay and the pending items, finalizes it and sends it;
+- the customer pays on Stripe's page by card or bank transfer;
+- keys are `orginv-{orgId}-{N start}-{i}` and `orginv-{orgId}-{N start}`;
+- **the job now runs hourly**, so a failed run is retried inside Stripe's 24-hour idempotency window;
+- a month already invoiced is never sent twice.
+
+Kiwiply writes the `org_invoice` mirror (`source = STRIPE`, Stripe's number, `stripe_invoice_id`, `hosted_url`) with its lines (BASE_LICENSE, FEATURE, PRORATION, SETUP_FEE).
+
+**Webhooks** (`OrgInvoiceWebhookHandler`, the real `OrgBillingWebhookHandler`; `OrgBillingAccountCustomerLookup` routes events by customer):
+- `invoice.paid`:
+  - the mirror becomes PAID with the amount and the date;
+  - the account is paid through the invoice's period, and is ACTIVE again when nothing else is overdue;
+  - a setup fee on that invoice becomes PAID.
+- `invoice.payment_failed` / `invoice.overdue`: the account becomes PAST_DUE.
+- `invoice.voided` / `invoice.marked_uncollectible`: VOID / WRITTEN_OFF.
+- A paid mirror never moves back.
+- The event's customer must be the organization's own.
+- Audit: `BILLING_INVOICE_PAID` / `BILLING_PAYMENT_LATE` (actor `stripe`).
+
+**Overdue:**
+- each run marks a Stripe-billed account PAST_DUE while an open invoice is past its due date, and ACTIVE once none is;
+- **nothing is switched off.** What a PAST_DUE organization loses, and when, is a dunning decision still to be made: doc 27, and `OrgStateRules` would block most writes.
+
+**Stripe off:** with `enterprise.billing.stripe_enabled` off, an organization that has a Stripe customer keeps its period open (no estimate, no invoice). It is invoiced on the first run after Stripe is back on, so no month passes unbilled.
+
+**Web:** an open Stripe invoice has a **Pay** link (Stripe's hosted page) on Billing & Invoices; "Written off" is a status.
+
+**Schema:** `20261130010000_ent_org_invoices.xml` adds `org_invoice.stripe_invoice_id` (unique) and `hosted_url`. Local organizations keep step 2's estimates, in arrears.
+
+## Step 3b (next PR)
+- The reconciler: nightly, compare each Stripe-billed organization's invoices with Stripe (`retrieveInvoice`), and every closed period with its invoice → `billing_drift`, with an admin badge. It never fixes money by itself.
+- A test-clock runbook (`docs/enterprise-v2/runbooks/stripe-test-clock-C.md`) with real test-mode ids.
+- Dunning (what PAST_DUE switches off, and when): needs the user's decision first.
+- Before anything is charged:
+  - prices published (B5);
+  - `enterprise.billing.stripe_enabled` switched on.
 
 ## Status
 - **Step 1a built (2026-11-11).**
@@ -201,6 +254,14 @@ The direct `POST /licenses/{id}` and `PUT /licenses/{id}/features` stay. They no
     - `enterprise.billing.stripe_enabled` (off).
   - Tests: `OrgBillingStartServiceTest`, `OrgBillingStartIT` (admin start, portal refusal, rollover estimate + removal), one `OrgIsolationIT` row.
   - Web: `OrgBillingPanel` on the admin organization page, and the portal and account rows on Billing & Invoices, with tests.
-- **Next: step 3** (the Stripe subscription and licence items, org webhooks, failed payments, the reconciler). Before anything is charged:
-  - B5 (prices published);
-  - `enterprise.billing.stripe_enabled` switched on.
+- **Step 3a built (2026-11-12).**
+  - API:
+    - `OrgInvoiceComposer`, `OrgInvoiceWebhookHandler`, `OrgBillingAccountCustomerLookup`;
+    - `StripeGateway.createOrgInvoice`; invoice events read their own metadata;
+    - the period job is hourly, with the overdue sweep.
+  - Tests:
+    - `OrgInvoiceComposerTest` (first partial month, additions after an advance month, ended licences, nothing priced, keys, setup fee once, no double send);
+    - `OrgInvoiceWebhookHandlerTest`;
+    - `OrgInvoicesIT` (start with Stripe, a closed month invoiced in advance and mirrored, paid, overdue; Stripe off keeps the period open).
+  - Web: the Pay link and the Written off status.
+- **Next: step 3b** (reconciler, test-clock runbook; dunning after a decision).

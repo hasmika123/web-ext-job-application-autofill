@@ -42,6 +42,9 @@ public class FakeStripeGateway implements StripeGateway {
 
     public void reset() {
         orgCustomerCalls.clear();
+        orgInvoiceKeys.clear();
+        orgInvoiceItems.clear();
+        itemsInvoiced = 0;
         enabled = true;
         liveSubscription = false;
         failNextWrites = 0;
@@ -106,6 +109,25 @@ public class FakeStripeGateway implements StripeGateway {
 
     @Override
     public void cancelSubscription(String subscriptionId) {}
+
+    /** Organization invoices made (ORG-BILLING-BUILD.md step 3a): the key of each, and the invoice items that were pending when it was made. */
+    public final List<String> orgInvoiceKeys = new ArrayList<>();
+    public final List<List<InvoiceItemCall>> orgInvoiceItems = new ArrayList<>();
+    private int itemsInvoiced = 0;
+
+    @Override
+    public InvoiceSummary createOrgInvoice(String customerId, int daysUntilDue, String description, Map<String, String> metadata, IdempotencyKey key) {
+        maybeFail();
+        if (!orgInvoiceKeys.contains(key.value())) {
+            orgInvoiceKeys.add(key.value());
+            orgInvoiceItems.add(new ArrayList<>(invoiceItemCalls.subList(itemsInvoiced, invoiceItemCalls.size())));
+            itemsInvoiced = invoiceItemCalls.size();
+        }
+        int n = orgInvoiceKeys.indexOf(key.value()) + 1;
+        long due = orgInvoiceItems.get(n - 1).stream().mapToLong(InvoiceItemCall::amountMinor).sum();
+        java.time.Instant now = java.time.Instant.now();
+        return new InvoiceSummary("in_org_fake_" + n, "KIWI-" + String.format("%04d", n), "open", "usd", due, 0L, now, now, now.plus(java.time.Duration.ofDays(daysUntilDue)), null, "https://invoice.stripe.test/" + n, null, null, List.of());
+    }
 
     /** Organization customers made, as "orgId|email|name|key" (ORG-BILLING-BUILD.md step 2). */
     public final List<String> orgCustomerCalls = new ArrayList<>();

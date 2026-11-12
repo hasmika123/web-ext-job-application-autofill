@@ -113,7 +113,9 @@ public class OrgBillingReadService {
         long amountPaidMinor,
         String currency,
         boolean estimate,
-        boolean overdue
+        boolean overdue,
+        /** Step 3a: Stripe's page to pay an open invoice (card or bank transfer); null for estimates and settled invoices. */
+        String payUrl
     ) {}
 
     public record InvoicePage(List<InvoiceRow> rows, int page, int size, long total) {}
@@ -350,7 +352,8 @@ public class OrgBillingReadService {
             nz(i.getAmountPaidMinor()),
             i.getCurrency(),
             "LOCAL".equals(i.getSource()),
-            overdue
+            overdue,
+            "OPEN".equals(i.getStatus()) && "STRIPE".equals(i.getSource()) ? i.getHostedUrl() : null
         );
     }
 

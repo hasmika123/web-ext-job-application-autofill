@@ -65,6 +65,12 @@ public class OrgInvoice implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "stripe_invoice_id", length = 64)
+    private String stripeInvoiceId;
+
+    @Column(name = "hosted_url", length = 500)
+    private String hostedUrl;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }
@@ -99,4 +105,8 @@ public class OrgInvoice implements Serializable {
     public void setSource(String source) { this.source = source; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getStripeInvoiceId() { return stripeInvoiceId; }
+    public void setStripeInvoiceId(String stripeInvoiceId) { this.stripeInvoiceId = stripeInvoiceId; }
+    public String getHostedUrl() { return hostedUrl; }
+    public void setHostedUrl(String hostedUrl) { this.hostedUrl = hostedUrl; }
 }

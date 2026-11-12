@@ -81,6 +81,12 @@ Story-level notes from Task 5: **D2** keeps X12.2/X12.9 (Autopilot feed for assi
 >
 > **Answered 2026-11-12 (user, step 2):** the **platform admin starts billing** for an organization (a Billing panel on its admin page: billing
 > email, waive the setup fee, reason). Not the org admin self-serve, and not automatically with the billing module.
+>
+> **Answered 2026-11-12 (user, step 3):**
+> - **Kiwiply builds each organization invoice.** Each period it composes the lines at the licences' exact prices, plus prorations and the setup fee,
+>   and Stripe sends and collects one `send_invoice` invoice, paid in 15 days. This replaces doc 26's subscription items, coupons and the 20-item fallback.
+> - **Billed in advance:** on the 1st, the month that starts, plus what the previous month still owes. The first invoice carries the setup fee and the
+>   first, partial month.
 
 | # | Question | Options | Recommendation | Safe default applied | Owning doc |
 |---|---|---|---|---|---|
