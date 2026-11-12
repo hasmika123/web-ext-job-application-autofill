@@ -210,6 +210,15 @@ public interface StripeGateway {
         throw new StripeGatewayException("Billing is not enabled", StripeGatewayException.Kind.NOT_ENABLED, null, null);
     }
 
+    /**
+     * An organization invoice Kiwiply composed (ORG-BILLING-BUILD.md step 3a): a new invoice for the customer that takes its pending invoice items, with
+     * {@code collection_method=send_invoice} and {@code daysUntilDue}; it is finalized and sent, so Stripe e-mails the hosted page (card or bank
+     * transfer). Uses {@code key}, {@code key.child("finalize")} and {@code key.child("send")}. Returns the finalized invoice.
+     */
+    default InvoiceSummary createOrgInvoice(String customerId, int daysUntilDue, String description, java.util.Map<String, String> metadata, IdempotencyKey key) {
+        throw new StripeGatewayException("Billing is not enabled", StripeGatewayException.Kind.NOT_ENABLED, null, null);
+    }
+
     /** A Kiwiply-computed proration as a pending invoice item on the customer. Returns the invoice item id. */
     String createInvoiceItem(
         String customerId,

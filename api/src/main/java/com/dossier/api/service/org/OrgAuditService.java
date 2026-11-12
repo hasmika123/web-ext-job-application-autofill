@@ -100,6 +100,9 @@ public class OrgAuditService {
     public static final String ADMIN_BILLING_START = "ADMIN_BILLING_START";
     /** ORG-BILLING-BUILD.md step 2: an Org Admin opened the Stripe billing portal. */
     public static final String BILLING_PORTAL = "BILLING_PORTAL";
+    /** ORG-BILLING-BUILD.md step 3a: Stripe reported an organization invoice paid, or a payment failed / an invoice overdue (actor "stripe"). */
+    public static final String BILLING_INVOICE_PAID = "BILLING_INVOICE_PAID";
+    public static final String BILLING_PAYMENT_LATE = "BILLING_PAYMENT_LATE";
     public static final String ADMIN_HOSTNAME_SUSPEND = "ADMIN_HOSTNAME_SUSPEND";
     public static final String ADMIN_HOSTNAME_RESUME = "ADMIN_HOSTNAME_RESUME";
     public static final String ADMIN_ACCOUNT_MIGRATE = "ADMIN_ACCOUNT_MIGRATE";

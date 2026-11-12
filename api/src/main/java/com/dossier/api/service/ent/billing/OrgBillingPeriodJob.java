@@ -10,7 +10,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Daily at 00:40 UTC: closes the billing periods that ended ({@link OrgBillingPeriodService#runDue}). This class only adds the cross-instance lease
+ * Hourly at :40 (UTC): closes the billing periods that ended ({@link OrgBillingPeriodService#runDue}) and marks overdue organizations. Hourly, not daily,
+ * so a Stripe failure is retried well inside Stripe's 24-hour idempotency window (ORG-BILLING-BUILD.md step 3a); a run with nothing due writes nothing. This class only adds the cross-instance lease
  * ({@link JobLeaseService}, the pattern of the other enterprise jobs), so two API instances never write the same estimate twice.
  */
 @Component
@@ -31,7 +32,7 @@ public class OrgBillingPeriodJob {
         this.leases = leases;
     }
 
-    @Scheduled(cron = "${dossier.ent.billing-period-cron:0 40 0 * * *}", zone = "UTC")
+    @Scheduled(cron = "${dossier.ent.billing-period-cron:0 40 * * * *}", zone = "UTC")
     public void scheduled() {
         try {
             runOnce(Instant.now())

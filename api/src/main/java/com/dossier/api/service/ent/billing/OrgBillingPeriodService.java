@@ -42,7 +42,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  *       priced, no invoice is written (never a $0 invoice).</li>
  *   <li>The period moves on, one calendar month at a time, until it holds today. A missed run catches up.</li>
  * </ol>
- * Once Stripe bills the organization (step 3), its invoices come from Stripe's webhooks instead and no estimate is written.
+ * Once Stripe bills the organization (its account has a Stripe customer), step 3a applies instead: {@link OrgInvoiceComposer} sends the invoice for the
+ * period that starts, in advance, with what the closed one still owes (no estimate is written). While {@code enterprise.billing.stripe_enabled} is off
+ * such an organization is left as it is, so no period passes unbilled; it is invoiced on the first run after Stripe is on again.
+ *
+ * <p>Every run also marks overdue organizations: a Stripe-billed account with an open invoice past its due date is PAST_DUE until it is paid, then
+ * ACTIVE again (nothing is switched off; that is a dunning decision still to be made).
  */
 @Service
 public class OrgBillingPeriodService {
@@ -68,6 +73,8 @@ public class OrgBillingPeriodService {
     private final OrgInvoiceLineRepository lines;
     private final ProductRepository products;
     private final OrganizationRepository organizations;
+    private final OrgInvoiceComposer composer;
+    private final OrgBillingStartService starts;
     private final TransactionTemplate tx;
 
     public OrgBillingPeriodService(
@@ -80,6 +87,8 @@ public class OrgBillingPeriodService {
         OrgInvoiceLineRepository lines,
         ProductRepository products,
         OrganizationRepository organizations,
+        OrgInvoiceComposer composer,
+        OrgBillingStartService starts,
         PlatformTransactionManager txManager
     ) {
         this.jdbc = jdbc;
@@ -91,6 +100,8 @@ public class OrgBillingPeriodService {
         this.lines = lines;
         this.products = products;
         this.organizations = organizations;
+        this.composer = composer;
+        this.starts = starts;
         this.tx = new TransactionTemplate(txManager);
     }
 
@@ -114,7 +125,30 @@ public class OrgBillingPeriodService {
                 LOG.warn("Billing period rollover failed for organization {}", orgId, e);
             }
         }
+        overdue(now);
         return new RunResult(orgs, invoiceCount, removals, failed);
+    }
+
+    /** PAST_DUE while a Stripe-billed organization has an open invoice past its due date; ACTIVE again once none is. */
+    void overdue(Instant now) {
+        LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        for (Long orgId : jdbc.queryForList("select org_id from org_billing_account where stripe_customer_id is not null order by org_id", Long.class)) {
+            try {
+                tx.executeWithoutResult(s -> {
+                    OrgBillingAccount a = accounts.findFirstByOrgId(orgId).orElse(null);
+                    if (a == null) return;
+                    boolean late = invoices.findByOrgIdAndSourceAndStatus(orgId, "STRIPE", "OPEN").stream().anyMatch(i -> i.getDueDate() != null && i.getDueDate().isBefore(today));
+                    String want = late ? "PAST_DUE" : "ACTIVE";
+                    if (("ACTIVE".equals(a.getStatus()) || "PAST_DUE".equals(a.getStatus())) && !want.equals(a.getStatus())) {
+                        a.setStatus(want);
+                        a.setUpdatedAt(now);
+                        accounts.save(a);
+                    }
+                });
+            } catch (RuntimeException e) {
+                LOG.warn("Overdue check failed for organization {}", orgId, e);
+            }
+        }
     }
 
     /** One organization, inside the caller's transaction. Null when it has no account (anymore). */
@@ -125,10 +159,14 @@ public class OrgBillingPeriodService {
         int removals = finishRemovals(orgId, now);
         int written = 0;
         boolean local = a.getStripeCustomerId() == null || a.getStripeCustomerId().isBlank();
+        if (!local && !starts.stripeReady()) {
+            LOG.warn("Organization {} is billed by Stripe but Stripe is off: its period is kept open until Stripe is on again", orgId);
+            return new One(0, removals);
+        }
         while (a.getCurrentPeriodEnd().isBefore(today)) {
             LocalDate start = a.getCurrentPeriodStart();
             LocalDate end = a.getCurrentPeriodEnd();
-            if (local && estimate(a, start, end)) written++;
+            if (local ? estimate(a, start, end) : composer.invoiceInAdvance(a, start, end, now)) written++;
             LocalDate next = end.plusDays(1);
             a.setCurrentPeriodStart(next);
             a.setCurrentPeriodEnd(next.withDayOfMonth(next.lengthOfMonth()));

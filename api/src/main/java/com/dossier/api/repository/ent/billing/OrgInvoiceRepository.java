@@ -22,6 +22,10 @@ public interface OrgInvoiceRepository extends Repository<OrgInvoice, Long> {
     Optional<OrgInvoice> findByOrgIdAndId(Long orgId, Long id);
     List<OrgInvoice> findByOrgId(Long orgId);
     long countByOrgId(Long orgId);
+    /** ORG-BILLING-BUILD.md step 3a: the mirror of one Stripe invoice, and whether a period was already invoiced in advance. */
+    Optional<OrgInvoice> findByOrgIdAndStripeInvoiceId(Long orgId, String stripeInvoiceId);
+    boolean existsByOrgIdAndPeriodStartAndSourceAndKind(Long orgId, java.time.LocalDate periodStart, String source, String kind);
+    List<OrgInvoice> findByOrgIdAndSourceAndStatus(Long orgId, String source, String status);
 
     Optional<OrgInvoice> findByOrgIdAndInvoiceNumber(Long orgId, String invoiceNumber);
     Page<OrgInvoice> findByOrgIdOrderByIssueDateDescIdDesc(Long orgId, Pageable pageable);

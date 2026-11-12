@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Organization invoices sent by Stripe (docs/enterprise-v2/ORG-BILLING-BUILD.md step 3a; user decisions 2026-11-12: Kiwiply builds each invoice,
+        billed in advance). Additive: the mirror of a Stripe invoice carries its Stripe id (the webhooks find it by that) and its hosted payment page.
+    -->
+    <changeSet id="ent-org-invoices-1-stripe" author="ent">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_invoice" columnName="stripe_invoice_id"/></not></preConditions>
+        <addColumn tableName="org_invoice">
+            <column name="stripe_invoice_id" type="varchar(64)"/>
+            <column name="hosted_url" type="varchar(500)"/>
+        </addColumn>
+        <createIndex tableName="org_invoice" indexName="ux_org_invoice_stripe" unique="true"><column name="stripe_invoice_id"/></createIndex>
+    </changeSet>
+</databaseChangeLog>
