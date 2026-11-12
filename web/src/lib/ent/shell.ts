@@ -39,6 +39,7 @@ const ADMIN_FULL: { key: string; label: string; icon: string; href: string; grou
   { key: "reports", label: "Reports", icon: "Chart", href: "/w/admin/reports", group: "organization" },
   { key: "audit", label: "Audit Log", icon: "Shield", href: "/w/admin/audit", group: "organization" },
   { key: "branding", label: "Branding", icon: "Sparkles", href: "/w/admin/branding", group: "organization" },
+  { key: "domains", label: "Domains", icon: "Globe", href: "/w/admin/domains", group: "organization" },
   { key: "settings", label: "Settings", icon: "Gear", href: "/w/admin/settings", group: "organization" },
   { key: "subscription", label: "Subscription", icon: "Layers", href: "/w/admin/subscription", group: "organization" },
   { key: "billing", label: "Billing & Invoices", icon: "CreditCard", href: "/w/admin/billing", group: "organization" },
