@@ -63,8 +63,8 @@
 |---|---|---|---|
 | **B1** ✅ | **Licence administration**: give, change and remove a consultant's licence and add-ons (Pro AI, inbox, Autopilot). Includes the **Consultant Licenses** page. | Not built. Today's "License" dialog only edits a status label. | M |
 | **B2** ✅ | **One licence-aware gate** for AI, inbox, Prepare and builder AI/tailoring in the tenant web app | Inbox and Prepare read licences. AI and the builder ignore them (402 for every enterprise account). | M |
-| B3 | Subscription Overview, Billing & Invoices, Feature Usage pages | Placeholders ("Soon"). Tables exist; nothing reads them. | M each |
-| B4 | **Stripe per organization**: setup fee, licence items, quotes, webhooks, reconciler, failed payments | Not built | L |
+| B3 ✅ | Subscription Overview, Billing & Invoices, Feature Usage pages (built read-only 2026-11-11, `ORG-BILLING-BUILD.md` step 1a; quote → confirm is step 1b) | Placeholders ("Soon"). Tables exist; nothing reads them. | M each |
+| B4 | **Stripe per organization**: setup fee, licence items, quotes, webhooks, reconciler, failed payments (planned in `ORG-BILLING-BUILD.md` steps 1b–3; user decisions 2026-11-11: invoices paid in 15 days, setup fee on the first invoice, C1–C10 defaults) | Not built | L |
 | B5 | Catalog prices published | Yours (after the margin-guard review) | yours |
 
 ### C. Admin pages that are still placeholders

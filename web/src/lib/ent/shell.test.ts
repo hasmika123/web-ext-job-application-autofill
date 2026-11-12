@@ -20,12 +20,12 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     expect(sections[1].items.map((i) => i.text)).toEqual(["Employees", "Teams & Departments", "Roles"]);
     expect(sections[2].items.map((i) => i.text)).toEqual(["Consultants", "Licenses", "Assignments", "Resumes"]);
     expect(sections[3].items.map((i) => i.text)).toEqual(["Jobs", "Applications", "Interviews", "Clients", "Placements"]);
-    expect(sections[4].items.map((i) => i.text)).toEqual(["Reports", "Audit Log", "Branding", "Settings", "Plan & Billing"]);
-    // one "Soon" row (D1): Plan & Billing; the pages that left the menu (HR, Finance, Domains, ...) are nowhere
+    expect(sections[4].items.map((i) => i.text)).toEqual(["Reports", "Audit Log", "Branding", "Settings", "Subscription", "Billing & Invoices", "Feature Usage"]);
+    // no "Soon" row since the billing pages were built (ORG-BILLING-BUILD.md 1a); the pages that left the menu (HR, Finance, Domains, ...) are nowhere
     const all = sections.flatMap((s) => s.items);
-    expect(all.filter((i) => i.soon).map((i) => i.key)).toEqual(["billing"]);
+    expect(all.filter((i) => i.soon).map((i) => i.key)).toEqual([]);
     expect(all.map((i) => i.key)).not.toEqual(expect.arrayContaining(["hr"]));
-    expect(all.length).toBe(18);
+    expect(all.length).toBe(20);
     expect(all.find((i) => i.key === "employees")?.soon).toBeUndefined();
   });
 
@@ -77,14 +77,16 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     expect(navSections(ws(beta, "admin")).flatMap((s) => s.items).find((i) => i.key === "consultants")?.soon).toBe(true);
   });
 
-  it("Plan & Billing reads 'Soon' whether or not the API lists it (D9: its page is a placeholder)", () => {
+  it("the billing pages open when the API lists them and read 'Soon' when the billing module is off", () => {
     const owner = me("acme.localhost", "owner@acme.com");
-    const without = { ...owner, workspaces: owner.workspaces.map((w) => (w.key === "admin" ? { ...w, nav: w.nav.filter((n) => n.key !== "billing") } : w)) };
-    for (const m of [owner, without]) {
-      const billing = navSections(ws(m, "admin")).flatMap((s) => s.items).find((i) => i.key === "billing")!;
-      expect(billing.soon).toBe(true);
-      expect(billing.text).toBe("Plan & Billing");
+    const without = { ...owner, workspaces: owner.workspaces.map((w) => (w.key === "admin" ? { ...w, nav: w.nav.filter((n) => !["subscription", "billing", "usage"].includes(n.key)) } : w)) };
+    const listed = navSections(ws(owner, "admin")).flatMap((s) => s.items);
+    const off = navSections(ws(without, "admin")).flatMap((s) => s.items);
+    for (const key of ["subscription", "billing", "usage"]) {
+      expect(listed.find((i) => i.key === key)?.soon, key).toBeUndefined();
+      expect(off.find((i) => i.key === key)?.soon, key).toBe(true);
     }
+    expect(listed.find((i) => i.key === "billing")?.text).toBe("Billing & Invoices");
   });
 
   it("every Administration page that is not built reads Soon, and no built page is on that list", () => {
@@ -177,7 +179,7 @@ describe("the catch-all (pages not built yet)", () => {
     expect(catchAllPage(owner, "admin", [])).toEqual({ kind: "page", title: "Dashboard" });
   });
   it("a path the member's menu does not list is denied (no data, the API is the real gate)", () => {
-    expect(catchAllPage(owner, "admin", ["billing"])).toEqual({ kind: "page", title: "Plan & Billing" }); // listed as soon: the honest "on the way" page
+    expect(catchAllPage(owner, "admin", ["billing"])).toEqual({ kind: "page", title: "Billing & Invoices" }); // listed: its own route draws the page
     expect(catchAllPage(owner, "admin", ["hr"])).toEqual({ kind: "denied" }); // left the Administration menu (D1)
     expect(catchAllPage(owner, "admin", ["nothing-here"])).toEqual({ kind: "denied" });
     expect(catchAllPage(owner, "hr", [])).toEqual({ kind: "denied" });

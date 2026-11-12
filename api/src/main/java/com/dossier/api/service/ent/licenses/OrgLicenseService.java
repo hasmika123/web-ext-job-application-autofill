@@ -140,6 +140,19 @@ public class OrgLicenseService {
         return out;
     }
 
+    /**
+     * The same rows as {@link #list}, with no permission check: for the billing pages (ORG-BILLING-BUILD.md step 1a), whose own reader requires
+     * {@code billing.view} first. Never expose it on a route by itself.
+     */
+    @Transactional(readOnly = true)
+    public List<Row> rowsFor(Long orgId) {
+        Instant now = now();
+        Prices prices = prices(orgId);
+        List<Row> out = new ArrayList<>();
+        for (ConsultantProfile c : consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(orgId, "ACTIVE")) out.add(row(c, current(orgId, c.getId()), prices, now));
+        return out;
+    }
+
     /** One consultant's licence and its history, newest first. */
     @Transactional(readOnly = true)
     public Detail get(OrgMembership me, Long consultantId) {

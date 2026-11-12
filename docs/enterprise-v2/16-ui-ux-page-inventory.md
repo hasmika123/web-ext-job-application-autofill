@@ -181,7 +181,8 @@ the API re-checks with scope) · **Entitlement / module** · **Empty state** · 
 are drawn in labelled groups (`groups` + each item's `group` in `workspaces.json`), and pages that were one job split in
 several rows became tabs of one page. The old addresses redirect to the tab (listed under each table); pages that left the
 Administration menu entirely (Subscription Overview, Consultant Licenses, Feature Usage, HR, Finance, Domains, Integrations)
-are no longer nav data. Plan & Billing is the one "Soon" row.
+are no longer nav data. Plan & Billing was the one "Soon" row; on 2026-11-11 (`ORG-BILLING-BUILD.md` step 1a) it became three built pages,
+Subscription, Billing & Invoices and Feature Usage, behind the billing module. No row is "Soon" now.
 
 ### 5.1 ADMIN — Organization Admin
 | Page | Component | Data source | Permission | Module | Empty state | Story |
@@ -203,13 +204,15 @@ are no longer nav data. Plan & Billing is the one "Soon" row.
 | Audit Log → `/w/admin/audit` | `AuditLogPage` | `GET …/audit` | `audit.view` | — | "No activity yet" | X4.9 |
 | Branding → `/w/admin/branding` | `BrandingPage` (11 §1) | `GET/PATCH …/branding/draft`, `POST …/publish` | `branding.manage` | — | — (always has defaults) | X2.5 |
 | Settings → `/w/admin/settings` | `OrgSettingsPage` (14 §4), tabs General · Security · Autopilot · Resumes · Policies (`?tab=policies`: `PoliciesPage` (62), one editor per policy kind) | `GET/PATCH /api/orgs/{id}`, `…/settings`, `GET …/policies[/{kind}]` | `org.settings.manage` | — | — | X2.9, 62 |
-| Plan & Billing → `/w/admin/billing` | "Soon" (the on-the-way page) until `BillingPage` (C, X6.4) | `GET …/billing` | `billing.view` | billing | "Billing isn't connected" (dev) | X6.4 (C) |
+| Subscription → `/w/admin/subscription` | `SubscriptionOverviewPage` (ORG-BILLING-BUILD.md 1a, 28 §1) | `GET …/billing/overview` | `billing.view` | billing | "Billing is being set up" (SETUP, nothing billed) | X6.1 (C) |
+| Billing & Invoices → `/w/admin/billing` | `BillingPage`, tabs Account · Invoices · Contract (28 §4) | `GET …/billing`, `…/billing/invoices[/{id}]` | `billing.view` | billing | "No invoices yet" | X6.4 (C) |
+| Feature Usage → `/w/admin/usage` | `UsagePage`, tabs By consultant · By feature · History (28 §5) | `GET …/usage`, `…/usage/history` | `usage.view` | billing | "Nothing used yet this month" | X6.5 (C) |
 | My Profile | avatar menu → `/me` (13) — **not** a nav item | | | | | X2.7 |
 
 Redirects (Phase 1 refresh): `/w/admin/invitations` → `/w/admin/employees?tab=invitations`; `/w/admin/departments` →
 `/w/admin/teams?tab=departments`; `/w/admin/policies` → `/w/admin/settings?tab=policies`. Groups: People (Employees,
 Teams & Departments, Roles) · Talent (Consultants, Assignments, Resumes) · Pipeline (Jobs, Applications, Interviews,
-Clients, Placements) · Organization (Reports, Audit Log, Branding, Settings, Plan & Billing).
+Clients, Placements) · Organization (Reports, Audit Log, Branding, Settings, Subscription, Billing & Invoices, Feature Usage).
 
 ### 5.2 MARKETING — Talent Marketing Specialist (D owns the pages; B owns the nav/shell contract)
 | Page | Component (scope ASSIGNED) | Data source | Permission | Module | Empty state | Story |

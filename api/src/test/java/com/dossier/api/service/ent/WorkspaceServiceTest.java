@@ -81,7 +81,7 @@ class WorkspaceServiceTest {
         assertThat(slugs(all)).containsExactly("admin");
         assertThat(navKeys(all, "admin")).containsExactly(
             "home", "employees", "teams", "roles", "consultants", "licenses", "assignments", "resumes", "jobs", "applications", "interviews", "clients", "placements",
-            "reports", "audit", "branding", "settings", "billing"
+            "reports", "audit", "branding", "settings", "subscription", "billing", "usage"
         );
         // the menu's groups travel with it (display only): People, Talent, Pipeline, Organization; Home stands alone
         MeTenantDTO.Workspace admin = all.workspaces().get(0);
@@ -100,7 +100,7 @@ class WorkspaceServiceTest {
         );
         Map<String, Boolean> rolesOnly = new LinkedHashMap<>(ALL_OFF);
         rolesOnly.put("roles", true);
-        assertThat(navKeys(compute(rolesOnly, "ORG_ADMIN"), "admin")).contains("roles").doesNotContain("billing", "consultants");
+        assertThat(navKeys(compute(rolesOnly, "ORG_ADMIN"), "admin")).contains("roles").doesNotContain("subscription", "billing", "usage", "consultants");
     }
 
     @Test
