@@ -87,6 +87,23 @@ class OrgBillingStartIT extends MemberItSupport {
     }
 
     @Test
+    @WithMockUser(username = "billing-admin", authorities = AuthoritiesConstants.ADMIN)
+    void thePlatformAdminSuspendsAnOrganizationByHandAndResumesItWithAReason() throws Exception {
+        String url = "/api/admin/orgs/" + a.getId();
+        MvcResult noReason = mockMvc.perform(post(url + "/suspend").contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"\"}")).andReturn();
+        assertThat(noReason.getResponse().getStatus()).isEqualTo(422);
+        JsonNode s = om.readTree(mockMvc.perform(post(url + "/suspend").contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Invoice unpaid for two months\"}")).andReturn().getResponse().getContentAsString());
+        assertThat(s.path("status").asText()).isEqualTo("SUSPENDED");
+        assertThat(orgs.findByOrgId(a.getId()).orElseThrow().getStatus().name()).isEqualTo("SUSPENDED");
+        assertThat(audit.findByOrgIdAndAction(a.getId(), "ADMIN_ORG_SUSPEND", PageRequest.of(0, 5)).getTotalElements()).isEqualTo(1);
+        assertThat(mockMvc.perform(post(url + "/suspend").contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Trying the same action twice\"}")).andReturn().getResponse().getStatus()).isEqualTo(409);
+
+        JsonNode r = om.readTree(mockMvc.perform(post(url + "/resume").contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Paid in full\"}")).andReturn().getResponse().getContentAsString());
+        assertThat(r.path("status").asText()).isEqualTo("ACTIVE");
+        assertThat(mockMvc.perform(post(url + "/resume").contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Trying the same action twice\"}")).andReturn().getResponse().getStatus()).isEqualTo(409);
+    }
+
+    @Test
     @WithMockUser(username = "plain-user", authorities = AuthoritiesConstants.USER)
     void onlyThePlatformAdminMayStartBilling() throws Exception {
         assertThat(mockMvc.perform(get("/api/admin/orgs/" + a.getId() + "/billing")).andReturn().getResponse().getStatus()).isEqualTo(403);

@@ -99,7 +99,11 @@ public class OrgInvoiceWebhookHandler implements OrgBillingWebhookHandler {
             a.setSetupFeeStatus("PAID");
             a.setSetupFeeNote("Paid with invoice " + inv.getInvoiceNumber() + ".");
         }
-        if ("PAST_DUE".equals(a.getStatus()) && !stillLate(inv)) a.setStatus("ACTIVE");
+        if ("PAST_DUE".equals(a.getStatus()) && !stillLate(inv)) {
+            a.setStatus("ACTIVE");
+            a.setFeaturesPausedFrom(null); // paying lifts the pause at once (step 3b)
+            a.setLastReminderAt(null);
+        }
         a.setUpdatedAt(at);
         accounts.save(a);
         audit.record(inv.getOrgId(), ACTOR, null, OrgAuditService.BILLING_INVOICE_PAID, OrgAuditService.TARGET_ORG, null, String.valueOf(inv.getOrgId()), "invoice " + inv.getInvoiceNumber() + " paid", null);

@@ -148,7 +148,10 @@ class OrgInvoicesIT extends MemberItSupport {
         late.setStripeInvoiceId("in_late_" + p);
         invoiceRows.saveAndFlush(late);
         periods.runDue(Instant.now());
-        assertThat(accounts.findFirstByOrgId(a.getId()).orElseThrow().getStatus()).isEqualTo("PAST_DUE");
+        OrgBillingAccount pastDue = accounts.findFirstByOrgId(a.getId()).orElseThrow();
+        assertThat(pastDue.getStatus()).isEqualTo("PAST_DUE");
+        assertThat(pastDue.getFeaturesPausedFrom()).as("step 3b: add-ons pause the day after the period it paid for").isEqualTo(inv.getPeriodEnd().plusDays(1));
+        assertThat(pastDue.getLastReminderAt()).as("a reminder went out").isNotNull();
     }
 
     @Test

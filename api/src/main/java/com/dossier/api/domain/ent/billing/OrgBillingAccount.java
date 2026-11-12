@@ -83,6 +83,12 @@ public class OrgBillingAccount implements Serializable {
     @Column(name = "started_at")
     private java.time.Instant startedAt;
 
+    @Column(name = "features_paused_from")
+    private java.time.LocalDate featuresPausedFrom;
+
+    @Column(name = "last_reminder_at")
+    private java.time.Instant lastReminderAt;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }
@@ -129,4 +135,8 @@ public class OrgBillingAccount implements Serializable {
     public void setStartedByLogin(String startedByLogin) { this.startedByLogin = startedByLogin; }
     public java.time.Instant getStartedAt() { return startedAt; }
     public void setStartedAt(java.time.Instant startedAt) { this.startedAt = startedAt; }
+    public java.time.LocalDate getFeaturesPausedFrom() { return featuresPausedFrom; }
+    public void setFeaturesPausedFrom(java.time.LocalDate featuresPausedFrom) { this.featuresPausedFrom = featuresPausedFrom; }
+    public java.time.Instant getLastReminderAt() { return lastReminderAt; }
+    public void setLastReminderAt(java.time.Instant lastReminderAt) { this.lastReminderAt = lastReminderAt; }
 }

@@ -110,6 +110,17 @@ public class AdminOrgResource {
         return service.setModule(id, req.key(), req.on(), req.reason());
     }
 
+    /** ORG-BILLING-BUILD.md step 3b: suspend the organization (read-only for everyone, nothing deleted), by hand, with a reason. */
+    @PostMapping("/{id}/suspend")
+    public Detail suspendOrg(@PathVariable("id") Long id, @RequestBody ReasonRequest req) {
+        return service.suspendOrg(id, req == null ? null : req.reason());
+    }
+
+    @PostMapping("/{id}/resume")
+    public Detail resumeOrg(@PathVariable("id") Long id, @RequestBody ReasonRequest req) {
+        return service.resumeOrg(id, req == null ? null : req.reason());
+    }
+
     @PostMapping("/{id}/hostnames/{hid}/suspend")
     public Detail suspend(@PathVariable("id") Long id, @PathVariable("hid") Long hid, @RequestBody ReasonRequest req) {
         return service.suspendHostname(id, hid, req == null ? null : req.reason());

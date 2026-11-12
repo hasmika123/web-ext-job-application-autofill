@@ -46,8 +46,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * period that starts, in advance, with what the closed one still owes (no estimate is written). While {@code enterprise.billing.stripe_enabled} is off
  * such an organization is left as it is, so no period passes unbilled; it is invoiced on the first run after Stripe is on again.
  *
- * <p>Every run also marks overdue organizations: a Stripe-billed account with an open invoice past its due date is PAST_DUE until it is paid, then
- * ACTIVE again (nothing is switched off; that is a dunning decision still to be made).
+ * <p>Every run also does the dunning of every Stripe-billed account ({@link OrgDunningService}, step 3b). An open invoice past its due date makes the
+ * account PAST_DUE, its add-ons pause after the period it paid for, and reminders go out weekly; once nothing is overdue it is ACTIVE again.
  */
 @Service
 public class OrgBillingPeriodService {
@@ -75,6 +75,7 @@ public class OrgBillingPeriodService {
     private final OrganizationRepository organizations;
     private final OrgInvoiceComposer composer;
     private final OrgBillingStartService starts;
+    private final OrgDunningService dunning;
     private final TransactionTemplate tx;
 
     public OrgBillingPeriodService(
@@ -89,6 +90,7 @@ public class OrgBillingPeriodService {
         OrganizationRepository organizations,
         OrgInvoiceComposer composer,
         OrgBillingStartService starts,
+        OrgDunningService dunning,
         PlatformTransactionManager txManager
     ) {
         this.jdbc = jdbc;
@@ -102,6 +104,7 @@ public class OrgBillingPeriodService {
         this.organizations = organizations;
         this.composer = composer;
         this.starts = starts;
+        this.dunning = dunning;
         this.tx = new TransactionTemplate(txManager);
     }
 
@@ -129,7 +132,7 @@ public class OrgBillingPeriodService {
         return new RunResult(orgs, invoiceCount, removals, failed);
     }
 
-    /** PAST_DUE while a Stripe-billed organization has an open invoice past its due date; ACTIVE again once none is. */
+    /** The dunning of every Stripe-billed account: PAST_DUE, the pause date and the reminders while an invoice is overdue; ACTIVE again once none is. */
     void overdue(Instant now) {
         LocalDate today = LocalDate.ofInstant(now, ZoneOffset.UTC);
         for (Long orgId : jdbc.queryForList("select org_id from org_billing_account where stripe_customer_id is not null order by org_id", Long.class)) {
@@ -137,10 +140,7 @@ public class OrgBillingPeriodService {
                 tx.executeWithoutResult(s -> {
                     OrgBillingAccount a = accounts.findFirstByOrgId(orgId).orElse(null);
                     if (a == null) return;
-                    boolean late = invoices.findByOrgIdAndSourceAndStatus(orgId, "STRIPE", "OPEN").stream().anyMatch(i -> i.getDueDate() != null && i.getDueDate().isBefore(today));
-                    String want = late ? "PAST_DUE" : "ACTIVE";
-                    if (("ACTIVE".equals(a.getStatus()) || "PAST_DUE".equals(a.getStatus())) && !want.equals(a.getStatus())) {
-                        a.setStatus(want);
+                    if (dunning.sweep(a, invoices.findByOrgIdAndSourceAndStatus(orgId, "STRIPE", "OPEN"), today, now)) {
                         a.setUpdatedAt(now);
                         accounts.save(a);
                     }

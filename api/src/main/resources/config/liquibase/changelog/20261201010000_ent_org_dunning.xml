@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Dunning for organization billing (docs/enterprise-v2/ORG-BILLING-BUILD.md step 3b; user decision 2026-11-12: pause, suspend by hand). Additive.
+          - org_billing_account.features_paused_from: while the account is PAST_DUE, the first day its licensed add-ons pause (the day after the period it
+            paid for, or the due date of its oldest unpaid invoice when it never paid one); null otherwise.
+          - org_billing_account.last_reminder_at: when the last overdue reminder e-mail went out (one a week while overdue).
+    -->
+    <changeSet id="ent-org-dunning-1-account" author="ent">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_billing_account" columnName="features_paused_from"/></not></preConditions>
+        <addColumn tableName="org_billing_account">
+            <column name="features_paused_from" type="date"/>
+            <column name="last_reminder_at" type="datetime(6)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

@@ -98,6 +98,8 @@ public class OrgAuditService {
     public static final String ADMIN_MODULE_ON = "ADMIN_MODULE_ON";
     public static final String ADMIN_MODULE_OFF = "ADMIN_MODULE_OFF";
     public static final String ADMIN_BILLING_START = "ADMIN_BILLING_START";
+    public static final String ADMIN_ORG_SUSPEND = "ADMIN_ORG_SUSPEND";
+    public static final String ADMIN_ORG_RESUME = "ADMIN_ORG_RESUME";
     /** ORG-BILLING-BUILD.md step 2: an Org Admin opened the Stripe billing portal. */
     public static final String BILLING_PORTAL = "BILLING_PORTAL";
     /** ORG-BILLING-BUILD.md step 3a: Stripe reported an organization invoice paid, or a payment failed / an invoice overdue (actor "stripe"). */
