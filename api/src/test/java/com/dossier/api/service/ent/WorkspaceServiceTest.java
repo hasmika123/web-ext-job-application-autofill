@@ -81,7 +81,7 @@ class WorkspaceServiceTest {
         assertThat(slugs(all)).containsExactly("admin");
         assertThat(navKeys(all, "admin")).containsExactly(
             "home", "employees", "teams", "roles", "consultants", "licenses", "assignments", "resumes", "jobs", "applications", "interviews", "clients", "placements",
-            "reports", "audit", "branding", "settings", "subscription", "billing", "usage"
+            "reports", "audit", "branding", "domains", "settings", "subscription", "billing", "usage"
         );
         // the menu's groups travel with it (display only): People, Talent, Pipeline, Organization; Home stands alone
         MeTenantDTO.Workspace admin = all.workspaces().get(0);

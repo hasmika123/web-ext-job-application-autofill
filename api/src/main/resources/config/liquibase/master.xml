@@ -156,5 +156,6 @@
     <include file="config/liquibase/changelog/20261129010000_ent_org_billing_start.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261130010000_ent_org_invoices.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261201010000_ent_org_dunning.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261202010000_ent_custom_domains.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

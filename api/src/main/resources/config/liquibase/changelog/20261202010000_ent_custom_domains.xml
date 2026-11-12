@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Custom domains (docs/enterprise-v2/CUSTOM-DOMAINS-BUILD.md, gap A4; design 10-domain-routing.md s4.3). Additive.
+          - org_hostname.failing_since: when an ACTIVE domain's checks started failing; a passing check clears it, and a domain failing longer than
+            enterprise.domains.grace_hours_before_suspend is suspended.
+    -->
+    <changeSet id="ent-custom-domains-1-failing" author="ent">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_hostname" columnName="failing_since"/></not></preConditions>
+        <addColumn tableName="org_hostname">
+            <column name="failing_since" type="datetime(6)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>
