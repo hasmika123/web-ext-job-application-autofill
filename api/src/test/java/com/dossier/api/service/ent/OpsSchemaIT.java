@@ -306,12 +306,14 @@ class OpsSchemaIT {
         assertThat(q("select count(*) from report_export where org_id = ? and status = 'READY' and expires_at < now(6)", acme)).isZero();
         assertThat(definitions.search(acme, "FINANCE", null, null, "", PageRequest.of(0, 10)).getTotalElements()).isGreaterThanOrEqualTo(3L);
 
-        // Applications by source adds up to the applications of the window and leads with LinkedIn (the board's mix)
+        // Applications by source adds up to the applications of the window, largest first, with LinkedIn near the top (the board's mix weights it
+        // 32 to Company Website's 24, but each application's source is drawn at random, so over a window that moves with today either can lead)
         LocalDate from = today.minusMonths(6);
         List<Object[]> bySource = metrics.applicationsBySource(acme, from, today);
         long sum = bySource.stream().mapToLong(r -> ((Number) r[1]).longValue()).sum();
         assertThat(sum).isEqualTo(applications.countByOrgIdAndAppliedOnBetween(acme, from, today));
-        assertThat(bySource.get(0)[0]).isEqualTo("LinkedIn");
+        for (int i = 1; i < bySource.size(); i++) assertThat(((Number) bySource.get(i)[1]).longValue()).isLessThanOrEqualTo(((Number) bySource.get(i - 1)[1]).longValue());
+        assertThat(bySource.stream().limit(2).map(r -> r[0])).contains("LinkedIn");
         // Applications per month: six rising buckets that add up to the total
         List<Object[]> perMonth = metrics.applicationsPerMonth(acme, today.withDayOfMonth(1).minusMonths(5), today);
         assertThat(perMonth).hasSize(6);
