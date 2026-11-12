@@ -67,8 +67,8 @@ class OrgUsageReadServiceTest {
     void world() {
         service.setClock(Clock.fixed(NOW, ZoneOffset.UTC));
         when(licenseRows.rowsFor(ORG)).thenReturn(List.of(
-            new Row(1L, "Ana", "ana@x.test", true, Status.ACTIVE, List.of("ai.resume_tailoring"), null, false, NOW, null, null),
-            new Row(2L, "Ben", "ben@x.test", true, Status.NONE, List.of(), null, false, null, null, null)
+            new Row(1L, "Ana", "ana@x.test", true, Status.ACTIVE, List.of("ai.resume_tailoring"), null, false, NOW, null, null, List.of()),
+            new Row(2L, "Ben", "ben@x.test", true, Status.NONE, List.of(), null, false, null, null, null, List.of())
         ));
         when(views.findByOrgIdAndConsultantId(ORG, 1L)).thenReturn(List.of(view("2026-11-02T09:00:00Z"), view("2026-11-10T09:00:00Z"), view("2026-10-20T09:00:00Z")));
         when(prep.findByOrgIdAndConsultantIdOrderByOccurredAtDesc(ORG, 1L)).thenReturn(List.of(session("2026-10-05T09:00:00Z")));

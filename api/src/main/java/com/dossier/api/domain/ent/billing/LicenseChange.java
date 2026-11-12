@@ -53,6 +53,11 @@ public class LicenseChange implements Serializable {
     @Column(name = "applied_at")
     private Instant appliedAt;
 
+    @Column(name = "quote_id")
+    private Long quoteId;
+
+    public Long getQuoteId() { return quoteId; }
+    public void setQuoteId(Long quoteId) { this.quoteId = quoteId; }
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }

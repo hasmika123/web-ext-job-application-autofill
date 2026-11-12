@@ -71,12 +71,60 @@ it on per organization):
 - the portal;
 - anything Stripe.
 
-## Step 1b: quote → confirm (next PR)
-- `license_quote` (additive) and `POST /licenses/quotes` + `/quotes/{id}/confirm` (Idempotency-Key, 15-minute expiry, inputs hash).
-- `LicenseChangeApplier` with `LocalBillingApplier` writes the licence rows plus `subscription_change` + `org_subscription_item` (source LOCAL).
-- Removals take effect at period end, with Undo.
-- `QuoteSummary` and `CostConfirmSheet` on the Licenses page.
-- `LocalPeriodRolloverJob` writes an **Estimate** invoice each period.
+## Step 1b: quote → confirm (this PR)
+**What changes for an Org Admin:** on the Licenses page, Give licence / Save add-ons became **Review** → a priced summary → **Confirm**. Nothing is billed
+yet; the summary says so.
+
+**Prices** (`OrgLicenseService.prices`):
+- the organization's contract price;
+- else the catalog's active ORG monthly price (`product_price`, which the user publishes, B5);
+- else "Price not set" (never $0).
+
+A licence records the price it was given at, as before.
+
+**API** (all `licenses.manage`; the generic 404 otherwise):
+
+| Method | Path | Answer |
+|---|---|---|
+| POST | `/api/orgs/{orgId}/licenses/quotes` | body `{consultantId, features}`: the add-ons the licence should carry afterwards (no licence yet → one is given). Answers the quote. It writes a `license_quote` row and no audit row. 422 `NO_CHANGE` |
+| GET | `/licenses/quotes/{quoteId}` | the quote as priced; status OPEN, CONFIRMED or EXPIRED |
+| POST | `/licenses/quotes/{quoteId}/confirm` | Idempotency-Key (optional). Re-prices the stored request: 410 `QUOTE_EXPIRED`, 409 `QUOTE_STALE` (the inputs hash differs), 409 `QUOTE_USED`. Then `LicenseChangeApplier.apply` (`LocalBillingApplier`) changes the licence. Audit `LICENSE_CHANGE` ("… (quote N)"). Answers the licence detail |
+| DELETE | `/licenses/changes/{changeId}` | Keep an add-on whose removal is waiting for the period end (the Undo). 409 `NOT_PENDING` |
+
+The quote itself:
+- **lines:** `CREATE`, `ADD_FEATURE`, `REMOVE_FEATURE` or `KEEP_FEATURE`, each with its monthly price, what is due now, and when it takes effect;
+- **totals:** monthly before and after, the delta, and what is due now (null amounts = price not set);
+- `expiresAt`.
+
+The direct `POST /licenses/{id}` and `PUT /licenses/{id}/features` stay. They now price and confirm in one step (`LicenseQuoteService.applyNow`), so every add-on change goes through a quote and the applier. Suspend, reactivate and end stay one-click and immediate.
+
+**Billing period** (`org_billing_account.current_period_*`, which only the demo organizations have until step 2):
+- **Additions** start now. The rest of the period is prorated with `PricingEngine.prorate` and shown as "due now".
+- **Removals** wait for the end of the period (C9):
+  - the add-on's `ends_at` becomes the period end, so it keeps working until then;
+  - a PENDING `license_change` is written, which Keep cancels;
+  - asking for the add-on again before then also keeps it (`KEEP_FEATURE`).
+- **Without a billing period** (every real organization today), removals happen at once, as in B1.
+- **Ending a licence** cancels its pending removals.
+
+**Rows written:**
+- `license_quote` (new table, additive changelog `20261128010000_ent_license_quote.xml`);
+- `license_change.quote_id` (new column);
+- one `subscription_change` line per change (ADDED, CHANGED or REMOVED, with the live licence count after it).
+
+`enterprise.quote.ttl_minutes` (15) is now a live setting.
+
+**Web:**
+- `QuoteSummary` draws the quote 1:1 and never adds money.
+- The Configure sheet reviews before it confirms, with a fresh Idempotency-Key per review.
+- Removals that wait show as dashed "pending removal" chips, plus a "stops on {date}" row with **Keep {add-on}** in the sheet.
+- The BFF gained the four routes and passes Idempotency-Key on.
+
+**Not in 1b:**
+- `org_subscription_item` quantities (no real organization has a subscription row until step 2);
+- `LocalPeriodRolloverJob`, which writes an **Estimate** invoice each period and marks PENDING removals APPLIED once their date passes (the add-on already stops then, through `ends_at`): **moved to step 2**;
+- `CostConfirmSheet` for commercial dependencies (no dependency rules exist yet);
+- bulk quotes, tiers, promotions and presets.
 
 ## Step 2 and step 3 (later PRs)
 - **Step 2:**
@@ -104,4 +152,13 @@ it on per organization):
     - the menu items Subscription, Billing & Invoices and Feature Usage (no "Soon" row is left);
     - tests for the pages, the helpers and the BFF.
   - Not done: mock-API fixtures for these routes (the licence routes have none either), so on `dev:demo` the pages show their error state.
-- **Next: step 1b** (quote → confirm).
+- **Step 1b built (2026-11-11).**
+  - API:
+    - `LicenseQuoteService` (quote, get, confirm, applyNow) with the `LicenseChangeApplier` seam and `LocalBillingApplier`;
+    - `OrgLicenseService`: catalog prices, removals at period end, `keepFeature`, quote ids, subscription history;
+    - `license_quote`.
+  - Tests:
+    - `LicenseQuoteIT` (setup without billing, stale, expired, used, period-end removal with Keep, tenant wall);
+    - four `OrgIsolationIT` rows; the settings pins.
+  - Web: `QuoteSummary`, the review → confirm sheet, Keep, the BFF routes, and tests.
+- **Next: step 2** (one Stripe customer per organization, the setup fee on the first invoice, the portal, `LocalPeriodRolloverJob`).

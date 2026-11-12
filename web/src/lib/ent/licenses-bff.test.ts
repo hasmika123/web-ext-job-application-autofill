@@ -18,6 +18,7 @@ describe("licenses BFF", () => {
   it("serves exactly the documented routes", async () => {
     const ok: [string, string[]][] = [
       ["GET", []], ["GET", ["catalog"]], ["GET", ["7"]], ["POST", ["7"]], ["PUT", ["7", "features"]], ["POST", ["7", "suspend"]], ["POST", ["7", "reactivate"]], ["POST", ["7", "end"]],
+      ["POST", ["quotes"]], ["GET", ["quotes", "9"]], ["DELETE", ["changes", "4"]],
     ];
     for (const [method, path] of ok) {
       const res = await handle(req(method, `/api/orgs/2/licenses/${path.join("/")}`, method === "GET" ? undefined : {}), ctx("2", path));
@@ -28,7 +29,7 @@ describe("licenses BFF", () => {
 
   it("refuses everything else without calling the API", async () => {
     const bad: [string, string, string[]][] = [
-      ["DELETE", "2", ["7"]], ["POST", "2", []], ["GET", "2", ["7", "history"]], ["POST", "2", ["abc", "end"]], ["GET", "x1", []], ["PUT", "2", ["7"]],
+      ["DELETE", "2", ["7"]], ["POST", "2", []], ["PUT", "2", ["quotes"]], ["DELETE", "2", ["quotes", "9"]], ["GET", "2", ["changes", "4"]], ["GET", "2", ["7", "history"]], ["POST", "2", ["abc", "end"]], ["GET", "x1", []], ["PUT", "2", ["7"]],
     ];
     for (const [method, org, path] of bad) {
       const res = await handle(req(method, `/api/orgs/${org}/licenses/${path.join("/")}`, method === "GET" ? undefined : {}), ctx(org, path));
@@ -43,5 +44,16 @@ describe("licenses BFF", () => {
     expect(init.method).toBe("PUT");
     expect(JSON.parse(String(init.body))).toEqual({ features: ["inbox.monitoring"] });
     expect(JSON.stringify(init.headers ?? {})).not.toContain("secret");
+  });
+
+  it("confirms a quote without a body and passes a well-formed Idempotency-Key on", async () => {
+    const confirm = new Request("http://web.test/api/orgs/2/licenses/quotes/9/confirm", { method: "POST", headers: { "idempotency-key": "k-12345678" } });
+    expect((await handle(confirm, ctx("2", ["quotes", "9", "confirm"]))).status).toBe(200);
+    const init = serverApiFetch.mock.calls[0][1] as RequestInit;
+    expect(serverApiFetch.mock.calls[0][0]).toBe("/api/orgs/2/licenses/quotes/9/confirm");
+    expect(init.body).toBeUndefined();
+    expect(init.headers).toEqual({ "Idempotency-Key": "k-12345678" });
+    const bad = new Request("http://web.test/api/orgs/2/licenses/quotes/9/confirm", { method: "POST", headers: { "idempotency-key": "no spaces allowed" } });
+    expect((await handle(bad, ctx("2", ["quotes", "9", "confirm"]))).status).toBe(400);
   });
 });

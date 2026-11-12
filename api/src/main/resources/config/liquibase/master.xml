@@ -152,5 +152,6 @@
     <include file="config/liquibase/changelog/20261125010000_inbox_safety.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261126010000_inbox_confidence.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261127010000_ent_opportunity_resume.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261128010000_ent_license_quote.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

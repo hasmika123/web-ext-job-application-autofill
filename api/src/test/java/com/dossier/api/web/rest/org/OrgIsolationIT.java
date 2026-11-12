@@ -456,6 +456,12 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/licenses/{consultantId}/suspend", Case.write("{\"reason\":\"Isolation test\"}", 409, null)),
         Map.entry("POST /api/orgs/{orgId}/licenses/{consultantId}/reactivate", Case.write(null, 409, null)),
         Map.entry("POST /api/orgs/{orgId}/licenses/{consultantId}/end", Case.write("{\"reason\":\"Isolation test\"}", 409, null)),
+        // Licence quotes (ORG-BILLING-BUILD.md step 1b): pricing writes a quote row and no audit; the world's quote was priced against another
+        // licence state (stale), and the world's change has already happened (not pending), so a legitimate confirm / undo is a 409 that writes nothing.
+        Map.entry("POST /api/orgs/{orgId}/licenses/quotes", Case.versioned(200, null, w -> "{\"consultantId\":" + w.consultantId + ",\"features\":[]}", w -> null)),
+        Map.entry("GET /api/orgs/{orgId}/licenses/quotes/{quoteId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/licenses/quotes/{quoteId}/confirm", Case.write(null, 409, null)),
+        Map.entry("DELETE /api/orgs/{orgId}/licenses/changes/{changeId}", Case.write(null, 409, null)),
         Map.entry("GET /api/orgs/{orgId}/consultants/counts", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/consultants/filters", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}", Case.read()),
@@ -856,6 +862,10 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.OrgMemberRoleRepository memberRoleRows;
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository consultantProfiles;
     @Autowired private com.dossier.api.repository.ent.billing.OrgInvoiceRepository invoiceRows;
+    @Autowired private com.dossier.api.repository.ent.billing.ConsultantLicenseRepository licenseRows;
+    @Autowired private com.dossier.api.repository.ent.billing.LicenseChangeRepository licenseChangeRows;
+    @Autowired private com.dossier.api.repository.ent.billing.LicenseQuoteRepository licenseQuoteRows;
+    @Autowired private com.dossier.api.repository.catalog.ProductRepository productRows;
 
     /** Gives the seat the Consultant role; the consultant_profile is already there (every World seeds one for its owner). */
     private void makeConsultant(Long orgId, OrgMember seat) {
@@ -892,7 +902,7 @@ class OrgIsolationIT {
         String memberVersion;
         Long offboardingId;
         /** Consultant workspace: the rows of the owner's consultant profile (own-scoped; A's ids are named from B's org in the cross-tenant sweep). */
-        Long skillId, certId, prefId, resumeId, matchId, requirementId, savedSearchId, invoiceId;
+        Long skillId, certId, prefId, resumeId, matchId, requirementId, savedSearchId, invoiceId, quoteId, changeId;
         /** The second set of consultant pages: an ASSIGNED match, a SCHEDULED and a COMPLETED interview, a prep session, a PENDING_APPROVAL submission, an application. */
         Long consultantId, clientId, assignedRequirementId, assignedMatchId, scheduledInterviewId, completedInterviewId, prepSessionId, submissionId, applicationId;
         /** The last eight pages: a task, a calendar entry, a PENDING_REVIEW offer with a future deadline, a checklist item of an ACTIVE placement, a notification. */
@@ -1224,6 +1234,37 @@ class OrgIsolationIT {
             memberVersion = memberQuery.currentVersion(org.getId(), member);
             ConsultantIsolationFixture.Rows talent = ConsultantIsolationFixture.create(em, org.getId(), prefix, member.getId());
             consultantId = talent.consultantId();
+            // Licence quotes: an ENDED licence of this consultant with one applied change, and an OPEN quote priced against another state
+            com.dossier.api.domain.ent.billing.ConsultantLicense lic = new com.dossier.api.domain.ent.billing.ConsultantLicense();
+            lic.setOrgId(org.getId());
+            lic.setConsultantId(consultantId);
+            lic.setStatus("ENDED");
+            lic.setBaseProductId(productRows.findByCode("ORG_BASE_LICENSE").orElseThrow().getId());
+            lic.setBaseAmountMinor(0L);
+            lic.setStartsAt(java.time.Instant.now().minus(java.time.Duration.ofDays(30)));
+            lic.setEndsAt(java.time.Instant.now().minus(java.time.Duration.ofDays(1)));
+            lic = licenseRows.saveAndFlush(lic);
+            com.dossier.api.domain.ent.billing.LicenseChange lch = new com.dossier.api.domain.ent.billing.LicenseChange();
+            lch.setOrgId(org.getId());
+            lch.setLicenseId(lic.getId());
+            lch.setKind("REMOVE_FEATURE");
+            lch.setFeatureKey("inbox.monitoring");
+            lch.setSummary(prefix + " removed Inbox monitoring");
+            lch.setAmountDeltaMinor(0L);
+            lch.setEffectiveAt(java.time.Instant.now().minus(java.time.Duration.ofDays(2)));
+            lch.setStatus("APPLIED");
+            changeId = licenseChangeRows.saveAndFlush(lch).getId();
+            com.dossier.api.domain.ent.billing.LicenseQuote lq = new com.dossier.api.domain.ent.billing.LicenseQuote();
+            lq.setOrgId(org.getId());
+            lq.setConsultantId(consultantId);
+            lq.setRequestJson("{\"features\":[]}");
+            lq.setLinesJson("[]");
+            lq.setTotalsJson("{\"priceSet\":false}");
+            lq.setInputsHash("0".repeat(64));
+            lq.setCurrency("USD");
+            lq.setCreatedAt(java.time.Instant.now());
+            lq.setExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofHours(1)));
+            quoteId = licenseQuoteRows.saveAndFlush(lq).getId();
             consultantVersion = talent.consultantVersion();
             requirementId = talent.requirementId();
             com.dossier.api.domain.ent.talent.ConsultantProfile cpB = new com.dossier.api.domain.ent.talent.ConsultantProfile();
@@ -1731,6 +1772,8 @@ class OrgIsolationIT {
             ids.put("consultantId", String.valueOf(consultantId));
             ids.put("resumeId", String.valueOf(resumeId));
             ids.put("invoiceId", String.valueOf(invoiceId));
+            ids.put("quoteId", String.valueOf(quoteId));
+            ids.put("changeId", String.valueOf(changeId));
             ids.put("jobId", String.valueOf(jobId));
             ids.put("clientId", String.valueOf(jobClientId));
             ids.put("contactId", String.valueOf(clientContactId));

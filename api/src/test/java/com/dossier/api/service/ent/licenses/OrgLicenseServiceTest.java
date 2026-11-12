@@ -62,7 +62,10 @@ class OrgLicenseServiceTest {
     OrgContractPriceRepository prices = mock(OrgContractPriceRepository.class);
     ConsultantAccess access = mock(ConsultantAccess.class);
     OrgAuditService audit = mock(OrgAuditService.class);
-    OrgLicenseService service = new OrgLicenseService(consultants, licenses, features, changes, products, definitions, prices, access, audit);
+    com.dossier.api.repository.sub.ProductPriceRepository catalogPrices = mock(com.dossier.api.repository.sub.ProductPriceRepository.class);
+    com.dossier.api.repository.ent.billing.OrgBillingAccountRepository billingAccounts = mock(com.dossier.api.repository.ent.billing.OrgBillingAccountRepository.class);
+    com.dossier.api.repository.ent.billing.SubscriptionChangeRepository subscriptionChanges = mock(com.dossier.api.repository.ent.billing.SubscriptionChangeRepository.class);
+    OrgLicenseService service = new OrgLicenseService(consultants, licenses, features, changes, products, definitions, prices, catalogPrices, billingAccounts, subscriptionChanges, access, audit);
 
     OrgMembership me = new OrgMembership(ORG, 5L, 2L, "sarah", com.dossier.api.domain.enumeration.OrgRole.ADMIN, com.dossier.api.domain.enumeration.OrgMemberStatus.ACTIVE, com.dossier.api.domain.enumeration.OrgStatus.ACTIVE);
     List<ConsultantLicense> licenseRows = new ArrayList<>();

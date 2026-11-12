@@ -1,7 +1,7 @@
 /**
- * Consultant licences (docs/enterprise-v2/LICENCES-BUILD.md L3/L4): the contract of `/api/orgs/{orgId}/licenses/**` and the small pure helpers the
- * Consultant Licenses page draws with. No money moves (user decision 2026-11-10): a change works at once; a price shows only where the organization has
- * a contract price, otherwise "Price not set".
+ * Consultant licences (docs/enterprise-v2/LICENCES-BUILD.md L3/L4, ORG-BILLING-BUILD.md step 1b): the contract of `/api/orgs/{orgId}/licenses/**` and the
+ * small pure helpers the Consultant Licenses page draws with. No money moves yet (user decision 2026-11-10). An add-on change is priced by the API first
+ * (a quote) and confirmed; the page only shows the quote's numbers and never adds money. A missing price reads "Price not set", never $0.
  */
 
 export type LicenseState = "NONE" | "ACTIVE" | "SUSPENDED" | "ENDING" | "ENDED";
@@ -18,6 +18,8 @@ export interface LicenseRow {
   since: string | null;
   endsAt: string | null;
   suspendReason: string | null;
+  /** Add-ons taken away at the end of the billing period: they still work until then. */
+  endingFeatures?: string[];
 }
 
 export interface LicenseChange {
@@ -28,9 +30,50 @@ export interface LicenseChange {
   actorMemberId: number | null;
 }
 
+/** A removal waiting for the end of the billing period; `changeId` undoes it. */
+export interface ScheduledRemoval {
+  changeId: number;
+  featureKey: string;
+  name: string;
+  effectiveAt: string;
+}
+
 export interface LicenseDetail {
   row: LicenseRow;
   history: LicenseChange[];
+  scheduled?: ScheduledRemoval[];
+}
+
+export type QuoteOp = "CREATE" | "ADD_FEATURE" | "REMOVE_FEATURE" | "KEEP_FEATURE";
+
+export interface QuoteLine {
+  op: QuoteOp;
+  featureKey: string | null;
+  name: string;
+  monthlyMinor: number | null;
+  dueNowMinor: number | null;
+  effectiveAt: string;
+}
+
+export interface QuoteTotals {
+  currentMonthlyMinor: number | null;
+  proposedMonthlyMinor: number | null;
+  deltaMinor: number | null;
+  dueNowMinor: number | null;
+  priceSet: boolean;
+  periodLastDay: string | null;
+}
+
+export interface LicenseQuote {
+  id: number;
+  consultantId: number;
+  consultantName: string;
+  status: "OPEN" | "CONFIRMED" | "EXPIRED";
+  currency: string;
+  lines: QuoteLine[];
+  totals: QuoteTotals;
+  billingConnected: boolean;
+  expiresAt: string;
 }
 
 export interface AddOn {
@@ -90,6 +133,46 @@ export function priceText(minor: number | null | undefined, currency: string): s
   return `${amount} / month`;
 }
 
+/** An amount in minor units, e.g. "$9.00"; null reads "Price not set". */
+export function moneyText(minor: number | null | undefined, currency: string): string {
+  if (minor == null) return "Price not set";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(minor / 100);
+}
+
+/** "Dec 1, 2026" from an ISO instant or date, in UTC (billing periods are UTC days). */
+export function dayText(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const d = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+/** What one quote line does, in words: "Add Inbox monitoring", "Remove AI resume tailoring on Dec 1, 2026", ... */
+export function lineText(l: QuoteLine, now: Date = new Date()): string {
+  switch (l.op) {
+    case "CREATE":
+      return "Give the base licence";
+    case "ADD_FEATURE":
+      return `Add ${l.name}`;
+    case "KEEP_FEATURE":
+      return `Keep ${l.name}`;
+    case "REMOVE_FEATURE":
+      return new Date(l.effectiveAt).getTime() > now.getTime() + 60_000 ? `Remove ${l.name} on ${dayText(l.effectiveAt)}` : `Remove ${l.name} now`;
+  }
+}
+
+/** The monthly change of a quote: "+$9.00 / month", "-$9.00 / month", "No change", or "Price not set". */
+export function deltaText(t: QuoteTotals, currency: string): string {
+  if (!t.priceSet || t.deltaMinor == null) return "Price not set";
+  if (t.deltaMinor === 0) return "No change";
+  return `${t.deltaMinor > 0 ? "+" : "-"}${moneyText(Math.abs(t.deltaMinor), currency)} / month`;
+}
+
+/** A fresh Idempotency-Key for one confirm click (a retry of the same click reuses it). */
+export function newKey(): string {
+  const c = globalThis.crypto;
+  return c && typeof c.randomUUID === "function" ? c.randomUUID() : `k-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 /** The sentence a refused change shows. */
 export function errorText(r: { status: number; code?: string; message: string }): string {
   if (r.status === 0) return r.message;
@@ -98,6 +181,16 @@ export function errorText(r: { status: number; code?: string; message: string })
       return "This consultant already has a licence. Reload to see it.";
     case "NO_LICENSE":
       return "This consultant no longer has a licence. Reload to see the latest.";
+    case "QUOTE_STALE":
+      return "The licence or a price changed since this price was shown. Review the change again.";
+    case "QUOTE_EXPIRED":
+      return "This price is no longer valid. Review the change again.";
+    case "QUOTE_USED":
+      return "This change was already confirmed. Reload to see the licence.";
+    case "NO_CHANGE":
+      return "Nothing changes. Turn an add-on on or off first.";
+    case "NOT_PENDING":
+      return "This removal is no longer waiting. Reload to see the latest.";
     default:
       break;
   }
@@ -139,4 +232,8 @@ export const licensesApi = {
   suspend: (orgId: number | string, consultantId: number, reason: string) => call<LicenseDetail>(`${base(orgId)}/${consultantId}/suspend`, post({ reason })),
   reactivate: (orgId: number | string, consultantId: number) => call<LicenseDetail>(`${base(orgId)}/${consultantId}/reactivate`, post()),
   end: (orgId: number | string, consultantId: number, reason: string) => call<LicenseDetail>(`${base(orgId)}/${consultantId}/end`, post({ reason })),
+  quote: (orgId: number | string, consultantId: number, features: string[]) => call<LicenseQuote>(`${base(orgId)}/quotes`, post({ consultantId, features })),
+  confirm: (orgId: number | string, quoteId: number, key: string) =>
+    call<LicenseDetail>(`${base(orgId)}/quotes/${quoteId}/confirm`, { method: "POST", headers: { "Idempotency-Key": key } }),
+  keep: (orgId: number | string, changeId: number) => call<LicenseDetail>(`${base(orgId)}/changes/${changeId}`, { method: "DELETE" }),
 };

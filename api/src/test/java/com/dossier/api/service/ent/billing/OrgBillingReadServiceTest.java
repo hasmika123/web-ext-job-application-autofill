@@ -81,7 +81,7 @@ class OrgBillingReadServiceTest {
     }
 
     static Row row(long id, String name, Status status, Long monthly, boolean priceSet, Instant endsAt) {
-        return new Row(id, name, name.toLowerCase() + "@x.test", true, status, List.of(), monthly, priceSet, NOW.minusSeconds(86_400), endsAt, null);
+        return new Row(id, name, name.toLowerCase() + "@x.test", true, status, List.of(), monthly, priceSet, NOW.minusSeconds(86_400), endsAt, null, List.of());
     }
 
     @Test
