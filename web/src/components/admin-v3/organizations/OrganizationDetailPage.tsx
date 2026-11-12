@@ -99,6 +99,22 @@ function Inner({ initial, id }: { initial: OrgDetail | null; id: number }) {
     });
   }
 
+  /** ORG-BILLING-BUILD.md step 3b: suspension is the platform admin's call, never automatic; nothing is deleted, and Resume puts it back. */
+  function suspension(action: "suspend" | "resume") {
+    if (!org) return;
+    a.askReason({
+      title: action === "suspend" ? `Suspend ${org.name}?` : `Resume ${org.name}?`,
+      body:
+        action === "suspend"
+          ? "Everyone in the organization can still sign in, read and leave, but nobody can change anything until you resume it. Nothing is deleted."
+          : "The organization works normally again. An unpaid invoice stays past due until it is paid.",
+      confirmLabel: action === "suspend" ? "Suspend organization" : "Resume organization",
+      tone: action === "suspend" ? "danger" : "primary",
+      placeholder: action === "suspend" ? "e.g. Invoice unpaid for two months" : "e.g. Paid in full",
+      run: (reason) => post(`/orgs/${id}/${action}`, { reason }),
+    });
+  }
+
   function resetOwner() {
     if (!org) return;
     a.askReason({
@@ -192,6 +208,23 @@ function Inner({ initial, id }: { initial: OrgDetail | null; id: number }) {
       </AdminPanel>
 
       <OrgBillingPanel orgId={id} orgName={org.name} />
+
+      <AdminPanel title="Suspension" description="Suspending is always your call: nothing suspends an organization automatically, not even an unpaid invoice.">
+        <div className="flex flex-wrap items-center gap-3" data-org-suspension={org.status}>
+          <span className="text-[13px] text-ink-soft">
+            {org.status === "SUSPENDED" ? "Suspended: everyone can read, nobody can change anything." : `Status: ${humanize(org.status)}.`}
+          </span>
+          {org.status === "SUSPENDED" ? (
+            <Button type="button" variant="primary" onClick={() => suspension("resume")} className="min-h-11 sm:min-h-0" data-org-resume>
+              Resume organization
+            </Button>
+          ) : org.status === "ACTIVE" || org.status === "PAST_DUE" ? (
+            <Button type="button" variant="danger" onClick={() => suspension("suspend")} className="min-h-11 sm:min-h-0" data-org-suspend>
+              Suspend organization
+            </Button>
+          ) : null}
+        </div>
+      </AdminPanel>
 
       <AdminPanel
         title="Hostnames"

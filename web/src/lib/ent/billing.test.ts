@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectionText, day, lastMonths, meterPercent, methodText, money, monthName, recurringText, setupFeeText } from "./billing";
+import { collectionText, day, lastMonths, meterPercent, methodText, money, monthName, pauseText, recurringText, setupFeeText } from "./billing";
 
 /** ORG-BILLING-BUILD.md step 1a: money comes from minor units only, and a missing price says so instead of $0. */
 describe("billing helpers", () => {
@@ -32,6 +32,13 @@ describe("billing helpers", () => {
     expect(setupFeeText("ADDED", 50000)).toBe("On your first invoice: $500.00");
     expect(setupFeeText("OWED", null)).toBe("On your first invoice (price to be confirmed)");
     expect(setupFeeText(null, null)).toBeNull();
+  });
+
+  it("the pause sentence warns before the pause date and says what is paused from it (step 3b)", () => {
+    const today = new Date("2026-12-20T09:00:00Z");
+    expect(pauseText("2027-01-01", today)).toBe("If it is still unpaid on Jan 1, 2027, your consultants' licensed add-ons (AI help, inbox monitoring, Autopilot prepare) pause until it is paid.");
+    expect(pauseText("2026-12-20", today)).toMatch(/^Your consultants' licensed add-ons .* are paused since Dec 20, 2026/);
+    expect(pauseText(null, today)).toBeNull();
   });
 
   it("meters and the month picker", () => {

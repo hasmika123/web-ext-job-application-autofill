@@ -216,13 +216,41 @@ Kiwiply writes the `org_invoice` mirror (`source = STRIPE`, Stripe's number, `st
 
 **Schema:** `20261130010000_ent_org_invoices.xml` adds `org_invoice.stripe_invoice_id` (unique) and `hosted_url`. Local organizations keep step 2's estimates, in arrears.
 
-## Step 3b (next PR)
-- The reconciler: nightly, compare each Stripe-billed organization's invoices with Stripe (`retrieveInvoice`), and every closed period with its invoice → `billing_drift`, with an admin badge. It never fixes money by itself.
-- A test-clock runbook (`docs/enterprise-v2/runbooks/stripe-test-clock-C.md`) with real test-mode ids.
-- Dunning (what PAST_DUE switches off, and when): needs the user's decision first.
-- Before anything is charged:
-  - prices published (B5);
-  - `enterprise.billing.stripe_enabled` switched on.
+## Step 3b: dunning, suspension by hand, the reconciler, the runbook (this PR)
+**User decision 2026-11-12: pause, suspend by hand.**
+
+**Dunning** (`OrgDunningService`, run by the hourly period job for every Stripe-billed account). When an open invoice is past its due date:
+- the account is PAST_DUE;
+- `features_paused_from` is set: the day after the period it paid for (`paid_through_on`), or the due date of its oldest unpaid invoice when it never paid one;
+- a **reminder e-mail** (plain text: invoice, amount, due date, Stripe's payment link, and the pause date or "paused since") goes to the billing contact and the active owners and admins, then once every 7 days (`last_reminder_at`).
+
+Once nothing is overdue, or `invoice.paid` arrives, it is ACTIVE again, with the pause and reminders cleared at once.
+
+**The pause** lives in `OrgLicenseGate.paused`:
+- from `features_paused_from` while PAST_DUE, the licensed **add-ons** (AI help, inbox, Autopilot prepare, …) grant nothing;
+- the **base licence** (the consultant's workspace), reads, billing pages and exports keep working.
+
+The Subscription page's overdue banner says when add-ons pause, or since when they are paused.
+
+**Suspension is never automatic.** The platform admin suspends or resumes an organization on its admin page (a **Suspension** panel; reason required): `POST /api/admin/orgs/{id}/suspend|resume`, audit `ORG_SUSPEND`/`ORG_RESUME` + the organization's `ADMIN_ORG_SUSPEND`/`ADMIN_ORG_RESUME` (HIGH).
+- A suspended organization is read-only for everyone (`OrgStateRules`).
+- Nothing is deleted or ended, and Resume puts it back as it was.
+- Only ACTIVE or PAST_DUE can be suspended, and only SUSPENDED resumed (409 otherwise).
+
+**Reconciler** (`OrgBillingReconciler`, nightly 03:20 UTC, job lease, idle while Stripe is off). Every open Stripe mirror is read back from Stripe:
+- a different status or amount paid is a `billing_drift` row (`kind ORG`, `INVOICE_STATUS`);
+- an invoice Stripe no longer has is `INVOICE_MISSING`;
+- there is one open row per finding, on the admin billing operations page next to the personal ones;
+- it never fixes money or the mirror.
+
+**Runbook:** `docs/enterprise-v2/runbooks/org-billing-test-mode.md` takes one organization through a whole month in Stripe test mode: start, close a month, pay, not pay, pause, suspend, reconcile. It moves Kiwiply's own dates with SQL instead of Stripe test clocks, because Kiwiply decides when a month closes.
+
+**Schema:** additive `20261201010000_ent_org_dunning.xml` adds `org_billing_account.features_paused_from` and `last_reminder_at`.
+
+**Still before anything is charged:**
+- prices published (B5);
+- `enterprise.billing.stripe_enabled` switched on;
+- one pass through the runbook with a test key.
 
 ## Status
 - **Step 1a built (2026-11-11).**
@@ -264,4 +292,13 @@ Kiwiply writes the `org_invoice` mirror (`source = STRIPE`, Stripe's number, `st
     - `OrgInvoiceWebhookHandlerTest`;
     - `OrgInvoicesIT` (start with Stripe, a closed month invoiced in advance and mirrored, paid, overdue; Stripe off keeps the period open).
   - Web: the Pay link and the Written off status.
-- **Next: step 3b** (reconciler, test-clock runbook; dunning after a decision).
+- **Step 3b built (2026-11-12).**
+  - API: `OrgDunningService`, `OrgLicenseGate.paused`, `OrgBillingReconciler`, `AdminOrgService.suspendOrg`/`resumeOrg`, and the pause date on the overview.
+  - Tests: `OrgDunningServiceTest`, `OrgBillingReconcilerTest`, the gate pause test, `OrgBillingStartIT` (suspend, resume) and `OrgInvoicesIT` (the pause date and a reminder).
+  - Web:
+    - the Suspension panel;
+    - the pause sentence on the Subscription page;
+    - the admin suspend and resume BFF routes;
+    - tests.
+  - The runbook.
+- **B4 is built.** Left for the user: B5 (prices), switching on `enterprise.billing.stripe_enabled`, and a runbook pass with a test key.

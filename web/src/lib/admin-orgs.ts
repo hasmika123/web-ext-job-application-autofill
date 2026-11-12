@@ -179,6 +179,8 @@ const ACTIONS: Record<string, string> = {
   ADMIN_HOSTNAME_RESUME: "Hostname resumed",
   ADMIN_OWNER_PASSWORD_RESET: "Owner password reset",
   ADMIN_BILLING_START: "Billing started",
+  ADMIN_ORG_SUSPEND: "Organization suspended",
+  ADMIN_ORG_RESUME: "Organization resumed",
   ORG_CREATE: "Organization created",
   ORG_SUBDOMAIN_SET: "Subdomain set",
 };

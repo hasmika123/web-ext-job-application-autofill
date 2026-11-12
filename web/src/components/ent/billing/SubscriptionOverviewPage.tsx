@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/ent/shell/ShellContext";
 import { DollarIcon, EmptyState, ErrorState, KeyIcon, KpiTile, ListSkeleton, ShieldIcon, StatePill, UsersIcon, buttonVariants } from "@kiwiply/ui";
-import { billingApi, day, money, recurringText, STATUS_LABEL, type Overview } from "@/lib/ent/billing";
+import { billingApi, day, money, pauseText, recurringText, STATUS_LABEL, type Overview } from "@/lib/ent/billing";
 import { registerBillingStates } from "./states";
 
 registerBillingStates();
@@ -69,6 +69,7 @@ function Body({ o }: { o: Overview }) {
         <p role="alert" className="rounded-[var(--radius)] border border-danger/30 bg-danger/10 px-3 py-2 text-[13px] text-danger-text" data-billing-overdue>
           {o.overdue.invoices === 1 ? "One invoice is" : `${o.overdue.invoices} invoices are`} overdue: {money(o.overdue.amountMinor, o.currency)}
           {o.overdue.oldestDueOn ? `, due since ${day(o.overdue.oldestDueOn)}` : ""}. See Billing &amp; Invoices.
+          {pauseText(o.featuresPausedFrom) ? <span className="mt-1 block" data-billing-pause>{pauseText(o.featuresPausedFrom)} Everything else keeps working.</span> : null}
         </p>
       ) : null}
 
