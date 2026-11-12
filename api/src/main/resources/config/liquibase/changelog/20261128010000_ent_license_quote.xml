@@ -29,6 +29,10 @@
         </createTable>
         <addForeignKeyConstraint baseTableName="license_quote" baseColumnNames="org_id" constraintName="fk_license_quote_org" referencedTableName="organization" referencedColumnNames="id"/>
         <createIndex tableName="license_quote" indexName="ix_license_quote_org"><column name="org_id"/><column name="consultant_id"/><column name="created_at"/></createIndex>
+        <!-- Rollback drops the table at once: the automatic one drops this index first, which MySQL refuses while the org foreign key relies on it. -->
+        <rollback>
+            <dropTable tableName="license_quote"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-license-quote-2-change-column" author="ent">
