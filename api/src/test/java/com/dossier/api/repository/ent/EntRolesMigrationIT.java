@@ -54,7 +54,7 @@ class EntRolesMigrationIT {
     }
 
     @Test
-    @Timeout(240) // applies the whole changelog to a scratch database, rolls the roles part back and applies it again
+    @Timeout(360) // applies the whole changelog to a scratch database, rolls the roles part back and applies it again; 240 s ran out on a loaded laptop at 256 s once the billing-start changelog joined (2026-11-12)
     void theRolesChangelogBackfillsEveryLiveMemberAndRollsBackCleanly() throws Exception {
         String scratch = "ent_roles_mig_" + Long.toString(System.nanoTime(), 36);
         try (Connection root = connect("")) {

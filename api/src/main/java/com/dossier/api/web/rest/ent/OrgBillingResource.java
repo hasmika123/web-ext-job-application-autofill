@@ -1,5 +1,7 @@
 package com.dossier.api.web.rest.ent;
 
+import com.dossier.api.service.DemoGuard;
+import com.dossier.api.service.ent.billing.OrgBillingPortalService;
 import com.dossier.api.service.ent.billing.OrgBillingReadService;
 import com.dossier.api.service.ent.billing.OrgUsageReadService;
 import com.dossier.api.service.org.OrgMembership;
@@ -8,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,10 +28,14 @@ public class OrgBillingResource {
 
     private final OrgBillingReadService billing;
     private final OrgUsageReadService usage;
+    private final OrgBillingPortalService portal;
+    private final DemoGuard demoGuard;
 
-    public OrgBillingResource(OrgBillingReadService billing, OrgUsageReadService usage) {
+    public OrgBillingResource(OrgBillingReadService billing, OrgUsageReadService usage, OrgBillingPortalService portal, DemoGuard demoGuard) {
         this.billing = billing;
         this.usage = usage;
+        this.portal = portal;
+        this.demoGuard = demoGuard;
     }
 
     @Operation(summary = "Subscription Overview", description = "billing.view. Consultants, licensed, unlicensed; monthly recurring (null = price not set); next invoice; licences and add-ons ending; contract; overdue invoices; status SETUP until a billing account exists.")
@@ -75,5 +82,13 @@ public class OrgBillingResource {
     @OrgPermissionRequired
     public OrgUsageReadService.History history(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @RequestParam(defaultValue = "6") int months) {
         return usage.history(me, months);
+    }
+
+    @Operation(summary = "Open the billing portal", description = "billing.manage (module billing). Answers {url}: a Stripe billing portal session for the organization's own customer that comes back to Billing & Invoices. 409 BILLING_NOT_CONNECTED until billing has been started with Stripe; 502 BILLING_PROVIDER. Audit BILLING_PORTAL.")
+    @PostMapping("/billing/portal")
+    @OrgPermissionRequired
+    public OrgBillingPortalService.Portal portal(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {
+        demoGuard.assertNotDemo();
+        return portal.open(me);
     }
 }

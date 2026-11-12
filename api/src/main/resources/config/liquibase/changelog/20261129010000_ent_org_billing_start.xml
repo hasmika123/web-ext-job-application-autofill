@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Starting billing for an organization (docs/enterprise-v2/ORG-BILLING-BUILD.md step 2; user decisions 2026-11-11 and 2026-11-12). Additive.
+          - org_billing_account: the organization's Stripe customer, the setup fee (WAIVED | OWED | ADDED, its amount and Stripe invoice item), and who
+            started billing when (the platform admin).
+          - organization.setup_fee_exempt: organizations that exist when this ships are never charged a setup fee (user decision 2026-11-11), so every
+            existing row is marked exempt; new organizations default to false.
+    -->
+    <changeSet id="ent-billing-start-1-account" author="ent">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_billing_account" columnName="stripe_customer_id"/></not></preConditions>
+        <addColumn tableName="org_billing_account">
+            <column name="stripe_customer_id" type="varchar(64)"/>
+            <column name="setup_fee_status" type="varchar(12)"/>
+            <column name="setup_fee_amount_minor" type="bigint"/>
+            <column name="setup_fee_item_id" type="varchar(64)"/>
+            <column name="setup_fee_note" type="varchar(200)"/>
+            <column name="started_by_login" type="varchar(100)"/>
+            <column name="started_at" type="datetime(6)"/>
+        </addColumn>
+        <createIndex tableName="org_billing_account" indexName="ux_org_billing_account_customer" unique="true"><column name="stripe_customer_id"/></createIndex>
+    </changeSet>
+
+    <changeSet id="ent-billing-start-2-exempt" author="ent">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="organization" columnName="setup_fee_exempt"/></not></preConditions>
+        <addColumn tableName="organization">
+            <column name="setup_fee_exempt" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="ent-billing-start-3-exempt-existing" author="ent">
+        <comment>Every organization that exists when this ships is exempt from the setup fee (user decision 2026-11-11).</comment>
+        <update tableName="organization">
+            <column name="setup_fee_exempt" valueBoolean="true"/>
+        </update>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

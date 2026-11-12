@@ -586,6 +586,21 @@ public class StripeGatewayImpl implements StripeGateway {
     }
 
     @Override
+    public String createOrgCustomer(String billingEmail, String orgName, Long orgId, IdempotencyKey key) {
+        if (orgId == null) throw new IllegalArgumentException("an organization customer needs the organization id");
+        return write("create the organization customer", key, (c, o) ->
+            c.customers().create(
+                CustomerCreateParams.builder()
+                    .setEmail(billingEmail)
+                    .setName(orgName)
+                    .putAllMetadata(withApp(java.util.Map.of("kiwiply_scope", "org", "org_id", String.valueOf(orgId))))
+                    .build(),
+                o
+            ).getId()
+        );
+    }
+
+    @Override
     public String createSchedule(String subscriptionId, java.util.List<ItemQuantity> phaseItems, java.time.Instant at, IdempotencyKey key) {
         if (phaseItems == null || phaseItems.isEmpty() || at == null) throw new IllegalArgumentException("a schedule needs phase items and a switch instant");
         return write("schedule the change", key, (c, o) -> {

@@ -68,6 +68,7 @@ public class AdminAuditService {
     public static final String ORG_OWNER_PASSWORD_RESET = "ORG_OWNER_PASSWORD_RESET";
     public static final String ORG_ENTERPRISE_SET = "ORG_ENTERPRISE_SET";
     public static final String ORG_MODULE_SET = "ORG_MODULE_SET";
+    public static final String ORG_BILLING_START = "ORG_BILLING_START";
     public static final String ORG_HOSTNAME_SUSPEND = "ORG_HOSTNAME_SUSPEND";
     public static final String ORG_HOSTNAME_RESUME = "ORG_HOSTNAME_RESUME";
     /** Decision O4, S10: seats of a SHARED organization moved from personal accounts to new enterprise accounts. */
