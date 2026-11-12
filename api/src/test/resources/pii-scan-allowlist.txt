@@ -36,3 +36,5 @@ OrgSettingsResource#putPrepare | body carries only enabled (boolean) and dailyCa
 OrgLicenseResource#give | features are catalog keys, each checked against the organization add-on products (422 otherwise); stores no text
 OrgLicenseResource#setFeatures | features are catalog keys, each checked against the organization add-on products (422 otherwise); stores no text
 OrgLicenseResource#quote | features are catalog keys, each checked against the organization add-on products (422 otherwise); the quote stores only those keys, never free text
+OrgDomainResource#add | hostname is normalised to a DNS name (IDN to ASCII, labels a-z0-9-) and refused otherwise (422 HOSTNAME_INVALID); stores no free text
+OrgDomainResource#remove | confirm must equal the domain being removed, exactly; it is compared, never stored
