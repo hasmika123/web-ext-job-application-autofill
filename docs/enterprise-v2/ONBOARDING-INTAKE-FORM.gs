@@ -84,23 +84,13 @@ function createKiwiplyOnboardingForm() {
 
   // 5. Team and accounts
   form.addPageBreakItem().setTitle('Your team and their accounts');
-  form.addMultipleChoiceItem().setTitle('Which email addresses will your team use to sign in?').setRequired(true)
-    .setHelpText('Everyone gets an email invitation and sets their own password.')
-    .setChoiceValues([
-      'Company email addresses (name@yourcompany.com)',
-      'Personal email addresses (for example Gmail)',
-      'A mix of both',
-      'Not sure yet'
-    ]);
+  // No sign-in questions: the org admin creates each account in the workspace (decision O2), and there is no SSO for tenants.
   form.addMultipleChoiceItem().setTitle('How would you like to add your team?').setRequired(true)
     .setChoiceValues([
-      'We\'ll do it ourselves in the workspace (invite staff, upload consultants from a spreadsheet)',
+      'We\'ll create our team\'s accounts ourselves in the workspace',
       'We\'d like Kiwiply to help with the first setup',
       'Not sure yet'
     ]);
-  form.addMultipleChoiceItem().setTitle('Would you use single sign-on (sign in with Google or Microsoft) if we offered it?')
-    .setHelpText('Not available yet. This helps us plan.')
-    .setChoiceValues(['Yes, Google Workspace', 'Yes, Microsoft 365', 'Yes, another provider', 'No, email and password is fine']);
   form.addTextItem().setTitle('How many consultants to start with?').setRequired(true).setValidation(wholeNumber());
   form.addTextItem().setTitle('How many marketers / recruiters to start with?').setRequired(true).setValidation(wholeNumber());
   form.addTextItem().setTitle('How many admins to start with (including the owner)?').setRequired(true).setValidation(wholeNumber());
@@ -161,11 +151,6 @@ function createKiwiplyOnboardingForm() {
     .setChoiceValues(['Monthly', 'Yearly', 'Not sure, let\'s discuss']);
   form.addMultipleChoiceItem().setTitle('How would you prefer to pay?')
     .setChoiceValues(['Card, charged automatically (via Stripe)', 'Invoice we pay online (via Stripe)', 'Not sure, let\'s discuss']);
-  form.addTextItem().setTitle('Billing contact name').setRequired(true);
-  form.addTextItem().setTitle('Billing contact email').setRequired(true).setValidation(email())
-    .setHelpText('Invoices and payment reminders go here.');
-  form.addParagraphTextItem().setTitle('Billing address for invoices');
-  form.addTextItem().setTitle('Purchase order (PO) number, if your company needs one on invoices');
   form.addParagraphTextItem().setTitle('Billing notes or questions');
 
   // 9. Wrap-up
