@@ -5,6 +5,11 @@
 > Production runs older code until `develop` is promoted to `main`: on production today, only the parts shipped by 6 October exist.
 
 ## 0. Before you start (Kiwiply)
+- **Send the intake form first.** The Google Form "Kiwiply organization setup" (in the Kiwiply Google account's Drive, with its
+  linked responses sheet) collects everything below plus branding, team size, training slots and billing preferences. It is built by
+  [`ONBOARDING-INTAKE-FORM.gs`](ONBOARDING-INTAKE-FORM.gs); run that in a new Apps Script project only to rebuild it, since each run
+  makes a new copy. It asks nothing a workspace screen already covers (departments, staff, the roster, licences: section 2) and never
+  asks for sensitive PII.
 - The organization's name, its kind (consultancy), the owner's work email, and the address label it wants (`acme` → `acme.kiwiply.com`).
 - What they bought, per consultant: AI tailoring, the Gmail inbox, Autopilot prepare, and so on. **Nothing is billed yet** (licences without money,
   user decision 2026-11-10); prices are agreed outside the product for now.
