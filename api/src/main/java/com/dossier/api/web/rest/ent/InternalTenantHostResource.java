@@ -22,13 +22,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalTenantHostResource {
 
     private final TenantResolver resolver;
+    private final com.dossier.api.service.ent.domains.HostnameCertService certs;
 
-    public InternalTenantHostResource(TenantResolver resolver) {
+    public InternalTenantHostResource(TenantResolver resolver, com.dossier.api.service.ent.domains.HostnameCertService certs) {
         this.resolver = resolver;
+        this.certs = certs;
     }
 
+    /** A 200 is also recorded on the hostname (CUSTOM-DOMAINS-BUILD.md A4b): a custom domain's certificate is then REQUESTED until the probe sees it live. */
     @GetMapping("/tenant-hosts/check")
     public ResponseEntity<Void> check(@RequestParam(value = "domain", required = false) String domain) {
-        return resolver.certificateAllowed(domain) ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
+        if (!resolver.certificateAllowed(domain)) return ResponseEntity.notFound().build();
+        try {
+            certs.recordAsk(domain, java.time.Instant.now());
+        } catch (RuntimeException ignored) {
+            // the answer comes from the resolver; recording the ask must never change it
+        }
+        return ResponseEntity.ok().build();
     }
 }

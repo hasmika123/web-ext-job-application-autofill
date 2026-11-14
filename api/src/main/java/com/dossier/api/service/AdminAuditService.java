@@ -72,6 +72,8 @@ public class AdminAuditService {
     /** ORG-BILLING-BUILD.md step 3b: the platform admin suspends an organization (by hand, never automatic) or resumes it. */
     public static final String ORG_SUSPEND = "ORG_SUSPEND";
     public static final String ORG_RESUME = "ORG_RESUME";
+    /** CUSTOM-DOMAINS-BUILD.md (A4b): the platform admin re-ran an address's DNS check and certificate probe. */
+    public static final String DOMAIN_RECHECK = "DOMAIN_RECHECK";
     public static final String ORG_HOSTNAME_SUSPEND = "ORG_HOSTNAME_SUSPEND";
     public static final String ORG_HOSTNAME_RESUME = "ORG_HOSTNAME_RESUME";
     /** Decision O4, S10: seats of a SHARED organization moved from personal accounts to new enterprise accounts. */

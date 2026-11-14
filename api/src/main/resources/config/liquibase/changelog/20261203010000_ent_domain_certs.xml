@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Custom-domain certificates (docs/enterprise-v2/CUSTOM-DOMAINS-BUILD.md A4b; design 10-domain-routing.md s5.4). Additive.
+          - org_hostname.last_ask_at: when the edge last asked whether it may issue a certificate for the name (the ask endpoint answered 200);
+          - cert_issued_at: when the probe first saw HTTPS answer for it;
+          - cert_checked_at: when the probe last tried.
+    -->
+    <changeSet id="ent-domain-certs-1-columns" author="ent">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_hostname" columnName="last_ask_at"/></not></preConditions>
+        <addColumn tableName="org_hostname">
+            <column name="last_ask_at" type="datetime(6)"/>
+            <column name="cert_issued_at" type="datetime(6)"/>
+            <column name="cert_checked_at" type="datetime(6)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

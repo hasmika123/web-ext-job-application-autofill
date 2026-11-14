@@ -100,6 +100,9 @@ public class OrgAuditService {
     public static final String DOMAIN_SUSPENDED = "DOMAIN_SUSPENDED";
     public static final String DOMAIN_RESUMED = "DOMAIN_RESUMED";
     public static final String DOMAIN_REMOVED = "DOMAIN_REMOVED";
+    /** CUSTOM-DOMAINS-BUILD.md (A4b): a custom domain's certificate is live (actor system), and an address became the organization's main one. */
+    public static final String DOMAIN_CERT_ISSUED = "DOMAIN_CERT_ISSUED";
+    public static final String DOMAIN_PRIMARY = "DOMAIN_PRIMARY";
     public static final String ADMIN_ENTERPRISE_ON = "ADMIN_ENTERPRISE_ON";
     public static final String ADMIN_ENTERPRISE_OFF = "ADMIN_ENTERPRISE_OFF";
     public static final String ADMIN_MODULE_ON = "ADMIN_MODULE_ON";
