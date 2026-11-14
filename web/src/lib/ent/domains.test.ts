@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkText, errorText } from "./domains";
+import { certSteps, checkText, errorText } from "./domains";
 
 /** CUSTOM-DOMAINS-BUILD.md (A4): the check results the Domains page explains (10-domain-routing.md s4.4). */
 describe("domain check words", () => {
@@ -13,6 +13,23 @@ describe("domain check words", () => {
     expect(say("A_WRONG_IP:1.2.3.4")).toBe("careers.acme.com points at 1.2.3.4. It needs to point at 74.208.212.158.");
     expect(say("DNS_ERROR:timed out")).toMatch(/couldn't reach your DNS provider/);
     expect(say(null)).toBeNull();
+  });
+
+  it("A4b: a failed certificate and the main-address refusal are explained", () => {
+    expect(say("CERT_FAILED:UNREACHABLE")).toMatch(/couldn't reach the address/);
+    expect(say("CERT_FAILED:TLS")).toMatch(/DNS-only/);
+    expect(errorText({ status: 409, code: "HOST_NOT_LIVE", message: "x" })).toMatch(/Only a live address with its certificate/);
+  });
+
+  it("A4b: the steps of a domain: DNS verified, the certificate, live", () => {
+    expect(certSteps({ status: "PENDING", certState: "NONE" }).map((s) => s.state)).toEqual(["now", "todo", "todo"]);
+    expect(certSteps({ status: "ACTIVE", certState: "REQUESTED" }).map((s) => [s.label, s.state])).toEqual([
+      ["DNS verified", "done"],
+      ["Certificate being issued", "now"],
+      ["Live", "todo"],
+    ]);
+    expect(certSteps({ status: "ACTIVE", certState: "ISSUED" }).map((s) => s.state)).toEqual(["done", "done", "done"]);
+    expect(certSteps({ status: "ACTIVE", certState: "FAILED" })[1].state).toBe("failed");
   });
 
   it("explains a refusal", () => {

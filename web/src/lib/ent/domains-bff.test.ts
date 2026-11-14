@@ -24,6 +24,7 @@ describe("domains BFF", () => {
       ["POST", ["5", "verify"], undefined],
       ["POST", ["5", "activate"], undefined],
       ["POST", ["5", "resume"], undefined],
+      ["POST", ["5", "primary"], undefined],
       ["POST", ["5", "suspend"], { reason: "Moving" }],
       ["POST", ["5", "remove"], { confirm: "careers.acme.com" }],
     ];

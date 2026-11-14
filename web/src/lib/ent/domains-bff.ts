@@ -10,7 +10,7 @@ const ROUTES: { method: string; pattern: RegExp; body: boolean }[] = [
   { method: "GET", pattern: /^$/, body: false },
   { method: "POST", pattern: /^$/, body: true },
   { method: "GET", pattern: new RegExp(`^${ID}/instructions$`), body: false },
-  { method: "POST", pattern: new RegExp(`^${ID}/(verify|activate|resume)$`), body: false },
+  { method: "POST", pattern: new RegExp(`^${ID}/(verify|activate|resume|primary)$`), body: false },
   { method: "POST", pattern: new RegExp(`^${ID}/(suspend|remove)$`), body: true },
 ];
 

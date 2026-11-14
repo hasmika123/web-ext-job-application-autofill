@@ -18,7 +18,7 @@ import {
   type ConfirmTypedSpec,
   type ReasonSpec,
 } from "@kiwiply/ui";
-import { STATUS_LABEL, checkText, domainsApi, errorText, type Domain, type DomainInstructions, type DomainsOverview } from "@/lib/ent/domains";
+import { STATUS_LABEL, certSteps, checkText, domainsApi, errorText, type Domain, type DomainInstructions, type DomainsOverview } from "@/lib/ent/domains";
 
 if (!hasStateMap("domain-state")) {
   registerStateMap("domain-state", { PENDING: "amber-outline", VERIFYING: "amber-outline", VERIFIED: "amber", ACTIVE: "green", SUSPENDED: "red", REMOVED: "grey" });
@@ -51,6 +51,15 @@ export default function DomainsPage({ orgId }: { orgId: number }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const makePrimary = async (d: Domain) => {
+    setBusy(true);
+    const r = await domainsApi.makePrimary(orgId, d.id);
+    setBusy(false);
+    if (!r.ok) return toast({ title: "Couldn't change the main address", description: errorText(r), variant: "error" });
+    setData((cur) => (cur ? { ...cur, domains: cur.domains.map((x) => (x.id === r.data.id ? r.data : { ...x, primary: false })) } : cur));
+    toast({ title: `${r.data.hostname} is now your main address`, variant: "success" });
+  };
 
   const replace = (d: Domain) => setData((cur) => (cur ? { ...cur, domains: d.status === "REMOVED" ? cur.domains.filter((x) => x.id !== d.id) : cur.domains.some((x) => x.id === d.id) ? cur.domains.map((x) => (x.id === d.id ? d : x)) : [...cur.domains, d], customCount: cur.customCount + (cur.domains.some((x) => x.id === d.id) ? (d.status === "REMOVED" ? -1 : 0) : 1) } : cur));
 
@@ -126,6 +135,13 @@ export default function DomainsPage({ orgId }: { orgId: number }) {
                     <StatePill domain="domain-state" state={d.status} label={STATUS_LABEL[d.status]} />
                   </div>
                   <p className="mt-1 text-[12.5px] text-muted">Your Kiwiply address{d.primary ? ", and your main one" : ""}. Kiwiply manages it.</p>
+                  {!d.primary && d.status === "ACTIVE" ? (
+                    <div className="mt-2">
+                      <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void makePrimary(d)} data-domain-primary={d.id}>
+                        Make main address
+                      </Button>
+                    </div>
+                  ) : null}
                 </section>
               ))}
 
@@ -148,7 +164,7 @@ export default function DomainsPage({ orgId }: { orgId: number }) {
               data.domains
                 .filter((d) => d.kind === "CUSTOM")
                 .map((d) => (
-                  <DomainCard key={d.id} orgId={orgId} d={d} edgeName={data.edgeName} edgeIp={data.edgeIp} busy={busy} onAct={act} onSuspend={suspend} onRemove={remove} />
+                  <DomainCard key={d.id} orgId={orgId} d={d} edgeName={data.edgeName} edgeIp={data.edgeIp} busy={busy} onAct={act} onSuspend={suspend} onRemove={remove} onPrimary={makePrimary} />
                 ))
             )}
           </>
@@ -169,6 +185,7 @@ function DomainCard({
   onAct,
   onSuspend,
   onRemove,
+  onPrimary,
 }: {
   orgId: number;
   d: Domain;
@@ -178,6 +195,7 @@ function DomainCard({
   onAct: (d: Domain, action: "verify" | "activate" | "resume") => void;
   onSuspend: (d: Domain) => void;
   onRemove: (d: Domain) => void;
+  onPrimary: (d: Domain) => void;
 }) {
   const waiting = d.status === "PENDING" || d.status === "VERIFYING";
   const [ins, setIns] = useState<DomainInstructions | null>(null);
@@ -198,12 +216,37 @@ function DomainCard({
     <section className={`${CARD} space-y-3`} aria-label={d.hostname} data-domain-row={d.id}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="break-all text-[14px] font-semibold text-ink">{d.hostname}</span>
-        <StatePill domain="domain-state" state={d.status} label={STATUS_LABEL[d.status]} />
+        <span className="flex items-center gap-2">
+          {d.primary ? (
+            <span className="rounded-full bg-accent-soft px-2 py-[2px] text-[11.5px] font-semibold text-accent-deep" data-domain-main>
+              Main address
+            </span>
+          ) : null}
+          <StatePill domain="domain-state" state={d.status} label={STATUS_LABEL[d.status]} />
+        </span>
       </div>
       {d.status === "ACTIVE" ? (
-        <p className="text-[12.5px] text-ink-soft">
-          Live: your people can sign in at <span className="font-mono">{d.hostname}</span>. Its security certificate is issued the first time someone opens it.
-        </p>
+        <>
+          <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]" aria-label="Progress" data-domain-steps>
+            {certSteps(d).map((s, i) => (
+              <li key={s.label} className="flex items-center gap-2" data-step={s.state}>
+                {i > 0 ? <span aria-hidden className="text-muted">→</span> : null}
+                <span className={s.state === "done" ? "font-semibold text-accent-deep" : s.state === "failed" ? "font-semibold text-danger-text" : s.state === "now" ? "font-semibold text-ink" : "text-muted"}>
+                  {s.label}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="text-[12.5px] text-ink-soft">
+            {d.certState === "ISSUED" ? (
+              <>
+                Live: your people can sign in at <span className="font-mono">{d.hostname}</span>.
+              </>
+            ) : (
+              <>Its security certificate is issued the first time someone opens {d.hostname}; open it once in a browser to start it.</>
+            )}
+          </p>
+        </>
       ) : null}
       {d.status === "ACTIVE" && d.failingSince ? (
         <p role="alert" className="text-[12.5px] text-danger-text" data-domain-failing>
@@ -225,6 +268,11 @@ function DomainCard({
         {d.status === "SUSPENDED" ? (
           <Button type="button" variant="accent" size="sm" disabled={busy} onClick={() => onAct(d, "resume")} data-domain-resume={d.id}>
             Resume
+          </Button>
+        ) : null}
+        {d.status === "ACTIVE" && d.certState === "ISSUED" && !d.primary ? (
+          <Button type="button" variant="accent" size="sm" disabled={busy} onClick={() => onPrimary(d)} data-domain-primary={d.id}>
+            Make main address
           </Button>
         ) : null}
         {d.status === "ACTIVE" && !d.primary ? (

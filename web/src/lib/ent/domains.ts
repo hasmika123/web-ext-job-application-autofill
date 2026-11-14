@@ -18,6 +18,23 @@ export interface Domain {
   activatedAt: string | null;
   certState: "NONE" | "REQUESTED" | "ISSUED" | "FAILED";
   failingSince: string | null;
+  /** A4b: when the edge last asked to issue the certificate, and when HTTPS was first seen live. */
+  lastAskAt?: string | null;
+  certIssuedAt?: string | null;
+}
+
+/** The three steps a live custom domain shows (10-domain-routing.md s5.4): DNS verified, the certificate, and live for real (certificate issued). */
+export function certSteps(d: Pick<Domain, "status" | "certState">): { label: string; state: "done" | "now" | "todo" | "failed" }[] {
+  const live = d.status === "ACTIVE";
+  const cert = d.certState;
+  return [
+    { label: "DNS verified", state: live || d.status === "VERIFIED" ? "done" : "now" },
+    {
+      label: cert === "ISSUED" ? "Certificate issued" : cert === "FAILED" ? "Certificate failed" : cert === "REQUESTED" ? "Certificate being issued" : "Certificate on first visit",
+      state: !live ? "todo" : cert === "ISSUED" ? "done" : cert === "FAILED" ? "failed" : "now",
+    },
+    { label: "Live", state: live && cert === "ISSUED" ? "done" : "todo" },
+  ];
 }
 
 export interface DomainsOverview {
@@ -77,6 +94,10 @@ export function checkText(code: string | null | undefined, hostname: string, edg
       return "This name doesn't exist in DNS yet.";
     case "DNS_ERROR":
       return "We couldn't reach your DNS provider. We'll keep trying.";
+    case "CERT_FAILED":
+      return detail === "TLS"
+        ? "The certificate couldn't be issued: the secure connection was refused. Check the records are DNS-only (no proxy), then ask Kiwiply support to retry."
+        : "The certificate couldn't be issued: we couldn't reach the address. Check the CNAME points at our edge, then ask Kiwiply support to retry.";
     default:
       return code;
   }
@@ -96,6 +117,8 @@ export function errorText(r: { status: number; code?: string; message: string })
       return "This is your organization's main address. Make another address the main one first.";
     case "SUBDOMAIN_MANAGED":
       return "Kiwiply manages this address. Ask Kiwiply support to change it.";
+    case "HOST_NOT_LIVE":
+      return "Only a live address with its certificate can be the main one. Open it once in a browser, then try again in a few minutes.";
     default:
       break;
   }
@@ -140,6 +163,10 @@ export const domainsApi = {
   },
   resume: (orgId: number | string, id: number) => {
     const p = post(`${base(orgId)}/${id}/resume`);
+    return call<Domain>(p.url, p.init);
+  },
+  makePrimary: (orgId: number | string, id: number) => {
+    const p = post(`${base(orgId)}/${id}/primary`);
     return call<Domain>(p.url, p.init);
   },
   remove: (orgId: number | string, id: number, confirm: string) => {
