@@ -93,6 +93,13 @@ public class OrgAuditService {
     public static final String ADMIN_ORG_CREATE = "ADMIN_ORG_CREATE";
     public static final String ADMIN_OWNER_PASSWORD_RESET = "ADMIN_OWNER_PASSWORD_RESET";
     public static final String ADMIN_SUBDOMAIN_PROVISION = "ADMIN_SUBDOMAIN_PROVISION";
+    /** CUSTOM-DOMAINS-BUILD.md (A4): an organization's own domain added, verified, live, suspended, resumed, removed (10-domain-routing.md s2). */
+    public static final String DOMAIN_ADD = "DOMAIN_ADD";
+    public static final String DOMAIN_VERIFIED = "DOMAIN_VERIFIED";
+    public static final String DOMAIN_ACTIVATED = "DOMAIN_ACTIVATED";
+    public static final String DOMAIN_SUSPENDED = "DOMAIN_SUSPENDED";
+    public static final String DOMAIN_RESUMED = "DOMAIN_RESUMED";
+    public static final String DOMAIN_REMOVED = "DOMAIN_REMOVED";
     public static final String ADMIN_ENTERPRISE_ON = "ADMIN_ENTERPRISE_ON";
     public static final String ADMIN_ENTERPRISE_OFF = "ADMIN_ENTERPRISE_OFF";
     public static final String ADMIN_MODULE_ON = "ADMIN_MODULE_ON";

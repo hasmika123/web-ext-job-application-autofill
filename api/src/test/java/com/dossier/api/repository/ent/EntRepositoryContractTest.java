@@ -25,6 +25,7 @@ class EntRepositoryContractTest {
     /** Lookups that exist to FIND the tenant from a host, so they cannot take an org id (04-tenancy-and-security.md section 2.2). */
     private static final Set<String> ALLOW_LISTED = Set.of(
         "OrgHostnameRepository.findActiveByHostname",
+        "OrgHostnameRepository.countLiveByHostname", // CUSTOM-DOMAINS-BUILD.md (A4): a hostname is held by one organization at a time, so "taken" is checked across all of them; it returns a count, never a row
         "OrgHostnameRepository.findBySubdomain",
         // System role templates belong to no organization (org_id NULL); only the seeder and the legacy-seat sync read them (X1.6).
         "OrgRoleRepository.findSystemByRoleKey",

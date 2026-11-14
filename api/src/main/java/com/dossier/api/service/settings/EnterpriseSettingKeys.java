@@ -53,6 +53,11 @@ public final class EnterpriseSettingKeys {
     public static final String DOMAINS_SUBDOMAINS_PER_DAY = "enterprise.domains.subdomains_per_day";
     public static final String DOMAINS_RECHECK_HOURS = "enterprise.domains.recheck_hours";
     public static final String DOMAINS_GRACE_HOURS_BEFORE_SUSPEND = "enterprise.domains.grace_hours_before_suspend";
+    /** Custom domains (CUSTOM-DOMAINS-BUILD.md, gap A4): what a customer's DNS must point at, and the per-organization cap. */
+    public static final String DOMAINS_EDGE_CNAME = "enterprise.domains.edge_cname";
+    public static final String DOMAINS_EDGE_IPV4 = "enterprise.domains.edge_ipv4";
+    public static final String DOMAINS_AUTO_ACTIVATE = "enterprise.domains.auto_activate";
+    public static final String DOMAINS_MAX_CUSTOM = "enterprise.domains.max_custom";
     public static final String ORG_INVITE_REQUIRE_EMAIL_MATCH = "org.invite.require_email_match";
     /**
      * Decision O4 (docs/enterprise-v2/19, phase S1): master switch of separate enterprise accounts. Off (default): every account is a personal
@@ -225,6 +230,12 @@ public final class EnterpriseSettingKeys {
             "Base domains under which {label}.<base> can name an organization's subdomain, as a JSON list. Development hosts such as acme.localhost are enabled by the dev profile, not by this list.",
             EnterpriseSettingKeys::hostList, Risk.HIGH));
         k.add(new Key(BILLING_STRIPE_ENABLED, Type.BOOL, "false", null, null, null, "Organization billing with Stripe (ORG-BILLING-BUILD.md step 2): when on and a Stripe key is configured, starting billing for an organization creates its Stripe customer and puts the setup fee (when it is owed and priced) on its first invoice. Off = billing stays local: nothing is sent to Stripe and nothing is charged.", null, Risk.HIGH));
+        k.add(new Key(DOMAINS_EDGE_CNAME, Type.STRING, "edge.kiwiply.com", null, null, null, "Custom domains: the name a customer's domain must CNAME to (shown on the Domains page, checked by the verifier).", null, Risk.HIGH));
+        k.add(new Key(DOMAINS_EDGE_IPV4, Type.STRING, "74.208.212.158", null, null, null, "Custom domains: the edge's IPv4 address, for a domain that cannot use a CNAME (an apex such as acme.com).", null, Risk.HIGH));
+        k.add(new Key(DOMAINS_AUTO_ACTIVATE, Type.BOOL, "true", null, null, null, "Custom domains: a domain whose DNS checks pass goes live at once. Off = an org admin activates it.", null, Risk.MEDIUM));
+        integer(k, DOMAINS_MAX_CUSTOM, 5, 0, 50, Risk.LOW, "Custom domains: the most an organization may add (removed ones do not count).");
+        integer(k, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Custom domains: hours between ownership re-checks of a live domain.");
+        integer(k, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Custom domains: hours a live domain whose DNS checks keep failing stays live before it is suspended.");
         integer(k, QUOTE_TTL_MINUTES, 15, 1, 240, Risk.MEDIUM, "Minutes a licence-change quote stays valid before it must be priced again (ORG-BILLING-BUILD.md step 1b): confirming an older quote answers 410 QUOTE_EXPIRED.");
         integer(k, TENANT_CACHE_SECONDS, 60, 0, 600, Risk.LOW, "Seconds the API remembers which tenant a hostname belongs to. 0 = no caching. A tenant, hostname or status change evicts the entry at once on that instance.");
         integer(k, TENANT_RATE_PER_MIN, 120, 10, 6000, Risk.MEDIUM, "Requests per minute per hostname and visitor IP on GET /api/public/tenant.");
@@ -256,8 +267,6 @@ public final class EnterpriseSettingKeys {
         k.add(new Key(ORG_MGMT_ESCALATION_DIGEST, Type.BOOL, "true", null, null, null,
             "Escalations: on = a manager gets ONE in-app notice per run that summarises the new high-severity escalations of their team (no e-mail); off = one notice per escalation. An organization can override it in org_setting.", null, Risk.LOW));
         integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
-        integer(d, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
-        integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
         k.add(new Key(ORG_INVITE_REQUIRE_EMAIL_MATCH, Type.BOOL, "true", null, null, null,
             "An organization invitation can only be accepted by the account whose email matches the invited address (409 INVITE_EMAIL_MISMATCH otherwise). Off: any signed-in account may accept and the acceptance is audited with a mismatch flag. An organization can override it in org_setting.", null, Risk.MEDIUM));
         k.add(new Key(SEPARATE_ACCOUNTS, Type.BOOL, "false", null, null, null,

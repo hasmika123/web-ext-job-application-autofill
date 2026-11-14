@@ -156,6 +156,11 @@ public class OrgTenancyService {
         return touch(orgId, row);
     }
 
+    /** Save a hostname whose routing changed (custom domains, CUSTOM-DOMAINS-BUILD.md): bumps {@code config_version} and evicts the tenant cache after commit. */
+    public OrgHostname saveAndRefresh(Long orgId, OrgHostname row) {
+        return touch(orgId, row);
+    }
+
     private OrgHostname touch(Long orgId, OrgHostname row) {
         OrgHostname saved = hostnames.saveAndFlush(row);
         Organization org = organizations.findByOrgId(orgId).orElseThrow(OrgNotFoundException::new);

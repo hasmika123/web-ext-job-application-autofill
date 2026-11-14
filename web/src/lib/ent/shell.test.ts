@@ -20,12 +20,12 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     expect(sections[1].items.map((i) => i.text)).toEqual(["Employees", "Teams & Departments", "Roles"]);
     expect(sections[2].items.map((i) => i.text)).toEqual(["Consultants", "Licenses", "Assignments", "Resumes"]);
     expect(sections[3].items.map((i) => i.text)).toEqual(["Jobs", "Applications", "Interviews", "Clients", "Placements"]);
-    expect(sections[4].items.map((i) => i.text)).toEqual(["Reports", "Audit Log", "Branding", "Settings", "Subscription", "Billing & Invoices", "Feature Usage"]);
-    // no "Soon" row since the billing pages were built (ORG-BILLING-BUILD.md 1a); the pages that left the menu (HR, Finance, Domains, ...) are nowhere
+    expect(sections[4].items.map((i) => i.text)).toEqual(["Reports", "Audit Log", "Branding", "Domains", "Settings", "Subscription", "Billing & Invoices", "Feature Usage"]);
+    // no "Soon" row since the billing pages were built (ORG-BILLING-BUILD.md 1a); Domains is back as a built page (CUSTOM-DOMAINS-BUILD.md A4); HR, Finance, ... are nowhere
     const all = sections.flatMap((s) => s.items);
     expect(all.filter((i) => i.soon).map((i) => i.key)).toEqual([]);
     expect(all.map((i) => i.key)).not.toEqual(expect.arrayContaining(["hr"]));
-    expect(all.length).toBe(20);
+    expect(all.length).toBe(21);
     expect(all.find((i) => i.key === "employees")?.soon).toBeUndefined();
   });
 

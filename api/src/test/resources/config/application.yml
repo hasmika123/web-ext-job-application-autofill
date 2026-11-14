@@ -101,6 +101,9 @@ jhipster:
 
 # application:
 dossier:
+  ent:
+    domains:
+      dns: offline # custom-domain checks never touch the network in tests (OfflineDnsLookup); ITs that need answers script a DnsLookup
   tenant-host:
     allow-localhost-tenants: true
     misses-per-minute: 1000000 # every MockMvc request is 127.0.0.1; the bound itself is unit-tested

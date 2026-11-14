@@ -92,6 +92,9 @@ public class OrgHostname implements Serializable {
         updatedAt = Instant.now();
     }
 
+    @Column(name = "failing_since")
+    private java.time.Instant failingSince;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }
@@ -133,4 +136,6 @@ public class OrgHostname implements Serializable {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public java.time.Instant getFailingSince() { return failingSince; }
+    public void setFailingSince(java.time.Instant failingSince) { this.failingSince = failingSince; }
 }

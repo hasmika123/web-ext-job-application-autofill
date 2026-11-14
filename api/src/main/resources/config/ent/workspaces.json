@@ -206,6 +206,17 @@
           "group": "organization"
         },
         {
+          "key": "domains",
+          "label": "Domains",
+          "icon": "Globe",
+          "href": "/w/admin/domains",
+          "needs": [
+            "domains.manage"
+          ],
+          "module": "domains",
+          "group": "organization"
+        },
+        {
           "key": "settings",
           "label": "Settings",
           "icon": "Gear",

@@ -121,6 +121,8 @@ configurations {
 dependencies {
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-hppc"
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
+    // Custom domains (docs/enterprise-v2/10-domain-routing.md s4.1, approved there): TXT / CNAME / A lookups for ownership checks
+    implementation "dnsjava:dnsjava:3.6.2"
     testImplementation("com.tngtech.archunit:archunit-junit5-api:${archunitJunit5Version}") {
         exclude group: "org.slf4j", module: "slf4j-api"
     }

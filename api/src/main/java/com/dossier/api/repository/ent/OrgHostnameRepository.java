@@ -42,6 +42,10 @@ public interface OrgHostnameRepository extends Repository<OrgHostname, Long> {
     long countByOrgIdAndStatus(@Param("orgId") Long orgId, @Param("status") com.dossier.api.domain.enumeration.OrgHostnameStatus status);
 
     /** Tenant lookup by host: the ACTIVE row for {@code hostname}, whichever organization owns it. Nothing but ACTIVE ever matches. */
+    /** CUSTOM-DOMAINS-BUILD.md (A4): whether any organization holds this hostname in a non-removed state (a name is held by one organization at a time). */
+    @Query("select count(h) from OrgHostname h where h.hostname = :hostname and h.status <> com.dossier.api.domain.enumeration.OrgHostnameStatus.REMOVED")
+    long countLiveByHostname(@Param("hostname") String hostname);
+
     @Query("select h from OrgHostname h where h.hostname = :hostname and h.status = com.dossier.api.domain.enumeration.OrgHostnameStatus.ACTIVE")
     Optional<OrgHostname> findActiveByHostname(@Param("hostname") String hostname);
 

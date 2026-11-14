@@ -182,7 +182,8 @@ are drawn in labelled groups (`groups` + each item's `group` in `workspaces.json
 several rows became tabs of one page. The old addresses redirect to the tab (listed under each table); pages that left the
 Administration menu entirely (Subscription Overview, Consultant Licenses, Feature Usage, HR, Finance, Domains, Integrations)
 are no longer nav data. Plan & Billing was the one "Soon" row; on 2026-11-11 (`ORG-BILLING-BUILD.md` step 1a) it became three built pages,
-Subscription, Billing & Invoices and Feature Usage, behind the billing module. No row is "Soon" now.
+Subscription, Billing & Invoices and Feature Usage, behind the billing module. No row is "Soon" now. On 2026-11-12 (`CUSTOM-DOMAINS-BUILD.md`, A4)
+Domains came back as a built page, behind the domains module.
 
 ### 5.1 ADMIN — Organization Admin
 | Page | Component | Data source | Permission | Module | Empty state | Story |
@@ -203,6 +204,7 @@ Subscription, Billing & Invoices and Feature Usage, behind the billing module. N
 | Reports → `/w/admin/reports` | `ReportsPage` (Phase 12; Phase 2 ships the audited CSV exports hub) | `GET …/reports` | `reports.view` | — | "Exports appear here" | X12.7 (E) / X4.9 (exports hub) |
 | Audit Log → `/w/admin/audit` | `AuditLogPage` | `GET …/audit` | `audit.view` | — | "No activity yet" | X4.9 |
 | Branding → `/w/admin/branding` | `BrandingPage` (11 §1) | `GET/PATCH …/branding/draft`, `POST …/publish` | `branding.manage` | — | — (always has defaults) | X2.5 |
+| Domains → `/w/admin/domains` | `DomainsPage` (CUSTOM-DOMAINS-BUILD.md A4; 10 §3): the Kiwiply address read-only, add a domain, its DNS records, Verify now, Go live, Suspend, Resume, Remove | `GET/POST …/hostnames`, `…/hostnames/{id}/instructions`, `…/{id}/verify\|activate\|suspend\|resume\|remove` | `domains.manage` | domains | "No domain of your own yet" | X3.1 |
 | Settings → `/w/admin/settings` | `OrgSettingsPage` (14 §4), tabs General · Security · Autopilot · Resumes · Policies (`?tab=policies`: `PoliciesPage` (62), one editor per policy kind) | `GET/PATCH /api/orgs/{id}`, `…/settings`, `GET …/policies[/{kind}]` | `org.settings.manage` | — | — | X2.9, 62 |
 | Subscription → `/w/admin/subscription` | `SubscriptionOverviewPage` (ORG-BILLING-BUILD.md 1a, 28 §1) | `GET …/billing/overview` | `billing.view` | billing | "Billing is being set up" (SETUP, nothing billed) | X6.1 (C) |
 | Billing & Invoices → `/w/admin/billing` | `BillingPage`, tabs Account · Invoices · Contract (28 §4) | `GET …/billing`, `…/billing/invoices[/{id}]` | `billing.view` | billing | "No invoices yet" | X6.4 (C) |

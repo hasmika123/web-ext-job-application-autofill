@@ -227,7 +227,10 @@ class SettingDefinitionsTest {
         assertValid(hosts, "\"kiwiply.com\"", false);
         assertKey("enterprise.tenant.cache_seconds", "60", 0, 600, Risk.LOW);
         assertKey("enterprise.tenant.rate_per_min", "120", 10, 6000, Risk.MEDIUM);
-        assertKey("enterprise.quote.ttl_minutes", "15", 1, 240, Risk.MEDIUM); // ORG-BILLING-BUILD.md step 1b: the licence quotes read it
+        assertKey("enterprise.quote.ttl_minutes", "15", 1, 240, Risk.MEDIUM);
+        assertKey("enterprise.domains.recheck_hours", "24", 1, 168, Risk.LOW); // CUSTOM-DOMAINS-BUILD.md: the domain checks read them
+        assertKey("enterprise.domains.grace_hours_before_suspend", "72", 1, 720, Risk.MEDIUM);
+        assertKey("enterprise.domains.max_custom", "5", 0, 50, Risk.LOW); // ORG-BILLING-BUILD.md step 1b: the licence quotes read it
     }
 
     @Test
@@ -235,7 +238,7 @@ class SettingDefinitionsTest {
         List<String> deferred = EnterpriseSettingKeys.deferred().stream().map(Key::key).toList();
         assertThat(deferred).contains(
             "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces",
-            "enterprise.domains.subdomains_per_day", "enterprise.domains.recheck_hours", "enterprise.domains.grace_hours_before_suspend",
+            "enterprise.domains.subdomains_per_day",
             "org.consent.request_cooldown_days", "enterprise.billing.mode_default", "enterprise.usage.retention_months"
         );
         for (String k : deferred) {

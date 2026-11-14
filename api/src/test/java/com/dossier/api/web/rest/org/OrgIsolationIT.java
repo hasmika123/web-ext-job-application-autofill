@@ -449,6 +449,16 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/billing/invoices/{invoiceId}", Case.read()),
         // ORG-BILLING-BUILD.md step 2: the world has no Stripe customer, so a legitimate call is 409 BILLING_NOT_CONNECTED and writes nothing
         Map.entry("POST /api/orgs/{orgId}/billing/portal", Case.write(null, 409, null)),
+        // Custom domains (CUSTOM-DOMAINS-BUILD.md, A4): the world's domain is PENDING and DNS is offline in tests, so a check fails quietly (200, no audit),
+        // activate / suspend / resume are 409 for a domain that is not in that state, and adding and removing are audited.
+        Map.entry("GET /api/orgs/{orgId}/hostnames", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/hostnames", Case.versioned(201, "DOMAIN_ADD", w -> "{\"hostname\":\"add-" + w.domainHost + "\"}", w -> null)),
+        Map.entry("GET /api/orgs/{orgId}/hostnames/{hostnameId}/instructions", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/verify", Case.write(null, 200, null)),
+        Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/activate", Case.write(null, 409, null)),
+        Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/suspend", Case.write("{\"reason\":\"Isolation test\"}", 409, null)),
+        Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/resume", Case.write(null, 409, null)),
+        Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/remove", Case.versioned(200, "DOMAIN_REMOVED", w -> "{\"confirm\":\"" + w.domainHost + "\"}", w -> null)),
         Map.entry("GET /api/orgs/{orgId}/usage", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/usage/history", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/licenses/catalog", Case.read()),
@@ -803,6 +813,8 @@ class OrgIsolationIT {
         settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_MARKETING, "{\"on\":true}", FLAG_WRITER, Instant.now()));
         // The billing pages (ORG-BILLING-BUILD.md step 1a) answer the generic 404 to everyone while the billing module is off: on here, for the same reason as marketing
         settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_BILLING, "{\"on\":true}", FLAG_WRITER, Instant.now()));
+        // Custom domains (A4): the Domains routes answer the generic 404 to everyone while the domains module is off
+        settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_DOMAINS, "{\"on\":true}", FLAG_WRITER, Instant.now()));
         // Prepare selected openings: the Kiwiply master switch is on so the Org Admin's settings route can be changed by its owner (the organization itself starts opted out)
         settingRows.save(new AppSetting(EnterpriseSettingKeys.PREPARE_ENABLED, "true", FLAG_WRITER, Instant.now()));
         settingsCache.invalidate();
@@ -868,6 +880,7 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.billing.LicenseChangeRepository licenseChangeRows;
     @Autowired private com.dossier.api.repository.ent.billing.LicenseQuoteRepository licenseQuoteRows;
     @Autowired private com.dossier.api.repository.catalog.ProductRepository productRows;
+    @Autowired private com.dossier.api.repository.ent.OrgHostnameRepository hostnameRows;
 
     /** Gives the seat the Consultant role; the consultant_profile is already there (every World seeds one for its owner). */
     private void makeConsultant(Long orgId, OrgMember seat) {
@@ -904,7 +917,8 @@ class OrgIsolationIT {
         String memberVersion;
         Long offboardingId;
         /** Consultant workspace: the rows of the owner's consultant profile (own-scoped; A's ids are named from B's org in the cross-tenant sweep). */
-        Long skillId, certId, prefId, resumeId, matchId, requirementId, savedSearchId, invoiceId, quoteId, changeId;
+        Long skillId, certId, prefId, resumeId, matchId, requirementId, savedSearchId, invoiceId, quoteId, changeId, hostnameId;
+        String domainHost;
         /** The second set of consultant pages: an ASSIGNED match, a SCHEDULED and a COMPLETED interview, a prep session, a PENDING_APPROVAL submission, an application. */
         Long consultantId, clientId, assignedRequirementId, assignedMatchId, scheduledInterviewId, completedInterviewId, prepSessionId, submissionId, applicationId;
         /** The last eight pages: a task, a calendar entry, a PENDING_REVIEW offer with a future deadline, a checklist item of an ACTIVE placement, a notification. */
@@ -1267,6 +1281,16 @@ class OrgIsolationIT {
             lq.setCreatedAt(java.time.Instant.now());
             lq.setExpiresAt(java.time.Instant.now().plus(java.time.Duration.ofHours(1)));
             quoteId = licenseQuoteRows.saveAndFlush(lq).getId();
+            // Custom domains: one PENDING domain of this organization
+            com.dossier.api.domain.ent.OrgHostname dh = new com.dossier.api.domain.ent.OrgHostname();
+            dh.setOrgId(org.getId());
+            domainHost = prefix.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9-]", "-") + "-" + Long.toString(System.nanoTime(), 36) + "-iso.example.org"; // hostnames are unique across every organization
+            dh.setHostname(domainHost);
+            dh.setKind(com.dossier.api.domain.enumeration.OrgHostnameKind.CUSTOM);
+            dh.setStatus(com.dossier.api.domain.enumeration.OrgHostnameStatus.PENDING);
+            dh.setVerificationMethod(com.dossier.api.domain.enumeration.HostnameVerificationMethod.DNS_TXT);
+            dh.setVerificationToken("isolationtoken0123456789abcdefgh");
+            hostnameId = hostnameRows.saveAndFlush(dh).getId();
             consultantVersion = talent.consultantVersion();
             requirementId = talent.requirementId();
             com.dossier.api.domain.ent.talent.ConsultantProfile cpB = new com.dossier.api.domain.ent.talent.ConsultantProfile();
@@ -1776,6 +1800,7 @@ class OrgIsolationIT {
             ids.put("invoiceId", String.valueOf(invoiceId));
             ids.put("quoteId", String.valueOf(quoteId));
             ids.put("changeId", String.valueOf(changeId));
+            ids.put("hostnameId", String.valueOf(hostnameId));
             ids.put("jobId", String.valueOf(jobId));
             ids.put("clientId", String.valueOf(jobClientId));
             ids.put("contactId", String.valueOf(clientContactId));
