@@ -14,6 +14,7 @@ import { POST as hostAction } from "./[id]/hostnames/[hid]/[action]/route";
 import { POST as resetOwner } from "./[id]/owner/reset-password/route";
 import { GET as billingStatus } from "./[id]/billing/route";
 import { POST as startBilling } from "./[id]/billing/start/route";
+import { GET as extensionPackage } from "./[id]/extension-package/route";
 import { POST as suspendOrg } from "./[id]/suspend/route";
 import { POST as resumeOrg } from "./[id]/resume/route";
 
@@ -102,6 +103,15 @@ describe("mutations", () => {
     expect(JSON.parse(String((serverApiFetch.mock.calls[1][1] as RequestInit).body))).toEqual({ billingEmail: "ap@acme.test", waiveSetupFee: false, reason: "Signed the order form" });
     expect((await startBilling(post("/x", { billingEmail: "ap@acme.test", stripeCustomerId: "cus_1" }), ctx({ id: "7" }))).status).toBe(400);
     expect((await billingStatus(new Request("http://localhost:3200/x"), ctx({ id: "x" }))).status).toBe(404);
+  });
+
+  it("extension package: the settings of the organization's own build are read; a bad id never reaches the API", async () => {
+    serverApiFetch.mockResolvedValue(json({ slug: "acme", origins: ["https://careers.acme.test"] }));
+    const res = await extensionPackage(new Request("http://localhost:3200/x"), ctx({ id: "7" }));
+    expect(serverApiFetch.mock.calls[0][0]).toBe("/api/admin/orgs/7/extension-package");
+    expect((await res.json()).slug).toBe("acme");
+    expect((await extensionPackage(new Request("http://localhost:3200/x"), ctx({ id: "x" }))).status).toBe(404);
+    expect(serverApiFetch).toHaveBeenCalledTimes(1);
   });
 
   it("suspend and resume forward the reason only (step 3b)", async () => {

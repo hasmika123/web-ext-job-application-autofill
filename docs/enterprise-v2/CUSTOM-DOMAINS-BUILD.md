@@ -91,10 +91,53 @@ Lookups go through **dnsjava 3.6.2** (approved in doc 10 §4.1): system resolver
 - notifications to `domains.manage` members when a domain fails;
 - the Let's Encrypt weekly counter and the ask-rate alert (doc 10 §7).
 
+## A6 + D8: the organization's own extension (this PR)
+
+**Decisions (user, 2026-11-15):**
+- Each consultancy gets its own **unlisted Chrome Web Store item**. The store allows this under its white-label enterprise exception: the item is unlisted,
+  handed to that client only, and its description says "THIS IS A WHITE LABEL ENTERPRISE EXTENSION FOR [CUSTOMER NAME]". Fallback: the same zip, loaded
+  unpacked.
+- **No Kiwiply anywhere a consultant sees it**: not in the name, the screens, the links or Chrome's install prompt.
+- **The API stays Kiwiply's, behind the scenes.** It answers extensions by CORS, so the manifest never lists it.
+
+**Why connect needed a change.** The organization's connect page calls the extension through `chrome.runtime.sendMessage(id)`. Its own store item gets
+an ID the page can't know, and a custom domain can't sit in Kiwiply's wildcard. So:
+- the build lists the organization's **live custom domains exactly** in `externally_connectable` and in the relay content script's matches;
+- the relay (`connect-relay.content.ts`) now also carries **connect** on Chrome, but only on an origin the build lists exactly (`exactlyListed`).
+  A wildcard such as `*.kiwiply.com` never counts, and the background applies the same exact-origin gate, so this widens nothing;
+- the tenant connect page (`lib/ent/tenant-connect.ts`) pings the relay first (600 ms) and hands the session over through it when it answers
+  (`lib/extension-relay.ts`, shared with `/connect`). The standard extension's relay never answers a connect ping on a tenant host, so nothing changes there;
+- the Prepare batch already went through the relay, so it works on those domains too.
+
+**Only custom domains.** The organization's Kiwiply subdomain would name Kiwiply in Chrome's install prompt, so a white-label build never lists it. The
+package settings are refused (`409 NO_LIVE_DOMAIN`) until the organization has a live custom domain (active, domains on, certificate issued).
+
+**The pipeline:**
+1. `npm run build -w job-autofill`: the production build.
+2. Platform admin → the organization's page → **Extension package** → *Download package settings* (`GET /api/admin/orgs/{id}/extension-package`,
+   `ROLE_ADMIN`). It gives the name, slug, published colour and logo, the main address, every live custom domain, and the API.
+3. `node web/scripts/package-org-extension.mjs --config <slug>-extension.json [--logo <png>]`. It fetches the published logo (by host), runs
+   `brand-extension.mjs` on the production build and writes:
+   - the folder (load it unpacked for a pilot);
+   - `<slug>-extension.zip` (the store upload, `manifest.json` at the root);
+   - `<slug>-extension-store-listing.txt` (name, summary with the notice, single purpose, Unlisted).
+4. Upload it as a new item, set **Unlisted**, and send the organization the link once it is approved.
+
+**The manifest** (`brand-manifest.mjs`, a tested pure function):
+- the name, the toolbar title and the description carry the white-label notice (132 characters at most);
+- every Kiwiply host is removed from the host permissions, `externally_connectable`, the content scripts and the web-accessible resources;
+- the organization's domains are added exactly;
+- Kiwiply's `key` is dropped, so the item gets its own ID.
+
+The code pass still swaps every visible Kiwiply name and link, keeps the internal message names, and **fails the build if any visible "Kiwiply" is
+left**. The one exception it keeps is the API address. A dev re-skin (no `--web`) still keeps the same ID.
+
+**Not in this PR:** Edge Add-ons publishing, automated store uploads (the Chrome Web Store API), and a per-organization update channel. Each new
+extension version means re-running the script and uploading to each organization's item.
+
 ## Then
 - **A5 (yours):** apply the edge snippet and runbook in doc 10 §5.3 and §8 on the shared box.
-- **A6:** the extension trusts a custom domain (connect, Prepare batch).
-- **D8:** the branded extension build and publishing.
+- Later: Edge Add-ons, automated store uploads.
 
 ## Status
 - **A4a built (2026-11-12).**
@@ -105,4 +148,9 @@ Lookups go through **dnsjava 3.6.2** (approved in doc 10 §4.1): system resolver
   - API: `HostnameCertService`, `HttpsHostnameProbe` / `OfflineHostnameProbe`, `HostnameProbeJob`, the ask endpoint recording, `OrgDomainService.makePrimary`, and `AdminDomainService` + `AdminDomainResource`.
   - Tests: `HostnameCertServiceTest`, `OrgDomainsIT` (ask → probe → issued → main address, which mail links use, and can't be suspended or removed; the admin list and re-check), and an `OrgIsolationIT` row.
   - Web: the certificate steps and Make main address on Domains, and the platform admin Domains page with its nav item and BFF.
-- **Next:** A5 (yours: the edge change), then A6 (the extension on a custom domain).
+- **A6 + D8 built (2026-11-15).**
+  - Extension 0.73.0: the relay carries connect on exactly-listed origins; `connect_handoff` cases for a listed custom domain, an unlisted one and a wildcard.
+  - API: `AdminExtensionPackageService` + `AdminExtensionPackageResource`; `OrgDomainsIT` (refused until the certificate is issued, then the live domain only; 404; admin only).
+  - Web: `OrgExtensionPanel` on the organization's admin page with its BFF; `lib/extension-relay.ts`; the relay-first tenant connect; tests.
+  - Scripts: `brand-manifest.mjs` (+ test in CI), `zip-folder.mjs`, `package-org-extension.mjs`, and `brand-extension.mjs` with `--origins` and `--zip`.
+- **Next:** A5 (yours: the edge change). Then the first real package: an organization with a live custom domain, uploaded as an unlisted item.

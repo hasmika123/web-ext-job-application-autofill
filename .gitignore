@@ -19,3 +19,6 @@ web/.auth-stories/
 web/test-results-stories/
 web/playwright-report-stories/
 web/e2e/.auth-stories/
+
+# Organization extension packages (web/scripts/package-org-extension.mjs): zips and settings, never committed
+org-extensions/

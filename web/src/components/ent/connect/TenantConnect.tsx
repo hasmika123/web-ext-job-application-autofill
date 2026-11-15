@@ -6,6 +6,10 @@ import TenantLogo from "@/components/ent/login/TenantLogo";
 import { AUTH_CARD_COLUMN, LoginBackdrop } from "@/components/ent/login/AuthBackdrop";
 import { connectFromTenant, type TenantConnectResult } from "@/lib/ent/tenant-connect";
 import { EXT_ID } from "@/lib/extension-signal";
+import { pingRelay, sendViaRelay } from "@/lib/extension-relay";
+
+/** A ping that answers fast when the relay is there (it is already listening when the page runs) and costs little when it is not. */
+const RELAY_PING_MS = 600;
 
 type ChromeRuntime = { sendMessage?: (extId: string, msg: unknown, cb?: (resp: unknown) => void) => void; lastError?: { message?: string } };
 
@@ -22,7 +26,12 @@ export default function TenantConnect({ name, logoUrl }: { name: string; logoUrl
     if (started.current) return; // React may run the effect twice in development: one code, one hand-off
     started.current = true;
     const runtime = (window as unknown as { chrome?: { runtime?: ChromeRuntime } }).chrome?.runtime;
-    void connectFromTenant({ runtime, extId: EXT_ID, forward: (url) => window.location.replace(url) }).then(setResult);
+    void connectFromTenant({
+      runtime,
+      extId: EXT_ID,
+      forward: (url) => window.location.replace(url),
+      relay: { ping: () => pingRelay(RELAY_PING_MS), send: (tokens) => sendViaRelay(tokens) },
+    }).then(setResult);
   }, []);
 
   const status = result?.status ?? "working";

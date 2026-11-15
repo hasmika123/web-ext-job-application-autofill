@@ -8,57 +8,10 @@ import { buttonVariants } from "@/components/ui/Button";
 // addresses its own extension.
 import { EXT_ID } from "@/lib/extension-signal";
 
-// Firefox relay protocol. Firefox implements neither `externally_connectable` nor web-page
-// `runtime.sendMessage` (https://bugzil.la/1319168), so there the extension injects a content
-// script on this origin and we hand the session over by posting it to ourselves. See
-// job-autofill/entrypoints/connect-relay.content.ts — these names must match.
-const PING = "KIWIPLY_CONNECT_PING";
-const PONG = "KIWIPLY_CONNECT_PONG";
-const HANDOFF = "KIWIPLY_CONNECT";
-const RESULT = "KIWIPLY_CONNECT_RESULT";
-/** How long to wait for the relay to answer. Local postMessage, so this is generous. */
-const RELAY_TIMEOUT_MS = 2000;
-
-/** Resolves true if a connect relay is listening on this page (i.e. Firefox + extension installed). */
-function pingRelay(): Promise<boolean> {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (found: boolean) => {
-      if (done) return;
-      done = true;
-      window.removeEventListener("message", onMessage);
-      clearTimeout(timer);
-      resolve(found);
-    };
-    const onMessage = (e: MessageEvent) => {
-      if (e.source === window && e.origin === window.location.origin && e.data?.type === PONG) finish(true);
-    };
-    window.addEventListener("message", onMessage);
-    const timer = setTimeout(() => finish(false), RELAY_TIMEOUT_MS);
-    window.postMessage({ type: PING }, window.location.origin);
-  });
-}
-
-/** Hands `tokens` to the relay and resolves with the extension's answer. */
-function sendViaRelay(tokens: unknown): Promise<{ ok?: boolean; reason?: string } | null> {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (result: { ok?: boolean; reason?: string } | null) => {
-      if (done) return;
-      done = true;
-      window.removeEventListener("message", onMessage);
-      clearTimeout(timer);
-      resolve(result);
-    };
-    const onMessage = (e: MessageEvent) => {
-      if (e.source !== window || e.origin !== window.location.origin) return;
-      if (e.data?.type === RESULT) finish(e.data.result ?? null);
-    };
-    window.addEventListener("message", onMessage);
-    const timer = setTimeout(() => finish(null), RELAY_TIMEOUT_MS);
-    window.postMessage({ type: HANDOFF, tokens }, window.location.origin);
-  });
-}
+// Firefox relay protocol (lib/extension-relay.ts). Firefox implements neither `externally_connectable` nor web-page
+// `runtime.sendMessage` (https://bugzil.la/1319168), so there the extension injects a content script on this origin and we
+// hand the session over by posting it to ourselves.
+import { pingRelay, RELAY_HANDOFF, sendViaRelay } from "@/lib/extension-relay";
 
 /**
  * Decision O4: an enterprise account connects with a one-time code from its tenant host (`/connect?code=...`, 60 s, single use). The code is
@@ -149,7 +102,7 @@ export default function ConnectPage() {
       if (cancelled) return;
 
       if (direct) {
-        chromeApi!.runtime!.sendMessage!(EXT_ID, { type: HANDOFF, tokens }, () => {
+        chromeApi!.runtime!.sendMessage!(EXT_ID, { type: RELAY_HANDOFF, tokens }, () => {
           if (cancelled) return;
           const err = chromeApi?.runtime?.lastError;
           if (err) {
