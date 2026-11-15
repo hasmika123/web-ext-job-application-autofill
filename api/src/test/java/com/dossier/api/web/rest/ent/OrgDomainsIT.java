@@ -236,4 +236,40 @@ class OrgDomainsIT extends MemberItSupport {
         assertThat(r.path("dns").asText()).isEqualTo("ACTIVE");
         assertThat(mockMvc.perform(get("/api/admin/domains").param("status", "NOPE")).andReturn().getResponse().getStatus()).isEqualTo(422);
     }
+
+    /** A6: the settings of the organization's own extension build list its live custom domains only, and are refused until it has one. */
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser(username = "package-admin", authorities = com.dossier.api.security.AuthoritiesConstants.ADMIN)
+    void theExtensionPackageListsOnlyLiveCustomDomainsAndWaitsForOne() throws Exception {
+        String path = "/api/admin/orgs/" + a.getId() + "/extension-package";
+        MvcResult none = mockMvc.perform(get(path)).andReturn();
+        assertThat(none.getResponse().getStatus()).as("no live custom domain yet").isEqualTo(409);
+        assertThat(none.getResponse().getContentAsString()).contains("NO_LIVE_DOMAIN");
+
+        String host = "apply-" + p + ".example.org";
+        long id = add(host).path("id").asLong();
+        publish(host, id);
+        assertThat(domains.recheck(a.getId(), id, Instant.now())).isEqualTo("ACTIVE");
+        assertThat(mockMvc.perform(get(path)).andReturn().getResponse().getStatus()).as("live, but no certificate yet").isEqualTo(409);
+
+        certs.recordAsk(host, Instant.now());
+        ScriptedDns.LIVE.add(host);
+        assertThat(certs.probe(a.getId(), id, Instant.now())).isEqualTo("ISSUED");
+        JsonNode pkg = om.readTree(mockMvc.perform(get(path)).andReturn().getResponse().getContentAsString());
+        assertThat(pkg.path("name").asText()).isEqualTo(a.getName());
+        assertThat(pkg.path("web").asText()).isEqualTo("https://" + host);
+        assertThat(pkg.path("origins").size()).isEqualTo(1);
+        assertThat(pkg.path("origins").get(0).asText()).isEqualTo("https://" + host);
+        assertThat(pkg.path("api").asText()).isEqualTo("https://api.kiwiply.com");
+        assertThat(pkg.path("slug").asText()).matches("[a-z0-9-]+");
+        assertThat(pkg.path("origins").toString()).as("the Kiwiply subdomain is never listed").doesNotContain("kiwiply");
+
+        assertThat(mockMvc.perform(get("/api/admin/orgs/987654321/extension-package")).andReturn().getResponse().getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser(username = "not-admin", authorities = "ROLE_USER")
+    void onlyThePlatformAdminGetsAnExtensionPackage() throws Exception {
+        assertThat(mockMvc.perform(get("/api/admin/orgs/" + a.getId() + "/extension-package")).andReturn().getResponse().getStatus()).isEqualTo(403);
+    }
 }
