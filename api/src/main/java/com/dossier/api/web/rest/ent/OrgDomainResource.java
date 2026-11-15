@@ -88,6 +88,14 @@ public class OrgDomainResource {
         return domains.resume(me, hostnameId);
     }
 
+    @Operation(summary = "Make an address the main one", description = "domains.manage. A live address with its certificate issued (the Kiwiply subdomain always qualifies while live): links in mail use it. 409 HOST_NOT_LIVE. Audit DOMAIN_PRIMARY.")
+    @PostMapping("/{hostnameId}/primary")
+    @OrgPermissionRequired
+    public OrgDomainService.Domain primary(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long hostnameId) {
+        demoGuard.assertNotDemo();
+        return domains.makePrimary(me, hostnameId);
+    }
+
     @Operation(summary = "Remove a domain", description = "domains.manage. Body {confirm}: the domain typed exactly. 409 SUBDOMAIN_MANAGED (Kiwiply's address), 409 PRIMARY_REQUIRED (the main address). The name can be added again later. Audit DOMAIN_REMOVED.")
     @PostMapping("/{hostnameId}/remove")
     @OrgPermissionRequired

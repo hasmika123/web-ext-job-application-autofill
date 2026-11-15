@@ -95,6 +95,15 @@ public class OrgHostname implements Serializable {
     @Column(name = "failing_since")
     private java.time.Instant failingSince;
 
+    @Column(name = "last_ask_at")
+    private java.time.Instant lastAskAt;
+
+    @Column(name = "cert_issued_at")
+    private java.time.Instant certIssuedAt;
+
+    @Column(name = "cert_checked_at")
+    private java.time.Instant certCheckedAt;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }
@@ -138,4 +147,10 @@ public class OrgHostname implements Serializable {
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
     public java.time.Instant getFailingSince() { return failingSince; }
     public void setFailingSince(java.time.Instant failingSince) { this.failingSince = failingSince; }
+    public java.time.Instant getLastAskAt() { return lastAskAt; }
+    public void setLastAskAt(java.time.Instant lastAskAt) { this.lastAskAt = lastAskAt; }
+    public java.time.Instant getCertIssuedAt() { return certIssuedAt; }
+    public void setCertIssuedAt(java.time.Instant certIssuedAt) { this.certIssuedAt = certIssuedAt; }
+    public java.time.Instant getCertCheckedAt() { return certCheckedAt; }
+    public void setCertCheckedAt(java.time.Instant certCheckedAt) { this.certCheckedAt = certCheckedAt; }
 }

@@ -55,15 +55,41 @@ Lookups go through **dnsjava 3.6.2** (approved in doc 10 §4.1): system resolver
   - one card per domain, with its status, what the last check found in plain words, the DNS records with Copy buttons, and Verify now / Go live / Suspend / Resume / Remove (typed confirmation).
 - BFF `api/orgs/[orgId]/hostnames/[[...path]]`.
 
-## A4b: certificates, the main address, the admin's list (next PR)
-- Certificate tracking (doc 10 §5.4):
-  - the ask endpoint records `last_ask_at` and moves `cert_state` NONE → REQUESTED;
-  - `HostnameProbeJob` probes HTTPS, giving ISSUED or FAILED with a hint;
-  - the card shows the timeline DNS verified → Certificate → Live.
-- The proxy (orange cloud) and CAA diagnostics (doc 10 §4.2).
-- Making a live, certified domain the main address (`PUT …/{id}/primary`), redirects to it, and mail links built on it (doc 10 §6).
-- Platform admin `/admin/domains`: every hostname across organizations, re-check, suspend or resume (doc 10 §7).
-- Domain-failing notifications to `domains.manage` members.
+## A4b: certificates, the main address, the admin's list (this PR)
+
+**Certificates** (`HostnameCertService`, doc 10 §5.4):
+- When the edge's ask endpoint answers 200, it records `last_ask_at`, and a live custom domain's `cert_state` goes NONE / FAILED → REQUESTED. Recording never changes the answer.
+- `HostnameProbeJob` (every 5 minutes, job lease, at most 50) probes REQUESTED and FAILED domains with `HttpsHostnameProbe`: `https://{host}/api/public/tenant`, 10 seconds, the JDK's trusted roots, no redirects.
+  - An answer below 500 after the TLS handshake is ISSUED (`cert_issued_at`, audit `DOMAIN_CERT_ISSUED`).
+  - No answer 30 minutes after the ask is FAILED, with `CERT_FAILED:TLS` or `CERT_FAILED:UNREACHABLE`.
+  - A later success still flips it to ISSUED.
+- With `dossier.ent.domains.probe=offline` (tests) nothing is probed.
+
+**Main address:** `POST /api/orgs/{orgId}/hostnames/{id}/primary` (`domains.manage`).
+- A live address can be the main one: a custom domain once its certificate is ISSUED, the Kiwiply subdomain whenever it is live. 409 `HOST_NOT_LIVE` otherwise.
+- The old main address is cleared first: one per organization, enforced by the database.
+- Mail links already follow it (`TenantUrls`: the main address when it is live and certified).
+- The main address can't be suspended or removed.
+- Audit `DOMAIN_PRIMARY`.
+
+**Platform admin → Domains** (`/admin/domains`; `GET /api/admin/domains?status&q&page`, `POST /api/admin/domains/{id}/recheck`; `ROLE_ADMIN`):
+- every organization's addresses, the ones needing attention first: suspended, failing DNS, or certificate failed;
+- each with its organization (linked), kind, main flag, status, certificate state and last check;
+- **Re-check** runs the DNS check and the probe now (audit `DOMAIN_RECHECK`). Suspend and resume stay on the organization's page.
+
+**Web:**
+- A live domain's card shows **DNS verified → Certificate → Live**, and once the certificate is issued, **Make main address**.
+- The Kiwiply address card offers it too.
+- A **Main address** badge.
+- The certificate failure is explained in plain words.
+
+**Schema:** additive `20261203010000_ent_domain_certs.xml` adds `org_hostname.last_ask_at`, `cert_issued_at` and `cert_checked_at`.
+
+**Not in A4b** (later, when needed):
+- redirecting the other addresses to the main one (`org.domains.redirect_non_primary`, doc 10 §6), and `subdomain_mode`;
+- the proxy (orange cloud) and CAA hints (doc 10 §4.2);
+- notifications to `domains.manage` members when a domain fails;
+- the Let's Encrypt weekly counter and the ask-rate alert (doc 10 §7).
 
 ## Then
 - **A5 (yours):** apply the edge snippet and runbook in doc 10 §5.3 and §8 on the shared box.
@@ -75,4 +101,8 @@ Lookups go through **dnsjava 3.6.2** (approved in doc 10 §4.1): system resolver
   - API: `OrgDomainService`, `HostnameVerifier`, `DnsjavaLookup` / `OfflineDnsLookup`, `HostnameCheckJob`, `OrgDomainResource`, and the settings.
   - Tests: `HostnameVerifierTest`, `OrgDomainsIT` (add → records → verify → live, resolved and certificate allowed → suspend → resume → remove → add again; refusals and the wall; the job's grace-period suspension), eight `OrgIsolationIT` rows, and the menu, settings and PII pins.
   - Web: `DomainsPage`, `lib/ent/domains.ts`, the BFF, and the menu item, with tests.
-- **Next: A4b.**
+- **A4b built (2026-11-14).**
+  - API: `HostnameCertService`, `HttpsHostnameProbe` / `OfflineHostnameProbe`, `HostnameProbeJob`, the ask endpoint recording, `OrgDomainService.makePrimary`, and `AdminDomainService` + `AdminDomainResource`.
+  - Tests: `HostnameCertServiceTest`, `OrgDomainsIT` (ask → probe → issued → main address, which mail links use, and can't be suspended or removed; the admin list and re-check), and an `OrgIsolationIT` row.
+  - Web: the certificate steps and Make main address on Domains, and the platform admin Domains page with its nav item and BFF.
+- **Next:** A5 (yours: the edge change), then A6 (the extension on a custom domain).

@@ -458,6 +458,7 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/activate", Case.write(null, 409, null)),
         Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/suspend", Case.write("{\"reason\":\"Isolation test\"}", 409, null)),
         Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/resume", Case.write(null, 409, null)),
+        Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/primary", Case.write(null, 409, null)), // A4b: the world's domain is not live: HOST_NOT_LIVE
         Map.entry("POST /api/orgs/{orgId}/hostnames/{hostnameId}/remove", Case.versioned(200, "DOMAIN_REMOVED", w -> "{\"confirm\":\"" + w.domainHost + "\"}", w -> null)),
         Map.entry("GET /api/orgs/{orgId}/usage", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/usage/history", Case.read()),

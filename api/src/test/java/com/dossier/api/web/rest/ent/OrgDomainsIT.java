@@ -45,6 +45,14 @@ class OrgDomainsIT extends MemberItSupport {
 
         static final Map<String, List<String>> TXT = new ConcurrentHashMap<>();
         static final Map<String, List<String>> CNAME = new ConcurrentHashMap<>();
+        /** Hosts whose HTTPS the scripted certificate probe sees live (A4b). */
+        static final java.util.Set<String> LIVE = ConcurrentHashMap.newKeySet();
+
+        @Bean
+        @Primary
+        com.dossier.api.service.ent.domains.HostnameProbe scriptedProbe() {
+            return host -> LIVE.contains(host) ? new com.dossier.api.service.ent.domains.HostnameProbe.Result(true, 200, null) : new com.dossier.api.service.ent.domains.HostnameProbe.Result(false, null, "UNREACHABLE");
+        }
 
         @Bean
         @Primary
@@ -71,6 +79,8 @@ class OrgDomainsIT extends MemberItSupport {
     @Autowired private OrgHostnameRepository hostnames;
     @Autowired private OrgDomainService domains;
     @Autowired private TenantResolver resolver;
+    @Autowired private com.dossier.api.service.ent.domains.HostnameCertService certs;
+    @Autowired private com.dossier.api.service.ent.TenantUrls tenantUrls;
 
     @BeforeEach
     void domainsOn() {
@@ -83,6 +93,7 @@ class OrgDomainsIT extends MemberItSupport {
     void forgetDns() {
         ScriptedDns.TXT.clear();
         ScriptedDns.CNAME.clear();
+        ScriptedDns.LIVE.clear();
     }
 
     private String url(String rest) {
@@ -174,5 +185,55 @@ class OrgDomainsIT extends MemberItSupport {
         assertThat(hostnames.findByOrgIdAndId(a.getId(), id).orElseThrow().getFailingSince()).isNotNull();
         assertThat(domains.recheck(a.getId(), id, now.plus(Duration.ofHours(25 + 73)))).isEqualTo("SUSPENDED");
         assertThat(audit.findByOrgIdAndAction(a.getId(), "DOMAIN_SUSPENDED", org.springframework.data.domain.PageRequest.of(0, 5)).getTotalElements()).isEqualTo(1);
+    }
+
+    /** A4b: the edge's ask requests the certificate, the probe sees it live, and only then can the domain become the main address mail links use. */
+    @Test
+    void aLiveDomainsCertificateIsTrackedAndOnlyThenItBecomesTheMainAddress() throws Exception {
+        String host = "main-" + p + ".example.org";
+        long id = add(host).path("id").asLong();
+        publish(host, id);
+        assertThat(domains.recheck(a.getId(), id, Instant.now())).isEqualTo("ACTIVE");
+
+        MvcResult notYet = call(login("owner"), post(url("/" + id + "/primary")));
+        assertStatus(notYet, 409);
+        assertThat(notYet.getResponse().getContentAsString()).contains("HOST_NOT_LIVE");
+
+        certs.recordAsk(host, Instant.now());
+        assertThat(hostnames.findByOrgIdAndId(a.getId(), id).orElseThrow().getCertState().name()).isEqualTo("REQUESTED");
+        ScriptedDns.LIVE.add(host);
+        assertThat(certs.probe(a.getId(), id, Instant.now())).isEqualTo("ISSUED");
+
+        JsonNode main = json(call(login("owner"), post(url("/" + id + "/primary"))));
+        assertThat(main.path("primary").asBoolean()).isTrue();
+        assertThat(hostnames.findByOrgIdOrderByCreatedAt(a.getId()).stream().filter(h -> h.isPrimary()).count()).as("one main address").isEqualTo(1);
+        assertThat(tenantUrls.liveHost(a.getId())).as("links in mail use the main address").isEqualTo(host);
+        assertStatus(call(login("owner"), post(url("/" + id + "/suspend")), "{\"reason\":\"Testing the main address\"}"), 409);
+        assertStatus(call(login("owner"), post(url("/" + id + "/remove")), "{\"confirm\":\"" + host + "\"}"), 409);
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser(username = "domain-admin", authorities = com.dossier.api.security.AuthoritiesConstants.ADMIN)
+    void thePlatformAdminListsEveryOrganizationsDomainsAndReChecksOne() throws Exception {
+        String host = "admin-" + p + ".example.org";
+        OrgHostname row = new OrgHostname();
+        row.setOrgId(a.getId());
+        row.setHostname(host);
+        row.setKind(com.dossier.api.domain.enumeration.OrgHostnameKind.CUSTOM);
+        row.setStatus(com.dossier.api.domain.enumeration.OrgHostnameStatus.PENDING);
+        row.setVerificationMethod(com.dossier.api.domain.enumeration.HostnameVerificationMethod.DNS_TXT);
+        row.setVerificationToken("admintoken0123456789abcdefghijkl");
+        long id = hostnames.saveAndFlush(row).getId();
+
+        JsonNode page = om.readTree(mockMvc.perform(get("/api/admin/domains").param("q", host)).andReturn().getResponse().getContentAsString());
+        assertThat(page.path("total").asLong()).isEqualTo(1);
+        assertThat(page.path("rows").get(0).path("hostname").asText()).isEqualTo(host);
+        assertThat(page.path("rows").get(0).path("orgName").asText()).isEqualTo(a.getName());
+
+        ScriptedDns.TXT.put("_kiwiply-verify." + host, List.of("kiwiply-verify=admintoken0123456789abcdefghijkl"));
+        ScriptedDns.CNAME.put(host, List.of("edge.kiwiply.com"));
+        JsonNode r = om.readTree(mockMvc.perform(post("/api/admin/domains/" + id + "/recheck")).andReturn().getResponse().getContentAsString());
+        assertThat(r.path("dns").asText()).isEqualTo("ACTIVE");
+        assertThat(mockMvc.perform(get("/api/admin/domains").param("status", "NOPE")).andReturn().getResponse().getStatus()).isEqualTo(422);
     }
 }

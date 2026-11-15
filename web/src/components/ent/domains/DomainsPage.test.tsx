@@ -39,18 +39,21 @@ const instructions = {
 };
 
 let calls: { url: string; method: string; body: unknown }[];
+let listed: { kind: string }[];
 beforeEach(() => {
   calls = [];
+  listed = [sub, pending];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? "GET";
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       let json: unknown = {};
-      if (url.endsWith("/hostnames") && method === "GET") json = overview([sub, pending]);
+      if (url.endsWith("/hostnames") && method === "GET") json = overview(listed);
       else if (url.endsWith("/hostnames") && method === "POST") json = { ...pending, id: 6, hostname: "jobs.acme.com", lastCheckResult: null };
       else if (url.endsWith("/instructions")) json = instructions;
       else if (url.endsWith("/verify")) json = { ...pending, status: "ACTIVE", lastCheckResult: "OK" };
+      else if (url.endsWith("/primary")) json = { ...pending, id: 7, hostname: "jobs.acme.com", status: "ACTIVE", certState: "ISSUED", primary: true };
       return { ok: true, status: 200, json: async () => json } as Response;
     }),
   );
@@ -90,7 +93,24 @@ describe("Domains", () => {
     fireEvent.click(document.querySelector("[data-domain-verify='5']")!);
     await settle();
     expect(calls.some((c) => c.method === "POST" && c.url === "/api/orgs/2/hostnames/5/verify")).toBe(true);
-    expect(within(document.querySelector("[data-domain-row='5']") as HTMLElement).getByText("Live")).toBeTruthy();
+    const live = document.querySelector("[data-domain-row='5']") as HTMLElement;
+    expect(within(live).getAllByText("Live").length).toBeGreaterThan(0); // the status pill (and the last step, A4b)
+    expect(live.querySelector("[data-domain-steps]")).toBeTruthy();
+  });
+
+  it("A4b: a live domain shows its certificate step, and once issued it can become the main address", async () => {
+    const issuing = { ...pending, id: 7, hostname: "jobs.acme.com", status: "ACTIVE", certState: "REQUESTED", lastCheckResult: "OK" };
+    const issued = { ...issuing, id: 8, hostname: "apply.acme.com", certState: "ISSUED" };
+    listed = [sub, issuing, issued];
+    mount();
+    await settle();
+    const first = document.querySelector("[data-domain-row='7']") as HTMLElement;
+    expect(first.querySelector("[data-domain-steps]")?.textContent).toMatch(/DNS verified.*Certificate being issued.*Live/);
+    expect(first.querySelector("[data-domain-primary]")).toBeNull();
+    const second = document.querySelector("[data-domain-row='8']") as HTMLElement;
+    fireEvent.click(second.querySelector("[data-domain-primary='8']")!);
+    await settle();
+    expect(calls.some((c) => c.method === "POST" && c.url === "/api/orgs/2/hostnames/8/primary")).toBe(true);
   });
 
   it("adds a domain by its name", async () => {

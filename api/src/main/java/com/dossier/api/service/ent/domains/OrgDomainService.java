@@ -63,7 +63,10 @@ public class OrgDomainService {
         Instant verifiedAt,
         Instant activatedAt,
         String certState,
-        Instant failingSince
+        Instant failingSince,
+        /** A4b: when the edge last asked to issue its certificate, and when the probe first saw it live. */
+        Instant lastAskAt,
+        Instant certIssuedAt
     ) {}
 
     public record DnsRecord(String type, String name, String value, String purpose) {}
@@ -247,6 +250,30 @@ public class OrgDomainService {
         return dto(h);
     }
 
+    /**
+     * Make a live address the organization's main one (CUSTOM-DOMAINS-BUILD.md A4b; 10-domain-routing.md s6). Links in mail then use it, and only it may
+     * not be suspended or removed. A custom domain qualifies once its certificate is ISSUED; the Kiwiply subdomain always does while ACTIVE. 409
+     * {@code HOST_NOT_LIVE} otherwise. Audit {@code DOMAIN_PRIMARY}.
+     */
+    public Domain makePrimary(OrgMembership me, Long id) {
+        write(me);
+        if (id == null) throw new OrgNotFoundException();
+        OrgHostname target = hostnames.findByOrgIdAndId(me.orgId(), id).orElseThrow(OrgNotFoundException::new);
+        if (target.getStatus() == OrgHostnameStatus.REMOVED) throw new OrgNotFoundException();
+        boolean live = target.getStatus() == OrgHostnameStatus.ACTIVE && (target.getKind() == OrgHostnameKind.SUBDOMAIN || target.getCertState() == com.dossier.api.domain.enumeration.HostnameCertState.ISSUED);
+        if (!live) throw new OrgException(409, "HOST_NOT_LIVE", "Only a live address with its certificate can be the main one.", null);
+        if (target.isPrimary()) return dto(target);
+        for (OrgHostname h : hostnames.findByOrgIdOrderByCreatedAt(me.orgId())) {
+            if (!h.isPrimary() || h.getId().equals(target.getId())) continue;
+            h.setPrimary(false);
+            hostnames.saveAndFlush(h); // one main address per organization (the primary key is unique): the old one first
+        }
+        target.setPrimary(true);
+        OrgHostname saved = tenancy.saveAndRefresh(me.orgId(), target);
+        audit.record(me, OrgAuditService.DOMAIN_PRIMARY, OrgAuditService.TARGET_HOSTNAME, null, String.valueOf(saved.getId()), "main address is now " + saved.getHostname());
+        return dto(saved);
+    }
+
     // ------------------------------------------------------------------------------------------ the check (also used by the job)
 
     /** Run the verifier on a non-live row and apply the result (PENDING/VERIFYING/VERIFIED → VERIFIED → ACTIVE when {@code activate}). */
@@ -393,7 +420,9 @@ public class OrgDomainService {
             h.getVerifiedAt(),
             h.getActivatedAt(),
             h.getCertState() == null ? "NONE" : h.getCertState().name(),
-            h.getFailingSince()
+            h.getFailingSince(),
+            h.getLastAskAt(),
+            h.getCertIssuedAt()
         );
     }
 }
