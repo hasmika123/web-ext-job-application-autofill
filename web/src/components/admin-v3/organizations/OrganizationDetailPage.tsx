@@ -7,6 +7,7 @@ import { AdminHero, AdminPanel, AdminSaveProvider, AdminStatTiles, HistoryDrawer
 import type { HistoryLoader } from "../common";
 import LabelField, { useLabelCheck } from "./LabelField";
 import OrgBillingPanel from "./OrgBillingPanel";
+import OrgExtensionPanel from "./OrgExtensionPanel";
 import { SheetFrame } from "../common/ReasonSheet";
 import TempPasswordDialog from "@/components/ent/shared/TempPasswordDialog";
 import { adminFetch, type AdminOutcome } from "@/lib/admin-client";
@@ -208,6 +209,8 @@ function Inner({ initial, id }: { initial: OrgDetail | null; id: number }) {
       </AdminPanel>
 
       <OrgBillingPanel orgId={id} orgName={org.name} />
+
+      <OrgExtensionPanel orgId={id} />
 
       <AdminPanel title="Suspension" description="Suspending is always your call: nothing suspends an organization automatically, not even an unpaid invoice.">
         <div className="flex flex-wrap items-center gap-3" data-org-suspension={org.status}>

@@ -19,11 +19,19 @@
  *     --web http://aaruna.localhost:3200 --api http://localhost:18183
  *   options: --src <built folder> --out <new folder> (default <src>-<slug>) --short <name in "<short> AI", default the first word>
  *   (--web: the organization's site, --api: the API the build calls)
+ *   --origins <a,b>: the organization's other addresses (its other custom domains), listed exactly like --web, so connect and the Prepare batch
+ *     work on each (CUSTOM-DOMAINS-BUILD.md A6). The manifest itself is built by brand-manifest.mjs (tested).
+ *   --zip: also write <out>.zip (what the Chrome Web Store upload takes, and what a pilot loads unpacked) and <out>-store-listing.txt (the text the
+ *     store's white-label exception asks for). package-org-extension.mjs runs all of this from the admin's package settings.
+ *   Kiwiply's API may stay behind the scenes (user decision 2026-11-15): pass --api https://api.kiwiply.com and the build calls it without listing
+ *   it anywhere Chrome shows (it answers extensions by CORS); that one address is the only "kiwiply" the pass leaves in the code.
  */
 import { chromium } from "@playwright/test";
 import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { brandManifest, storeDescription } from "./brand-manifest.mjs";
+import { zipFolder } from "./zip-folder.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = Object.fromEntries(
@@ -34,6 +42,8 @@ const NAME = args.name || "Acme Staffing";
 const WEB = (args.web || "").replace(/\/+$/, "");
 const API = (args.api || "").replace(/\/+$/, "");
 const SHORT = args.short || NAME.split(/\s+/)[0];
+const ORIGINS = (args.origins || "").split(",").map((o) => o.trim().replace(/\/+$/, "")).filter(Boolean);
+const ZIP = Object.prototype.hasOwnProperty.call(args, "zip");
 const SITE = `the ${NAME} site`;
 const LOGO = resolve(args.logo || "");
 const PRIMARY = (args.primary || "#1d5bd8").toLowerCase();
@@ -61,30 +71,20 @@ rmSync(OUT, { recursive: true, force: true });
 cpSync(SRC, OUT, { recursive: true });
 
 const manifestPath = join(OUT, "manifest.json");
-const m = JSON.parse(readFileSync(manifestPath, "utf8"));
-m.name = `${NAME} - Job Autofill`;
-m.description = `Fill job applications for ${NAME} consultants from your profile and resume. Review every field. Never submits for you.`.slice(0, 132);
-if (m.action) m.action.default_title = `${NAME} - open the autofill drawer`;
-if (WEB) {
-  // The spin-off names no Kiwiply host: Chrome would show them in its permission prompt ("Read and change your data on kiwiply.com").
-  // The organization's own site is listed exactly, so it may hand the session to the extension (the connect page on that site).
-  const kiwi = (p) => /kiwiply\.com/i.test(String(p));
-  const add = (list, v) => (list.includes(v) ? list : [...list, v]);
-  if (m.host_permissions) m.host_permissions = m.host_permissions.filter((p) => !kiwi(p));
-  if (API) m.host_permissions = add(m.host_permissions || [], `${API}/*`);
-  if (m.externally_connectable) m.externally_connectable.matches = add(m.externally_connectable.matches.filter((p) => !kiwi(p)), `${WEB}/*`);
-  for (const cs of m.content_scripts || []) {
-    const kept = cs.matches.filter((p) => !kiwi(p));
-    cs.matches = kept.length === cs.matches.length ? kept : add(kept, `${WEB}/*`);
-  }
-  for (const war of m.web_accessible_resources || []) if (war.matches) war.matches = war.matches.filter((p) => !kiwi(p));
-}
+// The spin-off names no Kiwiply host where Chrome shows it ("Read and change your data on kiwiply.com"); the organization's own addresses are listed
+// exactly, so they may hand the session to the extension and send a Prepare batch (brand-manifest.mjs).
+const m = brandManifest(JSON.parse(readFileSync(manifestPath, "utf8")), { name: NAME, web: WEB, origins: ORIGINS, api: API });
 writeFileSync(manifestPath, JSON.stringify(m, null, 2));
 
 // White-label text: every Kiwiply name and link a person can meet (drawer, options page, review panel, messages, links, tab titles) becomes
 // the organization's. Internal names nobody sees (message types such as KIWIPLY_CONNECT, which the web pages also send, element ids, function
 // names) are kept as they are, so the engine and the web hand-off keep working.
-const KEEP = /KIWIPLY_[A-Z_]+|createKiwiplyProvider|__kiwiply\w*|kiwiply-(?:sync|panel)\b/g;
+// Kiwiply's API, when the build calls it behind the scenes, is kept as it is too (never shown to a person, never in the manifest).
+const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const KEEP = new RegExp(
+  "KIWIPLY_[A-Z_]+|createKiwiplyProvider|__kiwiply\\w*|kiwiply-(?:sync|panel)\\b" + (API && /kiwiply/i.test(API) ? "|" + escapeRe(API) : ""),
+  "g",
+);
 function whiteLabel(src) {
   const kept = [];
   let s = src.replace(KEEP, (k) => `\u0000${kept.push(k) - 1}\u0000`);
@@ -128,7 +128,8 @@ if (WEB && left.length) {
 }
 
 // ---- icons and logos, drawn from the organization's mark in a headless browser ----------------------------------------------------------
-const logoData = `data:image/png;base64,${readFileSync(LOGO).toString("base64")}`;
+const logoType = { jpg: "image/jpeg", jpeg: "image/jpeg", svg: "image/svg+xml", webp: "image/webp" }[LOGO.split(".").pop().toLowerCase()] || "image/png";
+const logoData = `data:${logoType};base64,${readFileSync(LOGO).toString("base64")}`;
 const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || "chrome" });
 const page = await browser.newPage({ deviceScaleFactor: 1 });
 async function shoot(html, width, height, file) {
@@ -147,6 +148,28 @@ await shoot(lockup("#1f2937"), lockupWidth, 96, join(OUT, "icons", "logo.png"));
 await shoot(lockup("#f3f4f6"), lockupWidth, 96, join(OUT, "icons", "logo-dark-mode.png"));
 await browser.close();
 
+if (ZIP) {
+  const zip = `${OUT}.zip`;
+  const n = zipFolder(OUT, zip);
+  const listing = [
+    `Name: ${m.name}`,
+    `Summary (132 characters at most): ${m.description}`,
+    ``,
+    `Single purpose: ${storeDescription(NAME)} It helps the consultants of ${NAME} fill job application forms from their own profile; they review every field and submit themselves.`,
+    ``,
+    `Visibility: UNLISTED (the Chrome Web Store's white-label exception requires it). Share the item's link with ${NAME} only.`,
+    `Version: ${m.version}`,
+    `Package: ${basename(zip)} (${n} files)`,
+  ].join("\n");
+  writeFileSync(`${OUT}-store-listing.txt`, listing + "\n");
+  console.log(`  package: ${zip}`);
+  console.log(`  store listing text: ${OUT}-store-listing.txt`);
+}
+
 console.log(`branded "${NAME}" build: ${OUT}`);
 console.log(`  name: ${m.name} | colour ${PRIMARY} (${cssFiles} stylesheets) | icons + logos from ${basename(LOGO)}`);
-console.log(`  load it unpacked in Chrome (chrome://extensions, Developer mode, Load unpacked). Same extension ID as the build it came from.`);
+console.log(
+  WEB
+    ? `  upload the zip as a new UNLISTED Chrome Web Store item (or load the folder unpacked for a pilot). It has its own extension ID.`
+    : `  load it unpacked in Chrome (chrome://extensions, Developer mode, Load unpacked). Same extension ID as the build it came from.`,
+);

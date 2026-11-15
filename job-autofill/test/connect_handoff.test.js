@@ -270,6 +270,19 @@ const PROD_MATCHES = ["https://kiwiply.com/*", "https://www.kiwiply.com/*", "htt
     ok("relay: dev manifest accepts the dev origin", okResp && okResp.ok === true, JSON.stringify(okResp));
   }
 
+  /* ---- A6: an organization's own build lists its custom domain exactly: connect and prepare work there through the relay ---- */
+  {
+    const branded = boot(["https://acme.kiwiply.com/*", "https://careers.acme.com/*"]);
+    const custom = { tab: { id: 7 }, url: "https://careers.acme.com/connect" };
+    const okResp = await relay(branded.internal, custom);
+    ok("A6 relay: the organization's exactly-listed custom domain connects", okResp && okResp.ok === true, JSON.stringify(okResp));
+    const other = await relay(branded.internal, { tab: { id: 8 }, url: "https://jobs.other.com/connect" });
+    ok("A6 relay: a domain the build does not list cannot connect", other === null, JSON.stringify(other));
+    const wild = boot(["https://*.acme.com/*"]);
+    const viaWildcard = await relay(wild.internal, custom);
+    ok("A6 relay: a wildcard entry never lets a page connect", viaWildcard === null, JSON.stringify(viaWildcard));
+  }
+
   console.log(`[connect_handoff] ${pass} passed, ${fail} failed`);
   if (fail) { console.log(fails.map((f) => "  ✗ " + f).join("\n")); process.exit(1); }
   console.log("[connect_handoff] All green.");

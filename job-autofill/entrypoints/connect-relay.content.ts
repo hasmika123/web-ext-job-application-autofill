@@ -40,6 +40,16 @@ const RESPONSE = "KIWIPLY_CONNECT_RESULT";
  */
 const PREPARE = "KIWIPLY_PREPARE_BATCH";
 
+/** True when `origin` is listed EXACTLY (no wildcard) in this build's externally_connectable matches. */
+function exactlyListed(origin: string): boolean {
+  try {
+    const ec = chrome.runtime.getManifest().externally_connectable as { matches?: string[] } | undefined;
+    return (ec?.matches || []).some((p) => !p.includes("*.") && p.replace(/\/\*$/, "") === origin);
+  } catch {
+    return false;
+  }
+}
+
 export default defineContentScript({
   // Exactly the origins in `externally_connectable.matches` — this is the Firefox equivalent of
   // that key, not a wider grant, so the two lists must stay in step (wxt.config.ts holds the
@@ -74,8 +84,13 @@ export default defineContentScript({
   allFrames: false,
   main() {
     // On Chrome this relay exists for the prepare batch alone; the session handoff and the sync
-    // signals keep using externally_connectable, so they are not answered here.
-    const prepareOnly = import.meta.env.BROWSER !== "firefox";
+    // signals keep using externally_connectable, so they are not answered here. One exception
+    // (CUSTOM-DOMAINS-BUILD.md A6, an organization's own extension build): a page whose origin this
+    // build lists EXACTLY in externally_connectable (the organization's own addresses, its custom
+    // domain among them) may also connect through the relay, because its connect page cannot know
+    // the extension id an unlisted store item gets. The background applies the same exact-origin
+    // gate to what arrives here, so this widens nothing: a wildcard entry (*.kiwiply.com) never counts.
+    const prepareOnly = import.meta.env.BROWSER !== "firefox" && !exactlyListed(window.location.origin);
     window.addEventListener("message", (event: MessageEvent) => {
       // Only this exact document may hand over a session — not an embedded frame, not an
       // opener, and not another origin that happens to have a handle on this window.

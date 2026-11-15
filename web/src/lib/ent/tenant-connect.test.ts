@@ -50,4 +50,37 @@ describe("connectFromTenant: the organization's own connect page", () => {
     });
     expect(runtime.sendMessage).not.toHaveBeenCalled();
   });
+
+  it("hands the session to the organization's own build through its relay, whose ID the page cannot know (A6)", async () => {
+    const fetchImpl = fetchFake();
+    const forward = vi.fn();
+    const send = vi.fn(async () => ({ ok: true }));
+    const r = await connectFromTenant({ runtime: undefined, extId: "kiwiply-id", forward, fetchImpl, relay: { ping: async () => true, send } });
+    expect(r).toEqual({ status: "connected" });
+    expect(send).toHaveBeenCalledWith(TOKENS);
+    expect(forward).not.toHaveBeenCalled();
+  });
+
+  it("the relay comes first even where a direct runtime exists, and its refusal is shown", async () => {
+    const runtime = { sendMessage: vi.fn() };
+    const r = await connectFromTenant({
+      runtime,
+      extId: "x",
+      forward: vi.fn(),
+      fetchImpl: fetchFake(),
+      relay: { ping: async () => true, send: async () => ({ ok: false, reason: "This extension belongs to another organization." }) },
+    });
+    expect(r).toEqual({ status: "error", message: "This extension belongs to another organization." });
+    expect(runtime.sendMessage).not.toHaveBeenCalled();
+    const silent = await connectFromTenant({ runtime: undefined, extId: "x", forward: vi.fn(), fetchImpl: fetchFake(), relay: { ping: async () => true, send: async () => null } });
+    expect(silent.status).toBe("no-extension");
+  });
+
+  it("a relay that does not answer the ping changes nothing: the standard path runs", async () => {
+    const forward = vi.fn();
+    const send = vi.fn();
+    const r = await connectFromTenant({ runtime: undefined, extId: "x", forward, fetchImpl: fetchFake(), relay: { ping: async () => false, send } });
+    expect(r).toEqual({ status: "forwarded" });
+    expect(send).not.toHaveBeenCalled();
+  });
 });

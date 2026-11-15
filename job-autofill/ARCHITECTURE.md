@@ -423,10 +423,12 @@ checked, never trusted.
 **Who may send it.** Chrome: `externally_connectable` now lists `https://*.kiwiply.com/*` (tenant hosts) next to the
 three exact web origins. The service worker applies the wildcard to this ONE message type; the connect handoff and
 the sync signals still require the exact origins, so a tenant page cannot hand over a session. Firefox: the
-`connect-relay` content script matches the same pattern and forwards the message. **Limit:** a custom tenant domain
-(`jobs.acme.com`) cannot be listed in a manifest, so a batch started there is not delivered. Options for those tenants:
-the web opens the batch from a `kiwiply.com` page (the host the extension already trusts), or the domain is added to the
-manifest in a store release. Until then the tenant page should show the normal "Open posting" per job.
+`connect-relay` content script matches the same pattern and forwards the message. **Custom domains**
+(`jobs.acme.com`, A6): the standard build can't list them, so a batch started there is not delivered by it. The
+organization's own build (`web/scripts/package-org-extension.mjs`, docs/enterprise-v2/CUSTOM-DOMAINS-BUILD.md A6 + D8)
+lists its live custom domains exactly, in `externally_connectable` and in the relay's matches, so Prepare **and connect**
+work there: on Chrome the relay carries connect only on an origin the build lists exactly (`exactlyListed`; never a
+wildcard), and the tenant connect page pings the relay before anything else, because that store item's ID is its own.
 
 **Per tab.** Tabs open sequentially, 1.5 s apart, in the background, at most **5 active at once** (a tab counts while the
 consultant is on it; a submitted or closed tab frees its slot, and the next queued job opens by itself). **Open next**

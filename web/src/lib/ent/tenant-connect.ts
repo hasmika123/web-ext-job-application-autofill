@@ -1,4 +1,5 @@
 import { requestExtensionConnectLink } from "@/lib/ent/connect-extension";
+import type { RelayResult } from "@/lib/extension-relay";
 
 /**
  * Connect the extension from the organization's own host (`/connect` on the tenant host), so a white-label build never shows the platform.
@@ -7,6 +8,9 @@ import { requestExtensionConnectLink } from "@/lib/ent/connect-extension";
  *   - Chrome exposes `chrome.runtime.sendMessage` to a page only when an installed extension lists that page in `externally_connectable`.
  *     The organization-branded build lists its organization's host, so the page exchanges the code here (`/api/extension/token`) and hands
  *     the session over directly. The extension checks the sender's host against its own list before it accepts.
+ *   - The organization's own extension (CUSTOM-DOMAINS-BUILD.md A6) is its own unlisted store item, whose ID this page cannot know. Its relay
+ *     content script answers on every address the build lists exactly, so the page asks the relay first (a ping) and, when it answers, hands
+ *     the session over through it. The standard extension's relay never answers a connect ping on a tenant host (it is there for Prepare only).
  *   - Otherwise (the standard extension, which lists only the platform hosts) the code goes on to the platform connect page, as before.
  */
 export type TenantConnectResult =
@@ -17,12 +21,22 @@ export type TenantConnectResult =
 
 type Runtime = { sendMessage?: (extId: string, msg: unknown, cb?: (resp: unknown) => void) => void; lastError?: { message?: string } } | null | undefined;
 
-export async function connectFromTenant(opts: { runtime: Runtime; extId: string; forward: (url: string) => void; fetchImpl?: typeof fetch }): Promise<TenantConnectResult> {
+/** The page side of the extension's relay (lib/extension-relay.ts): `ping` is true when a relay answers for connect here. */
+export type TenantRelay = { ping: () => Promise<boolean>; send: (tokens: unknown) => Promise<RelayResult> };
+
+export async function connectFromTenant(opts: {
+  runtime: Runtime;
+  extId: string;
+  forward: (url: string) => void;
+  fetchImpl?: typeof fetch;
+  relay?: TenantRelay;
+}): Promise<TenantConnectResult> {
   const fetchImpl = opts.fetchImpl ?? fetch;
+  const viaRelay = opts.relay ? await opts.relay.ping().catch(() => false) : false;
   const link = await requestExtensionConnectLink(fetchImpl);
   if (!link.ok) return { status: "error", message: link.message };
   const runtime = opts.runtime;
-  if (!runtime || typeof runtime.sendMessage !== "function") {
+  if (!viaRelay && (!runtime || typeof runtime.sendMessage !== "function")) {
     opts.forward(link.url);
     return { status: "forwarded" };
   }
@@ -47,10 +61,16 @@ export async function connectFromTenant(opts: { runtime: Runtime; extId: string;
   } catch {
     return { status: "error", message: "Couldn't reach the server. Try again." };
   }
+  if (viaRelay) {
+    const resp = await opts.relay!.send(tokens);
+    if (!resp) return { status: "no-extension", message: "The extension didn't answer." };
+    if (resp.ok === false) return { status: "error", message: resp.reason || "The extension refused the session." };
+    return { status: "connected" };
+  }
   return new Promise((resolve) => {
     // called on `runtime` itself: Chrome's sendMessage throws "Illegal invocation" when detached from chrome.runtime
-    runtime.sendMessage!(opts.extId, { type: "KIWIPLY_CONNECT", tokens }, (resp) => {
-      const err = runtime.lastError;
+    runtime!.sendMessage!(opts.extId, { type: "KIWIPLY_CONNECT", tokens }, (resp) => {
+      const err = runtime!.lastError;
       if (err) return resolve({ status: "no-extension", message: err.message || "The extension didn't answer." });
       if (resp && typeof resp === "object" && (resp as { ok?: unknown }).ok === false) {
         const reason = (resp as { reason?: unknown }).reason;
