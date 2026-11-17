@@ -3,7 +3,8 @@
  * The rows are the approved "Talent Marketing Dashboard" board, so the page can be compared to it side by side. Only acme (id 2)
  * members who hold the marketing grants see it; anyone else gets the API's 404.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const at = (h, m) => {
   const d = new Date();
   d.setHours(h, m, 0, 0);

@@ -5,7 +5,8 @@
  * Writes work on the in-memory rows (create a draft, request approval, record approval / status, withdraw, saved views) and, like the API,
  * never "submit" anything. Only acme (id 2) members who hold the marketing grants see it; anyone else gets the API's 404.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const H = 3600e3;
 const D = 24 * H;
 const ago = (ms) => new Date(Date.now() - ms).toISOString();

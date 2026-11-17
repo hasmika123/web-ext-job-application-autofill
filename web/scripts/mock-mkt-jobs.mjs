@@ -4,7 +4,8 @@
  * Trending Skills, Top Clients Hiring, Recent Job Alerts, twelve Saved Searches and five Watched Job Streams. Only acme (id 2)
  * members who hold the marketing grants see it; anyone else gets the API's 404. Assign and saved-search writes are kept in memory.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const ART = "/ent/marketer/jobs";
 const H = 3600e3;
 const ago = (ms) => new Date(Date.now() - ms).toISOString();

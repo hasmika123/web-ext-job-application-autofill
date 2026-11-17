@@ -5,8 +5,9 @@
  * the rows, as the real API does. Only acme (id 2) members who hold the marketing grants see it; anyone else gets the API's 404.
  * `canAddConsultant` is true for the manager login only (the real API answers it from `consultants.edit`).
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
-const CAN_ADD = new Set(["sarah@acme.com", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
+const CAN_ADD = new Set(["sarah@acme.com", entLogin("acme", "sarah")]);
 const ART = "/ent/marketer/talent";
 
 // [id, name, title, primarySkill, years, location, availCode, availLabel, apps, jobs, photo, flags]

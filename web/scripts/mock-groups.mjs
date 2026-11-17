@@ -3,15 +3,15 @@
  * same seed the real `EnterpriseDemoSeeder` plants (five departments, three teams, leads, the demo people placed): GET list,
  * /directory, /structure, /pickers, /people, /{id}; POST create; PATCH /{id} (If-Match, 412/428); DELETE /{id} (only when empty, 409
  * GROUP_NOT_EMPTY); POST /{id}/members (per-row results); DELETE /{id}/members/{memberId}.
- * Who may: `groups.manage` (owner@acme.com, sarah@acme.com, demo-ent-acme-sarah, demo-ent-acme-hana) read and write; demo-ent-acme-eve
+ * Who may: `groups.manage` (owner@acme.com, sarah@acme.com, the demo accounts of Sarah and Hana) read and write; Eve's demo account
  * (an executive viewer) reads; anyone else gets the API's generic 404.
  * POST /mock/groups/reset restores the seed.
  */
-import { demoPeople } from "./fixtures/enterprise.mjs";
+import { demoPeople, entLogin } from "./fixtures/enterprise.mjs";
 
 export const ACME_ORG_ID = 2;
-const MANAGE = new Set(["owner@acme.com", "sarah@acme.com", "demo-ent-acme-sarah", "demo-ent-acme-hana"]);
-const READ = new Set([...MANAGE, "demo-ent-acme-eve"]);
+const MANAGE = new Set(["owner@acme.com", "sarah@acme.com", entLogin("acme", "sarah"), entLogin("acme", "hana")]);
+const READ = new Set([...MANAGE, entLogin("acme", "eve")]);
 const ICONS = ["briefcase", "users", "building", "chart", "heart", "rocket", "globe", "shield", "graduation", "dollar", "lightbulb", "handshake"];
 const COLORS = ["primary", "secondary", "success", "info", "warning", "danger", "neutral"];
 const ROLE_NAMES = {

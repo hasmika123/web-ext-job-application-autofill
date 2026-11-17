@@ -3,7 +3,8 @@
  * "Job Streams" board, so the page can be compared with it side by side. Only acme (id 2) members who hold the marketing grants see it;
  * anyone else gets the API's 404. Writes only record settings (like the real API); nothing is fetched from any site.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const MIN = 60e3;
 const H = 60 * MIN;
 const DAY = 24 * H;

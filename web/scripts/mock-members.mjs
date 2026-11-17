@@ -9,7 +9,7 @@
  *
  * Testing hook: POST /mock/members/reset restores the seed.
  */
-import { ENTERPRISE_DEMO } from "./fixtures/enterprise.mjs";
+import { ENTERPRISE_DEMO, demoPersonOf } from "./fixtures/enterprise.mjs";
 
 export const ACME_ORG_ID = 2;
 
@@ -94,8 +94,8 @@ export function createMembersMock({ json, subOf = () => null }) {
     const sub = subOf(req);
     if (!sub) return null;
     if (sub === "owner@acme.com") return seats.find((s) => s.key === "owner");
-    const m = /^demo-ent-acme-(.+)$/.exec(sub);
-    return m ? (seats.find((s) => s.key === m[1]) ?? null) : null;
+    const p = demoPersonOf(sub); // a demo member's token subject is its enterprise account (ent#acme#...)
+    return p?.orgKey === "acme" ? (seats.find((s) => s.key === p.key) ?? null) : null;
   };
   const group = (id) => (id ? { id, name: GROUPS.find((g) => g.id === id)?.name ?? "Group" } : null);
   const person = (id) => {

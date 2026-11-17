@@ -4,7 +4,8 @@
  * is a new version and goes back to Pending Review; approving is NOT possible here, the admin does that). Only acme (id 2) members who
  * hold the marketing grants see it; anyone else gets the API's 404.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const DAY = 864e5;
 const H = 36e5;
 const ago = (ms) => new Date(Date.now() - ms).toISOString();

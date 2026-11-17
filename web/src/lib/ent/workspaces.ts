@@ -71,7 +71,8 @@ export interface MeTenant {
     flags: { pastDue: boolean; billingActionRequired: boolean; greeting: boolean };
   };
   member: { id: number; status: string; title: string | null; joinedAt: string | null };
-  person: { name: string; email: string | null; imageUrl: string | null };
+  /** `demo`: a member of a one-click demo organization while the demo is on (the profile page shows, and does not save). */
+  person: { name: string; email: string | null; imageUrl: string | null; demo?: boolean };
   roles: MeRole[];
   permissions: Record<string, PermissionScope>;
   modules: Record<ModuleKey, boolean>;

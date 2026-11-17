@@ -11,8 +11,9 @@
  * POST /mock/dashboard/error-widget?key=activity.recent (that widget answers `error` until reset).
  */
 
+import { entLogin } from "./fixtures/enterprise.mjs";
 const ORGS = {
-  2: { name: "Acme", members: new Set(["owner@acme.com", "sarah@acme.com", "demo-ent-acme-sarah"]) },
+  2: { name: "Acme", members: new Set(["owner@acme.com", "sarah@acme.com", entLogin("acme", "sarah")]) },
   3: { name: "Beta Talent", members: new Set(["owner@beta.com"]) },
 };
 
@@ -33,15 +34,15 @@ const QUICK = [
 ];
 
 const ACME_ACTIVITY = [
-  { id: 9, action: "BRANDING_PUBLISH", label: "published the branding", actorLogin: "demo-ent-acme-sarah", actorName: "Sarah Chen", targetType: null, targetLogin: null, targetName: null, at: ago(2 * H) },
-  { id: 8, action: "ASSIGNMENT_CREATE", label: "assigned a consultant", actorLogin: "demo-ent-acme-sarah", actorName: "Sarah Chen", targetType: "MEMBER", targetLogin: "demo-ent-acme-anika", targetName: "Anika Rao", at: ago(5 * H) },
-  { id: 7, action: "MEMBER_INVITE", label: "invited a member", actorLogin: "demo-ent-acme-sarah", actorName: "Sarah Chen", targetType: "MEMBER", targetLogin: null, targetName: null, at: ago(1 * D + 2 * H) },
-  { id: 6, action: "ROLE_ASSIGN", label: "assigned a role", actorLogin: "demo-ent-acme-sarah", actorName: "Sarah Chen", targetType: "MEMBER", targetLogin: "demo-ent-acme-omar", targetName: "Omar Haddad", at: ago(2 * D) },
-  { id: 5, action: "MEMBER_SUSPEND", label: "suspended or reinstated a member", actorLogin: "demo-ent-acme-sarah", actorName: "Sarah Chen", targetType: "MEMBER", targetLogin: "demo-ent-acme-sam", targetName: "Sam Whitfield", at: ago(3 * D) },
-  { id: 4, action: "ORG_SETTINGS", label: "changed the organization settings", actorLogin: "demo-ent-acme-sarah", actorName: "Sarah Chen", targetType: null, targetLogin: null, targetName: null, at: ago(5 * D) },
+  { id: 9, action: "BRANDING_PUBLISH", label: "published the branding", actorLogin: entLogin("acme", "sarah"), actorName: "Sarah Chen", targetType: null, targetLogin: null, targetName: null, at: ago(2 * H) },
+  { id: 8, action: "ASSIGNMENT_CREATE", label: "assigned a consultant", actorLogin: entLogin("acme", "sarah"), actorName: "Sarah Chen", targetType: "MEMBER", targetLogin: entLogin("acme", "anika"), targetName: "Anika Rao", at: ago(5 * H) },
+  { id: 7, action: "MEMBER_INVITE", label: "invited a member", actorLogin: entLogin("acme", "sarah"), actorName: "Sarah Chen", targetType: "MEMBER", targetLogin: null, targetName: null, at: ago(1 * D + 2 * H) },
+  { id: 6, action: "ROLE_ASSIGN", label: "assigned a role", actorLogin: entLogin("acme", "sarah"), actorName: "Sarah Chen", targetType: "MEMBER", targetLogin: entLogin("acme", "omar"), targetName: "Omar Haddad", at: ago(2 * D) },
+  { id: 5, action: "MEMBER_SUSPEND", label: "suspended or reinstated a member", actorLogin: entLogin("acme", "sarah"), actorName: "Sarah Chen", targetType: "MEMBER", targetLogin: entLogin("acme", "sam"), targetName: "Sam Whitfield", at: ago(3 * D) },
+  { id: 4, action: "ORG_SETTINGS", label: "changed the organization settings", actorLogin: entLogin("acme", "sarah"), actorName: "Sarah Chen", targetType: null, targetLogin: null, targetName: null, at: ago(5 * D) },
 ];
 
-const BETA_ACTIVITY = [{ id: 2, action: "ORG_CREATE", label: "created the organization", actorLogin: "demo-ent-beta-bea", actorName: "Bea Turner", targetType: null, targetLogin: null, targetName: null, at: ago(6 * D) }];
+const BETA_ACTIVITY = [{ id: 2, action: "ORG_CREATE", label: "created the organization", actorLogin: entLogin("beta", "bea"), actorName: "Bea Turner", targetType: null, targetLogin: null, targetName: null, at: ago(6 * D) }];
 
 const tile = (value, previous, spark, counts) => ({
   value,

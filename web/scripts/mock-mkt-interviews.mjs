@@ -4,7 +4,8 @@
  * the writes mutate the in-memory rows the way the API does (E1: a reschedule is a proposal; nothing submits for a consultant).
  * Only acme (id 2) members who hold the marketing grants see it; anyone else gets the API's 404.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const DAY = 86400e3;
 const slug = (name) => name.toLowerCase().replace(/\s+/g, "-");
 const avatar = (name) => `/ent/marketer/interviews/${slug(name)}.png`;
