@@ -180,18 +180,20 @@
     // Phase 12.4: server AI is Pro. Tracked separately from `disabled` because the two need
     // different advice — "turn it on" versus "upgrade, or bring your own key".
     let proRequired = false;
+    // Gap D1: an organization's account without AI on its licence gets "ask your admin" instead of "upgrade".
+    let notLicensed = false;
     for (const q of qs.slice(0, 6)) {
       const r = await draftViaSW(q.question, ctx);
       if (r && r.answer) {
         // Keep question + context on the item so the overlay can regenerate the draft.
         items.push({ el: q.el, field: "AI: " + truncate(q.question, 40), value: r.answer, kind: "textarea", label: "AI draft · " + truncate(q.question, 38), assisted: true, question: q.question, context: ctx });
-      } else if (r && r.proRequired) { proRequired = true; }
+      } else if (r && r.proRequired) { proRequired = true; if (r.notLicensed) notLicensed = true; }
       else if (r && r.disabled) { disabled = true; }
     }
     // Constrained picks: the value is ALWAYS one of the page's own options.
     for (const q of cqs.slice(0, 6)) {
       const r = await pickViaSW(q.question, q.options, ctx);
-      if (r && r.proRequired) { proRequired = true; continue; }
+      if (r && r.proRequired) { proRequired = true; if (r.notLicensed) notLicensed = true; continue; }
       if (r && r.disabled) { disabled = true; continue; }
       if (!r || !r.answer) continue;
       const common = { field: "AI: " + truncate(q.question, 40), label: "AI pick · " + truncate(q.question, 38), assisted: true, question: q.question, options: q.options, context: ctx };
@@ -207,7 +209,9 @@
       const found = `${qs.length} open-ended question${qs.length > 1 ? "s" : ""} found (e.g. "${truncate(qs[0].question, 50)}").`;
       items.push({ el: null, kind: "info", field: "Open questions",
         value: proRequired
-          ? `${found} Kiwiply AI is a Pro feature — upgrade at kiwiply.com/pricing, or add your own API key in Settings.`
+          ? notLicensed
+            ? `${found} AI help isn't part of your licence — ask your organization's admin to add it.`
+            : `${found} Kiwiply AI is a Pro feature — upgrade at kiwiply.com/pricing, or add your own API key in Settings.`
           : `${found} Turn on AI drafting in Settings to auto-draft answers.` });
     }
     return items;

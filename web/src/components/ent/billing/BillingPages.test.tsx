@@ -48,6 +48,7 @@ const usage = {
   resetsOn: "2026-12-01",
   consultants: [{ consultantId: 21, name: "Anika Rao", aiBudgetPercent: 42, matchViews: 7, prepSessions: 2, applications: 3, counters: [] }],
   features: [{ key: "match_views", label: "Job-match views", used: 7, allowance: null, consultants: 1 }],
+  aiBudgetPercent: 35,
 };
 const history = { months: [{ period: "2026-10", matchViews: 1, prepSessions: 0, applications: 0, counted: 0 }, { period: "2026-11", matchViews: 7, prepSessions: 2, applications: 3, counted: 0 }] };
 
@@ -175,6 +176,9 @@ describe("Feature Usage", () => {
     expect(row.textContent).toMatch(/42% used/);
     expect(row.textContent).toMatch(/7/);
     expect(row.textContent).not.toMatch(/\$/);
+    const org = document.querySelector("[data-usage-org-ai]")!;
+    expect(org.textContent).toMatch(/used 35% of this month's AI budget/);
+    expect(org.textContent).not.toMatch(/\$/);
     fireEvent.click(screen.getByRole("tab", { name: "History" }));
     await settle();
     expect(urls).toContain("/api/orgs/2/usage/history?months=6");

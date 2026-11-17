@@ -123,6 +123,17 @@ function makeAssistWindow(html) {
   ok("run: the note names the upgrade AND the BYO-key escape hatch", /Pro feature/.test(gated[0].value) && /own API key/.test(gated[0].value));
   ok("run: the note does NOT tell them to turn AI on", !/Turn on AI drafting/.test(gated[0].value));
 
+  // Gap D1: an organization's account whose licence has no AI is told to ask its admin, never to upgrade or bring a key.
+  const wOrg = makeAssistWindow(`<body><form>
+      <label for="t1">Why do you want to work here?</label>
+      <textarea id="t1"></textarea>
+    </form></body>`);
+  wOrg.chrome.runtime.sendMessage = (msg, cb) => cb({ proRequired: true, notLicensed: true, error: "AI help isn't part of your licence." });
+  const orgGated = await wOrg.JAF.assist.run([], {});
+  ok("run: FEATURE_NOT_LICENSED → one info note", orgGated.length === 1 && orgGated[0].kind === "info");
+  ok("run: the note sends them to their organization's admin", /organization's admin/.test(orgGated[0].value));
+  ok("run: the note never says upgrade, Pro or own key", !/Pro feature|upgrade|own API key/i.test(orgGated[0].value));
+
   const w4 = makeAssistWindow(`<body><form>
       <label for="t1">Why do you want to work here?</label>
       <textarea id="t1"></textarea>

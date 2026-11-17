@@ -23,6 +23,7 @@ import {
 import type { IconProps } from "@kiwiply/ui";
 import { TONES } from "@/components/ent/dashboard/parts";
 import { BASE, Card, Empty, Pill, SampleMark, TABLE, TD, TableHead, useWorkspaceData } from "./parts";
+import { shortDate } from "@/lib/ent/consultant-ws/home";
 import {
   FILTERS,
   STATUS_PILL,
@@ -31,6 +32,7 @@ import {
   filterFeatures,
   renewalText,
   usedShare,
+  type AiBudgetView,
   type FeatureFilter,
   type FeatureIcon,
   type FeatureRow,
@@ -39,9 +41,9 @@ import {
 
 /**
  * My Features (design/enterprise-consultant/features.webp): one call to `GET /api/orgs/{orgId}/me-workspace/features` (through the BFF) draws
- * the page for the signed-in consultant's OWN entitlements and usage. READ ONLY. Usage figures are real where the product records the action;
- * status and allowances are admin inputs in the real product, so they carry a "Sample" marker until the admin catalog and this role merge.
- * No price, margin or billing figure appears anywhere on this page.
+ * the page for the signed-in consultant's OWN entitlements and usage. READ ONLY. Status comes from their licence; usage is real. The AI features
+ * share one monthly AI budget the organization pays for, shown as a share used and the day it starts again (gap D7). No price, margin or
+ * billing figure appears anywhere on this page.
  */
 
 const ICONS: Record<FeatureIcon, ComponentType<IconProps>> = {
@@ -163,6 +165,29 @@ function FeaturesTable({ view }: { view: FeaturesView }) {
   );
 }
 
+/* ── the AI budget ──────────────────────────────────────────────────────────────────── */
+
+/** The consultant's monthly AI budget: the share used and when it starts again. A percent, never an amount of money. */
+function AiBudgetCard({ ai }: { ai: AiBudgetView }) {
+  const resets = ai.resetsAt ? shortDate(ai.resetsAt.slice(0, 10)) : null;
+  const left = 100 - ai.percentUsed;
+  return (
+    <Card id="ai-budget" title="AI budget this month" icon={SparklesIcon} tone="violet">
+      <div data-ai-budget={ai.percentUsed}>
+        <p className="text-[13.5px] font-semibold text-ink">
+          {ai.percentUsed >= 100 ? "Used up for this month" : `${ai.percentUsed}% used · ${left}% left`}
+        </p>
+        <ProgressBar value={ai.percentUsed / 100} label="AI budget used" valueText={`${ai.percentUsed}% of this month's AI budget used`} className="mt-2 h-2 max-w-[360px]" />
+        <p className="mt-2 text-[12.5px] leading-snug text-muted">
+          Tailoring, resume checks, job fit and answer help all draw on it.{resets ? ` It starts again on ${resets}.` : ""}
+          {ai.economy && ai.percentUsed < 100 ? " To stretch what's left, AI help now uses a lighter model." : ""}
+          {ai.percentUsed >= 100 ? " Your organization's admin can add more." : ""}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
 
 export interface FeaturesPageProps {
@@ -188,6 +213,7 @@ export default function FeaturesPage({ orgId }: FeaturesPageProps) {
         />
       ) : (
         <>
+          {view?.ai ? <AiBudgetCard ai={view.ai} /> : null}
           {view ? (
             <FeaturesTable view={view} />
           ) : (

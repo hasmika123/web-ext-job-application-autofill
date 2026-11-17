@@ -337,6 +337,7 @@ export async function checkJobFit(resume: any, job: PageJob): Promise<JobFitOutc
     if (r && r.disabled) return { message: "The job-fit check is switched off right now." };
     return { message: "Couldn't check the fit right now. Please try again." };
   } catch (e: any) {
+    if (e && e.code === "FEATURE_NOT_LICENSED") return { message: "AI help isn't part of your licence. Ask your organization's admin to add it." };
     if (e && e.code === "PRO_REQUIRED") return { message: "The job-fit check is part of Pro." };
     return { message: "Couldn't check the fit right now. Please try again." };
   }
