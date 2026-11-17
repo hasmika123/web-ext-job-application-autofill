@@ -202,7 +202,9 @@ jobs:
 
   api-integration:
     name: API integration tests (shard ${{ matrix.shard }} of 6)
-    runs-on: ubuntu-latest
+    # Pinned (2026-11-17): on ubuntu-latest (now Ubuntu 26.04) Testcontainers can't reach Docker ("Could not find a valid Docker
+    # environment"), so every shard failed. Move back to ubuntu-latest once the Testcontainers version handles that runner's Docker.
+    runs-on: ubuntu-24.04
     # ~45 classes per shard; the compile alone is ~4 minutes. 40 is a ceiling that leaves room for a slow runner, not an expectation.
     timeout-minutes: 40
     strategy:
