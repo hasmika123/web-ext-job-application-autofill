@@ -211,7 +211,7 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 | G3 switches | verified | `GET con/prepare/status` as Anika and Ben → `enabled:true`, 10 per batch, 30/day; Anika's inbox `entitled:true`; seeders now revive the licence if the billing shuffle left it off | `6dfbf5d4` |
 | G4 job pages | yes | every seeded opening links to `http://jobs.localhost:3399/greenhouse/<org>/<id>?t=<title>` (62 rows); `web/scripts/demo-ats-server.mjs` serves the Greenhouse-style form; http `*.localhost` links are allowed by the API only with `DOSSIER_ALLOW_LOCALHOST_JOB_LINKS=true` (job source reader and the marketer's link rule) and kept by the consultant pages | `52b1fcd4`, `19864eb0`, `f8b9b6c2` |
 | G2 prepare hand-off | yes (code) | Chrome relay on tenant hosts (prepare only), string session id, `accepted` read by the web, dev tenant/ATS origins read from the manifest; 183 extension unit tests + web tests green | `030f4131` |
-| G5a AI in the extension | yes | admin override `PUT /api/admin/users/demo-ent-acme-{anika,ben}/ai-quota {"budgetCents":600}` (in the DB; redo after a DB reset). **Still needs the Anthropic key** on the API (`DOSSIER_AI_API_KEY`, file `.claude/ent-demo-ai-key.cmd`) | — |
+| G5a AI in the extension | yes | **from the licence since 2026-11-17**: the demo organization is SEPARATE, Anika and Ben are enterprise accounts, and the seed (`ConsultantAiDemoSeeder`) puts the AI add-ons `ai.resume_tailoring`, `resume.optimization`, `ai.job_matching` and `interview.ai_prep` on their licences (400 cents a month from the catalog); `demo-setup.mjs` only checks it. No admin override any more. **Still needs the Anthropic key** on the API (`DOSSIER_AI_API_KEY`, file `.claude/ent-demo-ai-key.cmd`) | — |
 | G5b | option 1 | AI shown in the extension only; web shows the rule-based fit | — |
 | G6 Check now | yes | `POST me-workspace/inbox/check-now` (202, 409 when nothing connected, 429 within a minute) + "Check now" on the consultant Inbox page; verified against the sample mailbox | `00c0d4be`, `6e491715` |
 | Demo seed | changed | Omar is now the primary marketer of **both** Anika and Ben (Sarah's Marketing Management workspace is a placeholder); the rehearsal reassigns on an older database | `8ca10e0c` |
@@ -254,7 +254,7 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 
 - Dropdowns opened downward even at the bottom of the window, and scrolling closes them (Sarah's consultant drawer, Availability). The shared Select now opens upward when there is no room below and caps its height to the room it has (user approved the shared change). 970 design-system tests green; the story that failed every time (ADM-41) passes; screenshot checked. `3be889c2`
 
-**Demo data note:** the run-through added test jobs, batches, tasks and notes to the demo database. Rebuild it fresh before the demo (DEMO-PLAN section 7, step 1), then re-apply the AI override.
+**Demo data note:** the run-through added test jobs, batches, tasks and notes to the demo database. Rebuild it fresh before the demo (DEMO-PLAN section 7, step 1), then run `node web/scripts/demo-setup.mjs` (the AI budget now comes from the licences).
 
 ## 9. Day-of changes (2026-10-19)
 
