@@ -244,6 +244,31 @@ class MktOpportunitiesServiceTest {
         return r.kpis().stream().filter(k -> k.key().equals(key)).findFirst().orElseThrow();
     }
 
+    /** Gap D11: the marketer sees how far each assigned job was prepared in the consultant's browser (the newest prepare item of the match). */
+    @Test
+    void eachRowCarriesTheNewestPrepareStateOfItsMatch() {
+        approvedResume(1);
+        add(row(1, 1, "Alex", 1, "TechCorp", 92, "ASSIGNED", "INTERESTED", 1, 10));
+        add(row(2, 1, "Alex", 2, "Global", 88, "ASSIGNED", "INTERESTED", 1, 10));
+        com.dossier.api.repository.ent.prepare.PrepareItemRepository prepare = mock(com.dossier.api.repository.ent.prepare.PrepareItemRepository.class);
+        service.setPrepareItems(prepare);
+        com.dossier.api.domain.ent.prepare.PrepareItem filled = new com.dossier.api.domain.ent.prepare.PrepareItem();
+        filled.setMatchId(1L);
+        filled.setState("FILLED");
+        filled.setUpdatedAt(NOW.minus(DAY));
+        com.dossier.api.domain.ent.prepare.PrepareItem older = new com.dossier.api.domain.ent.prepare.PrepareItem();
+        older.setMatchId(1L);
+        older.setState("OPENED");
+        older.setUpdatedAt(NOW.minus(DAY.multipliedBy(2)));
+        when(prepare.findNewestFirstByOrgIdAndMatchIdIn(eq(ORG), any())).thenReturn(List.of(filled, older));
+
+        ListResponse r = list(Query.defaults());
+        Item one = r.items().stream().filter(i -> i.id() == 1L).findFirst().orElseThrow();
+        Item two = r.items().stream().filter(i -> i.id() == 2L).findFirst().orElseThrow();
+        assertThat(one.prepared()).isEqualTo(new MktOpportunitiesDTO.Prepared("FILLED", NOW.minus(DAY)));
+        assertThat(two.prepared()).as("never prepared").isNull();
+    }
+
     @Test
     void deltaPctRoundsToOneDecimalAndIsNullWithoutAPreviousValue() {
         assertThat(MktOpportunitiesService.deltaPct(86, 77)).isEqualTo(11.7);

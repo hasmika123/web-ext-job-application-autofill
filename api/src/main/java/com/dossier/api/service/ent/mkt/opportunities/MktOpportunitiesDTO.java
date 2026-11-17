@@ -38,8 +38,25 @@ public final class MktOpportunitiesDTO {
         boolean stale,
         boolean ready,
         String reason,
-        String state
-    ) {}
+        String state,
+        Prepared prepared
+    ) {
+        public Item(
+            Long id, Person consultant, Long requirementId, String jobTitle, String location, Long clientId, String client, int matchScore, String interest,
+            String resumeStatus, Person owner, Instant nextActionAt, String action, String status, Instant lastActivityAt, boolean stale, boolean ready,
+            String reason, String state
+        ) {
+            this(id, consultant, requirementId, jobTitle, location, clientId, client, matchScore, interest, resumeStatus, owner, nextActionAt, action, status,
+                lastActivityAt, stale, ready, reason, state, null);
+        }
+    }
+
+    /**
+     * How far the consultant's browser got with this job in a "Prepare selected openings" batch (gap D11), from the newest prepare item of the match:
+     * {@code state} WAITING / OPENED / FILLED / NEEDS_INPUT / SUBMITTED / CLOSED / FAILED, and when it last changed. Null when it was never prepared.
+     * A record of what the consultant's own browser did; Kiwiply never submits.
+     */
+    public record Prepared(String state, Instant at) {}
 
     public record TopMatch(Long id, String jobTitle, String client, String location, int matchScore) {}
 
