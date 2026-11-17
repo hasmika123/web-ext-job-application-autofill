@@ -37,6 +37,18 @@ class DemoGuardTest {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(login, null));
     }
 
+    /** Gap D10: DEMO_ALLOW_WRITES is a development override; under the prod profile demo accounts stay read-only. */
+    @Test
+    void theProdProfileIgnoresTheWriteOverride() {
+        DemoGuard override = new DemoGuard(accounts, true);
+        signIn("demo");
+        assertThatCode(override::assertNotDemo).as("the dev override lets a demo account write").doesNotThrowAnyException();
+        org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("prod");
+        override.setEnvironment(env);
+        assertThatThrownBy(override::assertNotDemo).isInstanceOf(DemoException.class);
+    }
+
     @Test
     void aDemoAccountIsRefusedWithDemoReadOnly() {
         signIn("demo");
