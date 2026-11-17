@@ -118,7 +118,9 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
 - `src/lib/workspace.js` — `JAF.workspace`, pure logic for the connected ACCOUNT (S7, docs/enterprise-v2/19):
   `modeOf(account)` (personal / marketer / consultant / org — no selection), `accountChip(session)`
   (`Personal` or `<Org> · Enterprise` + the email, never the login), `accountFromLocal`, plus the marketer
-  trim/save and consultant matching helpers. The extension holds ONE session (`trackingAuth`:
+  trim/save and consultant matching helpers, and the consultant's answers to an assigned job (gap D11:
+  `responsesFor` from the server's `allowedActions`, `validateResponse`, `respondToJob`, which keeps the cached Jobs list in
+  step; the Jobs tab in `entrypoints/panel/AssignedJobs.tsx` offers Interested, Need info and Decline). The extension holds ONE session (`trackingAuth`:
   `{access, refresh, kind, orgId, orgName, email, userId}`); the service worker (`acceptConnectSession`)
   clears every account-bound cache when the **user id** changes (never email or login), then replaces
   the session. `GET /api/profile/version` -> `account` is cached in `settings.account`; an older server's

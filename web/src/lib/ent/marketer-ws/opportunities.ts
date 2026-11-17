@@ -48,6 +48,36 @@ export interface Opportunity {
   reason: string | null;
   /** The marketing state of the assignment (ASSIGNED, VIEWED, INTERESTED, NEEDS_INFO, DECLINED, APPLIED, CLOSED); null while it only exists as a suggestion. */
   state: string | null;
+  /** How far the consultant's browser got with this job in a "Prepare selected openings" batch (gap D11), or null when it was never prepared. */
+  prepared: Prepared | null;
+}
+
+/** The newest prepare state of a job: what the consultant's own browser did with it. Kiwiply never submits. */
+export interface Prepared {
+  state: string;
+  at: string | null;
+}
+
+/** The marketer's words for each prepare state (`PrepareItem` on the API). */
+export const PREPARED_LABELS: Record<string, string> = {
+  WAITING: "Queued",
+  OPENED: "Opened",
+  FILLED: "Filled, waiting on the consultant",
+  NEEDS_INPUT: "Needs the consultant's input",
+  SUBMITTED: "Submitted by the consultant",
+  CLOSED: "Closed without submitting",
+  FAILED: "Couldn't open",
+};
+
+/** "Prepared · Filled, waiting on the consultant", or null when the job was never prepared. */
+export function preparedText(p: Prepared | null): string | null {
+  if (!p) return null;
+  return `Prepared · ${PREPARED_LABELS[p.state] ?? p.state.toLowerCase().replace(/_/g, " ")}`;
+}
+
+function preparedOf(x: unknown): Prepared | null {
+  if (!isObj(x) || typeof x.state !== "string" || !x.state) return null;
+  return { state: x.state, at: orNull(x.at) };
 }
 export interface TopMatch { id: number; jobTitle: string; client: string; location: string; matchScore: number }
 export interface Slice { key: Interest; label: string; count: number }
@@ -130,6 +160,7 @@ export function parseOpportunity(x: unknown): Opportunity | null {
     ready: x.ready === true,
     reason: orNull(x.reason),
     state: orNull(x.state),
+    prepared: preparedOf(x.prepared),
   };
 }
 const items = (x: unknown): Opportunity[] => (Array.isArray(x) ? x.map(parseOpportunity).filter((o): o is Opportunity => o !== null) : []);

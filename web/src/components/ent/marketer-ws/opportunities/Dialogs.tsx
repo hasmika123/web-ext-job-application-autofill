@@ -6,6 +6,7 @@ import { relativeTime } from "@/lib/ent/dashboard";
 import {
   DUPLICATE_WARNING, INTEREST_LABELS, answerInfo, pinResume, resumeStateLabel, checkHandJob, createJobByHand, fetchDetail, fetchOptions, fetchReady, followUpOf, matchTone, nextActionText, reassignOpportunity, withdrawOpportunity,
   type Detail, type DuplicateFinding, type HandJobInput, type InfoThread, type JobOption, type Opportunity, type Option, type PinnedResume, type ResumeChoice,
+  preparedText,
 } from "@/lib/ent/marketer-ws/opportunities";
 
 const EMPTY_HAND: HandJobInput = { title: "", company: "", location: "", workMode: "", description: "", jobUrl: "" };
@@ -264,6 +265,7 @@ export function DetailDialog({ orgId, id, mode, onClose, onReview, onChanged, bu
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
               <Fact label="Match score"><MatchChip pct={o.matchScore} /></Fact>
               <Fact label="Consultant interest"><span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[12.5px]", INTEREST_TONE[o.interest].pill)}><span aria-hidden className={cn("h-2 w-2 rounded-full", INTEREST_TONE[o.interest].dot)} />{INTEREST_LABELS[o.interest]}</span></Fact>
+              {o.prepared ? <Fact label="Prepared in the consultant's browser"><span data-opp-prepared={o.prepared.state}>{preparedText(o.prepared)?.replace(/^Prepared · /, "")}</span></Fact> : null}
               <Fact label="Resume"><ResumeBadge state={o.resumeStatus} /></Fact>
               <Fact label="Owner">{o.owner?.name ?? "-"}</Fact>
               <Fact label="Next action">{nextActionText(o.nextActionAt, now)}</Fact>

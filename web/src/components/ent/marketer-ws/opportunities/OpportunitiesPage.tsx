@@ -11,6 +11,7 @@ import {
   ACTION_LABELS, DEFAULT_FILTERS, DUPLICATE_WARNING, INTEREST_LABELS, INTERESTS, KPI_KEYS, KPI_TITLES, assignOpportunity, bulkAssign, createOpportunity, exportUrl, fetchOpportunities,
   nextActionText, notifyAwaiting, requestFromConsultant, reviewOpportunity, setNextAction, skippedNote,
   type ActionOutcome, type DuplicateFinding, type Filters, type KpiKey, type Opportunity, type OpportunitiesView,
+  preparedText,
 } from "@/lib/ent/marketer-ws/opportunities";
 import { CARD, CardSkeleton, Empty, HEAD_ROW, Head, KpiTile, TH, type MktPageProps, type TintName } from "../parts";
 import { INTEREST_TONE, ResumeBadge } from "./bits";
@@ -271,7 +272,7 @@ export default function OpportunitiesPage({ orgId }: MktPageProps) {
                       <td className="px-2"><span className="block font-semibold leading-tight text-ink">{o.jobTitle}</span><span className="block text-[12px] text-muted">{o.location}</span></td>
                       <td className="px-2 text-ink-soft">{o.client}</td>
                       <td className="px-2"><MatchChip pct={o.matchScore} /></td>
-                      <td className="px-2"><span data-opp-interest={o.interest} className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[12.5px]", tone.pill)}><span aria-hidden className={cn("h-2 w-2 rounded-full", tone.dot)} />{INTEREST_LABELS[o.interest]}</span></td>
+                      <td className="px-2"><span data-opp-interest={o.interest} className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[12.5px]", tone.pill)}><span aria-hidden className={cn("h-2 w-2 rounded-full", tone.dot)} />{INTEREST_LABELS[o.interest]}</span>{o.prepared ? <span data-opp-prepared={o.prepared.state} className="mt-1 block whitespace-nowrap text-[11.5px] text-muted">{preparedText(o.prepared)}</span> : null}</td>
                       <td className="px-2"><ResumeBadge state={o.resumeStatus} /></td>
                       <td className={cn("px-2 whitespace-nowrap", days === "Today" || days === "1 day" || days === "Overdue" ? "text-v2-coral-ink" : "text-muted")}>{days}</td>
                       <td className="px-2">

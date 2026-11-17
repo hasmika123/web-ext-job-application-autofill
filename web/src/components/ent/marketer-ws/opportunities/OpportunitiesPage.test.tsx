@@ -177,6 +177,15 @@ describe("OpportunitiesPage", () => {
     expect(within(r1).queryByText("0%")).toBeNull();
   });
 
+  it("a job prepared in the consultant's browser says how far it got (gap D11); one never prepared says nothing", async () => {
+    stub(() => json(200, fixture({ items: [{ ...ROWS[0], prepared: { state: "FILLED", at: "2026-11-16T10:00:00Z" } }, ROWS[1]] })));
+    mount();
+    const r1 = await row(1);
+    expect(within(r1).getByText("Prepared · Filled, waiting on the consultant")).toBeTruthy();
+    const second = document.querySelectorAll("[data-opp-row]")[1] as HTMLElement;
+    expect(second.querySelector("[data-opp-prepared]")).toBeNull();
+  });
+
   it("keeps the search box the save-for-consultant rehearsal types into, and the data-opp-row hook", async () => {
     stub();
     mount();

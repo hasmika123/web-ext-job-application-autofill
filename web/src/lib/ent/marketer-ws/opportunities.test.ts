@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_FILTERS, assignOpportunity, exportUrl, fetchOpportunities, matchTone, nextActionText, parseDetail, parseOpportunities, parseOpportunity, parseOptions, pinResume, queryString, resumeStateLabel,
   requestFromConsultant, setNextAction, sharePct, bulkAssign, notifyAwaiting, reviewOpportunity, createOpportunity,
+  preparedText,
 } from "./opportunities";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -34,6 +35,16 @@ describe("parseOpportunities", () => {
     expect(o.owner).toBeNull();
     expect(o.consultant.avatarUrl).toBeNull();
     expect(parseOpportunity("nope")).toBeNull();
+    expect(o.prepared).toBeNull();
+  });
+
+  it("reads the prepare state of a job and words it for the marketer (gap D11)", () => {
+    const o = parseOpportunity({ id: 5, consultant: { id: 1, name: "Alex" }, prepared: { state: "SUBMITTED", at: "2026-11-16T10:00:00Z" } })!;
+    expect(o.prepared).toEqual({ state: "SUBMITTED", at: "2026-11-16T10:00:00Z" });
+    expect(preparedText(o.prepared)).toBe("Prepared · Submitted by the consultant");
+    expect(preparedText({ state: "SOMETHING_NEW", at: null })).toBe("Prepared · something new");
+    expect(preparedText(null)).toBeNull();
+    expect(parseOpportunity({ id: 6, consultant: { id: 1, name: "Alex" }, prepared: { state: "" } })!.prepared).toBeNull();
   });
 
   it("parses a detail and the add-dialog options", () => {
