@@ -46,6 +46,7 @@ class MktMatchesIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.repository.UserRepository demoUsers;
     @Autowired private RequirementMatchRepository matches;
     @Autowired private ClientRequirementRepository requirements;
     @Autowired private ConsultantProfileRepository consultants;
@@ -77,7 +78,7 @@ class MktMatchesIT {
 
     @Test
     void sarahSeesTheBoardFromTheSeededMatches() throws Exception {
-        MvcResult r = mockMvc.perform(get(url(acme, "?size=10")).with(user("demo-ent-acme-sarah"))).andReturn();
+        MvcResult r = mockMvc.perform(get(url(acme, "?size=10")).with(user(com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-sarah")))).andReturn();
         assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200);
         JsonNode body = om.readTree(r.getResponse().getContentAsString());
         assertThat(body.path("kpis")).hasSize(4);
@@ -105,7 +106,7 @@ class MktMatchesIT {
         overlay.setOrgId(acme.getId());
         overlay.setMatchId(target.getId());
         opportunities.save(overlay);
-        MvcResult r = mockMvc.perform(post(url(acme, "/" + target.getId() + "/assign")).with(user("demo-ent-acme-sarah"))).andReturn();
+        MvcResult r = mockMvc.perform(post(url(acme, "/" + target.getId() + "/assign")).with(user(com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-sarah")))).andReturn();
         assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200);
         assertThat(om.readTree(r.getResponse().getContentAsString()).path("status").asText()).isEqualTo("ASSIGNED");
         assertThat(matches.findByOrgIdAndId(acme.getId(), target.getId()).orElseThrow().getStatus()).isEqualTo("ASSIGNED");
@@ -113,11 +114,11 @@ class MktMatchesIT {
 
     @Test
     void anotherTenantsMemberAndAnotherTenantsMatchAreNotFound() throws Exception {
-        assertThat(mockMvc.perform(get(url(acme, "")).with(user("demo-ent-beta-bea"))).andReturn().getResponse().getStatus()).isEqualTo(404);
+        assertThat(mockMvc.perform(get(url(acme, "")).with(user(com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-beta-bea")))).andReturn().getResponse().getStatus()).isEqualTo(404);
         Long betaMatch = matches.findByOrgId(beta.getId()).get(0).getId();
         String before = matches.findByOrgIdAndId(beta.getId(), betaMatch).orElseThrow().getStatus();
-        assertThat(mockMvc.perform(get(url(acme, "/" + betaMatch)).with(user("demo-ent-acme-sarah"))).andReturn().getResponse().getStatus()).isEqualTo(404);
-        assertThat(mockMvc.perform(post(url(acme, "/" + betaMatch + "/assign")).with(user("demo-ent-acme-sarah"))).andReturn().getResponse().getStatus()).isEqualTo(404);
+        assertThat(mockMvc.perform(get(url(acme, "/" + betaMatch)).with(user(com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-sarah")))).andReturn().getResponse().getStatus()).isEqualTo(404);
+        assertThat(mockMvc.perform(post(url(acme, "/" + betaMatch + "/assign")).with(user(com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-sarah")))).andReturn().getResponse().getStatus()).isEqualTo(404);
         assertThat(matches.findByOrgIdAndId(beta.getId(), betaMatch).orElseThrow().getStatus()).isEqualTo(before);
     }
 }

@@ -46,10 +46,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @org.junit.jupiter.api.Timeout(240)
 class ConsultantAnswerReachesMarketerIT {
 
-    private static final String MARKETER = "demo-ent-acme-sarah"; // Org Admin + Marketing Manager: ORG scope (sees and answers for every consultant)
-    private static final String CONSULTANT = "demo-ent-acme-anika";
-    private static final String OTHER_CONSULTANT = "demo-ent-acme-ben";
-    private static final String BETA_OWNER = "demo-ent-beta-bea";
+    private String MARKETER; // the ent# login of the demo handle "demo-ent-acme-sarah", set after seeding; Org Admin + Marketing Manager: ORG scope (sees and answers for every consultant)
+    private String CONSULTANT; // the ent# login of the demo handle "demo-ent-acme-anika", set after seeding
+    private String OTHER_CONSULTANT; // the ent# login of the demo handle "demo-ent-acme-ben", set after seeding
+    private String BETA_OWNER; // the ent# login of the demo handle "demo-ent-beta-bea", set after seeding
 
     @Autowired private EnterpriseDemoSeeder baseSeeder;
     @Autowired private TalentDemoSeeder talentSeeder;
@@ -57,6 +57,7 @@ class ConsultantAnswerReachesMarketerIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.repository.UserRepository demoUsers;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private org.springframework.transaction.PlatformTransactionManager txManager;
     @Autowired private ResumeBuilderSettings settings;
@@ -76,6 +77,10 @@ class ConsultantAnswerReachesMarketerIT {
         assertThat(talentSeeder.seed().ran()).isTrue();
         oppSeeder.seed();
         acme = orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).map(Organization::getId).orElseThrow();
+        MARKETER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-sarah");
+        CONSULTANT = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-anika");
+        OTHER_CONSULTANT = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-ben");
+        BETA_OWNER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-beta-bea");
         anika = jdbc.queryForObject(
             "select c.id from consultant_profile c join org_member m on m.org_id = c.org_id and m.id = c.member_id join jhi_user u on u.id = m.user_id where c.org_id = ? and u.login = ?",
             Long.class, acme, CONSULTANT

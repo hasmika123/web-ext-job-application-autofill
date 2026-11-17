@@ -40,6 +40,7 @@ class OrgDashboardDemoSeedIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.repository.UserRepository demoUsers;
     @Autowired private OrgAuditEventRepository audit;
     @Autowired private ResumeBuilderSettings settings;
     @Autowired private TenantResolver resolver;
@@ -66,7 +67,7 @@ class OrgDashboardDemoSeedIT {
     @Test
     void acmeAdminSeesRealNonEmptyNumbersFromTheSeededRows() throws Exception {
         Organization acme = orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).orElseThrow();
-        Map<String, JsonNode> w = widgets("demo-ent-acme-sarah", acme);
+        Map<String, JsonNode> w = widgets(com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-sarah"), acme);
 
         JsonNode consultants = w.get("consultants.total");
         assertThat(consultants.path("state").asText()).isEqualTo("ok");
@@ -103,7 +104,7 @@ class OrgDashboardDemoSeedIT {
     @Test
     void theOtherDemoOrganizationOnlyCountsItsOwnRows() throws Exception {
         Organization beta = orgs.findBySlug(EnterpriseDemoSeeder.BETA_SLUG).orElseThrow();
-        Map<String, JsonNode> w = widgets("demo-ent-beta-bea", beta);
+        Map<String, JsonNode> w = widgets(com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-beta-bea"), beta);
         assertThat(w.get("employees.active").path("data").path("value").asLong()).isEqualTo(1);
         assertThat(w.get("consultants.total").path("state").asText()).isEqualTo("empty");
     }

@@ -22,9 +22,10 @@ class AuthenticateControllerBelongsToTest {
     }
 
     @Test
-    void aSeededDemoMemberBelongsToTheTenantItSignedInOn() {
-        assertThat(AuthenticateController.belongsTo(user("demo-ent-acme-anika", null), 1L)).isTrue();
-        assertThat(AuthenticateController.belongsTo(user("demo-ent-acme-anika", null), null)).isFalse();
+    void aDemoHandleOnAnAccountWithoutAnOrganizationNoLongerBelongsAnywhere() {
+        // the demo members are enterprise accounts now (SEPARATE demo): a legacy demo-ent login with no organization is just a personal account
+        assertThat(AuthenticateController.belongsTo(user("demo-ent-acme-anika", null), 1L)).isFalse();
+        assertThat(AuthenticateController.belongsTo(user("ent#1#anika.rao@acme.example.com", 1L), null)).isFalse();
     }
 
     @Test

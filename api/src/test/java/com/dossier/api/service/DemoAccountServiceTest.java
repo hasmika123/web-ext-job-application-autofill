@@ -202,6 +202,9 @@ class DemoAccountServiceTest {
         assertThat(service.isDemo("demo2")).isFalse();
         assertThat(service.isDemo("demo@kiwiply.com")).isFalse();
         assertThat(service.isDemo(null)).isFalse();
+        // without the organization lookup (a hand-built service) only the fixed logins are shared demo identities
+        assertThat(service.isSharedDemoAccount("demo")).isTrue();
+        assertThat(service.isSharedDemoAccount("ent#7#sarah.chen@acme.example.com")).isFalse();
         // What a person types into the sign-in box can be the email too.
         assertThat(service.isDemoIdentifier("demo@kiwiply.com")).isTrue();
         assertThat(service.isDemoIdentifier("Demo-Org@kiwiply.com")).isTrue();

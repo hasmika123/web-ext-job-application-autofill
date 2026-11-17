@@ -56,6 +56,9 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final com.dossier.api.service.ent.consultantws.ConsultantInboxDemoSeeder inboxDemo;
     private final com.dossier.api.service.ent.consultantws.ConsultantPrepareDemoSeeder prepareDemo;
     private final com.dossier.api.service.ent.consultantws.ConsultantBioDemoSeeder bioDemo;
+    /** Optional (field injection) so the long constructor stays as it is: the demo consultants' AI add-ons on their licences. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.consultantws.ConsultantAiDemoSeeder aiDemo;
     private final boolean createAccounts;
 
     public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, OpsDemoSeeder ops, ClientsDemoSeeder clientsDemo, PlacementDemoSeeder placementDemo, com.dossier.api.service.ent.consultantws.ConsultantInboxDemoSeeder inboxDemo, com.dossier.api.service.ent.consultantws.ConsultantPrepareDemoSeeder prepareDemo, com.dossier.api.service.ent.consultantws.ConsultantBioDemoSeeder bioDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
@@ -139,6 +142,11 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             prepareDemo.seed(); // Prepare selected openings: Acme's opt-in and the add-on on Anika's and Ben's licenses: after billing
         } catch (RuntimeException e) {
             LOG.error("Prepare selected openings demo seed failed; the Assigned openings page shows no checkboxes.", e);
+        }
+        try {
+            if (aiDemo != null) aiDemo.seed(); // the demo consultants' AI comes from their licence: AI add-ons on Anika's and Ben's licences, after billing
+        } catch (RuntimeException e) {
+            LOG.error("Consultant AI demo seed failed; the demo consultants have no AI budget.", e);
         }
         try {
             bioDemo.seed(); // the walkthrough consultants' own profile (bio) for the extension's fill: after the consultant contact rows

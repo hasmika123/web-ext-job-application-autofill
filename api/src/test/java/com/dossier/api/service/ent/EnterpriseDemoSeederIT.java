@@ -90,8 +90,7 @@ class EnterpriseDemoSeederIT {
     }
 
     private OrgMember seatOf(Organization org, String orgKey, String key) {
-        EnterpriseDemoSeeder.Person p = EnterpriseDemoSeeder.bySlug(org.getSlug()).orElseThrow().people().stream().filter(x -> x.key().equals(key)).findFirst().orElseThrow();
-        User u = users.findOneByLogin(p.login(orgKey)).orElseThrow();
+        User u = EnterpriseDemoSeeder.account(users, org.getId(), orgKey, key).orElseThrow();
         return members.findByOrgIdAndUserIdAndStatusIn(org.getId(), u.getId(), List.of(OrgMemberStatus.ACTIVE, OrgMemberStatus.SUSPENDED)).get(0);
     }
 
@@ -178,20 +177,27 @@ class EnterpriseDemoSeederIT {
     }
 
     @Test
-    void everyDemoUserIsFictionalActivatedAndHasAnUnknownPasswordHash() {
+    void everyDemoMemberIsAFictionalEnterpriseAccountOfItsOwnSeparateOrganizationWithAnUnknownPassword() {
         for (EnterpriseDemoSeeder.Tenant t : EnterpriseDemoSeeder.TENANTS) {
+            Organization org = orgs.findBySlug(t.slug()).orElseThrow();
+            assertThat(org.isSeparateAccounts()).as(t.slug() + " is a SEPARATE organization (decision O4)").isTrue();
             for (EnterpriseDemoSeeder.Person p : t.people()) {
                 if (p.status() == OrgMemberStatus.INVITED) {
-                    assertThat(users.findOneByLogin(p.login(t.orgKey()))).isEmpty();
+                    assertThat(users.findOneByOrgIdAndEmailIgnoreCase(org.getId(), p.email(t.orgKey()))).isEmpty();
                     continue;
                 }
-                User u = users.findOneByLogin(p.login(t.orgKey())).orElseThrow();
-                assertThat(u.getLogin()).startsWith(EnterpriseDemoSeeder.LOGIN_PREFIX);
+                User u = EnterpriseDemoSeeder.account(users, org.getId(), t.orgKey(), p.key()).orElseThrow();
+                assertThat(u.getLogin()).startsWith("ent#" + org.getId() + "#");
+                assertThat(u.getOrgId()).isEqualTo(org.getId());
+                assertThat(users.findOneByLogin(p.handle(t.orgKey()))).as("the one-click handle is not a login").isEmpty();
                 assertThat(u.getEmail()).endsWith(".example.com");
                 assertThat(u.isActivated()).isTrue();
+                assertThat(u.isPasswordChangeRequired()).isFalse();
                 assertThat(u.getPassword()).startsWith("$2"); // a bcrypt hash of a random value; no configured secret exists
             }
+            assertThat(EnterpriseDemoSeeder.isDemoCreator(org, users.findById(org.getCreatedByUserId()).orElseThrow())).as("the owner's account created " + t.slug()).isTrue();
         }
+        assertThat(settingRows.findById(com.dossier.api.service.settings.EnterpriseSettingKeys.SEPARATE_ACCOUNTS).orElseThrow().getValue()).isEqualTo("true");
     }
 
     @Test
@@ -275,6 +281,8 @@ class EnterpriseDemoSeederIT {
         JsonNode pair = mapper.readTree(r.getResponse().getContentAsString());
         assertThat(claims(pair.get("accessToken").asText()).get("tid").asLong()).isEqualTo(acme().getId());
         assertThat(claims(pair.get("refreshToken").asText()).get("tid").asLong()).isEqualTo(acme().getId());
+        // the handle opens Sarah's ENTERPRISE account: the token's subject is its ent# login, never the handle
+        assertThat(claims(pair.get("accessToken").asText()).get("sub").asText()).isEqualTo(EnterpriseDemoSeeder.account(users, acme().getId(), "acme", "sarah").orElseThrow().getLogin());
 
         MvcResult me = mockMvc.perform(get("/api/me/tenant").header(HOST, "acme.localhost").header("Authorization", "Bearer " + pair.get("accessToken").asText())).andReturn();
         assertThat(me.getResponse().getStatus()).as(me.getResponse().getContentAsString()).isEqualTo(200);
@@ -284,6 +292,7 @@ class EnterpriseDemoSeederIT {
         assertThat(body.get("workspaces").size()).isGreaterThanOrEqualTo(1);
         assertThat(body.get("workspaces").get(0).get("key").asText()).isEqualTo("admin");
         assertThat(body.get("person").get("name").asText()).isEqualTo("Sarah Chen");
+        assertThat(body.get("person").get("demo").asBoolean()).as("the profile page shows a one-click demo member read-only").isTrue();
     }
 
     @Test
@@ -358,6 +367,19 @@ class EnterpriseDemoSeederIT {
             hostnames.saveAndFlush(row);
             resolver.invalidate();
         }
+    }
+
+    @Autowired private com.dossier.api.service.DemoAccountService demoAccounts;
+
+    @Test
+    void theDemoMembersAccountsStayReadOnlySharedDemoIdentitiesButNeverOpenTheSignInPaths() {
+        String sarah = EnterpriseDemoSeeder.account(users, acme().getId(), "acme", "sarah").orElseThrow().getLogin();
+        String bea = EnterpriseDemoSeeder.account(users, beta().getId(), "beta", "bea").orElseThrow().getLogin();
+        assertThat(demoAccounts.isSharedDemoAccount(sarah)).as("DemoGuard keeps a one-click member read-only").isTrue();
+        assertThat(demoAccounts.isSharedDemoAccount(bea)).isTrue();
+        assertThat(demoAccounts.isDemo(sarah)).as("the personal demo sign-in never accepts an enterprise login").isFalse();
+        assertThat(demoAccounts.isSharedDemoAccount("ent#" + (Long.MAX_VALUE - 7) + "#x@example.com")).isFalse();
+        assertThat(demoAccounts.isSharedDemoAccount("jane")).isFalse();
     }
 
     @Test

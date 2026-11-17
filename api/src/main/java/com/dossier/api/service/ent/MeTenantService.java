@@ -84,6 +84,10 @@ public class MeTenantService {
     private final WorkspaceService workspaces;
     private final ObjectMapper mapper;
 
+    /** Optional: tells the profile page that this is a one-click demo organization (read-only profile). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private EnterpriseDemoService demo;
+
     public MeTenantService(
         EnterpriseFeatureFlag flag,
         UserRepository users,
@@ -154,7 +158,7 @@ public class MeTenantService {
                 new MeTenantDTO.Flags(pastDue, pastDue && me.canKey("billing.manage"), prefs.greeting())
             ),
             new MeTenantDTO.Member(seat.getId(), seat.getStatus().name(), null, null, null, null, seat.getJoinedAt()),
-            new MeTenantDTO.Person(name(user), user.getEmail(), user.getImageUrl()),
+            new MeTenantDTO.Person(name(user), user.getEmail(), user.getImageUrl(), demo != null && demo.isDemoOrganization(org)),
             List.copyOf(roles),
             permissions,
             moduleMap,

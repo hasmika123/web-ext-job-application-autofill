@@ -56,8 +56,8 @@ import org.springframework.transaction.annotation.Transactional;
 @org.junit.jupiter.api.Timeout(240)
 class PipelineGuardIT {
 
-    private static final String ADMIN = "demo-ent-acme-sarah"; // Org Admin + Marketing Manager: ORG scope
-    private static final String BETA_MARKETER = "demo-ent-beta-bea";
+    private String ADMIN; // the ent# login of the demo handle "demo-ent-acme-sarah", set after seeding; Org Admin + Marketing Manager: ORG scope
+    private String BETA_MARKETER; // the ent# login of the demo handle "demo-ent-beta-bea", set after seeding
 
     @Autowired private EnterpriseDemoSeeder baseSeeder;
     @Autowired private TalentDemoSeeder talentSeeder;
@@ -65,6 +65,7 @@ class PipelineGuardIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.repository.UserRepository demoUsers;
     @Autowired private ClientAccountRepository clients;
     @Autowired private ClientRequirementRepository requirements;
     @Autowired private RequirementMatchRepository matches;
@@ -89,6 +90,8 @@ class PipelineGuardIT {
         assertThat(talentSeeder.seed().ran()).isTrue();
         oppSeeder.seed();
         acme = orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).map(Organization::getId).orElseThrow();
+        ADMIN = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-sarah");
+        BETA_MARKETER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-beta-bea");
         beta = orgs.findBySlug(EnterpriseDemoSeeder.BETA_SLUG).map(Organization::getId).orElseThrow();
         List<Long> eligible = jdbc.queryForList(
             "select cp.id from consultant_profile cp where cp.org_id = ? and cp.status = 'ACTIVE' and cp.marketing_status = 'ACTIVE' "

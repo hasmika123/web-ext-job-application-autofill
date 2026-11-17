@@ -21,8 +21,9 @@ class DemoGuardTest {
     @BeforeEach
     void setUp() {
         accounts = mock(DemoAccountService.class);
-        when(accounts.isDemo("demo")).thenReturn(true);
-        when(accounts.isDemo("demo-org")).thenReturn(true);
+        when(accounts.isSharedDemoAccount("demo")).thenReturn(true);
+        when(accounts.isSharedDemoAccount("demo-org")).thenReturn(true);
+        when(accounts.isSharedDemoAccount("ent#7#sarah.chen@acme.example.com")).thenReturn(true); // a one-click enterprise demo member
         when(accounts.isDemoIdentifier("demo")).thenReturn(true);
         when(accounts.isDemoIdentifier("demo@kiwiply.com")).thenReturn(true);
         guard = new DemoGuard(accounts, false);
@@ -64,6 +65,13 @@ class DemoGuardTest {
     @Test
     void theOrgDemoAccountIsRefusedToo() {
         signIn("demo-org");
+
+        assertThatThrownBy(guard::assertNotDemo).isInstanceOf(DemoException.class);
+    }
+
+    @Test
+    void aOneClickEnterpriseDemoMemberIsReadOnlyToo() {
+        signIn("ent#7#sarah.chen@acme.example.com");
 
         assertThatThrownBy(guard::assertNotDemo).isInstanceOf(DemoException.class);
     }

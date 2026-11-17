@@ -61,7 +61,7 @@ public class PlacementDemoSeeder {
             Organization org = orgs.findBySlug(spec.slug()).orElse(null);
             if (org == null) continue;
             User creator = org.getCreatedByUserId() == null ? null : users.findById(org.getCreatedByUserId()).orElse(null);
-            if (creator == null || !EnterpriseDemoSeeder.isEnterpriseDemoLogin(creator.getLogin())) continue;
+            if (!EnterpriseDemoSeeder.isDemoCreator(org, creator)) continue;
             long placements = count("select count(p) from TalentPlacement p where p.orgId = :o", org.getId());
             if (placements == 0) continue;
             fillGaps(org.getId());

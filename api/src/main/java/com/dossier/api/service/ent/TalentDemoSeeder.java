@@ -1,6 +1,5 @@
 package com.dossier.api.service.ent;
 
-import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.OrgMemberRole;
 import com.dossier.api.domain.ent.talent.ClientAccount;
@@ -49,7 +48,6 @@ import com.dossier.api.repository.ent.talent.TalentPlacementRepository;
 import com.dossier.api.repository.org.OrgGroupRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
-import com.dossier.api.security.AuthoritiesConstants;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -94,6 +92,21 @@ public class TalentDemoSeeder {
 
     /** One seeded marketer: key becomes the demo login suffix; existing ones are the base demo members. */
     record Marketer(String key, String first, String last, int capacity, int workload, boolean existing, String title) {}
+
+    /**
+     * Every seeded person key of demo organization {@code orgKey} by lower-case address: the roster ({@link EnterpriseDemoSeeder}) and the marketers above.
+     * The demo people are enterprise accounts (login {@code ent#<orgId>#...}), so a seeder that meets them as accounts knows them by address.
+     */
+    static Map<String, String> demoKeysByEmail(String orgKey) {
+        Map<String, String> out = new LinkedHashMap<>();
+        EnterpriseDemoSeeder.byOrgKey(orgKey).ifPresent(t -> t.people().forEach(p -> out.put(p.email(orgKey).toLowerCase(java.util.Locale.ROOT), p.key())));
+        String domain = "acme".equals(orgKey) ? DemoRoster.DOMAIN : orgKey + ".example.com";
+        for (Spec spec : SPECS) {
+            if (!spec.orgKey().equals(orgKey)) continue;
+            for (Marketer m : spec.marketers()) out.putIfAbsent((m.first() + "." + m.last() + "@" + domain).toLowerCase(java.util.Locale.ROOT), m.key());
+        }
+        return out;
+    }
 
     record ClientSpec(String name, String industry, String domain, String contactA, String contactB) {}
 
@@ -304,7 +317,7 @@ public class TalentDemoSeeder {
                 continue;
             }
             User creator = org.getCreatedByUserId() == null ? null : users.findById(org.getCreatedByUserId()).orElse(null);
-            if (creator == null || !EnterpriseDemoSeeder.isEnterpriseDemoLogin(creator.getLogin())) {
+            if (!EnterpriseDemoSeeder.isDemoCreator(org, creator)) {
                 LOG.warn("Talent demo seed: {} was not created by the enterprise demo; leaving it alone", spec.slug());
                 continue;
             }
@@ -446,27 +459,11 @@ public class TalentDemoSeeder {
         // ---- marketers ----
 
         void seedMarketers(Organization org) {
-            Authority userAuthority = authorities.findById(AuthoritiesConstants.USER).orElse(null);
-            String hash = passwordEncoder.encode(UUID.randomUUID().toString());
             for (Marketer m : spec.marketers()) {
-                String login = EnterpriseDemoSeeder.LOGIN_PREFIX + spec.orgKey() + "-" + m.key();
                 String mail = m.first().toLowerCase() + "." + m.last().toLowerCase() + "@" + domain;
-                // A SEPARATE organization's people are enterprise accounts (ent# login, org_id set), found by address inside that organization; a legacy SHARED one keeps its demo-login users.
-                User u = org.isSeparateAccounts() && enterpriseAccounts != null
-                    ? enterpriseAccounts.ensure(orgId, m.first(), m.last(), mail, UUID.randomUUID().toString())
-                    : users.findOneByLogin(login).orElse(null);
-                if (u == null) {
-                    u = new User();
-                    u.setLogin(login);
-                    u.setFirstName(m.first());
-                    u.setLastName(m.last());
-                    u.setEmail(m.first().toLowerCase() + "." + m.last().toLowerCase() + "@" + domain);
-                    u.setLangKey("en");
-                    u.setActivated(true);
-                    u.setPassword(hash);
-                    if (userAuthority != null) u.setAuthorities(new HashSet<>(List.of(userAuthority)));
-                    u = users.save(u);
-                }
+                // Every demo organization is SEPARATE (decision O4): a marketer is an enterprise account (ent# login, org_id set) found by address inside
+                // that organization, created when missing with a random password nobody is told (an existing roster member keeps the one-click way in).
+                User u = enterpriseAccounts.ensure(orgId, m.first(), m.last(), mail, UUID.randomUUID().toString());
                 List<OrgMember> live = members.findByOrgIdAndUserIdAndStatusIn(orgId, u.getId(), List.of(OrgMemberStatus.ACTIVE, OrgMemberStatus.SUSPENDED));
                 OrgMember seat;
                 if (live.isEmpty()) {
@@ -503,8 +500,7 @@ public class TalentDemoSeeder {
                 cap.setTitleLabel(m.title());
                 capacityRepo.save(cap);
             }
-            String amLogin = EnterpriseDemoSeeder.LOGIN_PREFIX + spec.orgKey() + "-amara";
-            User am = users.findOneByLogin(amLogin).orElse(null);
+            User am = EnterpriseDemoSeeder.account(users, orgId, spec.orgKey(), "amara").orElse(null);
             if (am != null) accountManager = members.findByOrgIdAndUserIdAndStatusIn(orgId, am.getId(), List.of(OrgMemberStatus.ACTIVE)).stream().findFirst().orElse(null);
             if (accountManager == null) accountManager = marketerSeats.get(0);
         }
@@ -556,7 +552,7 @@ public class TalentDemoSeeder {
         void seedConsultants(Organization org) {
             Map<String, OrgMember> baseSeats = new HashMap<>();
             for (String key : new String[] { "anika", "ben", "sam" }) {
-                User u = users.findOneByLogin(EnterpriseDemoSeeder.LOGIN_PREFIX + spec.orgKey() + "-" + key).orElse(null);
+                User u = EnterpriseDemoSeeder.account(users, orgId, spec.orgKey(), key).orElse(null);
                 if (u == null) continue;
                 members.findByOrgIdAndUserIdAndStatusIn(orgId, u.getId(), List.of(OrgMemberStatus.ACTIVE, OrgMemberStatus.SUSPENDED)).stream().findFirst().ifPresent(s -> baseSeats.put(key, s));
             }

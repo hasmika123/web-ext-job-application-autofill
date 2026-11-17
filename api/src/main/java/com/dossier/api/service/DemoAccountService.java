@@ -253,6 +253,25 @@ public class DemoAccountService {
         return isDemoLogin(login);
     }
 
+    /** Optional: tells a one-click enterprise demo member apart (only {@link #isSharedDemoAccount} reads it). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.repository.org.OrganizationRepository organizations;
+
+    /**
+     * Whether {@code login} is an account everyone who clicks "try the demo" shares, so {@link DemoGuard} keeps it read-only: a fixed demo login, or
+     * an ENTERPRISE account ({@code ent#<orgId>#...}) of one of the one-click demo organizations (Acme, Beta). Since the enterprise demo moved to
+     * separate accounts (decision O4) its members no longer have a demo login, but they are still shared one-click identities. Never a sign-in rule:
+     * the demo sign-in paths keep using {@link #isDemo}.
+     */
+    public boolean isSharedDemoAccount(String login) {
+        if (isDemoLogin(login)) return true;
+        if (organizations == null) return false;
+        return com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess.orgOf(login)
+            .flatMap(organizations::findByOrgId)
+            .map(o -> com.dossier.api.service.ent.EnterpriseDemoSeeder.bySlug(o.getSlug()).isPresent())
+            .orElse(false);
+    }
+
     /** Static form of {@link #isDemo}, for beans that must not depend on this service (it would be a cycle). */
     public static boolean isDemoLogin(String login) {
         if (login == null) {

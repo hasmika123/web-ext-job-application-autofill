@@ -42,9 +42,9 @@ import org.springframework.transaction.annotation.Transactional;
 @org.junit.jupiter.api.Timeout(180)
 class MktResumesIT {
 
-    private static final String MARKETER = "demo-ent-acme-jessica";
-    private static final String ADMIN = "demo-ent-acme-sarah";
-    private static final String BETA_MARKETER = "demo-ent-beta-priya";
+    private String MARKETER; // the ent# login of the demo handle "demo-ent-acme-jessica", set after seeding
+    private String ADMIN; // the ent# login of the demo handle "demo-ent-acme-sarah", set after seeding
+    private String BETA_MARKETER; // the ent# login of the demo handle "demo-ent-beta-priya", set after seeding
 
     @Autowired private EnterpriseDemoSeeder seeder;
     @Autowired private TalentDemoSeeder talent;
@@ -53,6 +53,7 @@ class MktResumesIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.repository.UserRepository demoUsers;
     @Autowired private ResumeBuilderSettings settings;
     @Autowired private TenantResolver resolver;
 
@@ -66,6 +67,9 @@ class MktResumesIT {
         talent.seed();
         mktSeeder.seed();
         acme = orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).orElseThrow();
+        MARKETER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-jessica");
+        ADMIN = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-sarah");
+        BETA_MARKETER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-beta-priya");
         beta = orgs.findBySlug(EnterpriseDemoSeeder.BETA_SLUG).orElseThrow();
     }
 

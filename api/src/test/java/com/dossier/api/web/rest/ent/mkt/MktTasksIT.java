@@ -50,8 +50,8 @@ import org.springframework.transaction.annotation.Transactional;
 @org.junit.jupiter.api.Timeout(240)
 class MktTasksIT {
 
-    private static final String JESSICA = "demo-ent-acme-jessica";
-    private static final String BETA_OWNER = "demo-ent-beta-bea";
+    private String JESSICA; // the ent# login of the demo handle "demo-ent-acme-jessica", set after seeding
+    private String BETA_OWNER; // the ent# login of the demo handle "demo-ent-beta-bea", set after seeding
 
     @Autowired private EnterpriseDemoSeeder baseSeeder;
     @Autowired private TalentDemoSeeder talentSeeder;
@@ -59,6 +59,7 @@ class MktTasksIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.repository.UserRepository demoUsers;
     @Autowired private MktTaskRepository tasks;
     @Autowired private MktTaskEventRepository events;
     @Autowired private MarketerAssignmentRepository assignments;
@@ -76,6 +77,8 @@ class MktTasksIT {
         talentSeeder.seed();
         seeder.seed();
         acme = orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).orElseThrow();
+        JESSICA = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-jessica");
+        BETA_OWNER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-beta-bea");
         beta = orgs.findBySlug(EnterpriseDemoSeeder.BETA_SLUG).orElseThrow();
     }
 
@@ -178,6 +181,6 @@ class MktTasksIT {
         assertThat(seeder.seed()).isEmpty();
         assertThat(tasks.countByOrgId(acme.getId())).isEqualTo(before);
         assertThat(tasks.findByOrgId(beta.getId()).size()).isGreaterThan(0);
-        assertThat(board("demo-ent-beta-priya", beta, "").path("kpis")).hasSize(4);
+        assertThat(board(com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-beta-priya"), beta, "").path("kpis")).hasSize(4);
     }
 }

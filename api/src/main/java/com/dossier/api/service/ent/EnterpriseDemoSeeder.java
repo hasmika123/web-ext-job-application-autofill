@@ -1,7 +1,6 @@
 package com.dossier.api.service.ent;
 
 import com.dossier.api.domain.AppSetting;
-import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.OrgAssignment;
 import com.dossier.api.domain.ent.OrgBranding;
@@ -98,11 +97,15 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code dossier.demo.enterprise-seed} (env ENT_DEMO_SEED), both default false, and the {@code prod} profile is NOT active.
  * Nothing else switches it on: no request, no admin setting.
  *
- * <p><b>Idempotent.</b> Everything is matched by slug, login, hostname or seat, so a second run creates nothing. The members are
- * real, activated {@code jhi_user} rows whose password is a random value generated per run that nobody is told: the only way in
- * is the one-click demo login ({@code POST /api/authenticate/demo} on the member's own tenant host). Logins start with
- * {@link #LOGIN_PREFIX}, which {@link com.dossier.api.service.DemoAccountService} treats as a demo account (the demo sandbox
- * rules and the DEMO_DISABLED refusal apply) and registration refuses.
+ * <p><b>Separate accounts (decision O4, 2026-11-17).</b> Acme and Beta are {@code account_mode = SEPARATE} organizations, like Gamma: every
+ * member is an ENTERPRISE account of that organization made by {@link DemoEnterpriseAccounts} (login {@code ent#<orgId>#<address>}, the
+ * organization on the user row), so its AI comes from its licence and nothing about it is personal. Their password is a random value
+ * generated per run that nobody is told: the only way in is the one-click demo login ({@code POST /api/authenticate/demo} on the
+ * member's own tenant host), which names the person by a {@link #LOGIN_PREFIX} HANDLE ({@code demo-ent-acme-sarah}); the handle is
+ * not a login, {@link EnterpriseDemoService} maps it to the account. A database seeded while the demo was SHARED is left alone with
+ * a warning: drop it and seed again.
+ *
+ * <p><b>Idempotent.</b> Everything is matched by slug, address, hostname or seat, so a second run creates nothing.
  *
  * <p>Names are invented, addresses are on {@code example.com}, no date of birth and no numbers of any kind.
  */
@@ -111,7 +114,10 @@ public class EnterpriseDemoSeeder {
 
     private static final Logger LOG = LoggerFactory.getLogger(EnterpriseDemoSeeder.class);
 
-    /** Every enterprise demo login starts with this; nothing else may. */
+    /**
+     * Every one-click demo HANDLE starts with this ({@code demo-ent-<orgKey>-<key>}, what the Demo accounts tab sends). Since the demo is SEPARATE
+     * it names a roster person, not a {@code jhi_user} login; registration still refuses the namespace.
+     */
     public static final String LOGIN_PREFIX = "demo-ent-";
 
     public static final String ACME_SLUG = "demo-acme";
@@ -121,7 +127,8 @@ public class EnterpriseDemoSeeder {
 
     /** One seeded person. {@code roles} are template keys, the first is the primary one. {@code status} ACTIVE, SUSPENDED or INVITED. */
     public record Person(String key, String first, String last, List<String> roles, OrgMemberStatus status) {
-        public String login(String orgKey) {
+        /** The one-click handle of this person ({@code demo-ent-<orgKey>-<key>}); the account's login is {@code ent#<orgId>#...}. */
+        public String handle(String orgKey) {
             return LOGIN_PREFIX + orgKey + "-" + key;
         }
 
@@ -131,11 +138,11 @@ public class EnterpriseDemoSeeder {
         }
     }
 
-    /** One seeded organization. */
+    /** One seeded organization. Every demo tenant is SEPARATE ({@code separate}); the flag stays so a fixture can say so. */
     public record Tenant(String orgKey, String slug, String name, OrgType type, String host, String primary, String secondary, String welcomeTitle, String welcomeMessage, String supportEmail, List<Person> people, boolean separate) {
-        /** A legacy SHARED tenant (acme, beta): its people are synthetic demo-login accounts. */
-        public Tenant(String orgKey, String slug, String name, OrgType type, String host, String primary, String secondary, String welcomeTitle, String welcomeMessage, String supportEmail, List<Person> people) {
-            this(orgKey, slug, name, type, host, primary, secondary, welcomeTitle, welcomeMessage, supportEmail, people, false);
+        /** The roster person with {@code key}, if any. */
+        public Optional<Person> person(String key) {
+            return people.stream().filter(p -> p.key().equals(key)).findFirst();
         }
     }
 
@@ -171,7 +178,8 @@ public class EnterpriseDemoSeeder {
             ap("eve", "Eve", "Lindqvist", OrgMemberStatus.ACTIVE, RoleTemplates.EXECUTIVE_VIEWER),
             ap("sam", "Sam", "Whitfield", OrgMemberStatus.SUSPENDED, RoleTemplates.CONSULTANT),
             ap("nina", "Nina", "Vogel", OrgMemberStatus.INVITED, RoleTemplates.CONSULTANT)
-        )
+        ),
+        true
     );
 
     public static final Tenant BETA = new Tenant(
@@ -185,9 +193,11 @@ public class EnterpriseDemoSeeder {
         "Welcome to Beta Talent",
         "Sign in to your people workspace.",
         "help@beta.example.com",
-        List.of(p("bea", "Bea", "Turner", OrgMemberStatus.ACTIVE, RoleTemplates.OWNER))
+        List.of(p("bea", "Bea", "Turner", OrgMemberStatus.ACTIVE, RoleTemplates.OWNER)),
+        true
     );
 
+    /** The one-click demo tenants (the Demo accounts tab). Gamma is seeded on its own by {@link #seedSeparate()} and signs in with a password. */
     public static final List<Tenant> TENANTS = List.of(ACME, BETA);
 
     public static final String GAMMA_SLUG = "demo-gamma";
@@ -334,9 +344,44 @@ public class EnterpriseDemoSeeder {
         return TENANTS.stream().filter(t -> t.slug().equals(slug)).findFirst();
     }
 
-    /** True for a login in the enterprise demo namespace. */
+    /** True for a one-click handle in the enterprise demo namespace ({@code demo-ent-...}). */
     public static boolean isEnterpriseDemoLogin(String login) {
         return login != null && login.trim().toLowerCase(java.util.Locale.ENGLISH).startsWith(LOGIN_PREFIX);
+    }
+
+    /** The one-click tenant a roster handle belongs to and the person it names ({@code demo-ent-acme-sarah}), if any. */
+    public static Optional<Map.Entry<Tenant, Person>> byHandle(String handle) {
+        if (!isEnterpriseDemoLogin(handle)) return Optional.empty();
+        String h = handle.trim().toLowerCase(java.util.Locale.ENGLISH);
+        for (Tenant t : TENANTS) {
+            for (Person p : t.people()) if (p.handle(t.orgKey()).equals(h)) return Optional.of(Map.entry(t, p));
+        }
+        return Optional.empty();
+    }
+
+    /** The demo tenant whose organization key is {@code orgKey} (acme, beta or gamma), if any. */
+    public static Optional<Tenant> byOrgKey(String orgKey) {
+        return java.util.stream.Stream.concat(TENANTS.stream(), java.util.stream.Stream.of(GAMMA)).filter(t -> t.orgKey().equals(orgKey)).findFirst();
+    }
+
+    /**
+     * The enterprise account of roster person {@code key} of demo tenant {@code orgKey} in the seeded organization {@code orgId} (found by its
+     * address inside that organization, never by a personal lookup), or empty when it does not exist (yet). For the other demo seeders and tests.
+     */
+    public static Optional<User> account(UserRepository users, Long orgId, String orgKey, String key) {
+        if (orgId == null) return Optional.empty();
+        return byOrgKey(orgKey).flatMap(t -> t.person(key)).flatMap(p -> users.findOneByOrgIdAndEmailIgnoreCase(orgId, p.email(orgKey)));
+    }
+
+    /**
+     * Whether {@code org} is a demo organization this seeder made: a demo slug whose creator is that organization's own enterprise account with
+     * the roster owner's address. The downstream demo seeders (talent, ops, billing, placements) leave every other organization alone, including a
+     * demo organization from before the move to separate accounts (its creator was a {@code demo-ent-} login).
+     */
+    public static boolean isDemoCreator(Organization org, User creator) {
+        if (org == null || creator == null || !org.getId().equals(creator.getOrgId())) return false;
+        Optional<Tenant> t = bySlug(org.getSlug()).or(() -> GAMMA.slug().equals(org.getSlug()) ? Optional.of(GAMMA) : Optional.empty());
+        return t.map(x -> x.people().get(0).email(x.orgKey()).equalsIgnoreCase(creator.getEmail())).orElse(false);
     }
 
     @Transactional
@@ -346,8 +391,8 @@ public class EnterpriseDemoSeeder {
             LOG.debug("Enterprise demo seed skipped: {}", why);
             return Result.skipped(why);
         }
-        Authority userAuthority = authorities.findById(AuthoritiesConstants.USER).orElse(null);
-        String passwordHash = passwordEncoder.encode(UUID.randomUUID().toString()); // random per run; nobody knows it
+        if (enterpriseAccounts == null) return Result.skipped("the account factory is not available");
+        String password = UUID.randomUUID().toString(); // random per run; nobody knows it: the only way in is the one-click tab
         Instant now = Instant.now();
         int[] counts = new int[4]; // users, seats, role rows, assignments
         Set<Long> orgIds = new LinkedHashSet<>();
@@ -356,33 +401,42 @@ public class EnterpriseDemoSeeder {
 
         for (Tenant t : TENANTS) {
             Person first = t.people().get(0);
-            User owner = syntheticUser(t, first, passwordHash, userAuthority, counts);
             Organization org = orgs.findBySlug(t.slug()).orElse(null);
-            if (org != null && !owner.getId().equals(org.getCreatedByUserId())) {
+            if (org != null && !org.isSeparateAccounts()) {
+                LOG.warn("The demo organization '{}' still has SHARED accounts (seeded before the demo moved to separate accounts); drop the demo database and start again", t.slug());
+                continue;
+            }
+            if (org == null) org = createOrg(t, null, now);
+            User owner = demoAccount(org, t, first, password, counts);
+            if (org.getCreatedByUserId() == null) {
+                org.setCreatedByUserId(owner.getId());
+                org = orgs.saveAndFlush(org);
+            } else if (!owner.getId().equals(org.getCreatedByUserId())) {
                 LOG.warn("An organization with the slug '{}' exists but the enterprise demo did not create it; leaving it alone", t.slug());
                 continue;
             }
-            if (org == null) org = createOrg(t, owner, now);
             orgIds.add(org.getId());
             orgByKey.put(t.orgKey(), org);
             ensureHostname(org, t.host(), now);
             ensureBranding(org, t, now);
 
             Map<String, OrgMember> seats = new LinkedHashMap<>();
+            Map<String, String> logins = new LinkedHashMap<>();
             int index = 0;
             for (Person person : t.people()) {
                 Instant joined = now.minus(60 - index * 3L, ChronoUnit.DAYS);
                 if (person.status() == OrgMemberStatus.INVITED) {
                     invitedSeat(org, t, person, now.minus(2, ChronoUnit.DAYS), seats.get("sarah"), counts);
                 } else {
-                    User u = person == first ? owner : syntheticUser(t, person, passwordHash, userAuthority, counts);
+                    User u = person == first ? owner : demoAccount(org, t, person, password, counts);
                     seats.put(person.key(), seat(org, u, person, joined, counts));
+                    logins.put(person.key(), u.getLogin());
                 }
                 index++;
             }
             seatsByOrg.put(t.orgKey(), seats);
-            seedActivity(org, t, now);
-            seedAuditTrail(org, t, now);
+            seedActivity(org, t, logins, now);
+            seedAuditTrail(org, t, logins, now);
         }
 
         // Omar (the Marketing Specialist) looks after both demo consultants: the marketer flows of the demo run as him, and Sarah's second
@@ -392,6 +446,7 @@ public class EnterpriseDemoSeeder {
         if (orgByKey.containsKey("acme") && seatsByOrg.containsKey("acme")) seedStructure(orgByKey.get("acme"), seatsByOrg.get("acme"));
 
         if (!orgIds.isEmpty()) {
+            write(EnterpriseSettingKeys.SEPARATE_ACCOUNTS, "true"); // without it a SEPARATE organization's host would not authenticate its enterprise accounts
             enableFlags(orgIds);
             ensureLocalBaseDomain();
         }
@@ -426,7 +481,7 @@ public class EnterpriseDemoSeeder {
         if (org == null) {
             org = createOrg(t, null, now);
         }
-        User owner = separateAccount(org, first, counts);
+        User owner = demoAccount(org, t, first, separatePassword, counts);
         if (org.getCreatedByUserId() == null) {
             org.setCreatedByUserId(owner.getId());
             org = orgs.saveAndFlush(org);
@@ -439,7 +494,7 @@ public class EnterpriseDemoSeeder {
         Map<String, OrgMember> seats = new LinkedHashMap<>();
         int index = 0;
         for (Person person : t.people()) {
-            User u = person == first ? owner : separateAccount(org, person, counts);
+            User u = person == first ? owner : demoAccount(org, t, person, separatePassword, counts);
             seats.put(person.key(), seat(org, u, person, now.minus(40 - index * 3L, ChronoUnit.DAYS), counts));
             index++;
         }
@@ -545,10 +600,11 @@ public class EnterpriseDemoSeeder {
         }
     }
 
-    private User separateAccount(Organization org, Person p, int[] counts) {
-        String email = p.email(GAMMA.orgKey());
+    /** The ENTERPRISE account of {@code p} in {@code org} (created when missing; {@code password} set again every run). */
+    private User demoAccount(Organization org, Tenant t, Person p, String password, int[] counts) {
+        String email = p.email(t.orgKey());
         boolean existed = users.findOneByOrgIdAndEmailIgnoreCase(org.getId(), email).isPresent();
-        User u = enterpriseAccounts.ensure(org.getId(), p.first(), p.last(), email, separatePassword);
+        User u = enterpriseAccounts.ensure(org.getId(), p.first(), p.last(), email, password);
         if (!existed) counts[0]++;
         return u;
     }
@@ -576,19 +632,19 @@ public class EnterpriseDemoSeeder {
      * setting it up (rows dated back from today). Only when the organization has none yet, so a second run adds nothing and real
      * activity is never mixed with seeded rows. Details are left out: the feed shows who, what and to whom.
      */
-    private void seedActivity(Organization org, Tenant t, Instant now) {
+    private void seedActivity(Organization org, Tenant t, Map<String, String> logins, Instant now) {
         if (auditRows == null || auditRows.countByOrgId(org.getId()) > 0) return;
-        String admin = t.people().get(0).login(t.orgKey());
+        String admin = logins.get(t.people().get(0).key());
         record(org, admin, OrgAuditService.ORG_CREATE, OrgAuditService.TARGET_ORG, null, now.minus(60, ChronoUnit.DAYS));
         record(org, admin, OrgAuditService.BRANDING_PUBLISH, OrgAuditService.TARGET_BRANDING, null, now.minus(59, ChronoUnit.DAYS));
         if (!t.orgKey().equals("acme")) return;
-        String omar = t.people().get(1).login(t.orgKey());
-        record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, t.people().get(2).login(t.orgKey()), now.minus(45, ChronoUnit.DAYS));
-        record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, t.people().get(3).login(t.orgKey()), now.minus(40, ChronoUnit.DAYS));
+        String omar = logins.get("omar");
+        record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, logins.get("anika"), now.minus(45, ChronoUnit.DAYS));
+        record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, logins.get("ben"), now.minus(40, ChronoUnit.DAYS));
         record(org, admin, OrgAuditService.MEMBER_ROLE, OrgAuditService.TARGET_MEMBER, omar, now.minus(30, ChronoUnit.DAYS));
-        record(org, admin, OrgAuditService.ASSIGNMENT_CREATE, OrgAuditService.TARGET_MEMBER, t.people().get(2).login(t.orgKey()), now.minus(28, ChronoUnit.DAYS));
-        record(org, omar, OrgAuditService.ASSIGNMENT_CREATE, OrgAuditService.TARGET_MEMBER, t.people().get(3).login(t.orgKey()), now.minus(27, ChronoUnit.DAYS));
-        record(org, admin, OrgAuditService.MEMBER_SUSPEND, OrgAuditService.TARGET_MEMBER, t.people().get(9).login(t.orgKey()), now.minus(6, ChronoUnit.DAYS));
+        record(org, admin, OrgAuditService.ASSIGNMENT_CREATE, OrgAuditService.TARGET_MEMBER, logins.get("anika"), now.minus(28, ChronoUnit.DAYS));
+        record(org, omar, OrgAuditService.ASSIGNMENT_CREATE, OrgAuditService.TARGET_MEMBER, logins.get("ben"), now.minus(27, ChronoUnit.DAYS));
+        record(org, admin, OrgAuditService.MEMBER_SUSPEND, OrgAuditService.TARGET_MEMBER, logins.get("sam"), now.minus(6, ChronoUnit.DAYS));
         record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, null, now.minus(2, ChronoUnit.DAYS));
     }
 
@@ -598,17 +654,17 @@ public class EnterpriseDemoSeeder {
      * organization already has a {@code ROLE_UPDATE} row, so a second run adds nothing. Details carry names and counts only, never an
      * address, a password or a number that identifies a person.
      */
-    private void seedAuditTrail(Organization org, Tenant t, Instant now) {
+    private void seedAuditTrail(Organization org, Tenant t, Map<String, String> logins, Instant now) {
         if (auditRows == null || !t.orgKey().equals("acme") || auditRows.countByOrgIdAndAction(org.getId(), "ROLE_UPDATE") > 0) return;
-        String sarah = t.people().get(0).login(t.orgKey());
-        String omar = t.people().get(1).login(t.orgKey());
-        String anika = t.people().get(2).login(t.orgKey());
-        String ben = t.people().get(3).login(t.orgKey());
-        String hana = t.people().get(4).login(t.orgKey());
-        String felix = t.people().get(5).login(t.orgKey());
-        String amara = t.people().get(6).login(t.orgKey());
-        String tomas = t.people().get(7).login(t.orgKey());
-        String sam = t.people().get(9).login(t.orgKey());
+        String sarah = logins.get("sarah");
+        String omar = logins.get("omar");
+        String anika = logins.get("anika");
+        String ben = logins.get("ben");
+        String hana = logins.get("hana");
+        String felix = logins.get("felix");
+        String amara = logins.get("amara");
+        String tomas = logins.get("tomas");
+        String sam = logins.get("sam");
         Object[][] rows = {
             // days ago, hours offset, actor (null = system), actor role, action, target type, target login, risk, details
             { 44, 3, sarah, "ADMIN", "GROUP_CREATE", "GROUP", null, "LOW", "{\"name\":\"Sales\",\"kind\":\"DEPARTMENT\"}" },
@@ -774,27 +830,6 @@ public class EnterpriseDemoSeeder {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    private User syntheticUser(Tenant t, Person p, String passwordHash, Authority userAuthority, int[] counts) {
-        String login = p.login(t.orgKey());
-        User existing = users.findOneByLogin(login).orElse(null);
-        if (existing != null) {
-            existing.setPassword(passwordHash); // a fresh random secret per boot, never shown
-            existing.setActivated(true);
-            return users.save(existing);
-        }
-        User u = new User();
-        u.setLogin(login);
-        u.setFirstName(p.first());
-        u.setLastName(p.last());
-        u.setEmail(p.email(t.orgKey()));
-        u.setLangKey("en");
-        u.setActivated(true);
-        u.setPassword(passwordHash);
-        if (userAuthority != null) u.setAuthorities(new HashSet<>(List.of(userAuthority)));
-        counts[0]++;
-        return users.save(u);
     }
 
     /** The legacy enum a template mirrors to, so the seat and its role rows agree (the mirror rule of X1.6). */

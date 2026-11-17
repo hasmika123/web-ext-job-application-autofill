@@ -36,14 +36,15 @@ import org.springframework.test.web.servlet.MvcResult;
 @org.junit.jupiter.api.Timeout(240)
 class MktManualJobIT {
 
-    private static final String MARKETER = "demo-ent-acme-jessica";
-    private static final String BETA_MARKETER = "demo-ent-beta-bea";
+    private String MARKETER; // the ent# login of the demo handle "demo-ent-acme-jessica", set after seeding
+    private String BETA_MARKETER; // the ent# login of the demo handle "demo-ent-beta-bea", set after seeding
 
     @Autowired private EnterpriseDemoSeeder baseSeeder;
     @Autowired private TalentDemoSeeder talentSeeder;
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.repository.UserRepository demoUsers;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private org.springframework.transaction.PlatformTransactionManager txManager;
 
@@ -58,6 +59,8 @@ class MktManualJobIT {
         assertThat(baseSeeder.seed().ran()).isTrue();
         assertThat(talentSeeder.seed().ran()).isTrue();
         acme = orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).map(Organization::getId).orElseThrow();
+        MARKETER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-jessica");
+        BETA_MARKETER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-beta-bea");
         beta = orgs.findBySlug(EnterpriseDemoSeeder.BETA_SLUG).map(Organization::getId).orElseThrow();
         title = "Hand entered Platform Engineer " + UUID.randomUUID().toString().substring(0, 8);
     }

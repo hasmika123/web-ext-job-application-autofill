@@ -56,7 +56,8 @@ public class DemoGuard {
         if (writesAllowed()) {
             return;
         }
-        if (SecurityUtils.getCurrentUserLogin().map(demoAccounts::isDemo).orElse(false)) {
+        // a shared demo identity: a fixed demo login or a one-click enterprise demo member's account
+        if (SecurityUtils.getCurrentUserLogin().map(demoAccounts::isSharedDemoAccount).orElse(false)) {
             throw DemoException.readOnly();
         }
     }

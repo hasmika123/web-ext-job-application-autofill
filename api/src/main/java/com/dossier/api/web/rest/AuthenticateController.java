@@ -514,14 +514,13 @@ public class AuthenticateController {
 
     /** X2.9: a session on an organization's host lives no longer than that organization's idle timeout (a refresh renews it). Extension tokens and personal sessions keep the platform lifetime. */
     /**
-     * Whether {@code account} may hold an extension session of organization {@code orgId}: an enterprise account's own organization, or, for a
-     * seeded enterprise DEMO member (a shared-mode login with no organization on its user row), the tenant it signed in on. The caller still checks
-     * {@code refreshAllowed}, which proves the active membership; a personal account never passes.
+     * Whether {@code account} may hold an extension session of organization {@code orgId}: an enterprise account's own organization only (the demo
+     * members are enterprise accounts too since the demo moved to separate accounts). The caller still checks {@code refreshAllowed}, which proves the
+     * active membership; a personal account never passes.
      */
     static boolean belongsTo(com.dossier.api.domain.User account, Long orgId) {
         if (account == null || orgId == null) return false;
-        if (account.getOrgId() != null) return account.getOrgId().equals(orgId);
-        return com.dossier.api.service.ent.EnterpriseDemoSeeder.isEnterpriseDemoLogin(account.getLogin());
+        return account.getOrgId() != null && account.getOrgId().equals(orgId);
     }
 
     private long refreshSecondsFor(TenantBinding binding, boolean ext) {
