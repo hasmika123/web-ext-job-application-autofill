@@ -82,10 +82,21 @@ public class EnterpriseDemoService {
         return seeder.refusal() == null;
     }
 
+    /**
+     * The demo roster of the tenant on this host, or null. Gap D10: only on the roster's own development host ({@code acme.localhost}, ...), never
+     * on any other address of that organization and never on a real tenant, even one whose slug happens to match a demo one.
+     */
     private EnterpriseDemoSeeder.Tenant rosterOf(TenantContext c) {
-        if (c == null || !c.isTenant() || c.orgId() == null) return null;
+        if (c == null || !c.isTenant() || c.orgId() == null || c.host() == null) return null;
         Organization org = orgs.findByOrgId(c.orgId()).orElse(null);
-        return org == null ? null : EnterpriseDemoSeeder.bySlug(org.getSlug()).orElse(null);
+        EnterpriseDemoSeeder.Tenant t = org == null ? null : EnterpriseDemoSeeder.bySlug(org.getSlug()).orElse(null);
+        return t != null && isDemoHost(t, c.host()) ? t : null;
+    }
+
+    /** True when {@code host} is the roster's own seeded host and a development host (a {@code .localhost} name). */
+    static boolean isDemoHost(EnterpriseDemoSeeder.Tenant t, String host) {
+        String h = host.trim().toLowerCase(Locale.ENGLISH);
+        return h.endsWith(".localhost") && h.equals(t.host());
     }
 
     @Transactional(readOnly = true)

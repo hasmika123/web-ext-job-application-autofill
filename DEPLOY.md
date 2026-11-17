@@ -1393,6 +1393,16 @@ tab, and `POST /api/authenticate/demo` answers 404 for `demo-org`. The panel als
   restarting signs any open demo session out.
 - **While off**, the login page shows nothing about the demo, `POST /api/authenticate/demo` and a typed
   `demo` / `demo@kiwiply.com` login both return 403 `DEMO_DISABLED`.
+- **What production can and can't turn on (checked 2026-11-15, gap D10).** Only `DEMO_ENABLED` reaches the production
+  container: `docker-compose.prod.yml` passes it (default `false`) and has no `env_file`, so `DEMO_ADMIN_ENABLED`,
+  `DEMO_ALLOW_WRITES` and `ENT_DEMO_SEED` can't be set there by editing `.env`. The code also refuses all three under the
+  `prod` profile, whatever the environment says:
+  - `demo-admin` (a passwordless platform admin) is never created, offered or signed in, and a warning is logged;
+  - demo accounts stay read-only;
+  - the organization demo members are never seeded.
+  The organization's "Demo accounts" tab and its one-click sign-in work only on the demo tenant's own `.localhost` host
+  (`acme.localhost`, `beta.localhost`). Another address of that organization, or any real tenant, gets an empty tab and a 404.
+  So production can offer, at most, the public job-seeker demo, and only while `DEMO_ENABLED=true`.
 - **`DEMO_PASSWORD`** (optional env): the stored password of the two accounts. Leave it **blank** in
   production: the API then uses a random password per boot, so the only way in is the one-click button.
 - **Sandbox, not read-only (`DemoGuard`):** demo accounts may use the **Resume Builder and the profile**
@@ -1402,7 +1412,7 @@ tab, and `POST /api/authenticate/demo` answers 404 for `demo-org`. The panel als
   account save / password change, account delete / export, billing, inbox connect / disconnect,
   notification preferences, every `/api/orgs/**` write and the AI resume parse. The application board stays live.
   - `DEMO_ALLOW_WRITES` (default `false`, `dossier.demo.allow-writes`): a global **dev** override that lifts
-    the remaining blocks too. Never set it in production (it is not in `docker-compose.prod.yml`).
+    the remaining blocks too. It is not in `docker-compose.prod.yml`, and the `prod` profile ignores it.
   - `DEMO_RESET_CRON` (default `0 0 4 * * *`, UTC; empty = off, `dossier.demo.reset-cron`): nightly reset of
     the demo accounts to the seed. It runs the same reset as the admin button, and also erases the builder
     documents, versions, AI proposals, share links and stored files the demo accounts made. It is scoped to
