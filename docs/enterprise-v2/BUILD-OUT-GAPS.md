@@ -38,7 +38,7 @@
 | D9 | **Autopilot on Workday and SmartRecruiters** | Local copies of those sites. SmartRecruiters sits behind a bot check (never bypassed), and real Workday was never filled past step 1 in a batch. | Test the multi-step fill on a real Workday posting. Accept that SmartRecruiters stays manual. Merge PR #132 (full job text on Greenhouse, Lever and SmartRecruiters). | S–M |
 | D10 ✅ | **Demo sign-in tabs** (passwordless "sign in as"; checked and locked 2026-11-15, `DEPLOY.md` §12.1: production passes only `DEMO_ENABLED`, default off; the `prod` profile refuses `demo-admin`, the write override and the organization demo seed; the organization demo tab works only on the demo tenant's own `.localhost` host) | Only on when `DEMO_ENABLED` is set | Confirm it is off and unreachable on prod and on real tenants | S |
 | D11 | **Extension Jobs tab** | Only "Open posting" and "I applied". Interested, Decline and Need info exist in code but have no buttons. | Add those buttons, plus a "Prepared" status the marketer can see | S–M |
-| D12 | **Autopilot on/off for the whole platform** | API call only, with no page | A switch on the platform admin settings page | S |
+| D12 ✅ | **Autopilot on/off for the whole platform** (built 2026-11-17: an **Autopilot** panel on the platform admin's Organizations page with the master switch of Prepare selected openings, a reason on every change (audited), and the platform maximums each organization can lower; web route `/api/admin/settings/{key}` passes the Autopilot keys only. The admin console has no general Settings page) | API call only, with no page | A switch on the platform admin settings page | S |
 
 ---
 
