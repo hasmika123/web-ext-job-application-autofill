@@ -379,11 +379,90 @@
     }
   }
 
+  // ---- consultant: answering an assigned job (gap D11) -------------------------------------------
+  // The consultant's own answers to the marketer: Interested, Need info (a question) and Decline (a reason). The server decides what
+  // is allowed for each job (`allowedActions`); the drawer only offers those. None of them touches the posting: nothing is filled,
+  // clicked or submitted.
+  const RESPONSES = [
+    { action: "interest", allowed: "INTEREST", label: "Interested" },
+    { action: "request-info", allowed: "REQUEST_INFO", label: "Need info" },
+    { action: "decline", allowed: "DECLINE", label: "Decline" },
+  ];
+  // The server's decline reasons (ConOpportunityService.DECLINE_REASONS), in the order the drawer lists them.
+  const DECLINE_REASONS = [
+    { code: "NOT_INTERESTED", label: "Not interested" },
+    { code: "LOCATION", label: "Location doesn't work" },
+    { code: "RATE", label: "Rate doesn't work" },
+    { code: "ALREADY_APPLIED", label: "Already applied" },
+    { code: "OTHER", label: "Other" },
+  ];
+  const QUESTION_MAX = 500;
+  const DECLINE_NOTE_MAX = 200;
+
+  /** The answers this job offers, from the server's `allowedActions` only. */
+  function responsesFor(job) {
+    const allowed = (job && Array.isArray(job.allowedActions)) ? job.allowedActions : [];
+    return RESPONSES.filter((r) => allowed.includes(r.allowed));
+  }
+
+  /** null when the answer can be sent, else the message to show. Bodies are the server's: {question} and {reason, note?}. */
+  function validateResponse(action, body) {
+    body = body || {};
+    if (action === "interest") return null;
+    if (action === "request-info") {
+      const q = String(body.question || "").trim();
+      if (!q) return "Write your question for your marketer.";
+      if (q.length > QUESTION_MAX) return "Keep the question under " + QUESTION_MAX + " characters.";
+      return null;
+    }
+    if (action === "decline") {
+      if (!DECLINE_REASONS.some((r) => r.code === body.reason)) return "Pick a reason.";
+      if (body.note && String(body.note).trim().length > DECLINE_NOTE_MAX) return "Keep the note under " + DECLINE_NOTE_MAX + " characters.";
+      return null;
+    }
+    return "That action isn't available.";
+  }
+
+  /**
+   * Send one answer and keep the cached Jobs list in step: the job comes back with its new state (a declined job leaves the list,
+   * which only holds open assignments). Returns the updated job, or null when it left the list.
+   */
+  async function respondToJob(provider, storage, orgId, job, action, body) {
+    const err = validateResponse(action, body);
+    if (err) { const e = new Error(err); e.status = 400; e.code = "VALIDATION"; throw e; }
+    const payload = action === "request-info" ? { question: String(body.question).trim() }
+      : action === "decline" ? Object.assign({ reason: body.reason }, body.note && String(body.note).trim() ? { note: String(body.note).trim() } : {})
+      : {};
+    const updated = await provider.respondOpportunity(orgId, job.id, action, payload);
+    const keep = updated && updated.state !== "DECLINED";
+    try {
+      const cached = await storage.getWorkspaceCache(orgId, CACHE_NAME);
+      if (cached && Array.isArray(cached.items)) {
+        const items = cached.items.flatMap((j) => (j.id === job.id ? (keep ? [updated] : []) : [j]));
+        await storage.saveWorkspaceCache(orgId, CACHE_NAME, { ts: cached.ts, items });
+      }
+    } catch (e) { /* cache is best-effort */ }
+    return keep ? updated : null;
+  }
+
+  function describeResponseError(e) {
+    const code = e && e.code;
+    const status = e && e.status;
+    if (code === "VALIDATION" && e.message) return e.message;
+    if (status === 422 || code === "SENSITIVE_CONTENT") return "That looks like it contains sensitive details (such as an ID or card number). Remove them and try again.";
+    if (code === "JOB_NOT_OPEN") return "This job is closed now.";
+    if (code === "VERSION_CONFLICT") return "Your marketer changed this job. Reopen the Jobs tab and try again.";
+    if (status === 401) return "Your session expired. Sign in again.";
+    if (status === 0) return "Couldn't reach the server. Check your connection.";
+    return "Couldn't send that. Please try again.";
+  }
+
   JAF.workspace = {
     BOARDS, modeOf, surfacesOf, accountChip, accountFromLocal, personalAccount,
     urlKey, matchOpportunity, needsManualApplied, MANUAL_APPLIED_COPY,
     trimCapture, missingFields, buildSavePayload, validateSave,
     marketerFacade, marketerSave, newIdempotencyKey, describeSaveResult, describeSaveError,
     loadAssignedJobs, CACHE_NAME, URL_KEY_MAX, KEY_INFO_MAX, MAX_CONSULTANTS,
+    RESPONSES, DECLINE_REASONS, QUESTION_MAX, DECLINE_NOTE_MAX, responsesFor, validateResponse, respondToJob, describeResponseError,
   };
 })();

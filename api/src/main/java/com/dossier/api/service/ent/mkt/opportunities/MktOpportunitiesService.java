@@ -172,7 +172,8 @@ public class MktOpportunitiesService {
         feed.forEach(f -> memberIds.add(f.actorMemberId()));
         Map<Long, String> names = memberNames(view.orgId(), memberIds);
 
-        List<Item> items = pageRows.stream().map(r -> item(r, names, now)).toList();
+        Map<Long, MktOpportunitiesDTO.Prepared> prep = prepared(view.orgId(), pageRows.stream().map(r -> r.r().matchId()).toList());
+        List<Item> items = pageRows.stream().map(r -> item(r, names, now, prep)).toList();
         return new ListResponse(kpis(open, now), items, filtered.size(), q.page(), q.size(), topMatches(open), responses(open, q.responseDays(), now), activity(feed), filters(open));
     }
 
@@ -198,7 +199,8 @@ public class MktOpportunitiesService {
             .map(o -> new Info(o.getInfoRequest(), o.getInfoAnswer(), "NEEDS_INFO".equals(o.getState()) && "ASSIGNED".equals(row.r().matchStatus())))
             .orElse(null);
         MktOpportunity opp = repo.findByOrgIdAndMatchId(view.orgId(), id).orElse(null);
-        return new Detail(item(row, names, now), alternatives.stream().map(a -> item(a, names, now)).toList(), activity(timeline), info, pinned(view.orgId(), opp), resumeChoices(view.orgId(), row.r().consultantId()));
+        Map<Long, MktOpportunitiesDTO.Prepared> prep = prepared(view.orgId(), java.util.stream.Stream.concat(java.util.stream.Stream.of(row), alternatives.stream()).map(r -> r.r().matchId()).toList());
+        return new Detail(item(row, names, now, prep), alternatives.stream().map(a -> item(a, names, now, prep)).toList(), activity(timeline), info, pinned(view.orgId(), opp), resumeChoices(view.orgId(), row.r().consultantId()));
     }
 
     /** Consultants the caller may see and open jobs, for the Add Opportunity dialog. */
@@ -612,7 +614,7 @@ public class MktOpportunitiesService {
     /** {@code justCreated}: the match was committed by the assignment service's own transaction a moment ago (Add opportunity), so read it in a fresh snapshot. */
     private ActionResult result(MktScope.View view, Long id, String message, boolean changed, Instant now, boolean justCreated) {
         Row row = require(view, id, now, justCreated);
-        return new ActionResult(item(row, memberNames(view.orgId(), Set.of(row.ownerId() == null ? -1L : row.ownerId())), now), message, changed);
+        return new ActionResult(item(row, memberNames(view.orgId(), Set.of(row.ownerId() == null ? -1L : row.ownerId())), now, prepared(view.orgId(), List.of(row.r().matchId()))), message, changed);
     }
 
     /** The row, or the generic 404 (missing, another tenant's, a consultant outside the caller's scope, or no longer open). */
@@ -683,12 +685,32 @@ public class MktOpportunitiesService {
         return best;
     }
 
-    private Item item(Row e, Map<Long, String> names, Instant now) {
+    /** The newest prepare state of each match (gap D11); matches never prepared are absent. */
+    private Map<Long, MktOpportunitiesDTO.Prepared> prepared(Long orgId, java.util.Collection<Long> matchIds) {
+        Map<Long, MktOpportunitiesDTO.Prepared> out = new HashMap<>();
+        List<Long> ids = matchIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (prepareItems == null || ids.isEmpty()) return out;
+        for (com.dossier.api.domain.ent.prepare.PrepareItem i : prepareItems.findNewestFirstByOrgIdAndMatchIdIn(orgId, ids)) {
+            out.putIfAbsent(i.getMatchId(), new MktOpportunitiesDTO.Prepared(i.getState(), i.getUpdatedAt()));
+        }
+        return out;
+    }
+
+    private com.dossier.api.repository.ent.prepare.PrepareItemRepository prepareItems;
+
+    /** Optional (gap D11): the prepare items, for the Prepared status of each row. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setPrepareItems(com.dossier.api.repository.ent.prepare.PrepareItemRepository prepareItems) {
+        this.prepareItems = prepareItems;
+    }
+
+    private Item item(Row e, Map<Long, String> names, Instant now, Map<Long, MktOpportunitiesDTO.Prepared> prepared) {
         MktOpportunityRow r = e.r();
         Person owner = e.ownerId() == null ? null : new Person(e.ownerId(), names.getOrDefault(e.ownerId(), "Team member"), null);
         return new Item(
             r.matchId(), new Person(r.consultantId(), r.consultantName(), null), r.requirementId(), r.jobTitle(), place(r), r.clientId(), r.clientName(), r.score() == null ? 0 : r.score(),
-            e.interest(), e.resume(), owner, r.nextActionAt(), e.action(), r.matchStatus(), e.last(), e.stale(), e.ready(), r.reason(), r.oppState()
+            e.interest(), e.resume(), owner, r.nextActionAt(), e.action(), r.matchStatus(), e.last(), e.stale(), e.ready(), r.reason(), r.oppState(),
+            prepared.get(r.matchId())
         );
     }
 

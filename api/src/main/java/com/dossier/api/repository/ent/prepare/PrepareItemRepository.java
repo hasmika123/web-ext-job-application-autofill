@@ -15,6 +15,10 @@ public interface PrepareItemRepository extends Repository<PrepareItem, Long> {
 
     List<PrepareItem> findByOrgIdAndConsultantIdAndSessionIdOrderByIdAsc(Long orgId, Long consultantId, Long sessionId);
 
+    /** Every prepare item of these matches, newest first (gap D11: the marketer sees how far each assigned job was prepared). */
+    @Query("select i from PrepareItem i where i.orgId = :orgId and i.matchId in :matchIds order by i.updatedAt desc, i.id desc")
+    List<PrepareItem> findNewestFirstByOrgIdAndMatchIdIn(@Param("orgId") Long orgId, @Param("matchIds") java.util.Collection<Long> matchIds);
+
     Optional<PrepareItem> findByOrgIdAndConsultantIdAndSessionIdAndMatchId(Long orgId, Long consultantId, Long sessionId, Long matchId);
 
     /** Items this consultant prepared since {@code since} (the daily and monthly caps count these). */

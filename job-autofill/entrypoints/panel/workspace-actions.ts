@@ -107,6 +107,22 @@ export async function matchAssigned(items: AssignedJob[], capture: any): Promise
   });
 }
 
+/** Gap D11: the consultant's answer to an assigned job (Interested, Need info, Decline). Returns the updated job (null when it left the list) or the message to show. */
+export async function respondJob(
+  orgId: number,
+  job: AssignedJob,
+  action: "interest" | "request-info" | "decline",
+  body: { question?: string; reason?: string; note?: string } = {},
+): Promise<{ job: AssignedJob | null } | { error: string }> {
+  const provider = await connectedProvider();
+  if (!provider) return { error: "Connect the extension first." };
+  try {
+    return { job: await JAF().workspace.respondToJob(provider, JAF().storage, orgId, job, action, body) };
+  } catch (e: any) {
+    return { error: JAF().workspace.describeResponseError(e) };
+  }
+}
+
 /** Open the posting in a new tab and tell the org it was viewed (best-effort, first time only). */
 export async function openPosting(orgId: number, job: AssignedJob): Promise<void> {
   if (job.jobUrl && /^https:\/\//i.test(job.jobUrl)) await chrome.tabs.create({ url: job.jobUrl });

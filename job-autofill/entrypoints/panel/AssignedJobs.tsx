@@ -2,12 +2,14 @@
  * Consultant surfaces (WP5c): the Jobs tab (jobs a marketer assigned to me) and the
  * "Assigned by <marketer>" chip shown when the page I'm on IS one of them.
  *
- * Both only offer Open posting / I applied. Applying is always the consultant's own act on the
- * site; "I applied" reports it. Nothing here fills, clicks or submits.
+ * Both offer Open posting / I applied. The Jobs tab also lets the consultant answer the marketer (gap D11): Interested, Need info (a
+ * question) and Decline (a reason), only where the server allows it (`allowedActions`). Applying is always the consultant's own act on
+ * the site; "I applied" reports it. Nothing here fills, clicks or submits.
  */
 import { useEffect, useState } from "react";
-import { Badge, Button, Skeleton, Spinner, useToast } from "@kiwiply/ui";
-import { loadAssigned, markApplied, openPosting, type AssignedJob } from "./workspace-actions";
+import { Badge, Button, Field, Select, Skeleton, Spinner, Textarea, useToast } from "@kiwiply/ui";
+import { loadAssigned, markApplied, openPosting, respondJob, type AssignedJob } from "./workspace-actions";
+const JAF = () => (window as any).JAF;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const MANUAL_COPY = "Press I applied after you submit.";
@@ -62,6 +64,96 @@ export function AssignedChip({
       {job.marketerNote && <p className="text-[12.5px] leading-snug text-ink">{job.marketerNote}</p>}
       {manualApplied && <p className="text-[12px] leading-snug text-ink-soft">{MANUAL_COPY}</p>}
       <JobActions job={job} busy={busyId === job.id} onOpen={() => open(job)} onApplied={() => applied(job)} />
+    </div>
+  );
+}
+
+type Form = null | "request-info" | "decline";
+
+/** Interested / Need info / Decline for one job (gap D11): the answers the server allows, and a small form for the two that need words. */
+function JobResponses({ orgId, job, onUpdated }: { orgId: number; job: AssignedJob; onUpdated: (job: AssignedJob | null) => void }) {
+  const toast = useToast();
+  const [form, setForm] = useState<Form>(null);
+  const [question, setQuestion] = useState("");
+  const [reason, setReason] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const ws = JAF().workspace;
+  const offered: { action: string; label: string }[] = ws.responsesFor(job);
+  if (!offered.length) return null;
+
+  async function send(action: "interest" | "request-info" | "decline", body = {}) {
+    setBusy(true);
+    setError("");
+    const r = await respondJob(orgId, job, action, body);
+    setBusy(false);
+    if ("error" in r) return setError(r.error);
+    setForm(null);
+    toast({
+      variant: "success",
+      title: action === "interest" ? "Your marketer knows you're interested" : action === "decline" ? "Declined" : "Question sent to your marketer",
+      description: job.title,
+    });
+    onUpdated(r.job);
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-job-responses={job.id}>
+      {!form && (
+        <div className="flex flex-wrap gap-1.5">
+          {offered.map((o) => (
+            <Button
+              key={o.action}
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              data-job-response={o.action}
+              onClick={() => (o.action === "interest" ? void send("interest") : setForm(o.action as Form))}
+            >
+              {o.label}
+            </Button>
+          ))}
+        </div>
+      )}
+      {form === "request-info" && (
+        <div className="flex flex-col gap-2" data-job-form="request-info">
+          <Field label="Your question for your marketer">
+            <Textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={2} maxLength={ws.QUESTION_MAX} placeholder="e.g. Is this role open to remote work?" />
+          </Field>
+          <FormButtons busy={busy} label="Send question" onCancel={() => setForm(null)} onSend={() => void send("request-info", { question })} disabled={!question.trim()} />
+        </div>
+      )}
+      {form === "decline" && (
+        <div className="flex flex-col gap-2" data-job-form="decline">
+          <Field label="Why not this one?">
+            <Select value={reason} onChange={setReason} placeholder="Pick a reason" aria-label="Decline reason" options={ws.DECLINE_REASONS.map((r: { code: string; label: string }) => ({ value: r.code, label: r.label }))} />
+          </Field>
+          <Field label="Note (optional)">
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={ws.DECLINE_NOTE_MAX} />
+          </Field>
+          <FormButtons busy={busy} label="Decline" onCancel={() => setForm(null)} onSend={() => void send("decline", { reason, note })} disabled={!reason} />
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="text-[12px] font-medium text-danger-text">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FormButtons({ busy, label, disabled, onCancel, onSend }: { busy: boolean; label: string; disabled: boolean; onCancel: () => void; onSend: () => void }) {
+  return (
+    <div className="flex justify-end gap-2">
+      <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}>
+        Cancel
+      </Button>
+      <Button size="sm" variant="accent" onClick={onSend} disabled={busy || disabled}>
+        {busy ? <Spinner className="h-3.5 w-3.5 text-on-accent" /> : null}
+        {label}
+      </Button>
     </div>
   );
 }
@@ -122,6 +214,11 @@ export function AssignedJobsList({ orgId, orgName }: { orgId: number; orgName: s
           </div>
           {job.marketerNote && <p className="text-[12px] leading-snug text-ink-soft">{job.marketerNote}</p>}
           <JobActions job={job} busy={busyId === job.id} onOpen={() => open(job)} onApplied={() => applied(job)} />
+          <JobResponses
+            orgId={orgId}
+            job={job}
+            onUpdated={(next) => setJobs((all) => (all ? all.flatMap((j) => (j.id === job.id ? (next ? [next] : []) : [j])) : all))}
+          />
         </div>
       ))}
     </div>

@@ -206,6 +206,58 @@ function win(html, url) {
   ok("link after submit: a failing link never throws into the user's flow", !leaked && r === false);
   eq("link after submit: provider without the method is a no-op", await AT.linkOpportunityAfterSubmit({}, { opportunity: { orgId: 5, id: 9 } }), false);
 
+  /* ---- gap D11: the consultant answers an assigned job (Interested, Need info, Decline) ---- */
+  {
+    const job = (o) => Object.assign({ id: 11, state: "VIEWED", title: "Data Engineer", allowedActions: ["INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK"] }, o);
+    eq("responses: offered in a fixed order from allowedActions", WS.responsesFor(job()).map((r) => r.action), ["interest", "request-info", "decline"]);
+    eq("responses: a closed job offers Decline only", WS.responsesFor(job({ allowedActions: ["DECLINE"] })).map((r) => r.action), ["decline"]);
+    eq("responses: an applied job offers none", WS.responsesFor(job({ state: "APPLIED", allowedActions: ["LINK"] })), []);
+    eq("responses: no allowedActions, no answers", WS.responsesFor({ id: 1 }), []);
+    eq("decline reasons are the server's", WS.DECLINE_REASONS.map((r) => r.code), ["NOT_INTERESTED", "LOCATION", "RATE", "ALREADY_APPLIED", "OTHER"]);
+
+    ok("validate: interest needs nothing", WS.validateResponse("interest", {}) === null);
+    ok("validate: a blank question is refused", /question/.test(WS.validateResponse("request-info", { question: "   " })));
+    ok("validate: a long question is refused", /500/.test(WS.validateResponse("request-info", { question: "x".repeat(501) })));
+    ok("validate: a reason is required to decline", /reason/.test(WS.validateResponse("decline", {})));
+    ok("validate: an unknown reason is refused", WS.validateResponse("decline", { reason: "BORED" }) !== null);
+    ok("validate: a long decline note is refused", /200/.test(WS.validateResponse("decline", { reason: "RATE", note: "y".repeat(201) })));
+    ok("validate: an unknown action is refused", WS.validateResponse("applied", {}) !== null);
+
+    const calls = [];
+    const store = { cache: { ts: 5, items: [job(), job({ id: 12, title: "Analyst" })] } };
+    const storage = {
+      getWorkspaceCache: async () => store.cache,
+      saveWorkspaceCache: async (_org, _name, v) => { store.cache = v; },
+    };
+    const provider = {
+      respondOpportunity: async (orgId, id, action, body) => {
+        calls.push([orgId, id, action, body]);
+        return job({ id, state: action === "interest" ? "INTERESTED" : action === "decline" ? "DECLINED" : "NEEDS_INFO" });
+      },
+    };
+    const interested = await WS.respondToJob(provider, storage, 42, job(), "interest", {});
+    eq("respond: interest sends an empty body", calls[0], [42, 11, "interest", {}]);
+    eq("respond: the job comes back with its new state", interested.state, "INTERESTED");
+    eq("respond: the cached list holds the new state", store.cache.items.map((j) => j.state), ["INTERESTED", "VIEWED"]);
+
+    await WS.respondToJob(provider, storage, 42, job(), "request-info", { question: "  Remote ok?  ", reason: "x" });
+    eq("respond: request-info sends the trimmed question only", calls[1][3], { question: "Remote ok?" });
+
+    const gone = await WS.respondToJob(provider, storage, 42, job(), "decline", { reason: "RATE", note: " too low " });
+    eq("respond: decline sends the reason and the trimmed note", calls[2][3], { reason: "RATE", note: "too low" });
+    eq("respond: a declined job leaves the list", [gone, store.cache.items.map((j) => j.id)], [null, [12]]);
+    await WS.respondToJob(provider, storage, 42, job({ id: 12 }), "decline", { reason: "OTHER", note: "  " });
+    eq("respond: a blank note is not sent", calls[3][3], { reason: "OTHER" });
+
+    let refused = null;
+    try { await WS.respondToJob(provider, storage, 42, job(), "decline", {}); } catch (e) { refused = e; }
+    ok("respond: an invalid answer never reaches the server", refused && refused.code === "VALIDATION" && calls.length === 4);
+    eq("respond error: validation shows its own message", WS.describeResponseError(refused), "Pick a reason.");
+    ok("respond error: a closed job", /closed/.test(WS.describeResponseError({ status: 409, code: "JOB_NOT_OPEN" })));
+    ok("respond error: someone else changed it", /changed/.test(WS.describeResponseError({ status: 409, code: "VERSION_CONFLICT" })));
+    ok("respond error: offline", /connection/.test(WS.describeResponseError({ status: 0 })));
+  }
+
   report();
 })().catch((e) => { fail++; fails.push("async run threw -> " + (e && e.stack || e)); report(); });
 
