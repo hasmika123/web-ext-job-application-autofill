@@ -116,6 +116,31 @@ class OrgUsageReadServiceTest {
         verify(ai, never()).usage(anyString());
     }
 
+    /** Gap D7: the organization's AI spend this month (its enterprise accounts' calls) against the sum of its consultants' AI budgets. */
+    @Test
+    void theOrganizationsAiShareIsItsSpendAgainstItsConsultantsBudgets() {
+        com.dossier.api.repository.AiCallRepository calls = mock(com.dossier.api.repository.AiCallRepository.class);
+        service.setAiCalls(calls);
+        // Ana's licence: 300 cents = $3.00; spent $1.50 since November 1
+        when(calls.orgCostSince(ORG, Instant.parse("2026-11-01T00:00:00Z"))).thenReturn(1_500_000L);
+        assertThat(service.usage(me, null).aiBudgetPercent()).isEqualTo(50);
+        when(calls.orgCostSince(ORG, Instant.parse("2026-11-01T00:00:00Z"))).thenReturn(9_000_000L);
+        assertThat(service.usage(me, null).aiBudgetPercent()).as("capped at 100").isEqualTo(100);
+        assertThat(service.usage(me, "2026-10").aiBudgetPercent()).as("the current month only").isNull();
+        when(gate.aiBudgetCents(ORG, 1L)).thenReturn(0L);
+        assertThat(service.usage(me, null).aiBudgetPercent()).as("no AI budget, no share").isNull();
+    }
+
+    /** Decision 2026-11-15: a personal login's AI is never the organization's, so a shared-mode member shows no AI percent. */
+    @Test
+    void aPersonalLoginShowsNoAiPercent() {
+        User personal = new User();
+        personal.setLogin("ana");
+        when(users.findById(77L)).thenReturn(Optional.of(personal));
+        assertThat(service.usage(me, null).consultants().get(0).aiBudgetPercent()).isNull();
+        verify(ai, never()).usage("ana");
+    }
+
     @Test
     void aLicenceWithoutAiShowsNoPercent() {
         when(gate.aiBudgetCents(ORG, 1L)).thenReturn(0L);

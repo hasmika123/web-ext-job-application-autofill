@@ -57,6 +57,17 @@ public final class ConsultantFeaturesDTO {
         boolean expiringSample
     ) {}
 
+    /**
+     * The consultant's monthly AI budget (gap D7): the share used so far ({@code percentUsed}, 0-100) and when it starts again. Present only for an
+     * enterprise account whose licence carries AI (the budget its organization pays for, decision 2026-11-15: one pooled budget for every AI task).
+     */
     @JsonInclude(JsonInclude.Include.ALWAYS)
-    public record Response(Long orgId, Instant generatedAt, String name, boolean entitlementsSample, Tiles tiles, List<Feature> features) {}
+    public record AiBudget(int percentUsed, Instant resetsAt, boolean economy) {}
+
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    public record Response(Long orgId, Instant generatedAt, String name, boolean entitlementsSample, Tiles tiles, List<Feature> features, AiBudget ai) {
+        public Response(Long orgId, Instant generatedAt, String name, boolean entitlementsSample, Tiles tiles, List<Feature> features) {
+            this(orgId, generatedAt, name, entitlementsSample, tiles, features, null);
+        }
+    }
 }

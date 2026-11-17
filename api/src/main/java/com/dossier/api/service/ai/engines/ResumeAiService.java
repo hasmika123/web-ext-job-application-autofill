@@ -616,7 +616,7 @@ public class ResumeAiService {
             case TASK_DISABLED -> {
                 return early(ProposalResult.refusal(ProposalResult.DISABLED, null));
             }
-            case PRO_REQUIRED -> throw new ProRequiredException(ProRequiredException.CODE_PRO_REQUIRED, featureName(task) + " is part of Kiwiply Pro");
+            case PRO_REQUIRED -> throw ProRequiredException.forAi(login, featureName(task) + " is part of Kiwiply Pro");
             default -> {}
         }
         UsageView usage = usage(d);

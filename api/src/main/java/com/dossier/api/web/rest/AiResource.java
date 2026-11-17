@@ -106,8 +106,8 @@ public class AiResource {
             // one thing whether it hit AI, answer sync or the resume cap (Phase 12.4). Thrown as
             // the SERVICE exception, like the other two gates, so ExceptionTranslator builds the
             // body the same way and the message reliably lands in `detail`.
-            case PRO_REQUIRED -> throw new ProRequiredException(
-                ProRequiredException.CODE_PRO_REQUIRED,
+            case PRO_REQUIRED -> throw ProRequiredException.forAi(
+                SecurityUtils.getCurrentUserLogin().orElse(null),
                 "Kiwiply AI is part of Pro — upgrade, or add your own API key in the extension's settings"
             );
             case QUOTA_EXCEEDED -> {

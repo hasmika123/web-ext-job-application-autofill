@@ -30,12 +30,12 @@ import org.springframework.transaction.annotation.Transactional;
  * The Consultant workspace My Features page (docs/enterprise-v2/page-consultant-features.md). Gate: {@link ConsultantHomeService#requireSelf}
  * plus {@code features.view}. READ ONLY.
  *
- * <p>Which features exist, whether they are on, and their monthly allowances are ADMIN inputs in the real product (EntitlementService + the admin
- * catalog). That admin catalog and this role have not merged, so {@link #catalog()} is a static default and every status and allowance is a
- * demo stand-in ({@code sample = true}); replace it with EntitlementService when they merge. Usage is real where the product records the
- * action: Job Matching = the consultant's own match views this month, Interview Prep = their own prep sessions this month, Email Application
- * Tracking = their own applications. AI Resume Tailoring and Resume Optimization have no metered action in the product yet, so {@code used}
- * is null (never a made-up number). Every query is organization id first plus the caller's own consultant id.
+ * <p>Whether a feature is on comes from the consultant's own licence ({@link #setLicenses}). Nothing has a made-up allowance (gap D7): the AI
+ * features share one monthly AI budget paid by the organization (decision 2026-11-15), shown as {@code ai} (percent used and when it starts
+ * again), and the rest are not capped. Usage is real: Job Matching = the consultant's own match views this month, Interview Prep = their own
+ * prep sessions, Email Application Tracking = their own applications, AI Resume Tailoring = their tailoring calls in the AI ledger, Resume
+ * Optimization = their job-fit and resume-improvement calls. Every query is organization id first plus the caller's own consultant id (the AI
+ * ledger by the caller's own login).
  */
 @Service
 public class ConsultantFeaturesService {
@@ -77,6 +77,29 @@ public class ConsultantFeaturesService {
     }
 
     private com.dossier.api.service.ent.licenses.OrgLicenseGate licenses;
+    private com.dossier.api.repository.AiCallRepository aiCalls;
+    private com.dossier.api.service.AiBudgetService aiBudget;
+
+    /** Optional (gap D7): the AI ledger, for the tailoring and optimization counts. */
+    @Autowired(required = false)
+    public void setAiCalls(com.dossier.api.repository.AiCallRepository aiCalls) {
+        this.aiCalls = aiCalls;
+    }
+
+    /** Optional (gap D7): the AI budget meter. */
+    @Autowired(required = false)
+    public void setAiBudget(com.dossier.api.service.AiBudgetService aiBudget) {
+        this.aiBudget = aiBudget;
+    }
+
+    /** The AI tasks counted on each AI card (their wire names in {@code ai_call.task}). */
+    static final List<String> TAILOR_TASKS = List.of(com.dossier.api.service.ai.AiTask.TAILOR.wire());
+    static final List<String> OPTIMIZE_TASKS = List.of(
+        com.dossier.api.service.ai.AiTask.FIT.wire(),
+        com.dossier.api.service.ai.AiTask.REWRITE.wire(),
+        com.dossier.api.service.ai.AiTask.SUMMARY.wire(),
+        com.dossier.api.service.ai.AiTask.SUGGEST.wire()
+    );
 
     /** Optional (LICENCES-BUILD.md L5): the licence reader. With it, whether a feature is on comes from the consultant's own licence. */
     @Autowired(required = false)
@@ -99,10 +122,10 @@ public class ConsultantFeaturesService {
     static List<Def> catalog() {
         return List.of(
             new Def("job-matching", "Job Matching", "Job matches ranked by your skills, location and experience.", "accent", "search", false, null, "matches", "viewed this month", "/w/consultant/matches", "View", false),
-            new Def("resume-tailoring", "AI Resume Tailoring", "Generate tailored resumes for specific job opportunities.", "violet", "file", true, 50, "credits", "used this month", "/w/consultant/resumes", "Use", true),
-            new Def("interview-prep", "Interview Prep", "Practice common interview questions and score your own answers.", "green", "video", true, 20, "sessions", "used this month", "/w/consultant/interview-prep", "Use", true),
+            new Def("resume-tailoring", "AI Resume Tailoring", "Generate tailored resumes for specific job opportunities.", "violet", "file", true, null, "tailorings", "this month, from your AI budget", "/w/consultant/resumes", "Use", true),
+            new Def("interview-prep", "Interview Prep", "Practice common interview questions and score your own answers.", "green", "video", true, null, "sessions", "this month", "/w/consultant/interview-prep", "Use", true),
             new Def("application-tracking", "Email Application Tracking", "Track your job applications and get status updates automatically.", "amber", "mail", false, null, "applications", "tracked", "/w/consultant/applications", "View", true),
-            new Def("resume-optimization", "Resume Optimization", "Get AI recommendations to improve your resume and skills.", "coral", "sparkles", true, 20, "optimizations", "used this month", "/w/consultant/resumes", "Use", true)
+            new Def("resume-optimization", "Resume Optimization", "Get AI recommendations to improve your resume and skills.", "coral", "sparkles", true, null, "AI checks", "this month, from your AI budget", "/w/consultant/resumes", "Use", true)
         );
     }
 
@@ -130,7 +153,13 @@ public class ConsultantFeaturesService {
         int appsNow = count(apps, TalentApplication::getCreatedAt, monthStart, null);
         int appsPrev = count(apps, TalentApplication::getCreatedAt, prevStart, monthStart);
 
-        // With the licence reader, "on" is the consultant's own licence; allowances are still the catalog stand-ins (sample) until usage is metered.
+        String login = me.login();
+        Integer tailorNow = aiCount(login, TAILOR_TASKS, monthStart, null);
+        Integer tailorPrev = aiCount(login, TAILOR_TASKS, prevStart, monthStart);
+        Integer optimizeNow = aiCount(login, OPTIMIZE_TASKS, monthStart, null);
+        Integer optimizePrev = aiCount(login, OPTIMIZE_TASKS, prevStart, monthStart);
+
+        // With the licence reader, "on" is the consultant's own licence.
         java.util.Map<String, Integer> licensed = licenses == null ? null : licenses.liveFeatures(org, c.getId(), now);
         List<Feature> features = catalog().stream().map(d -> {
             Integer used = null;
@@ -139,6 +168,8 @@ public class ConsultantFeaturesService {
                 case "job-matching" -> { used = viewsNow; last = viewsPrev; }
                 case "interview-prep" -> { used = prepNow; last = prepPrev; }
                 case "application-tracking" -> { used = apps.size(); last = appsPrev; }
+                case "resume-tailoring" -> { used = tailorNow; last = tailorPrev; }
+                case "resume-optimization" -> { used = optimizeNow; last = optimizePrev; }
                 default -> { }
             }
             String status = licensed == null || licensed.containsKey(LICENSE_KEY.get(d.key())) ? "ENABLED" : "NOT_AVAILABLE";
@@ -160,7 +191,23 @@ public class ConsultantFeaturesService {
 
         boolean real = licensed != null;
         Tiles tiles = new Tiles(active, !real, creditsLeft, creditsLeft == null && real ? null : credits == null ? null : credits.allowance(), true, usedThisMonth, delta, premium, !real, expiring, renewsOn, true);
-        return new Response(org, now, c.getDisplayName(), !real, tiles, features);
+        return new Response(org, now, c.getDisplayName(), !real, tiles, features, aiBudgetOf(login));
+    }
+
+    /** Successful AI calls of {@code tasks} by {@code login} in [from, before); null without the ledger (never a made-up number). */
+    private Integer aiCount(String login, List<String> tasks, Instant from, Instant before) {
+        if (aiCalls == null || login == null) return null;
+        long since = aiCalls.countByLoginAndTaskInAndCreatedAtGreaterThanEqual(login, tasks, from);
+        long after = before == null ? 0 : aiCalls.countByLoginAndTaskInAndCreatedAtGreaterThanEqual(login, tasks, before);
+        return (int) Math.max(0, since - after);
+    }
+
+    /** The organization-paid AI budget of an enterprise account, or null (a personal login's AI is not the organization's; decision 2026-11-15). */
+    private com.dossier.api.service.ent.consultantws.ConsultantFeaturesDTO.AiBudget aiBudgetOf(String login) {
+        if (aiBudget == null || !com.dossier.api.config.Constants.isEnterpriseLogin(login)) return null;
+        com.dossier.api.service.AiBudgetService.Usage u = aiBudget.usage(login);
+        if (!"budget".equals(u.metered())) return null;
+        return new com.dossier.api.service.ent.consultantws.ConsultantFeaturesDTO.AiBudget(Math.min(100, Math.max(0, u.used())), u.resetsAt(), u.economy());
     }
 
     private static <T> int count(List<T> rows, Function<T, Instant> at, Instant from, Instant before) {

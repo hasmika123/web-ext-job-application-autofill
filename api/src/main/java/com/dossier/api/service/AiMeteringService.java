@@ -103,10 +103,17 @@ public class AiMeteringService {
         callRepository.save(call);
     }
 
-    /** The K7.2 ledger columns, written on both the success and the failure path: the service served and the scope (personal today; ORG rows come with the org path). */
-    private static void stamp(AiCall call, String login, AiTask task) {
+    /**
+     * The K7.2 ledger columns, written on both the success and the failure path: the service served and the scope. An enterprise account's call
+     * is the organization's (gap D1): scope {@code ORG} and its {@code org_id}, so the organization's AI spend can be summed; a personal one is
+     * {@code PERSONAL}.
+     */
+    static void stamp(AiCall call, String login, AiTask task) {
         call.setFeatureKey(com.dossier.api.service.entitlement.AiTaskFeatures.featureOf(task));
-        if (login != null) call.setUsageScope("PERSONAL");
+        if (login == null) return;
+        java.util.Optional<Long> org = com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess.orgOf(login);
+        call.setUsageScope(org.isPresent() ? "ORG" : "PERSONAL");
+        org.ifPresent(call::setOrgId);
     }
 
     static String period() {
