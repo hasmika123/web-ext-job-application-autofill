@@ -335,6 +335,31 @@ class EnterpriseDemoSeederIT {
         assertThat(platform.get("accounts")).isEmpty();
     }
 
+    /** Gap D10: the same demo organization on an address that is not its development host offers no demo members and signs nobody in. */
+    @Test
+    void onAnyOtherAddressOfTheDemoOrganizationThereIsNoOneClickSignIn() throws Exception {
+        String other = "demo-d10-" + System.nanoTime() + ".example.org";
+        com.dossier.api.domain.ent.OrgHostname row = new com.dossier.api.domain.ent.OrgHostname();
+        row.setOrgId(acme().getId());
+        row.setHostname(other);
+        row.setKind(com.dossier.api.domain.enumeration.OrgHostnameKind.SUBDOMAIN);
+        row.setStatus(com.dossier.api.domain.enumeration.OrgHostnameStatus.ACTIVE);
+        row = hostnames.saveAndFlush(row);
+        resolver.invalidate();
+        try {
+            assertThat(resolver.resolve(other).isTenant()).as("the address serves the demo organization").isTrue();
+            JsonNode tab = mapper.readTree(mockMvc.perform(get("/api/public/tenant/demo").header(HOST, other)).andReturn().getResponse().getContentAsString());
+            assertThat(tab.get("enabled").asBoolean()).isFalse();
+            assertThat(tab.get("accounts")).isEmpty();
+            assertThat(login(other, sarah()).getResponse().getStatus()).isEqualTo(404);
+        } finally {
+            row.setStatus(com.dossier.api.domain.enumeration.OrgHostnameStatus.REMOVED);
+            row.setRemovedAt(java.time.Instant.now());
+            hostnames.saveAndFlush(row);
+            resolver.invalidate();
+        }
+    }
+
     @Test
     void registrationRefusesTheDemoNamespace() {
         assertThat(com.dossier.api.service.DemoAccountService.isDemoLogin("demo-ent-acme-sarah")).isTrue();

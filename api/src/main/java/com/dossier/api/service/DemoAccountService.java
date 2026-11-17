@@ -35,7 +35,10 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -144,6 +147,32 @@ public class DemoAccountService {
     @Value("${dossier.demo.admin-enabled:false}")
     private boolean adminEnabled;
 
+    /** Set by Spring; null in plain unit tests (then no profile is active). */
+    private Environment environment;
+
+    @Autowired(required = false)
+    void setEnvironment(Environment environment) {
+        this.environment = environment;
+    }
+
+    /**
+     * Gap D10: {@code demo-admin} is a passwordless ROLE_ADMIN account, so the prod profile refuses it whatever DEMO_ADMIN_ENABLED says. It is
+     * then never created, never offered and never signs in; the personal demo (the job seeker) still follows DEMO_ENABLED alone.
+     */
+    boolean adminAllowed() {
+        if (!adminEnabled) return false;
+        if (environment != null && environment.acceptsProfiles(Profiles.of("prod"))) {
+            if (!warnedAdminInProd) {
+                warnedAdminInProd = true;
+                org.slf4j.LoggerFactory.getLogger(DemoAccountService.class).warn("DEMO_ADMIN_ENABLED is set under the prod profile: ignored, demo-admin stays off");
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private volatile boolean warnedAdminInProd;
+
     public DemoAccountService(
         UserRepository userRepository,
         AuthorityRepository authorityRepository,
@@ -206,7 +235,7 @@ public class DemoAccountService {
 
     /** The accounts the personal site's demo panel offers, in display order: the job seeker, plus the app admin while {@code DEMO_ADMIN_ENABLED}. */
     public List<DemoAccount> accounts() {
-        if (!adminEnabled) {
+        if (!adminAllowed()) {
             return OFFERED;
         }
         List<DemoAccount> all = new java.util.ArrayList<>(OFFERED);
@@ -216,7 +245,7 @@ public class DemoAccountService {
 
     /** Whether the {@code demo-admin} account is on offer (needs the demo on AND {@code DEMO_ADMIN_ENABLED}). */
     public boolean isAdminDemoEnabled() {
-        return enabled && adminEnabled;
+        return enabled && adminAllowed();
     }
 
     /** True when {@code login} is one of the fixed demo logins (case-insensitive). */
@@ -301,7 +330,7 @@ public class DemoAccountService {
             });
         ensureAccount(LOGIN_JOB_SEEKER, "Priya", "Sharma", userAuthority); // the demo persona (D47)
         ensureAccount(LOGIN_ORG, "Demo", "Organization", userAuthority);
-        if (adminEnabled) {
+        if (adminAllowed()) {
             Authority adminAuthority = authorityRepository
                 .findById(AuthoritiesConstants.ADMIN)
                 .orElseGet(() -> {

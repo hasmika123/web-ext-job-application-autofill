@@ -1,7 +1,10 @@
 package com.dossier.api.service;
 
 import com.dossier.api.security.SecurityUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,7 +26,7 @@ import org.springframework.stereotype.Component;
  * </ul>
  *
  * <p>{@code dossier.demo.allow-writes} (env {@code DEMO_ALLOW_WRITES}, default false) is a global dev
- * override that lifts the block on the second group too. Never enable it in production.
+ * override that lifts the block on the second group too. The prod profile ignores it (gap D10).
  */
 @Component
 public class DemoGuard {
@@ -31,14 +34,26 @@ public class DemoGuard {
     private final DemoAccountService demoAccounts;
     private final boolean allowWrites;
 
+    private Environment environment;
+
     public DemoGuard(DemoAccountService demoAccounts, @Value("${dossier.demo.allow-writes:false}") boolean allowWrites) {
         this.demoAccounts = demoAccounts;
         this.allowWrites = allowWrites;
     }
 
+    /** Set by Spring; null in plain unit tests. */
+    @Autowired(required = false)
+    void setEnvironment(Environment environment) {
+        this.environment = environment;
+    }
+
+    private boolean writesAllowed() {
+        return allowWrites && (environment == null || !environment.acceptsProfiles(Profiles.of("prod")));
+    }
+
     /** Throw {@code DEMO_READ_ONLY} when the signed-in user is a demo account (unless the dev override is on). */
     public void assertNotDemo() {
-        if (allowWrites) {
+        if (writesAllowed()) {
             return;
         }
         if (SecurityUtils.getCurrentUserLogin().map(demoAccounts::isDemo).orElse(false)) {

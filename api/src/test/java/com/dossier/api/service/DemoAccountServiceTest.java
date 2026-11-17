@@ -221,6 +221,27 @@ class DemoAccountServiceTest {
         assertThat(on.isAdminDemoEnabled()).isTrue();
     }
 
+    /** Gap D10: demo-admin is a passwordless platform admin, so the prod profile refuses it whatever DEMO_ADMIN_ENABLED says. */
+    @Test
+    void theProdProfileNeverOffersOrCreatesTheAppAdminDemo() {
+        DemoAccountService prod = service("pw", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(prod, "adminEnabled", true);
+        org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+        env.setActiveProfiles("prod");
+        prod.setEnvironment(env);
+        assertThat(prod.accounts()).extracting(DemoAccountService.DemoAccount::login).containsExactly("demo");
+        assertThat(prod.isAdminDemoEnabled()).isFalse();
+
+        prod.ensureAccounts();
+        assertThat(users).doesNotContainKey("demo-admin");
+        assertThat(users).containsKey("demo");
+
+        org.springframework.mock.env.MockEnvironment dev = new org.springframework.mock.env.MockEnvironment();
+        dev.setActiveProfiles("dev");
+        prod.setEnvironment(dev);
+        assertThat(prod.isAdminDemoEnabled()).as("outside prod the switch still works").isTrue();
+    }
+
     @Test
     void theAccountListNeverCarriesAPassword() {
         List<DemoAccountService.DemoAccount> accounts = service("super-secret").accounts();
