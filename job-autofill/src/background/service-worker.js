@@ -75,8 +75,13 @@ async function callAnthropic(apiKey, system, user, maxTokens) {
 // names the escape hatch, because there genuinely is one: a BYO key takes priority over the
 // server path in every one of these functions.
 const PRO_AI_MESSAGE = "Kiwiply AI is a Pro feature — upgrade, or add your own key.";
+// Gap D1: an organization's account whose licence has no AI. The organization pays, so the advice is "ask your admin", never "upgrade".
+const ORG_AI_MESSAGE = "AI help isn't part of your licence. Ask your organization's admin to add it.";
 
 function aiFailure(e) {
+  if (e && e.code === "FEATURE_NOT_LICENSED") {
+    return { proRequired: true, notLicensed: true, error: ORG_AI_MESSAGE, upgradePath: null };
+  }
   if (e && e.code === "PRO_REQUIRED") {
     // K7.6: carry the server-chosen upgrade path so the panel can link straight to the right plan.
     return { proRequired: true, error: PRO_AI_MESSAGE, upgradePath: e.upgrade && e.upgrade.path ? e.upgrade.path : null };

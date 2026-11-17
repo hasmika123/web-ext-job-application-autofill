@@ -178,6 +178,8 @@ export interface Usage {
   resetsOn: string;
   consultants: ConsultantUsage[];
   features: FeatureTotal[];
+  /** The organization's AI spend this month against the sum of its consultants' AI budgets, in percent (gap D7); null outside the current month or with no AI budget. */
+  aiBudgetPercent?: number | null;
 }
 
 export interface Month {

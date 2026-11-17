@@ -178,7 +178,7 @@ public class ResumeTailorService {
             case TASK_DISABLED -> {
                 return new Result(Status.DISABLED, null, false, 0, 0, null);
             }
-            case PRO_REQUIRED -> throw new ProRequiredException(ProRequiredException.CODE_PRO_REQUIRED, "Resume tailoring is part of Pro");
+            case PRO_REQUIRED -> throw ProRequiredException.forAi(login, "Resume tailoring is part of Pro");
             default -> {}
         }
         if (!consent) return new Result(Status.CONSENT_REQUIRED, null, false, d.used(), d.limit(), d.resetsAt());

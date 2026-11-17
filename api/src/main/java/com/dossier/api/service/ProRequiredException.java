@@ -16,6 +16,24 @@ public class ProRequiredException extends RuntimeException {
 
     public static final String CODE_PRO_REQUIRED = "PRO_REQUIRED";
     public static final String CODE_RESUME_LIMIT = "RESUME_LIMIT";
+    /** An enterprise account whose licence carries no AI (gap D1): its organization pays, so the advice is "ask your admin", never "upgrade". */
+    public static final String CODE_FEATURE_NOT_LICENSED = "FEATURE_NOT_LICENSED";
+
+    /**
+     * The 402 for an AI task this login may not run. A personal account hears about Pro ({@code personalMessage}); an enterprise account
+     * ({@code ent#} login) is told its licence has no AI and that its organization's admin can add it (gap D1). The 402 body never carries an
+     * upgrade block for an enterprise login ({@code ExceptionTranslator}).
+     */
+    public static ProRequiredException forAi(String login, String personalMessage) {
+        if (com.dossier.api.config.Constants.isEnterpriseLogin(login)) {
+            return new ProRequiredException(
+                CODE_FEATURE_NOT_LICENSED,
+                "AI help isn't part of your licence. Ask your organization's admin to add an AI add-on.",
+                Map.of("canSelfServe", false)
+            );
+        }
+        return new ProRequiredException(CODE_PRO_REQUIRED, personalMessage);
+    }
 
     private final String code;
     private final transient Map<String, Object> extra;

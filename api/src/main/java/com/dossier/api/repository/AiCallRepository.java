@@ -25,6 +25,10 @@ public interface AiCallRepository extends JpaRepository<AiCall, Long> {
         @Param("since") Instant since
     );
 
+    /** What an organization's enterprise accounts spent on AI since {@code since}, in micro-dollars (gap D1: calls stamped ORG with its id). */
+    @Query("select coalesce(sum(c.costMicros), 0) from AiCall c where c.orgId = :orgId and c.usageScope = 'ORG' and c.createdAt >= :since and c.success = true")
+    long orgCostSince(@Param("orgId") Long orgId, @Param("since") Instant since);
+
     /** How many successful AI calls (any task) a login made since {@code since}: the demo accounts' daily cap. */
     @Query("select count(c) from AiCall c where c.login = :login and c.createdAt >= :since and c.success = true")
     long countSuccessfulSince(@Param("login") String login, @Param("since") Instant since);

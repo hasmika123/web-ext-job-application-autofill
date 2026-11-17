@@ -132,10 +132,7 @@ public class ResumeMatchService {
             case TASK_DISABLED -> {
                 return new Result(Status.DISABLED, List.of(), false, 0, 0, null);
             }
-            case PRO_REQUIRED -> throw new ProRequiredException(
-                ProRequiredException.CODE_PRO_REQUIRED,
-                "Seeing which resume fits a job is part of Pro"
-            );
+            case PRO_REQUIRED -> throw ProRequiredException.forAi(login, "Seeing which resume fits a job is part of Pro");
             default -> {}
         }
         if (!consent) {

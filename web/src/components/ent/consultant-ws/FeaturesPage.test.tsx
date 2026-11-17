@@ -83,13 +83,46 @@ describe("My Features from real data", () => {
     await mount();
     const row = (k: string) => document.querySelector(`[data-feature-row="${k}"]`) as HTMLElement;
     expect(within(row("job-matching")).getByText("Unlimited")).toBeTruthy();
-    expect(within(row("job-matching")).getByText("2 viewed this month")).toBeTruthy();
+    expect(within(row("job-matching")).getByText("2 matches viewed this month")).toBeTruthy();
     expect(within(row("interview-prep")).getByText("18 / 20 sessions")).toBeTruthy();
     expect(within(row("interview-prep")).getByText("Resets Nov 1, 2026")).toBeTruthy();
     expect(row("resume-tailoring").textContent).not.toMatch(/arrives with this tool|not tracked yet/);
     expect(within(row("resume-tailoring")).queryByRole("progressbar")).toBeNull();
     expect(within(row("interview-prep")).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("90");
     expect(document.body.textContent).not.toMatch(/\$|price|billing|margin/i);
+  });
+
+  it("shows the organization-paid AI budget as a share, and the AI features draw on it (gap D7)", async () => {
+    reply = () => ({
+      status: 200,
+      body: {
+        ...full(),
+        entitlementsSample: false,
+        ai: { percentUsed: 40, resetsAt: "2026-12-01T00:00:00Z", economy: false },
+        features: [
+          feat({ key: "resume-tailoring", title: "AI Resume Tailoring", premium: true, allowance: null, used: 3, unit: "tailorings", usedNote: "this month, from your AI budget", sample: false }),
+          feat({ key: "interview-prep", title: "Interview Prep", premium: true, allowance: null, used: 2, unit: "sessions", usedNote: "this month", sample: false }),
+        ],
+      },
+    });
+    await mount();
+    const card = document.querySelector("[data-ai-budget]") as HTMLElement;
+    expect(card.getAttribute("data-ai-budget")).toBe("40");
+    expect(card.textContent).toMatch(/40% used · 60% left/);
+    expect(card.textContent).toMatch(/starts again on Dec 1, 2026/);
+    expect(within(card).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("40");
+    const row = (k: string) => document.querySelector(`[data-feature-row="${k}"]`) as HTMLElement;
+    expect(within(row("resume-tailoring")).getByText("Shares your AI budget")).toBeTruthy();
+    expect(within(row("resume-tailoring")).getByText("3 tailorings this month, from your AI budget")).toBeTruthy();
+    expect(within(row("interview-prep")).getByText("Unlimited")).toBeTruthy();
+    expect(row("interview-prep").textContent).not.toMatch(/ \/ 20/);
+    expect(document.querySelectorAll("[data-sample]").length).toBe(0);
+    expect(document.body.textContent).not.toMatch(/\$|price|billing|margin/i);
+  });
+
+  it("an account without an organization-paid AI budget shows no budget card", async () => {
+    await mount();
+    expect(document.querySelector("[data-ai-budget]")).toBeNull();
   });
 
   it("filters to what needs attention and to premium tools", async () => {

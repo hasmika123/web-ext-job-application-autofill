@@ -48,7 +48,12 @@ describe("usage helpers", () => {
 
   it("words the allowance cell", () => {
     expect(allowanceText(row({ allowance: 50, used: 32 }))).toEqual({ headline: "32 / 50 credits", detail: null });
-    expect(allowanceText(row({ allowance: null, used: 18, usedNote: "viewed this month" }))).toEqual({ headline: "Unlimited", detail: "18 viewed this month" });
+    expect(allowanceText(row({ allowance: null, used: 18, unit: "matches", usedNote: "viewed this month" }))).toEqual({ headline: "Unlimited", detail: "18 matches viewed this month" });
+    expect(allowanceText(row({ key: "resume-tailoring", allowance: null, used: 3, unit: "tailorings", usedNote: "this month, from your AI budget" }))).toEqual({
+      headline: "Shares your AI budget",
+      detail: "3 tailorings this month, from your AI budget",
+    });
+    expect(allowanceText(row({ key: "resume-optimization", allowance: null, used: null })).headline).toBe("Shares your AI budget");
     expect(allowanceText(row({ allowance: 20, used: null, unit: "sessions" }))).toEqual({ headline: "20 sessions", detail: null });
     expect(allowanceText(row({ status: "DISABLED" })).headline).toBe("No allowance");
   });

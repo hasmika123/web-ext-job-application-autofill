@@ -76,6 +76,12 @@ function ByConsultant({ u }: { u: Usage }) {
   if (u.consultants.length === 0) return <EmptyState variant="inline" title="No licensed consultants" description="Usage shows here for consultants who hold a licence." />;
   return (
     <div className="space-y-2">
+      {u.current && u.aiBudgetPercent != null ? (
+        <div className="max-w-[420px] space-y-1" data-usage-org-ai={u.aiBudgetPercent}>
+          <p className="text-[13px] font-semibold text-ink">Your consultants have used {u.aiBudgetPercent}% of this month&apos;s AI budget</p>
+          <Meter value={u.aiBudgetPercent} max={100} label="The organization's AI budget" valueText={`${u.aiBudgetPercent} percent of the organization's AI budget`} />
+        </div>
+      ) : null}
       {u.current ? <p className="text-[12.5px] text-muted">AI budgets reset on {day(u.resetsOn)}.</p> : <p className="text-[12.5px] text-muted">AI budget use is shown for the current month only.</p>}
       <div className="overflow-x-auto rounded-[var(--radius)] border border-line bg-paper">
         <table aria-label="Usage by consultant" className="w-full border-collapse text-[12.5px]" data-usage-consultants>

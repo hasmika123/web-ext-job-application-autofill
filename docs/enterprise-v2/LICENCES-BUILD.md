@@ -36,5 +36,26 @@
 the consultant's monthly AI budget), the inbox (`inbox.monitoring`) and Autopilot prepare (`automation.approved_apply`, plus the org opt-in)
 work at once. The demo's per-consultant admin AI-quota override is no longer needed.
 
+## D1 + D7 (2026-11-17, branch `ent-ai-licence-usage`): AI for consultants, and real usage on My Features
+
+**Decisions (user, 2026-11-15):** organization-paid AI is for **separate enterprise accounts only** (`ent#` logins; a personal login's AI is never
+the organization's), and the licence's AI add-ons make **one pooled monthly budget** that every AI task draws from.
+
+- **Refusal:** an enterprise account without AI on its licence gets 402 `FEATURE_NOT_LICENSED` ("AI help isn't part of your licence. Ask your
+  organization's admin to add an AI add-on.", `canSelfServe: false`) from draft, job fit, resume match, tailoring and the builder AI
+  (`ProRequiredException.forAi`). A personal account still gets `PRO_REQUIRED`. The extension shows the same advice: the drafting note,
+  the job-fit message and the service worker's refusal.
+- **Spend is the organization's:** every AI call of an enterprise account is written to the ledger as `usage_scope = ORG` with its `org_id`
+  (`AiMeteringService.stamp`). `AiCallRepository.orgCostSince` sums it.
+- **My Features:** no made-up allowance. AI Resume Tailoring counts `tailor` calls; Resume Optimization counts `fit`, `rewrite`, `summary` and
+  `suggest` calls, both "this month, from your AI budget". Interview Prep is uncapped. A new `ai` block (`percentUsed`, `resetsAt`, `economy`)
+  feeds an "AI budget this month" card, for enterprise accounts with a budget only.
+- **Feature Usage:** `aiBudgetPercent` is the organization's AI spend this month against the sum of its consultants' AI budgets. A consultant
+  signed in with a personal login shows no AI percent.
+- **Tests:** `EnterpriseAiRefusalTest`, `ConsultantFeaturesServiceTest`, `OrgUsageReadServiceTest`, `ConsultantFeaturesResourceIT`; web
+  `FeaturesPage`, `features`, `BillingPages`; extension `assist_picks`. Extension 0.74.0.
+- **Left:** the demo organization still runs in shared mode, so its consultants keep the admin AI override (`web/scripts/demo-setup.mjs`).
+  Moving it to separate accounts touches about 44 files that sign in as `demo-ent-acme-*`, so it is its own task.
+
 ## Not in this build
 Price quotes, confirm and idempotency keys, Stripe, invoices, period rollover, bulk/CSV licence changes, org modules (marketer seat), the usage ledger and allowances.

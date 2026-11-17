@@ -35,7 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Feature Usage (docs/enterprise-v2/ORG-BILLING-BUILD.md step 1a, OBL-04 reads): what each licensed consultant really used in a month. The counts
  * come from the same rows as the consultant's own My Features page: job-match views, interview-prep sessions, applications tracked. The AI budget
- * is shown as a percent and never in dollars, for the current month only, where the licence carries AI. Where {@code usage_counter} has rows
+ * is shown as a percent and never in dollars, for the current month only, where the licence carries AI: per consultant, and for the whole
+ * organization ({@code aiBudgetPercent}: what its enterprise accounts spent this month against the sum of their licences' AI budgets, gap D7). Only
+ * enterprise accounts count: a personal login's AI is never the organization's (decision 2026-11-15). Where {@code usage_counter} has rows
  * (the demo seed), they are listed as well. Read-only; the {@code billing} module and {@code usage.view} gate it.
  */
 @Service
@@ -54,7 +56,11 @@ public class OrgUsageReadService {
 
     public record FeatureTotal(String key, String label, long used, Long allowance, int consultants) {}
 
-    public record Usage(String period, boolean current, LocalDate resetsOn, List<ConsultantUsage> consultants, List<FeatureTotal> features) {}
+    public record Usage(String period, boolean current, LocalDate resetsOn, List<ConsultantUsage> consultants, List<FeatureTotal> features, Integer aiBudgetPercent) {
+        public Usage(String period, boolean current, LocalDate resetsOn, List<ConsultantUsage> consultants, List<FeatureTotal> features) {
+            this(period, current, resetsOn, consultants, features, null);
+        }
+    }
 
     public record Month(String period, int matchViews, int prepSessions, int applications, long counted) {}
 
@@ -100,6 +106,14 @@ public class OrgUsageReadService {
         this.counters = counters;
         this.definitions = definitions;
         this.aiBudget = aiBudget;
+    }
+
+    private com.dossier.api.repository.AiCallRepository aiCalls;
+
+    /** Optional (gap D7): the AI ledger, for the organization's AI spend this month. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAiCalls(com.dossier.api.repository.AiCallRepository aiCalls) {
+        this.aiCalls = aiCalls;
     }
 
     /** Tests pin the time. */
@@ -149,7 +163,17 @@ public class OrgUsageReadService {
             }
         }
         byKey.forEach((k, t) -> totals.add(new FeatureTotal(k, labels.getOrDefault(k, k), t[0], t[3] == 1 ? t[1] : null, (int) t[2])));
-        return new Usage(key(month), current, month.plusMonths(1).atDay(1), rows, totals);
+        return new Usage(key(month), current, month.plusMonths(1).atDay(1), rows, totals, current ? orgAiPercent(orgId, rows, from) : null);
+    }
+
+    /** The organization's AI spend since {@code from} against the sum of its licensed consultants' AI budgets, in percent; null with no AI budget. */
+    private Integer orgAiPercent(Long orgId, List<ConsultantUsage> rows, Instant from) {
+        if (aiCalls == null) return null;
+        long budgetCents = 0;
+        for (ConsultantUsage u : rows) budgetCents += Math.max(0, licenseGate.aiBudgetCents(orgId, u.consultantId()));
+        if (budgetCents <= 0) return null;
+        long spentMicros = aiCalls.orgCostSince(orgId, from);
+        return (int) Math.min(100, Math.round(spentMicros * 100.0 / (budgetCents * 10_000.0)));
     }
 
     /** The organization's totals per month, oldest first, ending with the current month. */
@@ -186,7 +210,7 @@ public class OrgUsageReadService {
         ConsultantProfile c = consultants.findByOrgIdAndId(orgId, consultantId).orElse(null);
         if (c == null || c.getMemberId() == null) return null;
         String login = members.findByOrgIdAndId(orgId, c.getMemberId()).map(m -> m.getUserId()).flatMap(users::findById).map(u -> u.getLogin()).orElse(null);
-        if (login == null) return null;
+        if (login == null || !com.dossier.api.config.Constants.isEnterpriseLogin(login)) return null; // a personal login's AI is not the organization's
         AiBudgetService.Usage u = aiBudget.usage(login);
         return "budget".equals(u.metered()) ? u.used() : null;
     }

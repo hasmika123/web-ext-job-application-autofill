@@ -171,10 +171,7 @@ public class JobFitService {
             case TASK_DISABLED -> {
                 return new Result(Status.DISABLED, null, false, 0, 0, null);
             }
-            case PRO_REQUIRED -> throw new ProRequiredException(
-                ProRequiredException.CODE_PRO_REQUIRED,
-                "The job-fit check is part of Pro"
-            );
+            case PRO_REQUIRED -> throw ProRequiredException.forAi(login, "The job-fit check is part of Pro");
             default -> {}
         }
         if (!consent) {

@@ -296,16 +296,18 @@ class ConsultantFeaturesResourceIT {
         assertThat(m.path("allowance").isNull()).as("unlimited").isTrue();
         assertThat(m.path("status").asText()).isEqualTo("ENABLED");
         assertThat(m.path("sample").asBoolean()).as("no stand-in allowance left on it").isFalse();
-        assertThat(feature(p, "interview-prep").path("sample").asBoolean()).as("its allowance is still the catalog stand-in").isTrue();
+        assertThat(feature(p, "interview-prep").path("sample").asBoolean()).as("no made-up allowance is left on any feature (gap D7)").isFalse();
 
         JsonNode prep = feature(p, "interview-prep");
         assertThat(prep.path("used").asInt()).isEqualTo(3);
-        assertThat(prep.path("allowance").asInt()).isEqualTo(20);
-        assertThat(prep.path("resetsOn").asText()).isEqualTo(YearMonth.now(ZoneOffset.UTC).plusMonths(1).atDay(1).toString());
+        assertThat(prep.path("allowance").isNull()).as("not capped: the old 20 sessions was a stand-in (gap D7)").isTrue();
+        assertThat(prep.path("resetsOn").isNull()).isTrue();
 
         assertThat(feature(p, "application-tracking").path("used").asInt()).isEqualTo(1);
-        assertThat(feature(p, "resume-tailoring").path("used").isNull()).as("no metered action exists: never a made-up number").isTrue();
-        assertThat(feature(p, "resume-optimization").path("used").isNull()).isTrue();
+        assertThat(feature(p, "resume-tailoring").path("used").asInt()).as("counted from the AI ledger (gap D7): no calls yet").isZero();
+        assertThat(feature(p, "resume-tailoring").path("allowance").isNull()).as("it shares the monthly AI budget").isTrue();
+        assertThat(feature(p, "resume-optimization").path("used").asInt()).isZero();
+        assertThat(p.path("ai").isNull()).as("a personal login's AI is not the organization's (decision 2026-11-15)").isTrue();
 
         JsonNode t = p.path("tiles");
         assertThat(t.path("active").asInt()).isEqualTo(5);

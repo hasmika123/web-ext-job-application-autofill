@@ -6,9 +6,9 @@ import { shortDate, type Tone } from "./home";
  *
  * Rules the page keeps:
  *   - every figure comes from the API's answer; there is no fallback number in this file;
- *   - status and allowance are admin inputs in the real product (EntitlementService); until that admin catalog and this role merge they are
- *     demo stand-ins the API flags `sample`, drawn with a "Sample" marker. Usage is real where the product records the action; a feature
- *     with no metered action reports `used: null` and the page says so instead of inventing a number;
+ *   - status comes from the consultant's licence; no feature has a made-up allowance (gap D7). The AI features share one monthly AI budget
+ *     the organization pays for (`ai`: percent used and when it starts again); the others are not capped. Usage is real; a feature with no
+ *     metered action reports `used: null` and the page says so instead of inventing a number;
  *   - the consultant never sees a price, a margin or a billing figure.
  */
 
@@ -51,6 +51,13 @@ export interface FeatureTiles {
   expiringSample: boolean;
 }
 
+/** The consultant's organization-paid AI budget this month (gap D7), or null when their account has none. */
+export interface AiBudgetView {
+  percentUsed: number;
+  resetsAt: string | null;
+  economy: boolean;
+}
+
 export interface FeaturesView {
   orgId: number;
   generatedAt: string;
@@ -58,6 +65,15 @@ export interface FeaturesView {
   entitlementsSample: boolean;
   tiles: FeatureTiles;
   features: FeatureRow[];
+  ai: AiBudgetView | null;
+}
+
+/** The features that draw on the shared monthly AI budget instead of an allowance of their own. */
+export const AI_BUDGET_FEATURES: ReadonlySet<string> = new Set(["resume-tailoring", "resume-optimization"]);
+
+function parseAi(o: unknown): AiBudgetView | null {
+  if (!isObj(o) || typeof o.percentUsed !== "number" || !Number.isFinite(o.percentUsed)) return null;
+  return { percentUsed: Math.min(100, Math.max(0, Math.round(o.percentUsed))), resetsAt: strOrNull(o.resetsAt), economy: o.economy === true };
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -137,6 +153,7 @@ export function parseFeatures(body: unknown): FeaturesView | null {
       expiringSample: t.expiringSample === true,
     },
     features: body.features.map(parseFeature).filter((f): f is FeatureRow => f !== null),
+    ai: parseAi(body.ai),
   };
 }
 
@@ -159,11 +176,11 @@ export const percentUsed = (f: Pick<FeatureRow, "allowance" | "used">): number |
   return s === null ? null : Math.round(s * 100);
 };
 
-/** The allowance cell's two lines: the headline ("32 / 50 credits", "Unlimited") and the small line under it. */
+/** The allowance cell's two lines: the headline ("Shares your AI budget", "Unlimited", "32 / 50 credits") and the small line under it. */
 export function allowanceText(f: FeatureRow): { headline: string; detail: string | null } {
   if (f.status !== "ENABLED") return { headline: "No allowance", detail: null };
-  if (f.allowance === null)
-    return { headline: "Unlimited", detail: f.used === null ? null : `${f.used} ${f.usedNote || "used"}` };
+  const usedLine = f.used === null ? null : `${f.used} ${f.unit ? `${f.unit} ` : ""}${f.usedNote || "used"}`;
+  if (f.allowance === null) return { headline: AI_BUDGET_FEATURES.has(f.key) ? "Shares your AI budget" : "Unlimited", detail: usedLine };
   if (f.used === null) return { headline: `${f.allowance} ${f.unit}`, detail: null };
   return { headline: `${f.used} / ${f.allowance} ${f.unit}`, detail: null };
 }
