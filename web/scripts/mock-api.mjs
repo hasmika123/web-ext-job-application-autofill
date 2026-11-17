@@ -2101,6 +2101,18 @@ const server = http.createServer((req, res) => {
     }
     if (path === "/api/admin/settings/demo")
       return json(res, 200, { enabled: DEMO_ENABLED, accounts: DEMO_ACCOUNTS });
+    // Gap D12: the platform's Autopilot switch and maximums (the Organizations page's Autopilot panel). Read-only here, like every mock write.
+    {
+      const autopilot = {
+        "enterprise.autopilot.prepare.enabled": true,
+        "enterprise.autopilot.prepare.daily_cap": 30,
+        "enterprise.autopilot.prepare.monthly_cap": 300,
+        "enterprise.autopilot.prepare.max_batch": 10,
+      };
+      const key = path.startsWith("/api/admin/settings/") ? decodeURIComponent(path.slice("/api/admin/settings/".length)) : "";
+      if (key in autopilot)
+        return json(res, 200, { key, value: autopilot[key], source: "db", updatedBy: "admin", updatedAt: "2026-11-10T09:00:00Z", lastReason: "Pilot organizations are ready" });
+    }
     if (path === "/api/admin/audit") {
       const events = [
         ["admin", "DEMO_RESET", "DEMO", "demo.data", 2],

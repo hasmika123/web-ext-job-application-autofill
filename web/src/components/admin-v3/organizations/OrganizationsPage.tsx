@@ -9,6 +9,7 @@ import CreateOrganizationDialog from "./CreateOrganizationDialog";
 import TempPasswordDialog from "@/components/ent/shared/TempPasswordDialog";
 import { useListQuery } from "@/lib/list-query";
 import { humanize, ORG_STATUSES, ORG_TYPES, typeLabel, type CreatedOrg, type OrgRow, type OrgSummary } from "@/lib/admin-orgs";
+import AutopilotPanel from "./AutopilotPanel";
 
 const STATUS_TONE: Record<string, "green" | "amber" | "coral" | "slate"> = { ACTIVE: "green", PAST_DUE: "amber", PENDING_SETUP_FEE: "amber", DRAFT: "slate", SUSPENDED: "coral", CLOSED: "slate" };
 
@@ -108,6 +109,8 @@ function Inner({ summary, baseDomain }: { summary: OrgSummary | null; baseDomain
           />
         </div>
       </AdminPanel>
+
+      <AutopilotPanel />
 
       <CreateOrganizationDialog
         open={creating}
