@@ -40,7 +40,7 @@ public class OrgSettingsService {
 
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@,;<>\"]{1,64}@[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$");
     private static final Set<String> GENERAL_KEYS = Set.of("displayName", "timeZone", "locale", "contactEmail");
-    private static final Set<String> SECURITY_KEYS = Set.of("sessionTimeoutMinutes", "passwordMinLength", "reason");
+    private static final Set<String> SECURITY_KEYS = Set.of("sessionTimeoutMinutes", "passwordMinLength", "twoStepRequired", "reason");
     public static final String DEFAULT_LOCALE = "en";
     static final int REASON_MAX = 300;
 
@@ -142,7 +142,17 @@ public class OrgSettingsService {
             newMin = cleanInt(body.get("passwordMinLength"), "passwordMinLength", bounds.passwordFloor(), bounds.passwordCeiling());
             touchMin = !java.util.Objects.equals(newMin, oldMin.orElse(null));
         }
-        if (!touchTimeout && !touchMin) return view(org); // nothing changes: no reason needed, nothing audited
+        // gap D-2: two-step sign-in on or off (a boolean, never null)
+        boolean oldTwoStep = security.twoStepRequired(org.getId());
+        boolean touchTwoStep = false;
+        boolean newTwoStep = oldTwoStep;
+        if (body.has("twoStepRequired")) {
+            JsonNode t = body.get("twoStepRequired");
+            if (t == null || !t.isBoolean()) throw OrgException.invalid("twoStepRequired", "must be true or false");
+            newTwoStep = t.booleanValue();
+            touchTwoStep = newTwoStep != oldTwoStep;
+        }
+        if (!touchTimeout && !touchMin && !touchTwoStep) return view(org); // nothing changes: no reason needed, nothing audited
         String reason = cleanReason(body.get("reason"));
         List<String> parts = new ArrayList<>();
         if (touchTimeout) {
@@ -152,6 +162,10 @@ public class OrgSettingsService {
         if (touchMin) {
             writeInt(me, EnterpriseSettingKeys.ORG_SECURITY_PASSWORD_MIN_LENGTH, newMin);
             parts.add("passwordMinLength old=" + oldMin.map(String::valueOf).orElse("default") + " new=" + (newMin == null ? "default" : newMin));
+        }
+        if (touchTwoStep) {
+            upsert(me, EnterpriseSettingKeys.ORG_SECURITY_TWO_STEP_REQUIRED, String.valueOf(newTwoStep));
+            parts.add("twoStepRequired old=" + oldTwoStep + " new=" + newTwoStep);
         }
         audit.record(me, OrgAuditService.ORG_SETTINGS, OrgAuditService.TARGET_ORG, null, org.getId().toString(), "section=security " + String.join("; ", parts) + " reason=" + reason);
         return view(org);
@@ -175,7 +189,9 @@ public class OrgSettingsService {
                 security.sessionTimeoutMinutes(id).orElse(null),
                 security.ownPasswordMinLength(id).orElse(null),
                 new OrgSettingsDTO.Bounds(b.sessionMin(), b.sessionMax(), b.passwordFloor(), b.passwordCeiling()),
-                security.reasonMinChars()
+                security.reasonMinChars(),
+                security.twoStepRequired(id),
+                security.twoStepRememberDays()
             ),
             allowedLocales()
         );

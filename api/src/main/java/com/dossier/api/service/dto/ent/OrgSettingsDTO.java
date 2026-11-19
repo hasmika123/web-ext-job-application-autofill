@@ -12,5 +12,10 @@ public record OrgSettingsDTO(General general, Security security, List<String> lo
 
     public record Bounds(int sessionTimeoutMin, int sessionTimeoutMax, int passwordMinFloor, int passwordMinCeiling) {}
 
-    public record Security(Integer sessionTimeoutMinutes, Integer passwordMinLength, Bounds bounds, int reasonMinChars) {}
+    /** {@code twoStepRequired}: gap D-2, every member gets an emailed code after the password; {@code twoStepRememberDays} is the platform's setting (read-only here). */
+    public record Security(Integer sessionTimeoutMinutes, Integer passwordMinLength, Bounds bounds, int reasonMinChars, boolean twoStepRequired, int twoStepRememberDays) {
+        public Security(Integer sessionTimeoutMinutes, Integer passwordMinLength, Bounds bounds, int reasonMinChars) {
+            this(sessionTimeoutMinutes, passwordMinLength, bounds, reasonMinChars, false, 0);
+        }
+    }
 }

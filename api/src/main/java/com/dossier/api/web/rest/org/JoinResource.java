@@ -88,7 +88,19 @@ public class JoinResource {
     @OrgUnscoped
     public ResponseEntity<?> acceptCode(@PathVariable("code") String code, @RequestBody JoinAcceptRequest body, HttpServletRequest request) {
         demoGuard.assertNotDemo();
-        return guarded(request, () -> withTenantSession(joinService.acceptCode(code, body, context(request))));
+        // Gap D-2 (user decision 2026-11-19): a shared join code proves no inbox, so while the organization requires two-step sign-in the person
+        // becomes a member but gets no session here; they sign in normally and are sent the code. An emailed invite (above) still signs in.
+        return guarded(request, () -> {
+            JoinResultDTO joined = joinService.acceptCode(code, body, context(request));
+            return twoStepRequired(joined.orgId()) ? joined : withTenantSession(joined);
+        });
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.settings.OrgSecurityPolicy orgSecurity;
+
+    private boolean twoStepRequired(Long orgId) {
+        return orgSecurity != null && orgSecurity.twoStepRequired(orgId);
     }
 
     /**
