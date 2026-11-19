@@ -246,6 +246,14 @@ import with the individual directives minus HSTS. Caddy ≥ 2.6 required (`on_de
   hostname must still be ACTIVE (`HostnameStatusCache`, Caffeine, TTL 60 s, evicted on
   `config_version`) — else `401 TOKEN_HOST_REVOKED`. Suspending or removing a host therefore ends
   its sessions within one minute without touching refresh families.
+  **Built 2026-11-18 (gap D-3, user decision: cut them off everywhere):** `TenantResolver.hostnameLive(tid, hid)` (the row is the
+  organization's and ACTIVE, a custom domain still has the domains flag, the organization is live), cached with the host cache and
+  cleared by the same `invalidate()`, so a hostname write is seen with the next request. `TenantTokenBindingFilter` answers
+  `401 TOKEN_HOST_REVOKED` on every route and every host; `POST /api/refresh` refuses too. A session from a subdomain has no `hid`.
+- **Renewal (gap D-3, user decision 2026-11-18):** a tenant-bound refresh token renews only on its own organization's live host,
+  never on the platform host or with no host (`TenantSessionService.tenantRefreshAllowed`). The enterprise extension's tokens
+  (`ext=1`) still renew on the platform host, where the extension calls the API, but only while the organization is ACTIVE or
+  PAST_DUE. The connect-code flows keep `refreshAllowed`.
 - **Primary and redirects** (X3.4): `PUT /api/orgs/{orgId}/hostnames/{hid}/primary` (`domains.manage`;
   target must be ACTIVE with `cert_state = ISSUED`, else `409 HOST_NOT_LIVE`). Org setting
   `org.domains.redirect_non_primary` (BOOL, default **true**): the web `(tenant)` layout, when the
