@@ -166,6 +166,38 @@ class TenantResolverTest {
         assertThat(resolver.resolve("acme.kiwiply.com").kind()).isEqualTo(Kind.TENANT);
     }
 
+    /** Gap D-3: the domains flag can leave one organization out (its allow list): that organization's custom domain stops, its Kiwiply address does not. */
+    @Test
+    void anOrgLeftOutOfTheDomainsFlagLosesItsCustomDomainButKeepsItsSubdomain() {
+        row(77L, acme, "careers.acme.com", OrgHostnameKind.CUSTOM, OrgHostnameStatus.ACTIVE);
+        row(78L, acme, "acme.kiwiply.com", OrgHostnameKind.SUBDOMAIN, OrgHostnameStatus.ACTIVE);
+        row(79L, beta, "jobs.beta.example", OrgHostnameKind.CUSTOM, OrgHostnameStatus.ACTIVE);
+        fake.put(EnterpriseSettingKeys.FLAG_DOMAINS, "{\"on\":true,\"allow\":[" + BETA + "]}");
+        resolver.invalidate();
+        assertUnknown("careers.acme.com", Reason.FLAG_OFF);
+        assertThat(resolver.resolve("acme.kiwiply.com").orgId()).isEqualTo(ACME);
+        assertThat(resolver.resolve("jobs.beta.example").orgId()).isEqualTo(BETA);
+    }
+
+    /** Gap D-3: a trailing dot is the same host, never a way around a check. */
+    @Test
+    void aTrailingDotIsTheSameHost() {
+        row(77L, acme, "careers.acme.com", OrgHostnameKind.CUSTOM, OrgHostnameStatus.ACTIVE);
+        assertThat(resolver.resolve("careers.acme.com.").hostnameId()).isEqualTo(77L);
+        assertThat(resolver.resolve("kiwiply.com.").kind()).isEqualTo(Kind.PLATFORM);
+        assertUnknown("nobody.example.", Reason.UNKNOWN_HOST);
+    }
+
+    /** Gap D-3: no IP literal of any kind is ever a tenant, whatever rows exist. */
+    @Test
+    void noIpLiteralIsEverATenant() {
+        subdomain(acme, "acme", true);
+        for (String h : List.of("[2001:db8::1]", "[2001:db8::1]:443", "127.0.0.2", "0.0.0.0", "10.0.0.5", "192.168.1.20:3000", "74.208.212.158:443")) {
+            assertThat(resolver.resolve(h).kind()).as(h).isNotEqualTo(Kind.TENANT);
+            assertThat(resolver.resolve(h).orgId()).as(h).isNull();
+        }
+    }
+
     @Test
     void reservedPlatformHostsAndLoopbackArePlatform() {
         for (String h : List.of("kiwiply.com", "www.kiwiply.com", "app.kiwiply.com", "api.kiwiply.com", "localhost", "localhost:3000", "127.0.0.1", "[::1]", "WWW.Kiwiply.Com")) {
@@ -372,5 +404,42 @@ class TenantResolverTest {
         assertThat(resolver.certificateAllowed(null)).isFalse();
         verify(organizations, never()).findByOrgId(eq(999L));
         verify(hostnames, never()).findByOrgIdAndId(any(), any());
+    }
+
+    // ---- gap D-3: is the hostname a session was signed in on still live? -----------------------------------------------------
+
+    @Test
+    void aSessionsHostnameIsLiveOnlyWhileItIsActiveItsOrgsAndServed() {
+        OrgHostname h = row(77L, acme, "careers.acme.com", OrgHostnameKind.CUSTOM, OrgHostnameStatus.ACTIVE);
+        when(hostnames.findByOrgIdAndId(ACME, 77L)).thenReturn(java.util.Optional.of(h));
+        when(hostnames.findByOrgIdAndId(BETA, 77L)).thenReturn(java.util.Optional.empty());
+        assertThat(resolver.hostnameLive(ACME, 77L)).isTrue();
+        assertThat(resolver.hostnameLive(BETA, 77L)).as("another organization's hostname id").isFalse();
+        assertThat(resolver.hostnameLive(ACME, null)).isFalse();
+
+        for (OrgHostnameStatus s : List.of(OrgHostnameStatus.SUSPENDED, OrgHostnameStatus.REMOVED, OrgHostnameStatus.PENDING)) {
+            h.setStatus(s);
+            resolver.invalidate();
+            assertThat(resolver.hostnameLive(ACME, 77L)).as(s.name()).isFalse();
+        }
+        h.setStatus(OrgHostnameStatus.ACTIVE);
+        acme.setStatus(OrgStatus.SUSPENDED);
+        resolver.invalidate();
+        assertThat(resolver.hostnameLive(ACME, 77L)).as("its organization is suspended").isFalse();
+        acme.setStatus(OrgStatus.ACTIVE);
+        fake.put(EnterpriseSettingKeys.FLAG_DOMAINS, "{\"on\":false}");
+        resolver.invalidate();
+        assertThat(resolver.hostnameLive(ACME, 77L)).as("custom domains are switched off").isFalse();
+    }
+
+    @Test
+    void theLivenessAnswerIsCachedAndInvalidateDropsIt() {
+        OrgHostname h = row(78L, acme, "acme.kiwiply.com", OrgHostnameKind.SUBDOMAIN, OrgHostnameStatus.ACTIVE);
+        when(hostnames.findByOrgIdAndId(ACME, 78L)).thenReturn(java.util.Optional.of(h));
+        assertThat(resolver.hostnameLive(ACME, 78L)).isTrue();
+        h.setStatus(OrgHostnameStatus.SUSPENDED);
+        assertThat(resolver.hostnameLive(ACME, 78L)).as("cached until a write evicts it").isTrue();
+        resolver.invalidate();
+        assertThat(resolver.hostnameLive(ACME, 78L)).isFalse();
     }
 }

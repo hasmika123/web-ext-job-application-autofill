@@ -221,6 +221,73 @@ class TenantBoundSessionIT {
         assertThat(refresh(ACME_HOST, refreshToken).getResponse().getStatus()).isEqualTo(401);
     }
 
+    /**
+     * Gap D-3: a suspended organization's sessions stop on its host at once (org routes the generic 404, everything else 401, refresh 401) and
+     * work again once it is resumed. The cache is evicted by hand here (this class runs in a transaction, so the after-commit event never fires);
+     * that the admin's suspend and resume publish that event is AdminOrgSuspendEvictsTenantCacheTest.
+     */
+    @Test
+    void aSuspendedOrganizationsSessionsStopOnItsHostAndWorkAgainOnResume() throws Exception {
+        JsonNode t = tokens(ACME_HOST, acmeEmp);
+        String access = t.get("accessToken").asText();
+        assertThat(status(ACME_HOST, access, "/api/orgs/" + acme.getId())).isEqualTo(200);
+
+        acme.setStatus(OrgStatus.SUSPENDED);
+        orgs.saveAndFlush(acme);
+        resolver.invalidate();
+        assertThat(status(ACME_HOST, access, "/api/orgs/" + acme.getId())).as("its host is unknown now: the generic 404").isEqualTo(404);
+        assertThat(status(ACME_HOST, access, "/api/account")).as("fails closed on every other route").isEqualTo(401);
+        assertThat(refresh(ACME_HOST, t.get("refreshToken").asText()).getResponse().getStatus()).as("no new tokens on it").isEqualTo(401);
+        assertThat(login(ACME_HOST, acmeEmp).getResponse().getStatus()).as("no new sign-in on it").isEqualTo(404);
+
+        acme.setStatus(OrgStatus.ACTIVE);
+        orgs.saveAndFlush(acme);
+        resolver.invalidate();
+        assertThat(status(ACME_HOST, access, "/api/orgs/" + acme.getId())).as("resumed: the same session works again").isEqualTo(200);
+    }
+
+    /** Gap D-3: sessions on a suspended custom domain stop on that domain (and its sign-in is gone); resuming the domain brings them back. */
+    @Test
+    void aSuspendedCustomDomainStopsTheSessionsOnItAndResumeBringsThemBack() throws Exception {
+        OrgHostname h = new OrgHostname();
+        h.setOrgId(acme.getId());
+        h.setHostname("apply.acme-bound.example");
+        h.setKind(OrgHostnameKind.CUSTOM);
+        h.setStatus(OrgHostnameStatus.ACTIVE);
+        h = hostnames.saveAndFlush(h);
+        resolver.invalidate();
+        JsonNode t = tokens("apply.acme-bound.example", acmeEmp);
+        String access = t.get("accessToken").asText();
+        assertThat(status("apply.acme-bound.example", access, "/api/orgs/" + acme.getId())).isEqualTo(200);
+
+        h.setStatus(OrgHostnameStatus.SUSPENDED);
+        hostnames.saveAndFlush(h);
+        resolver.invalidate();
+        assertThat(status("apply.acme-bound.example", access, "/api/orgs/" + acme.getId())).isEqualTo(404);
+        assertThat(status("apply.acme-bound.example", access, "/api/account")).isEqualTo(401);
+        assertThat(refresh("apply.acme-bound.example", t.get("refreshToken").asText()).getResponse().getStatus()).isEqualTo(401);
+        assertThat(login("apply.acme-bound.example", acmeEmp).getResponse().getStatus()).isEqualTo(404);
+        // user decision 2026-11-18 (10-domain-routing section 6): the session ends everywhere, not only on that domain
+        assertThat(status(ACME_HOST, access, "/api/orgs/" + acme.getId())).as("not on the organization's other address either").isEqualTo(401);
+        assertThat(refresh(ACME_HOST, t.get("refreshToken").asText()).getResponse().getStatus()).isEqualTo(401);
+        String fresh = tokens(ACME_HOST, acmeEmp).get("accessToken").asText();
+        assertThat(status(ACME_HOST, fresh, "/api/orgs/" + acme.getId())).as("signing in again on a live address works").isEqualTo(200);
+
+        h.setStatus(OrgHostnameStatus.ACTIVE);
+        hostnames.saveAndFlush(h);
+        resolver.invalidate();
+        assertThat(status("apply.acme-bound.example", access, "/api/orgs/" + acme.getId())).isEqualTo(200);
+    }
+
+    /** User decision 2026-11-18: an organization session renews only on its own organization's live host, never on kiwiply.com or with no host. */
+    @Test
+    void anOrganizationSessionDoesNotRenewOnThePlatformHostOrWithNoHost() throws Exception {
+        String refreshToken = tokens(ACME_HOST, acmeEmp).get("refreshToken").asText();
+        assertThat(refresh(PLATFORM_HOST, refreshToken).getResponse().getStatus()).isEqualTo(401);
+        assertThat(refresh(null, refreshToken).getResponse().getStatus()).isEqualTo(401);
+        assertThat(refresh(ACME_HOST, refreshToken).getResponse().getStatus()).as("still fine on its own host").isEqualTo(200);
+    }
+
     @Test
     void aRemovedSeatLosesTheSessionAtTheNextRefresh() throws Exception {
         String refreshToken = tokens(ACME_HOST, acmeEmp).get("refreshToken").asText();

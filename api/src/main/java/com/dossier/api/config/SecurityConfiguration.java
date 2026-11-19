@@ -37,7 +37,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc, ObjectProvider<AccountScopes> accountScopes, ObjectProvider<com.dossier.api.service.ent.members.EnterpriseAccountLifecycle> enterpriseAccounts, @org.springframework.beans.factory.annotation.Value("${dossier.management.scrape-token:}") String scrapeToken) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc, ObjectProvider<AccountScopes> accountScopes, ObjectProvider<com.dossier.api.service.ent.TenantResolver> tenantResolvers, ObjectProvider<com.dossier.api.service.ent.members.EnterpriseAccountLifecycle> enterpriseAccounts, @org.springframework.beans.factory.annotation.Value("${dossier.management.scrape-token:}") String scrapeToken) throws Exception {
         http
             .cors(withDefaults())
             .csrf(csrf -> csrf.disable())
@@ -113,7 +113,7 @@ public class SecurityConfiguration {
             // X1.13: the scrape token authenticates /management/prometheus only, ahead of the JWT filter
             .addFilterBefore(new ScrapeTokenFilter(scrapeToken), BearerTokenAuthenticationFilter.class)
             // Enterprise V2 (X1.5): after bearer authentication, keep tenant-bound tokens on their own tenant's routes.
-            .addFilterAfter(new TenantTokenBindingFilter(accountScopes), BearerTokenAuthenticationFilter.class)
+            .addFilterAfter(new TenantTokenBindingFilter(accountScopes, tenantResolvers), BearerTokenAuthenticationFilter.class)
             // Decision O4: an enterprise account has no personal plan or personal inbox; those routes answer the generic 404 for its tokens.
             .addFilterAfter(new AccountKindRouteFilter(), BearerTokenAuthenticationFilter.class)
             // Decision O4 (S8): an enterprise token works only while its person holds an ACTIVE seat (suspended / offboarded = refused at once).

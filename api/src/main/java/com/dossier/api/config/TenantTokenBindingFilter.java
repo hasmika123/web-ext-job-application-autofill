@@ -38,17 +38,27 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
     /** O4 world check: a personal token on an enterprise host, or an enterprise token on a platform host (401, same body on every route). */
     public static final String WRONG_WORLD = "TOKEN_WRONG_WORLD";
 
+    /** Gap D-3 (10-domain-routing.md section 6): the token was signed in on a hostname that is suspended, removed or no longer served. */
+    public static final String HOST_REVOKED = "TOKEN_HOST_REVOKED";
+
     private static final Pattern ORG_SCOPED = Pattern.compile("^/api/(orgs/[0-9]+(/.*)?|ent(/.*)?)$");
 
     // Absent in the hand-wired security slices: then there is no world check, exactly the pre-O4 rules.
     private final ObjectProvider<AccountScopes> accountScopes;
+    // Absent in the hand-wired security slices: then a token's hostname is not checked.
+    private final ObjectProvider<com.dossier.api.service.ent.TenantResolver> resolvers;
 
     public TenantTokenBindingFilter() {
-        this(null);
+        this(null, null);
     }
 
     public TenantTokenBindingFilter(ObjectProvider<AccountScopes> accountScopes) {
+        this(accountScopes, null);
+    }
+
+    public TenantTokenBindingFilter(ObjectProvider<AccountScopes> accountScopes, ObjectProvider<com.dossier.api.service.ent.TenantResolver> resolvers) {
         this.accountScopes = accountScopes;
+        this.resolvers = resolvers;
     }
 
     @Override
@@ -62,6 +72,13 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
         String path = pathOf(request);
         Long tid = TenantTokenBinding.tenantOf(jwtAuth.getToken());
         TenantContext c = context.get();
+        // Gap D-3: a session signed in on a hostname (hid) that is suspended, removed or no longer served ends on every route and every host.
+        Long hid = jwtAuth.getToken().getClaim(com.dossier.api.security.SecurityUtils.HOSTNAME_CLAIM) instanceof Number n ? n.longValue() : null;
+        com.dossier.api.service.ent.TenantResolver resolver = resolvers == null ? null : resolvers.getIfAvailable();
+        if (tid != null && hid != null && resolver != null && !resolver.hostnameLive(tid, hid)) {
+            unauthorized(response, HOST_REVOKED);
+            return;
+        }
         // O4 (docs/enterprise-v2/19 1.4): with separate accounts in force a token must come from the world of the host it is presented on.
         // The extension's ext=1 enterprise tokens are accepted on a platform host and held to ExtensionRoutes by AccountKindRouteFilter (phase S6).
         AccountScopes scopes = accountScopes == null ? null : accountScopes.getIfAvailable();

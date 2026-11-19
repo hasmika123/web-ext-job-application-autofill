@@ -94,6 +94,32 @@ public class TenantSessionService {
     }
 
     /**
+     * The rule {@code POST /api/refresh} applies to a tenant-bound refresh token (gap D-3, user decision 2026-11-18): it renews only on its
+     * own organization's live host, never on the platform host or with no host, and never once the hostname it was signed in on ({@code hid})
+     * is suspended, removed or no longer served. An enterprise extension token ({@code ext}) is the one exception to the host rule: the
+     * extension calls the platform API host, so it renews there, but only while its organization is live. Then the seat must be active
+     * ({@link #refreshAllowed}). The connect-code flows keep using {@link #refreshAllowed} alone.
+     */
+    public boolean tenantRefreshAllowed(Long tid, Long hid, Long userId, boolean ext) {
+        if (tid == null) return true;
+        Optional<TenantContext> context = TenantContextHolder.current();
+        if (!ext) {
+            TenantContext c = context.orElse(null);
+            if (c == null || !c.isTenant() || !tid.equals(c.orgId())) return false;
+        } else if (organizations != null && organizations.findByOrgId(tid).map(o -> o.getStatus() != com.dossier.api.domain.enumeration.OrgStatus.ACTIVE && o.getStatus() != com.dossier.api.domain.enumeration.OrgStatus.PAST_DUE).orElse(true)) {
+            return false;
+        }
+        if (hid != null && resolver != null && !resolver.hostnameLive(tid, hid)) return false;
+        return refreshAllowed(tid, userId);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.repository.org.OrganizationRepository organizations;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private TenantResolver resolver;
+
+    /**
      * Whether a refresh token bound to {@code tid} may be exchanged now: on a tenant host the host must be that tenant, a host
      * that is given but not served never qualifies, and the seat must still be active (a removed or suspended person loses
      * the session at the next refresh).

@@ -306,7 +306,8 @@ public class AuthenticateController {
         if (tid != null) {
             TenantSessionService sessions = tenantSessions.getIfAvailable();
             Object uid = jwt.getClaim(USER_ID_CLAIM);
-            if (sessions == null || !sessions.refreshAllowed(tid, uid instanceof Number n ? n.longValue() : null)) {
+            boolean extRefresh = com.dossier.api.security.SecurityUtils.isExtension(jwt.getClaim(EXTENSION_CLAIM));
+            if (sessions == null || !sessions.tenantRefreshAllowed(tid, hid, uid instanceof Number n ? n.longValue() : null, extRefresh)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
         }
