@@ -171,6 +171,14 @@ Rate limiting: the existing BFF limiter keys on IP; on tenant hosts the key beco
 - TOTP/passkeys are Phase 12 (SSO story X12.4 carries them); the public DTO's `login.mfaRequired`
   reflects the org setting so the login page can say "Your organization requires a sign-in code".
 - Escalation B3 (08 §Session B) records this choice; it is additive and off by default.
+- **As built (gap D-2, 2026-11-19).** The org key is `org.security.two_step_required` (set from Settings → Security, with a
+  reason, audited); the challenge lives in its own `org_two_step_challenge` table (bound to the org AND hostname that asked),
+  audits are `LOGIN_TWO_STEP_CHALLENGED/PASSED/FAILED`. Platform settings: `org.security.two_step_remember_days` (30, 0..365),
+  `org.security.two_step_code_minutes` (10), `org.security.two_step_codes_per_hour` (5). "Don't ask again on this browser" stores only a hash in `org_trusted_device`
+  (the web keeps the token in the httpOnly `__Host-kiwiply_device` cookie, kept on sign-out, sent as `X-Kiwiply-Device`); a
+  password change ends it. While it is on, a kiwiply.com session (no `tid`) gets 403 `ORG_TWO_STEP_REQUIRED` on that org's
+  `/api/orgs/{id}/**`, Google on that host is refused (`TWO_STEP_USE_PASSWORD`), an emailed invite link counts as the second
+  step, a shared join code gives the seat but no session, and an account with no email gets 403 `TWO_STEP_NO_EMAIL`.
 
 ## 4. Contrast safety (X2.12)
 
