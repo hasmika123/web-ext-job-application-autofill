@@ -4,7 +4,8 @@
  * "of 142 matches" paging (so the first page equals the board). Only acme (id 2) members who hold the marketing grants see it.
  * Assign / Dismiss change the in-memory row only (a record, never a submission: E1).
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const DAY = 864e5;
 const ago = (days) => new Date(Date.now() - days * DAY).toISOString();
 

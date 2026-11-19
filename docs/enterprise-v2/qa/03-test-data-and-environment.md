@@ -13,7 +13,7 @@
 | One-click members (Demo accounts tab) | 11 | 1 |
 | Purpose | the rich tenant for every story | proves isolation and different branding |
 
-Logins are `demo-ent-{acme|beta}-{first name}`; there is **no password to know**. Each member gets a random password hash on every boot; the only way in is the **Demo accounts** tab on the tenant sign-in page (left edge of the screen), button `Sign in as <name>`. On a platform host (not a tenant) the list is `{"enabled":false,"accounts":[]}`.
+Acme and Beta are SEPARATE-accounts organizations (decision O4): every member is an enterprise account (`ent#<orgId>#<address>`). The Demo accounts tab names them by a one-click handle `demo-ent-{acme|beta}-{first name}`; there is **no password to know**. Each member gets a random password hash on every boot; the only way in is the **Demo accounts** tab on the tenant sign-in page (left edge of the screen), button `Sign in as <name>`. On a platform host (not a tenant) the list is `{"enabled":false,"accounts":[]}`.
 
 ### Members seeded by `EnterpriseDemoSeeder` (Acme, 11)
 
@@ -37,7 +37,7 @@ Beta: Bea Turner (OWNER). Two org assignments exist: Sarah to Anika (PRIMARY), O
 
 ### Extra seats created by the talent seed (not on the Demo accounts tab)
 
-Marketers with the Marketing Specialist role and real `demo-ent-<org>-<key>` logins, but **not** in the one-click list: Acme: Jessica Davis, Michael Park, Emily Lawson, David Kim, Samantha Lee, Ryan Thompson; Beta: Priya Nair, Leo Fischer. They exist so workload and performance pages look populated. Stories sign in only as the 11 base members.
+Marketers with the Marketing Specialist role and their own enterprise accounts (by address, `first.last@<org>.example.com`), but **not** in the one-click list: Acme: Jessica Davis, Michael Park, Emily Lawson, David Kim, Samantha Lee, Ryan Thompson; Beta: Priya Nair, Leo Fischer. They exist so workload and performance pages look populated. Stories sign in only as the 11 base members.
 
 ## 2. What is seeded, per layer
 

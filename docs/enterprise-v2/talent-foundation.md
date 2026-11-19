@@ -45,7 +45,7 @@ changeSet per table, empty rollbacks (flag off, data inert). Also adds `uk_group
 Same switches as the demo tenants: `DEMO_ENABLED=true ENT_DEMO_SEED=true` (never under `prod`; see `real-stack-runbook.md`). Idempotent: an org that already has
 consultant profiles is skipped. Dates are relative to now (all history is in the last 6 months). The random stream is seeded per org (same story every time).
 Extra marketer seats (Acme: Jessica Davis, Michael Park, Emily Lawson, David Kim, Samantha Lee, Ryan Thompson; Beta: Priya Nair, Leo Fischer) are real
-`demo-ent-<org>-<key>` members with the Marketing Specialist role; they are **not** in the one-click demo login tab (that list is the 11-person base roster,
+members (enterprise accounts of the SEPARATE demo organization, found by address) with the Marketing Specialist role; they are **not** in the one-click demo login tab (that list is the 11-person base roster,
 kept equal to `enterprise-demo.json`). Sign in as Sarah (Org Admin + Marketing Manager) or Omar to see everything.
 
 | Seeded (Acme / Beta) | |

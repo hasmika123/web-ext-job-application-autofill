@@ -3,7 +3,8 @@
  * 8 due this week, 11 later; 16 completed this week; 18 owned by the caller and 6 by a teammate, so the mock caller is "wide"), so the page can be compared to it
  * side by side. Writes change the in-memory rows only and never send anything (E1). Only acme (id 2) members who hold the marketing grants see it.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const HOUR = 3600e3;
 const DAY = 24 * HOUR;
 const ME = { id: 7, name: "Sarah Chen" };

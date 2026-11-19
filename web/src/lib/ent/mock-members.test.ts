@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- the mock answers loose JSON */
 import { EventEmitter } from "node:events";
 import { describe, expect, it } from "vitest";
+import { entLogin } from "../../../scripts/fixtures/enterprise.mjs";
 import { createMembersMock } from "../../../scripts/mock-members.mjs";
 
 /** The members mock (scripts/mock-members.mjs) answers the shapes the page reads; this drives it with a fake request and response. */
-function make(sub: string | null = "demo-ent-acme-sarah") {
+function make(sub: string | null = entLogin("acme", "sarah")) {
   let last: { status: number; body: Record<string, any> } | null = null;
   const json = (_res: unknown, status: number, body: unknown) => {
     last = { status, body: body as Record<string, any> };
@@ -63,7 +64,7 @@ describe("members mock", () => {
   });
 
   it("refuses the ceiling and the last administrator like the API", () => {
-    const call = make("demo-ent-acme-sarah");
+    const call = make(entLogin("acme", "sarah"));
     // Sarah is not the Owner: handing out the Owner role is above her ceiling
     const out = call("PUT", "/api/orgs/2/members/3/roles", { roleIds: [10, 1], primaryRoleId: 10 });
     expect(out.res!.status).toBe(422);

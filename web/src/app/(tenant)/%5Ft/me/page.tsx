@@ -44,7 +44,7 @@ export default async function MePage() {
       joinedAt={me.member.joinedAt}
       imageUrl={me.person.imageUrl}
       roles={me.roles.map((r) => ({ name: r.name, isPrimary: r.isPrimary }))}
-      demo={isDemoLogin(account?.login) || (account?.login ?? "").startsWith("demo-ent-")}
+      demo={isDemoLogin(account?.login) || me.person.demo === true}
       notificationPrefs={prefs}
     />
   );

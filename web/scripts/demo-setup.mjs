@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Enterprise demo: the steps that follow a fresh demo database (development only). Run once the API has finished its demo seeders.
- *   1. Anika and Ben get an AI budget (the platform admin's per-person AI override), so the extension's Pro tools work for them.
+ *   1. A check that Anika's and Ben's AI comes from their licence: they are enterprise accounts of the demo organization (SEPARATE accounts,
+ *      decision O4) and the API's demo seed puts AI add-ons on their licences, so no admin AI-quota override is set any more.
  *   2. The demo mailbox holds its staged emails back again (for a new rehearsal without restarting the API).
  *   3. A short check of what the demo needs: the prepare switch for Anika, her inbox licence, the AI budget.
  *
@@ -38,8 +39,11 @@ async function token(login, headers = {}) {
 
 const admin = await token("demo-admin");
 for (const who of ["anika", "ben"]) {
-  const r = await fetch(`${API}/api/admin/users/demo-ent-acme-${who}/ai-quota`, { method: "PUT", headers: { ...json, authorization: `Bearer ${admin}` }, body: JSON.stringify({ budgetCents: 600 }) });
-  line(r.ok, `AI budget for ${who} (${r.status})`);
+  // demo-ent-acme-<who> is the one-click handle; the pair is for that consultant's enterprise account (ent#<orgId>#<address>)
+  const t = await token(`demo-ent-acme-${who}`, acme);
+  const r = await fetch(`${API}/api/ai/usage`, { headers: { ...acme, authorization: `Bearer ${t}`, accept: "application/json" } });
+  const usage = r.ok ? await r.json() : {};
+  line(usage.metered === "budget", `${who}'s AI budget comes from the licence's AI add-ons (${r.status}${usage.metered ? `, ${usage.metered}` : ""})`);
 }
 // Rehearsals spend Autopilot's daily allowance (platform default 30 openings a day per consultant): the demo stack allows 200, so a
 // morning of rehearsing never leaves "Today 0 left" on stage. A platform setting (admin settings registry), not a code change.

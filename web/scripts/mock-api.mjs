@@ -15,7 +15,7 @@
 import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
 import { createJobsMock } from "./mock-jobs.mjs";
-import { handleMeTenant, handleTenantNotifications, memberStatus, roleName } from "./mock-me-tenant.mjs";
+import { accountOfHandle, handleMeTenant, handleTenantNotifications, memberStatus, roleName } from "./mock-me-tenant.mjs";
 import { demoPeople } from "./fixtures/enterprise.mjs";
 import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset } from "./mock-tenants.mjs";
 import { createBrandingMock } from "./mock-branding.mjs";
@@ -1949,14 +1949,16 @@ const server = http.createServer((req, res) => {
     }
     return withBody(req, (b) => {
       const login = String(b.login ?? "");
-      // X1.12: an enterprise demo member signs in on its own tenant host only, with a tid-bound pair
+      // X1.12: an enterprise demo member signs in on its own tenant host only, with a tid-bound pair. The demo is SEPARATE (decision O4):
+      // the login is a one-click HANDLE and the pair is for that person's enterprise account (subject ent#{tid}#{address}), as on the real API.
       if (login.startsWith("demo-ent-")) {
         const host = hostOf(req);
         if (!MOCK_TENANTS[host]) return json(res, 404, { code: "NOT_FOUND", message: "error.org" });
-        const known = Object.keys(MOCK_TENANTS).some((h) => memberStatus(h, login));
+        const known = Object.keys(MOCK_TENANTS).some((h) => accountOfHandle(h, login));
         if (!known) return json(res, 404, { code: "NOT_FOUND", message: "error.org" });
-        if (memberStatus(host, login) !== "ACTIVE") return json(res, 403, { code: "NOT_A_MEMBER", message: "error.org" });
-        return json(res, 200, tenantPair(login, orgKeyOf(host)));
+        const account = accountOfHandle(host, login);
+        if (!account || memberStatus(host, account) !== "ACTIVE") return json(res, 403, { code: "NOT_A_MEMBER", message: "error.org" });
+        return json(res, 200, tenantPair(account, orgKeyOf(host)));
       }
       // O4: the personal site never signs anyone into an organization account; demo-admin needs its switch (DEMO_ADMIN_ENABLED)
       if (login === "demo-org" || (login === "demo-admin" && !DEMO_ADMIN_ENABLED)) return json(res, 404, { code: "NOT_FOUND", message: "error.demo" });

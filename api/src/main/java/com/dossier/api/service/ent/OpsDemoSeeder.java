@@ -253,7 +253,7 @@ public class OpsDemoSeeder {
                 continue;
             }
             User creator = org.getCreatedByUserId() == null ? null : users.findById(org.getCreatedByUserId()).orElse(null);
-            if (creator == null || !EnterpriseDemoSeeder.isEnterpriseDemoLogin(creator.getLogin())) {
+            if (!EnterpriseDemoSeeder.isDemoCreator(org, creator)) {
                 LOG.warn("Ops demo seed: {} was not created by the enterprise demo; leaving it alone", spec.slug());
                 continue;
             }
@@ -310,7 +310,7 @@ public class OpsDemoSeeder {
 
         void loadRoster() {
             for (OrgGroup g : groups.findByOrgIdOrderBySortOrderAscNameAsc(orgId)) if (g.getKind() == OrgGroupKind.DEPARTMENT) deptIds.put(g.getName(), g.getId());
-            String prefix = EnterpriseDemoSeeder.LOGIN_PREFIX + spec.orgKey() + "-";
+            Map<String, String> keyByEmail = TalentDemoSeeder.demoKeysByEmail(spec.orgKey()); // demo people are enterprise accounts: known by address
             for (OrgMember m : roster.findRoster(orgId)) {
                 if (m.getStatus() != OrgMemberStatus.ACTIVE && m.getStatus() != OrgMemberStatus.SUSPENDED && m.getStatus() != OrgMemberStatus.INVITED) continue;
                 String key;
@@ -319,7 +319,7 @@ public class OpsDemoSeeder {
                 User u = m.getUserId() == null ? null : users.findById(m.getUserId()).orElse(null);
                 if (u != null) {
                     String login = u.getLogin() == null ? "" : u.getLogin();
-                    key = login.startsWith(prefix) ? login.substring(prefix.length()) : login;
+                    key = keyByEmail.getOrDefault(u.getEmail() == null ? "" : u.getEmail().toLowerCase(java.util.Locale.ROOT), login);
                     name = ((u.getFirstName() == null ? "" : u.getFirstName()) + " " + (u.getLastName() == null ? "" : u.getLastName())).trim();
                     email = u.getEmail();
                 } else {

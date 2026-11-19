@@ -61,8 +61,8 @@ import org.springframework.transaction.annotation.Transactional;
 @org.junit.jupiter.api.Timeout(3000)
 class ConsultantInboxDemoIT {
 
-    private static final String ANIKA = "demo-ent-acme-anika";
-    private static final String BEN = "demo-ent-acme-ben";
+    private String ANIKA; // the ent# login of the demo handle "demo-ent-acme-anika", set after seeding
+    private String BEN; // the ent# login of the demo handle "demo-ent-acme-ben", set after seeding
     private static final String CODE = "abcdefghijklmnop";
 
     @DynamicPropertySource
@@ -74,6 +74,9 @@ class ConsultantInboxDemoIT {
     @Autowired private TalentDemoSeeder talentSeeder;
     @Autowired private BillingDemoSeeder billingSeeder;
     @Autowired private ConsultantInboxDemoSeeder inboxSeeder;
+    @Autowired private com.dossier.api.service.ent.consultantws.ConsultantAiDemoSeeder aiSeeder;
+    @Autowired private com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess licenceAccess;
+    @Autowired private com.dossier.api.service.AiBudgetService aiBudget;
     @Autowired private ImapGateway imap;
     @Autowired private InboxService inbox;
     @Autowired private InboxSyncService sync;
@@ -81,6 +84,7 @@ class ConsultantInboxDemoIT {
     @Autowired private ObjectMapper om;
     @Autowired private UserRepository users;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.repository.UserRepository demoUsers;
     @Autowired private ApplicationRepository applications;
     @Autowired private InboxConnectionRepository connections;
     @Autowired private InboxMessageRepository messages;
@@ -100,6 +104,8 @@ class ConsultantInboxDemoIT {
             assertThat(talentSeeder.seed().ran()).isTrue();
             assertThat(billingSeeder.seed().ran()).isTrue();
             acme = orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).map(Organization::getId).orElseThrow();
+            ANIKA = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-anika");
+            BEN = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-ben");
 
             theSandboxIsTheGateway();
             theSeederPutsTheAddOnOnAnikaAndNotBen();
@@ -109,10 +115,24 @@ class ConsultantInboxDemoIT {
             theInterviewMailsSetTheInterviewsAndAcceptingHarborAddsItsInterview();
             benSeesNoneOfIt();
             disconnectForgetsEverything();
+            theDemoConsultantsGetTheirAiFromTheirLicence();
         } finally {
             SecurityContextHolder.clearContext();
             settings.invalidate();
         }
+    }
+
+    /**
+     * Decision 2026-11-15: organization-paid AI is for separate enterprise accounts, from the licence. The demo consultants are enterprise accounts
+     * of Acme and their licences carry the AI add-ons, so they have an AI budget with no admin override; a second run adds nothing.
+     */
+    private void theDemoConsultantsGetTheirAiFromTheirLicence() {
+        assertThat(ANIKA).startsWith("ent#" + acme + "#");
+        assertThat(aiSeeder.seed()).as("four AI add-ons on each of Anika's and Ben's licences").isEqualTo(8);
+        assertThat(aiSeeder.seed()).as("idempotent").isZero();
+        assertThat(licenceAccess.aiBudgetCents(BEN)).as("125 + 50 + 75 + 150 cents from the catalog").isEqualTo(400);
+        assertThat(licenceAccess.aiBudgetCents(ANIKA)).as("the same, plus 60 from her inbox monitoring add-on").isEqualTo(460);
+        assertThat(aiBudget.usage(ANIKA).metered()).as("metered by the licence budget, not the Free gate").isEqualTo("budget");
     }
 
     private void as(String login) {
@@ -160,7 +180,9 @@ class ConsultantInboxDemoIT {
         as(ANIKA);
         var ok = inbox.connect(imap.sandboxAddress(), CODE, acme);
         assertThat(ok.refusal()).isNull();
-        assertThat(connections.findById(id(ANIKA)).orElseThrow().getConnectedViaOrgId()).isEqualTo(acme);
+        // an enterprise account (SEPARATE demo) connects as itself: no "via" organization, the account belongs to Acme
+        assertThat(connections.findById(id(ANIKA)).orElseThrow().getConnectedViaOrgId()).isNull();
+        assertThat(users.findOneByLogin(ANIKA).orElseThrow().getOrgId()).isEqualTo(acme);
 
         assertThat(sync.sync(id(ANIKA))).isEqualTo(InboxSyncService.Result.OK);
 

@@ -3,7 +3,8 @@
  * "Opportunities" board, so the page can be compared to it side by side. Only acme (id 2) members who hold the marketing grants see it.
  * E1: nothing here sets a consultant's interest; "assign" and "request" only mark the request, like the real API.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const ART = "/ent/marketer/opportunities";
 const DAY = 86_400_000;
 const ago = (ms) => new Date(Date.now() - ms).toISOString();

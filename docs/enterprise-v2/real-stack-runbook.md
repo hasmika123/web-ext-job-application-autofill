@@ -11,9 +11,13 @@ profile, and both switches below default to off.
 | `http://acme.localhost:3200` | Acme Staffing (CONSULTANCY), teal/amber branding, a generated logo | Sarah Chen (Organization Admin + Marketing Manager), Omar Haddad (Marketing Specialist), Anika Rao and Ben Okafor (Consultants), Hana Petrov (HR Specialist), Felix Ng (Finance Specialist), Amara Silva (Account Manager), Tomas Berg (Talent Acquisition), Eve Lindqvist (Executive Viewer), Sam Whitfield (SUSPENDED), Nina Vogel (INVITED, no account yet) |
 | `http://beta.localhost:3200` | Beta Talent (COMPANY), indigo/pink branding | Bea Turner (Owner) |
 
-Two assignments exist: Sarah is Anika's PRIMARY marketer, Omar is Ben's. Logins are `demo-ent-{acme|beta}-{first name}`; nobody types
-them. There is **no password** to know: each member gets a random password hash on every boot, and the only way in is the
-**Demo accounts** tab on the tenant sign-in page (left edge of the screen).
+Two assignments exist: Sarah is Anika's PRIMARY marketer, Omar is Ben's. Acme and Beta are **SEPARATE-accounts** organizations
+(decision O4, since 2026-11-17): every member is an enterprise account of its organization (login `ent#<orgId>#<address>`, the
+organization on the user row), so a consultant's AI comes from the AI add-ons on their licence. The Demo accounts tab names each
+person by a one-click handle `demo-ent-{acme|beta}-{first name}`, which the API maps to that account; nobody types either. There is
+**no password** to know: each member gets a random password on every boot, and the only way in is the **Demo accounts** tab on the
+tenant sign-in page (left edge of the screen). A database seeded before 2026-11-17 still has the SHARED demo organizations: the seed
+leaves them alone with a warning, so drop the database and seed again.
 
 The roster lives in `api/.../EnterpriseDemoSeeder.java`; `web/scripts/fixtures/enterprise-demo.json` is the same table for the mock
 API and `EnterpriseDemoSeederIT` fails when the two differ.
@@ -60,8 +64,8 @@ in your own `.claude/launch.json` (never commit them).
 
 - `GET /api/public/tenant/demo` with `X-Kiwiply-Host: acme.localhost` (and the host secret) lists the eleven members with their
   role names; on `localhost` it is `{"enabled":false,"accounts":[]}`.
-- `POST /api/authenticate/demo {"login":"demo-ent-acme-sarah"}` on Acme's host returns a token pair whose access and refresh
-  tokens carry `tid` = Acme's organization id; the same call on Beta's host is `403 NOT_A_MEMBER`, on a platform host `404`,
+- `POST /api/authenticate/demo {"login":"demo-ent-acme-sarah"}` on Acme's host returns a token pair for Sarah's enterprise account
+  (subject `ent#<acme id>#sarah.chen@acme.example.com`) whose access and refresh tokens carry `tid` = Acme's organization id; the same call on Beta's host is `403 NOT_A_MEMBER`, on a platform host `404`,
   and with `DEMO_ENABLED=false` it is `403 DEMO_DISABLED`.
 - `GET /api/me/tenant` with her token lists **two roles** (Organization Admin, Marketing Manager). Only the workspaces whose
   module is live open: the Marketing module flag is still deferred (not registrable), so Sarah's switcher shows Admin today and

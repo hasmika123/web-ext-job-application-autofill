@@ -102,9 +102,12 @@ const MEMBERS = {
 let demoId = 300;
 for (const host of Object.keys(MEMBERS)) {
   for (const p of demoPeople(host)) {
-    if (p.login) MEMBERS[host][p.login] = { name: p.name, roles: p.roles, status: p.status, id: ++demoId };
+    // keyed by the ENTERPRISE account login (the token's subject), never by the one-click handle
+    if (p.account) MEMBERS[host][p.account] = { name: p.name, roles: p.roles, status: p.status, id: ++demoId, demo: true, handle: p.login };
   }
 }
+/** The enterprise account login the one-click handle `handle` opens on `host`, or null. */
+export const accountOfHandle = (host, handle) => Object.entries(MEMBERS[host] ?? {}).find(([, m]) => m.handle === handle)?.[0] ?? null;
 /** The role names of a template key, as the API prints them (the demo tab's labels). */
 export const roleName = (key) => ROLES[key]?.name ?? key;
 /** True when `login` holds an ACTIVE seat on `host` (the demo login's membership check). */
@@ -168,7 +171,7 @@ export function meTenantFor(host, login) {
   const body = {
     org: { id: org.id, displayName: org.displayName, status: "ACTIVE", type: org.type, primaryHost: host, terminology: org.terminology ?? {}, flags: { pastDue: false, billingActionRequired: false, greeting: true } },
     member: { id: member.id, status: member.status, title: null, departmentGroupId: null, teamGroupId: null, managerMemberId: null, joinedAt: "2026-10-01T09:00:00Z" },
-    person: { name: member.name, email: login, imageUrl: null },
+    person: { name: member.name, email: login.startsWith("ent#") ? login.split("#")[2] : login, imageUrl: null, demo: member.demo === true },
     roles: roleViews,
     permissions: Object.fromEntries(Object.entries(grants).sort(([a], [b]) => a.localeCompare(b))),
     modules: mods,

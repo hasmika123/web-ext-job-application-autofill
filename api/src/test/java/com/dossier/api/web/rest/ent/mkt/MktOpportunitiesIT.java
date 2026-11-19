@@ -45,9 +45,9 @@ import org.springframework.transaction.annotation.Transactional;
 @org.junit.jupiter.api.Timeout(240)
 class MktOpportunitiesIT {
 
-    private static final String MARKETER = "demo-ent-acme-jessica"; // Marketing Specialist: ASSIGNED scope
-    private static final String ADMIN = "demo-ent-acme-sarah"; // Org Admin + Marketing Manager: ORG scope
-    private static final String BETA_MARKETER = "demo-ent-beta-bea";
+    private String MARKETER; // the ent# login of the demo handle "demo-ent-acme-jessica", set after seeding; Marketing Specialist: ASSIGNED scope
+    private String ADMIN; // the ent# login of the demo handle "demo-ent-acme-sarah", set after seeding; Org Admin + Marketing Manager: ORG scope
+    private String BETA_MARKETER; // the ent# login of the demo handle "demo-ent-beta-bea", set after seeding
 
     @Autowired private EnterpriseDemoSeeder baseSeeder;
     @Autowired private TalentDemoSeeder talentSeeder;
@@ -55,6 +55,7 @@ class MktOpportunitiesIT {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper om;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.repository.UserRepository demoUsers;
     @Autowired private MarketerAssignmentRepository assignments;
     @Autowired private RequirementMatchRepository matches;
     @Autowired private MktOpportunityRepository opps;
@@ -76,6 +77,9 @@ class MktOpportunitiesIT {
         assertThat(talentSeeder.seed().ran()).isTrue();
         oppSeeder.seed();
         acme = orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).map(Organization::getId).orElseThrow();
+        MARKETER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-jessica");
+        ADMIN = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-acme-sarah");
+        BETA_MARKETER = com.dossier.api.service.ent.DemoLogins.of(demoUsers, orgs, "demo-ent-beta-bea");
         beta = orgs.findBySlug(EnterpriseDemoSeeder.BETA_SLUG).map(Organization::getId).orElseThrow();
     }
 

@@ -34,7 +34,8 @@
 **What a new organization needs now:** an Org Admin opens Licenses, gives each consultant a licence, and switches on the add-ons. AI help
 (`ai.resume_tailoring`, `resume.optimization`, `ai.job_matching`, `interview.ai_prep` and the other AI add-ons add their `ai_budget_cents` to
 the consultant's monthly AI budget), the inbox (`inbox.monitoring`) and Autopilot prepare (`automation.approved_apply`, plus the org opt-in)
-work at once. The demo's per-consultant admin AI-quota override is no longer needed.
+work at once. The demo's per-consultant admin AI-quota override is no longer needed: since 2026-11-17 the demo organization is SEPARATE and
+its seed puts those AI add-ons on Anika's and Ben's licences (`ConsultantAiDemoSeeder`).
 
 ## D1 + D7 (2026-11-17, branch `ent-ai-licence-usage`): AI for consultants, and real usage on My Features
 

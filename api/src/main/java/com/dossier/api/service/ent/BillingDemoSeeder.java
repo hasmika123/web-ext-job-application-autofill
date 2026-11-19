@@ -229,7 +229,7 @@ public class BillingDemoSeeder {
             Organization org = orgs.findBySlug(spec.slug()).orElse(null);
             if (org == null) continue;
             User creator = org.getCreatedByUserId() == null ? null : users.findById(org.getCreatedByUserId()).orElse(null);
-            if (creator == null || !EnterpriseDemoSeeder.isEnterpriseDemoLogin(creator.getLogin())) {
+            if (!EnterpriseDemoSeeder.isDemoCreator(org, creator)) {
                 LOG.warn("Billing demo seed: {} was not created by the enterprise demo; leaving it alone", spec.slug());
                 continue;
             }

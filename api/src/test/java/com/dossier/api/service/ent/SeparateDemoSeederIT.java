@@ -153,11 +153,13 @@ class SeparateDemoSeederIT {
         assertThat(again.accountsCreated()).isZero();
         assertThat(again.seatsCreated()).isZero();
         assertThat(users.count()).isEqualTo(afterFirst);
-        assertThat(orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).orElseThrow().getAccountMode()).isEqualTo(OrgAccountMode.SHARED);
-        assertThat(orgs.findBySlug(EnterpriseDemoSeeder.BETA_SLUG).orElseThrow().getAccountMode()).isEqualTo(OrgAccountMode.SHARED);
+        // acme and beta are SEPARATE too since the demo moved to separate accounts; Gamma's seed never changes them
+        assertThat(orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).orElseThrow().getAccountMode()).isEqualTo(OrgAccountMode.SEPARATE);
+        assertThat(orgs.findBySlug(EnterpriseDemoSeeder.BETA_SLUG).orElseThrow().getAccountMode()).isEqualTo(OrgAccountMode.SEPARATE);
         assertThat(EnterpriseDemoSeeder.TENANTS).as("the other demo seeders walk this list").doesNotContain(EnterpriseDemoSeeder.GAMMA);
-        // acme's synthetic people are still demo logins, never enterprise accounts
-        assertThat(users.findOneByLogin("demo-ent-acme-sarah").orElseThrow().getOrgId()).isNull();
+        Long acmeId = orgs.findBySlug(EnterpriseDemoSeeder.ACME_SLUG).orElseThrow().getId();
+        assertThat(EnterpriseDemoSeeder.account(users, acmeId, "acme", "sarah").orElseThrow().getOrgId()).isEqualTo(acmeId);
+        assertThat(users.findOneByLogin("demo-ent-acme-sarah")).as("no demo-login users any more").isEmpty();
     }
 
     // ---- D2/D3 (2026-10-16 audit): Gamma's consultants are linked to their seats and assigned to the marketer ---------------

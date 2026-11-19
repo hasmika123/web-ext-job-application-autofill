@@ -5,7 +5,8 @@
  * shows); every other filter, the sort and the paging work. Logging only appends a manual row (E1: nothing is submitted or sent). Only acme (id 2) members who hold
  * the marketing grants see it.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const HOUR = 3600e3;
 const DAY = 24 * HOUR;
 const photo = (name) => `/ent/marketer/activity/${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`;

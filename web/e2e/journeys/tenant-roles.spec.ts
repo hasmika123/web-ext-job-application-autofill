@@ -102,7 +102,7 @@ test.describe("Roles on the real stack", () => {
     const all = left.json.roles as { id: number; key: string; name: string; system: boolean; assignedUsers: number; version: string }[];
     const stale = all.filter((x) => !x.system && x.name.startsWith("E2E Night Desk"));
     if (stale.some((r) => r.assignedUsers > 0)) {
-      const eve = Number(sql("SELECT m.id FROM org_member m JOIN jhi_user u ON u.id = m.user_id WHERE u.login = 'demo-ent-acme-eve'"));
+      const eve = Number(sql("SELECT m.id FROM org_member m JOIN jhi_user u ON u.id = m.user_id WHERE u.email = 'eve.lindqvist@acme.example.com' AND u.org_id = m.org_id"));
       await bff(page, "PUT", `/api/orgs/${acmeId}/members/${eve}/roles`, { roleIds: [all.find((x) => x.key === "EXECUTIVE_VIEWER")!.id] });
     }
     for (const r of stale) {
@@ -200,14 +200,14 @@ test.describe("Roles on the real stack", () => {
     // and the Owner role is not assignable by an admin
     const owner = (await bff(page, "GET", `/api/orgs/${acmeId}/roles/overview`)).json.roles as { id: number; key: string }[];
     const ownerId = owner.find((r) => r.key === "OWNER")!.id;
-    const eve = Number(sql("SELECT m.id FROM org_member m JOIN jhi_user u ON u.id = m.user_id WHERE u.login = 'demo-ent-acme-eve'"));
+    const eve = Number(sql("SELECT m.id FROM org_member m JOIN jhi_user u ON u.id = m.user_id WHERE u.email = 'eve.lindqvist@acme.example.com' AND u.org_id = m.org_id"));
     const handOver = await bff(page, "PUT", `/api/orgs/${acmeId}/members/${eve}/roles`, { roleIds: [ownerId] });
     expect(handOver.status).toBe(422);
     expect(handOver.json.code).toBe("ROLE_CEILING");
   });
 
   test("assign it to a member: the count moves and Delete says who still holds it", async () => {
-    const eve = Number(sql("SELECT m.id FROM org_member m JOIN jhi_user u ON u.id = m.user_id WHERE u.login = 'demo-ent-acme-eve'"));
+    const eve = Number(sql("SELECT m.id FROM org_member m JOIN jhi_user u ON u.id = m.user_id WHERE u.email = 'eve.lindqvist@acme.example.com' AND u.org_id = m.org_id"));
     const assigned = await bff(page, "PUT", `/api/orgs/${acmeId}/members/${eve}/roles`, { roleIds: [roleId] });
     expect(assigned.status).toBe(200);
     await openRoles(page, acme);

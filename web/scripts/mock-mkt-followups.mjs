@@ -3,7 +3,8 @@
  * (12 due today, 6 overdue, 14 upcoming, 18 completed today, 14 waiting), so the page can be compared to it side by side. Writes change the in-memory
  * rows only; "reminder" records an event and never sends anything (E1). Only acme (id 2) members who hold the marketing grants see it.
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const DAY = 24 * 3600e3;
 const startOfDay = () => {
   const d = new Date();

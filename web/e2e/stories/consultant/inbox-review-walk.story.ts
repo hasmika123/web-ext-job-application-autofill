@@ -50,7 +50,7 @@ test("INBOX-WALK the held rejection, Accept, Undo and the interviews read from t
   // Start the story from "applied": the sample mail then has something to move (an earlier run left these at their later stages).
   // A direct SQL reset bypasses Hibernate's second-level cache; reset BEFORE the API starts (WALK_RESET=0 skips it here).
   const reset = process.env.WALK_RESET === "0" ? true : qaSql(
-    "UPDATE application a JOIN jhi_user u ON u.id = a.user_id SET a.status = 'APPLIED' WHERE u.login = 'demo-ent-acme-anika' AND a.company IN ('Orbit Freight','Cedar Analytics');",
+    "UPDATE application a JOIN jhi_user u ON u.id = a.user_id SET a.status = 'APPLIED' WHERE u.email = 'anika.rao@acme.example.com' AND u.org_id IS NOT NULL AND a.company IN ('Orbit Freight','Cedar Analytics');",
   );
   console.log(`WALK reset of the demo board: ${reset ? "done" : "skipped (no docker access)"}`);
 

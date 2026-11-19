@@ -83,7 +83,10 @@ public class ConsultantInboxDemoSeeder {
         int made = 0;
         Product product = ensureCatalog();
         for (JsonNode a : fixture.path("applications")) {
-            User user = users.findOneByLogin(a.path("user").asText()).orElse(null);
+            // "user" is a one-click handle (demo-ent-acme-anika): the person's enterprise account of Acme, found by address
+            User user = EnterpriseDemoSeeder.byHandle(a.path("user").asText())
+                .flatMap(h -> EnterpriseDemoSeeder.account(users, acme.getId(), h.getKey().orgKey(), h.getValue().key()))
+                .orElse(null);
             if (user == null) continue;
             made += ensureApplication(user, a);
         }

@@ -4,7 +4,8 @@
  * Only acme (id 2) members who hold the marketing grants see it; anyone else gets the API's 404. The card periods in the query change
  * only the labels/length here (the board has one set of numbers).
  */
-const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", "demo-ent-acme-omar", "demo-ent-acme-sarah"]);
+import { entLogin } from "./fixtures/enterprise.mjs";
+const MEMBERS = new Set(["marketer@acme.com", "sarah@acme.com", entLogin("acme", "omar"), entLogin("acme", "sarah")]);
 const MIN = 60e3;
 const H = 60 * MIN;
 const ago = (ms) => new Date(Date.now() - ms).toISOString();

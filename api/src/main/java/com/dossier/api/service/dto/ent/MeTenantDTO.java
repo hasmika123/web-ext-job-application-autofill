@@ -35,8 +35,11 @@ public record MeTenantDTO(
     /** The caller's seat. Group, manager and title arrive with the employee stories (X4); until then they are null. */
     public record Member(Long id, String status, String title, Long departmentGroupId, Long teamGroupId, Long managerMemberId, Instant joinedAt) {}
 
-    /** What the basic profile already shows: display name, email, photo. */
-    public record Person(String name, String email, String imageUrl) {}
+    /**
+     * What the basic profile already shows: display name, email, photo. {@code demo} is true for a member of a one-click demo organization while the
+     * demo is on (its password is a secret nobody holds): the profile page then shows, and does not save.
+     */
+    public record Person(String name, String email, String imageUrl, boolean demo) {}
 
     public record Role(Long id, String key, String name, boolean isPrimary, String workspaceKey) {}
 

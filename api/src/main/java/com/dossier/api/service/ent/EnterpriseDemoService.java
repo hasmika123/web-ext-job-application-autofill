@@ -14,7 +14,6 @@ import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.DemoException;
 import com.dossier.api.service.TokenIssuer;
-import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
@@ -116,13 +115,14 @@ public class EnterpriseDemoService {
                 }
                 continue;
             }
-            User u = users.findOneByLogin(p.login(t.orgKey())).orElse(null);
+            User u = users.findOneByOrgIdAndEmailIgnoreCase(orgId, p.email(t.orgKey())).orElse(null);
             if (u == null) continue;
             OrgMember seat = members.findByOrgIdAndUserIdAndStatusIn(orgId, u.getId(), List.of(OrgMemberStatus.ACTIVE, OrgMemberStatus.SUSPENDED)).stream().findFirst().orElse(null);
             if (seat == null) continue;
             List<String> roles = labels(orgId, seat, p);
             boolean active = seat.getStatus() == OrgMemberStatus.ACTIVE;
-            out.add(new DemoMember(u.getLogin(), name, roles.isEmpty() ? null : roles.get(0), roles, seat.getStatus().name(), active));
+            // The tab names the person by its one-click handle, never by the account's ent# login (which carries the address).
+            out.add(new DemoMember(p.handle(t.orgKey()), name, roles.isEmpty() ? null : roles.get(0), roles, seat.getStatus().name(), active));
         }
         return new Directory(true, t.name(), out);
     }
@@ -143,21 +143,31 @@ public class EnterpriseDemoService {
     }
 
     /**
-     * The tokens for {@code login} on the current tenant host. 403 DEMO_DISABLED while the demo (or the enterprise seed) is off; 404
-     * on a platform or unserved host and for a login that is not a demo member; 403 NOT_A_MEMBER for a member of another tenant or a
-     * seat that is not active.
+     * The tokens for the roster person named by {@code handle} ({@code demo-ent-acme-sarah}) on the current tenant host: that person's ENTERPRISE
+     * account of its own demo organization (decision O4; the token's subject is the account's {@code ent#} login and {@code tid} its organization).
+     * 403 DEMO_DISABLED while the demo (or the enterprise seed) is off; 404 on a platform or unserved host, on a tenant that is not a demo tenant
+     * and for a handle that names nobody seeded; 403 NOT_A_MEMBER for a member of another tenant or a seat that is not active.
      */
     @Transactional
-    public TokenIssuer.TokenPair login(String rawLogin, TenantContext c) {
+    public TokenIssuer.TokenPair login(String handle, TenantContext c) {
         if (!enabled()) throw DemoException.disabled();
-        String login = rawLogin == null ? "" : rawLogin.trim().toLowerCase(Locale.ENGLISH);
         if (c == null || !c.isTenant()) throw new OrgNotFoundException();
-        User user = users.findOneWithAuthoritiesByLogin(login).orElse(null);
-        if (user == null || !user.isActivated() || !EnterpriseDemoSeeder.isEnterpriseDemoLogin(login)) throw new OrgNotFoundException();
         if (rosterOf(c) == null) throw new OrgNotFoundException(); // a tenant that is not one of the demo tenants has no demo members
-        // The X1.5 rule: an ACTIVE seat in THIS host's organization (else 403 NOT_A_MEMBER plus its audit row), then bind the session.
-        TenantBinding binding = sessions.bindingForLogin(user.getId(), login).orElseThrow(OrgException::notAMember);
+        Map.Entry<EnterpriseDemoSeeder.Tenant, EnterpriseDemoSeeder.Person> who = EnterpriseDemoSeeder.byHandle(handle).orElseThrow(OrgNotFoundException::new);
+        Organization home = orgs.findBySlug(who.getKey().slug()).orElseThrow(OrgNotFoundException::new);
+        User user = users.findOneByOrgIdAndEmailIgnoreCase(home.getId(), who.getValue().email(who.getKey().orgKey()))
+            .flatMap(u -> users.findOneWithAuthoritiesByLogin(u.getLogin()))
+            .orElse(null);
+        if (user == null || !user.isActivated()) throw new OrgNotFoundException();
+        // The X1.5 rule for an enterprise account: an ACTIVE seat in THIS host's organization, which must be the account's own (else 403
+        // NOT_A_MEMBER, with its audit row when the host's organization has no seat for it), then bind the session to that organization.
+        TenantBinding binding = sessions.bindingForEnterpriseAccount(user.getOrgId(), user.getId(), user.getLogin());
         String authorities = user.getAuthorities().stream().map(Authority::getName).collect(Collectors.joining(" "));
         return tokenIssuer.issue(user.getLogin(), authorities, user.getId(), binding);
+    }
+
+    /** Whether {@code org} is one of the one-click demo organizations while the demo is on (the tenant profile shows its read-only notice). */
+    public boolean isDemoOrganization(Organization org) {
+        return org != null && enabled() && EnterpriseDemoSeeder.bySlug(org.getSlug()).isPresent();
     }
 }
