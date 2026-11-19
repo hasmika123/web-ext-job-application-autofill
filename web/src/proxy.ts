@@ -37,8 +37,10 @@ export async function proxy(request: NextRequest) {
 
   const resolution = await resolveHost(host, clientIpFromHeaders(request.headers));
   if (resolution.kind !== "PLATFORM") return tenantRequest(request, host, pathname, resolution.kind === "TENANT");
-  // The auth endpoints manage their own cookies: on the platform the proxy stays out of them exactly as before X2.6.
-  if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) return NextResponse.next();
+  // The auth endpoints manage their own cookies: on the platform the proxy stays out of them exactly as before X2.6, and they carry no
+  // host header. A browser-sent one is removed (gap D-3): some of their handlers call the API through serverApiFetch, which forwards
+  // that header with the shared secret, so the visitor could otherwise name any tenant to the API.
+  if (pathname === "/api/auth" || pathname.startsWith("/api/auth/")) return NextResponse.next({ request: { headers: withoutHost(request) } });
   // A platform host never serves the tenant tree: /_t/* is a plain 404 there.
   if (isTenantRoutePath(pathname)) {
     const url = request.nextUrl.clone();
@@ -46,6 +48,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(url, { request: { headers: withHost(request, host, "platform") } });
   }
   return platformSession(request, host);
+}
+
+/** The request's headers without the internal host and surface headers: only the proxy may set them, never a browser. */
+function withoutHost(request: NextRequest): Headers {
+  const h = new Headers(request.headers);
+  h.delete(TENANT_HOST_HEADER);
+  h.delete(SURFACE_HEADER);
+  return h;
 }
 
 function withHost(request: NextRequest, host: string, surface: "platform" | "tenant"): Headers {

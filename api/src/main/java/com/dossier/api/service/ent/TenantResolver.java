@@ -75,6 +75,8 @@ public class TenantResolver {
     private final int missesPerMinute;
     private final Cache cache = new Cache(MAX_CACHE_ENTRIES);
     private final Cache negative = new Cache(MAX_NEGATIVE_ENTRIES);
+    /** {@link #hostnameLive} answers, keyed {@code orgId#hostnameId}: a TENANT context for live, UNKNOWN for not. Cleared with the host cache. */
+    private final Cache hostnameLiveness = new Cache(MAX_CACHE_ENTRIES);
     private final MissCounter misses = new MissCounter();
 
     /**
@@ -155,6 +157,38 @@ public class TenantResolver {
     public void invalidate() {
         cache.clear();
         negative.clear();
+        hostnameLiveness.clear();
+    }
+
+    /**
+     * Whether the hostname a session was signed in on (its token's {@code hid}) still serves organization {@code orgId}: the row is the
+     * organization's and ACTIVE, a custom domain still has the domains flag, and the organization is live (ACTIVE or PAST_DUE) with enterprise on.
+     * Gap D-3, docs/enterprise-v2/10-domain-routing.md section 6 (user decision 2026-11-18): a session from a suspended or removed hostname ends
+     * everywhere, not only on that hostname. Cached for the host cache's lifetime and cleared with it, so a hostname write is seen at once.
+     */
+    public boolean hostnameLive(Long orgId, Long hostnameId) {
+        if (orgId == null || hostnameId == null) return false;
+        String key = orgId + "#" + hostnameId;
+        long now = clock.millis();
+        int ttlSeconds = cacheSeconds();
+        if (ttlSeconds > 0) {
+            TenantContext hit = hostnameLiveness.get(key, now);
+            if (hit != null) return hit.isTenant();
+        }
+        boolean live = computeHostnameLive(orgId, hostnameId);
+        if (ttlSeconds > 0) {
+            hostnameLiveness.put(key, live ? TenantContext.tenant(orgId, hostnameId, null) : TenantContext.unknown(null, Reason.UNKNOWN_HOST), now + ttlSeconds * 1000L);
+        }
+        return live;
+    }
+
+    private boolean computeHostnameLive(Long orgId, Long hostnameId) {
+        if (!flag.isEnabled(orgId)) return false;
+        OrgHostname row = hostnames.findByOrgIdAndId(orgId, hostnameId).orElse(null);
+        if (row == null || row.getStatus() != com.dossier.api.domain.enumeration.OrgHostnameStatus.ACTIVE) return false;
+        if (row.getKind() == OrgHostnameKind.CUSTOM && !flag.isEnabled(EnterpriseSettingKeys.FLAG_DOMAINS, orgId)) return false;
+        Organization org = organizations.findByOrgId(orgId).orElse(null);
+        return org != null && isLive(org);
     }
 
     /** An organization changed status (closed, suspended) or an admin changed an enterprise flag or host setting. */

@@ -102,4 +102,60 @@ class TenantSessionServiceTest {
         TenantContextHolder.set(TenantContext.platform("kiwiply.com"));
         assertThat(service.refreshAllowed(7L, 2L)).as("seat gone").isFalse();
     }
+
+    // ---- gap D-3: the refresh rule (user decision 2026-11-18) -------------------------------------------------------------
+
+    private TenantResolver liveness(boolean live) {
+        TenantResolver r = mock(TenantResolver.class);
+        when(r.hostnameLive(any(), any())).thenReturn(live);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "resolver", r);
+        return r;
+    }
+
+    private void orgStatus(long orgId, com.dossier.api.domain.enumeration.OrgStatus status) {
+        com.dossier.api.repository.org.OrganizationRepository orgs = mock(com.dossier.api.repository.org.OrganizationRepository.class);
+        com.dossier.api.domain.org.Organization o = new com.dossier.api.domain.org.Organization();
+        o.setStatus(status);
+        when(orgs.findByOrgId(orgId)).thenReturn(java.util.Optional.of(o));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "organizations", orgs);
+    }
+
+    @Test
+    void anOrganizationSessionRenewsOnlyOnItsOwnTenantHost() {
+        seat(7L, 1L, OrgRole.MEMBER);
+        TenantContextHolder.set(TenantContext.tenant(7L, null, "acme.kiwiply.com"));
+        assertThat(service.tenantRefreshAllowed(7L, null, 1L, false)).isTrue();
+        TenantContextHolder.set(TenantContext.platform("kiwiply.com"));
+        assertThat(service.tenantRefreshAllowed(7L, null, 1L, false)).as("never on the platform host").isFalse();
+        TenantContextHolder.clear();
+        assertThat(service.tenantRefreshAllowed(7L, null, 1L, false)).as("never with no host").isFalse();
+        TenantContextHolder.set(TenantContext.tenant(8L, null, "beta.kiwiply.com"));
+        assertThat(service.tenantRefreshAllowed(7L, null, 1L, false)).as("never on another organization's host").isFalse();
+        assertThat(service.tenantRefreshAllowed(null, null, 1L, false)).as("a personal token is not this rule's business").isTrue();
+    }
+
+    @Test
+    void aSessionFromAHostnameThatIsNoLongerLiveDoesNotRenew() {
+        seat(7L, 1L, OrgRole.MEMBER);
+        TenantContextHolder.set(TenantContext.tenant(7L, null, "acme.kiwiply.com"));
+        TenantResolver r = liveness(false);
+        assertThat(service.tenantRefreshAllowed(7L, 77L, 1L, false)).as("signed in on a suspended custom domain").isFalse();
+        verify(r).hostnameLive(7L, 77L);
+        liveness(true);
+        assertThat(service.tenantRefreshAllowed(7L, 77L, 1L, false)).isTrue();
+    }
+
+    @Test
+    void anExtensionSessionRenewsOnThePlatformHostOnlyWhileItsOrganizationIsLive() {
+        seat(7L, 1L, OrgRole.MEMBER);
+        TenantContextHolder.set(TenantContext.platform("api.kiwiply.com"));
+        orgStatus(7L, com.dossier.api.domain.enumeration.OrgStatus.ACTIVE);
+        assertThat(service.tenantRefreshAllowed(7L, null, 1L, true)).isTrue();
+        orgStatus(7L, com.dossier.api.domain.enumeration.OrgStatus.PAST_DUE);
+        assertThat(service.tenantRefreshAllowed(7L, null, 1L, true)).isTrue();
+        orgStatus(7L, com.dossier.api.domain.enumeration.OrgStatus.SUSPENDED);
+        assertThat(service.tenantRefreshAllowed(7L, null, 1L, true)).isFalse();
+        orgStatus(7L, com.dossier.api.domain.enumeration.OrgStatus.CLOSED);
+        assertThat(service.tenantRefreshAllowed(7L, null, 1L, true)).isFalse();
+    }
 }

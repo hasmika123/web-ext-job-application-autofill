@@ -47,6 +47,19 @@ describe("proxy host handling (X1.4)", () => {
     expect(override(res, "x-kiwiply-host")).toBe("localhost");
   });
 
+  it("the platform's auth routes drop a browser-sent x-kiwiply-host (gap D-3: some call the API with the shared secret)", async () => {
+    stubApi(true);
+    for (const path of ["/api/auth/change-password", "/api/auth/login", "/api/auth"]) {
+      const res = await proxy(req(path, "localhost:3100", { "x-kiwiply-host": "acme.kiwiply.com", "x-kiwiply-surface": "tenant" }));
+      const passed = res.headers.get("x-middleware-override-headers") ?? "";
+      expect(passed.split(","), path).toContain("host"); // the request's own headers are still passed on: the list is real
+      expect(passed.split(","), path).not.toContain("x-kiwiply-host");
+      expect(passed.split(","), path).not.toContain("x-kiwiply-surface");
+      expect(override(res, "x-kiwiply-host"), path).toBeNull();
+      expect(rewritten(res), path).toBeNull();
+    }
+  });
+
   it("a served tenant host is rewritten under /_t, the root to /_t (signed in)", async () => {
     stubApi(true);
     expect(rewritten(await proxy(req("/login", "acme.localhost:3100")))).toContain("/_t/login");

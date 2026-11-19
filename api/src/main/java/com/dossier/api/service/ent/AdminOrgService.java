@@ -146,6 +146,18 @@ public class AdminOrgService {
         this.accountScopes = accountScopes;
     }
 
+    private org.springframework.context.ApplicationEventPublisher events;
+
+    /** The tenant cache listens for {@link TenantConfigChangedEvent}: a suspended organization's hosts stop resolving at once (gap D-3). */
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setEvents(org.springframework.context.ApplicationEventPublisher events) {
+        this.events = events;
+    }
+
+    private void tenantChanged(String why) {
+        if (events != null) events.publishEvent(new TenantConfigChangedEvent(why));
+    }
+
     // ---- reads ------------------------------------------------------------------------------------------------------------
 
     @Transactional(readOnly = true)
@@ -405,6 +417,7 @@ public class AdminOrgService {
         org.setUpdatedAt(Instant.now());
         organizations.saveAndFlush(org);
         record(orgId, AdminAuditService.ORG_SUSPEND, OrgAuditService.ADMIN_ORG_SUSPEND, reason, "status " + before + " -> SUSPENDED", null);
+        tenantChanged("org " + orgId + " suspended"); // its hosts stop resolving after commit, not after the cache's TTL
         return detail(orgId);
     }
 
@@ -420,6 +433,7 @@ public class AdminOrgService {
         org.setUpdatedAt(Instant.now());
         organizations.saveAndFlush(org);
         record(orgId, AdminAuditService.ORG_RESUME, OrgAuditService.ADMIN_ORG_RESUME, reason, "status SUSPENDED -> ACTIVE", null);
+        tenantChanged("org " + orgId + " resumed");
         return detail(orgId);
     }
 
