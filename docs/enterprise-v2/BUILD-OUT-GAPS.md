@@ -88,7 +88,7 @@
 | D-2 | Organization can require two-step sign-in | Not built | M |
 | D-3 ✅ | Cross-tenant isolation test suite (forged host, unknown host, suspended domain) (built 2026-11-18: fixed a browser-sent `X-Kiwiply-Host` reaching the API through the platform `/api/auth/*` routes, and admin org suspend/resume not clearing the tenant cache; a session from a suspended or removed hostname now ends everywhere (`401 TOKEN_HOST_REVOKED`, doc 10 §6) and an organization session renews only on its own live host (user decisions 2026-11-18); tests for suspended organizations and domains, the per-organization domains flag, trailing dots and IP literals. `OrgIsolationIT` already covers all 498 organization routes by path) | Partial | M |
 | D-4 | Monitoring and alerts, incident process, status page | Not built | M |
-| D-5 | `security.txt` / security page, dependency scanning, secrets rotation | Not built | S–M |
+| D-5 ✅ | `security.txt` / security page, dependency scanning, secrets rotation (built 2026-11-18: `kiwiply.com/.well-known/security.txt` naming support@kiwiply.com, Kiwiply's hosts only; Dependabot weekly and grouped for Actions, npm, Gradle and Docker, into `develop`; `docs/ops/secrets-rotation.md` for every secret. The public /security page is left for later, by user decision) | Not built | S–M |
 | D-6 | Break-glass platform access (audited support access) | Not built | M |
 | D-7 | Least-privilege DB user, point-in-time recovery, S3 versioning | Yours | yours |
 | D-8 | Re-run the full story suites (19 stale failures) and re-record the videos | Open | M |
