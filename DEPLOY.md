@@ -621,6 +621,18 @@ commands to move all of it to a dedicated `kiwiply-deploy` user (docker group, i
 that user, the CI secrets switched) are in **`docs/ops/deploy-user.md`**, with the order that keeps production up the whole time.
 It is yours to run on the box: nothing in a deploy does it for you.
 
+### 5.12 Rotating secrets, security.txt and dependency updates (gap D-5)
+
+- **Rotating a secret** (suspected leak, someone leaving, the yearly round): `docs/ops/secrets-rotation.md` lists every secret in the
+  `.env` and in GitHub, how to replace each one, and what users notice. Rotating `JWT_BASE64_SECRET` signs everyone out, and
+  `DOSSIER_TENANT_HOST_SECRET` / `DOSSIER_INTERNAL_TOKEN` must change on `api` and `web` in one recreate.
+- **`https://kiwiply.com/.well-known/security.txt`** (RFC 9116) names `support@kiwiply.com` as the place to report a vulnerability. Only
+  Kiwiply's own hosts serve it; a tenant host answers 404. Its `Expires` date is in `web/src/lib/security-txt.ts`, and its test fails
+  30 days before that date, as the reminder to move it.
+- **Dependabot** (`.github/dependabot.yml`): one grouped pull request a week per ecosystem (GitHub Actions, npm, Gradle, Docker base
+  images), majors in their own group, all into `develop`. Turn on *Dependabot alerts* and *security updates* in the repository's
+  Settings → Code security; GitHub opens security-update PRs against `main`, so retarget them to `develop` before merging.
+
 ## 6. When you get a real domain
 Point `app.` and `api.` A-records at the IP, then in `Caddyfile` replace the two
 `*.{$SSLIP_HOST}` site labels with `app.yourdomain.com` / `api.yourdomain.com`, update the
