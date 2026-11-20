@@ -38,7 +38,7 @@ class FillQualityWatchTest {
             assertThat(a.rate7Bp()).isEqualTo(7_467);
             assertThat(a.baseline28Bp()).isEqualTo(9_000);
             assertThat(a.dropBp()).isGreaterThan(FillQualityWatch.DROP_THRESHOLD_BP);
-            assertThat(a.fixturePath()).isEqualTo("test/fixtures/job-capture/lever/");
+            assertThat(a.fixturePath()).isEqualTo("test/fixtures/job-capture/lever-rover-apply.html");
         });
 
         assertThat(FillQualityWatch.detect(Map.of("lever", window(29, 290, 190)), Map.of("lever", window(100, 1_000, 900)))).isEmpty();
@@ -70,7 +70,9 @@ class FillQualityWatchTest {
         assertThat(rollup.getValue().getFillRateBp()).isEqualTo(9_000);
         ArgumentCaptor<NotificationService.Payload> notice = ArgumentCaptor.forClass(NotificationService.Payload.class);
         verify(notifications).publish(eq(NotificationKind.SYSTEM), eq(7L), notice.capture(), eq(now));
+        assertThat(notice.getValue().title()).isEqualTo("ADAPTER_ROT: Autofill quality dropped: lever");
+        assertThat(notice.getValue().groupKey()).isEqualTo("ADAPTER_ROT:lever");
         assertThat(notice.getValue().dedupeKey()).isEqualTo("autofill-quality:2026-11-20:lever");
-        assertThat(notice.getValue().body()).contains("test/fixtures/job-capture/lever/").doesNotContain("answer").doesNotContain("@");
+        assertThat(notice.getValue().body()).contains("test/fixtures/job-capture/lever-rover-apply.html").doesNotContain("answer").doesNotContain("@");
     }
 }

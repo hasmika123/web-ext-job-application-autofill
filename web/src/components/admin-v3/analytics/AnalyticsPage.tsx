@@ -56,6 +56,14 @@ export interface FillQuality {
   genericPct: number;
   fieldsFailed: number;
 }
+export interface FillQualityAlert {
+  ats: string;
+  fills7: number;
+  rate7Bp: number;
+  baseline28Bp: number;
+  dropBp: number;
+  fixturePath: string;
+}
 export interface Analytics {
   totalUsers: number;
   activatedUsers: number;
@@ -70,6 +78,7 @@ export interface Analytics {
   applicationsByStatus: Record<string, number>;
   billing: Billing;
   fillQuality: FillQuality[];
+  fillQualityAlerts: FillQualityAlert[];
 }
 
 const ATS_NAMES: Record<string, string> = {
@@ -277,6 +286,19 @@ export default function AnalyticsPage({ a }: { a: Analytics | null }) {
           title="Fill quality by ATS"
           description="Last 30 days, worst first. Counts only, never field values."
         >
+          {(a.fillQualityAlerts ?? []).length > 0 && (
+            <div className="mb-4 space-y-2" role="alert">
+              {(a.fillQualityAlerts ?? []).map((alert) => (
+                <div key={alert.ats} className="rounded-xl border border-v2-coral/40 bg-v2-coral/10 px-3.5 py-3 text-[13px] text-ink">
+                  <div className="font-semibold">ADAPTER_ROT · {ATS_NAMES[alert.ats] ?? alert.ats}</div>
+                  <div className="mt-0.5 text-ink-soft">
+                    Seven-day fill rate {Math.round(alert.rate7Bp / 100)}% vs {Math.round(alert.baseline28Bp / 100)}% baseline
+                    ({Math.round(alert.dropBp / 100)} points lower). Replay {alert.fixturePath} before changing the adapter.
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {(a.fillQuality ?? []).length === 0 ? (
             <p className="py-6 text-center text-[13px] text-ink-soft">No fills recorded yet.</p>
           ) : (

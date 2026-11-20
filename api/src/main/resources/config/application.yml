@@ -241,6 +241,11 @@ jhipster:
 
 # App-specific config lives under `dossier.*` (JHipster owns `application.*`).
 dossier:
+  # Issue 03 adapter regression watch: current seven-day samples below this floor are ignored;
+  # alerts require a fill-rate drop strictly greater than the configured percentage points.
+  fill-quality:
+    min-fills-7d: ${FILL_QUALITY_MIN_FILLS_7D:30}
+    drop-points: ${FILL_QUALITY_DROP_POINTS:15}
   # "Sign in with Google": the OAuth client id we require as the ID-token audience.
   # NOT a secret (it ships in the web bundle too), but kept in env so each environment
   # sets its own. Empty = Google sign-in is off (the endpoint returns 503).

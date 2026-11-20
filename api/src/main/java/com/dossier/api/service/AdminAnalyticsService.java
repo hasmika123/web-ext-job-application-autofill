@@ -58,6 +58,16 @@ public class AdminAnalyticsService {
         long fieldsFailed
     ) {}
 
+    /** Count-only regression alerts emitted by the nightly adapter watch. */
+    public record FillQualityAlert(
+        String ats,
+        long fills7,
+        int rate7Bp,
+        int baseline28Bp,
+        int dropBp,
+        String fixturePath
+    ) {}
+
     static final int FILL_WINDOW_DAYS = 30;
 
     /** Stripe's status for a subscription whose latest charge failed and is being retried. */
@@ -99,7 +109,8 @@ public class AdminAnalyticsService {
         Funnel funnel,
         Map<String, Long> applicationsByStatus,
         Billing billing,
-        List<FillQuality> fillQuality
+        List<FillQuality> fillQuality,
+        List<FillQualityAlert> fillQualityAlerts
     ) {}
 
     private final UserRepository userRepository;
@@ -110,6 +121,7 @@ public class AdminAnalyticsService {
     private final SubscriptionRepository subscriptionRepository;
     private final StripeProperties stripeProperties;
     private final FillEventRepository fillEventRepository;
+    private final FillQualityWatch fillQualityWatch;
 
     public AdminAnalyticsService(
         UserRepository userRepository,
@@ -119,7 +131,8 @@ public class AdminAnalyticsService {
         RefreshTokenRepository refreshTokenRepository,
         SubscriptionRepository subscriptionRepository,
         StripeProperties stripeProperties,
-        FillEventRepository fillEventRepository
+        FillEventRepository fillEventRepository,
+        FillQualityWatch fillQualityWatch
     ) {
         this.userRepository = userRepository;
         this.bioRepository = bioRepository;
@@ -129,6 +142,7 @@ public class AdminAnalyticsService {
         this.subscriptionRepository = subscriptionRepository;
         this.stripeProperties = stripeProperties;
         this.fillEventRepository = fillEventRepository;
+        this.fillQualityWatch = fillQualityWatch;
     }
 
     public AnalyticsOverview overview() {
@@ -162,7 +176,8 @@ public class AdminAnalyticsService {
             new Funnel(total, activated, withProfile, startedApplying, applied),
             byStatus,
             billing(now),
-            fillQuality(now)
+            fillQuality(now),
+            fillQualityAlerts(now)
         );
     }
 
@@ -184,6 +199,14 @@ public class AdminAnalyticsService {
                     .thenComparing(Comparator.comparingLong(FillQuality::fills).reversed())
             )
             .toList();
+    }
+
+    private List<FillQualityAlert> fillQualityAlerts(Instant now) {
+        return fillQualityWatch.currentAlerts(now).stream().map(AdminAnalyticsService::toFillQualityAlert).toList();
+    }
+
+    static FillQualityAlert toFillQualityAlert(FillQualityWatch.RegressionAlert alert) {
+        return new FillQualityAlert(alert.ats(), alert.fills7(), alert.rate7Bp(), alert.baseline28Bp(), alert.dropBp(), alert.fixturePath());
     }
 
     static FillQuality toFillQuality(FillQualityRow r) {
