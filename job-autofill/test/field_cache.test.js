@@ -137,6 +137,21 @@ const itemOf = (field, label, value) => ({ field, label: label || field, value, 
   await tick();
   ok("watch: custom choice persists the visible selected text", (await c5.get(itemOf("referralSource", "How did you hear about us?"))) === "Company website");
 
+  /* ---- watch(): unchecking a learned checkbox clears the old answer ---- */
+  const c6 = fresh("p6");
+  const agree = w.document.createElement("input");
+  agree.type = "checkbox"; agree.id = "agree"; agree.checked = true;
+  const agreeLabel = w.document.createElement("label");
+  agreeLabel.htmlFor = agree.id; agreeLabel.textContent = "I agree to the terms";
+  w.document.body.append(agreeLabel, agree);
+  const agreeItem = { field: "terms", label: "I agree to the terms", value: "I agree to the terms", kind: "boolean", el: agree };
+  await c6.remember(agreeItem, "I agree to the terms");
+  c6.watch(agreeItem, { baseline: "I agree to the terms" });
+  agree.checked = false;
+  agree.dispatchEvent(new w.Event("change", { bubbles: true }));
+  await tick();
+  ok("watch: unchecking clears the host and global answer", (await c6.get(agreeItem)) === null);
+
   /* ---- Phase 4: exportAll / importEntries (cloud-sync helpers) ---- */
   const expBack = new w.Map();
   const e1 = fresh("ada", expBack);

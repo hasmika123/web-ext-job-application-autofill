@@ -136,13 +136,14 @@
   }
 
   // ---- store backends ----------------------------------------------------
-  // Contract: { get(key)->Promise<entry|null>, put(key,entry)->Promise, all()->Promise<entry[]> }
+  // Contract: { get(key)->Promise<entry|null>, put(key,entry)->Promise, remove(key)->Promise, all()->Promise<entry[]> }
 
   function memoryStore(backing) {
     const map = backing || new Map();
     return {
       get: (k) => Promise.resolve(map.has(k) ? map.get(k) : null),
       put: (k, v) => { map.set(k, v); return Promise.resolve(); },
+      remove: (k) => { map.delete(k); return Promise.resolve(); },
       all: () => Promise.resolve(Array.from(map.values())),
       _map: map,
     };
@@ -175,6 +176,7 @@
     return {
       get: (k) => tx("readonly", (os) => os.get(k)).then((v) => v || null).catch(() => null),
       put: (k, v) => tx("readwrite", (os) => os.put(v, k)).then(() => undefined).catch(() => undefined),
+      remove: (k) => tx("readwrite", (os) => os.delete(k)).then(() => undefined).catch(() => undefined),
       all: () =>
         tx("readonly", (os) => os.getAll && os.getAll()).then((v) => v || []).catch(() => []),
     };
@@ -214,6 +216,7 @@
     return {
       get: (k) => readAll().then((m) => m[k] || null).catch(() => null),
       put: (k, v) => mutate((m) => { m[k] = v; }),
+      remove: (k) => mutate((m) => { delete m[k]; }),
       all: () => readAll().then((m) => Object.keys(m).map((k) => m[k])).catch(() => []),
       _readAll: readAll,
     };
@@ -329,6 +332,16 @@
       return true;
     }
 
+    // An unchecked checkbox is a deliberate correction too: remove both the
+    // host-scoped answer and its cross-site twin instead of leaving the old
+    // affirmative answer to reappear on the next form.
+    async function forget(item) {
+      if (!item || typeof store.remove !== "function") return false;
+      await store.remove(keyOf(item));
+      await store.remove(globalKeyOf(item));
+      return true;
+    }
+
     // Read path: override item values with learned answers before the overlay
     // shows them, so the cached choice is what the user reviews and fills.
     async function preferCached(items) {
@@ -371,6 +384,7 @@
       const onChange = () => {
         const v = committedValueOf(el);
         if (v) remember(item, v);
+        else forget(item);
         const h = hooks && hooks.get(el);
         if (h && !h.fired && typeof h.onCorrected === "function" && v !== h.baseline) {
           h.fired = true;
@@ -418,7 +432,7 @@
     }
 
     return {
-      get, lookup, remember, preferCached, watch, setProfile, keyOf, globalKeyOf,
+      get, lookup, remember, forget, preferCached, watch, setProfile, keyOf, globalKeyOf,
       committedValueOf, contextHash, fieldKeyFor, exportAll, importEntries, _store: store,
     };
   }
