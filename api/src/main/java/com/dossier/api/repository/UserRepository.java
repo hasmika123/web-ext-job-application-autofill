@@ -73,4 +73,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByOrgIdIsNullAndActivatedIsTrue();
 
     long countByOrgIdIsNullAndCreatedDateAfter(Instant cutoff);
+
+    @Query("select distinct u.id from User u join u.authorities a where u.orgId is null and a.name = :authority")
+    List<Long> findPersonalUserIdsByAuthority(@Param("authority") String authority);
 }

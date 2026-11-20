@@ -1,0 +1,23 @@
+{
+  "url": "https://jobs.lever.co/rover/861c2f1c-6586-40b6-87b8-4140c9379780/apply",
+  "adapter": "lever",
+  "capturedAt": "2026-10-19",
+  "step": "apply",
+  "notes": "Trimmed, scrubbed public Lever application DOM; exact selectors are the fixture contract.",
+  "map": {
+    "fullName": { "sel": "input[name=\"name\"]", "kind": "text" },
+    "email": { "sel": "input[name=\"email\"]", "kind": "text" },
+    "phone": { "sel": "input[name=\"phone\"]", "kind": "text" },
+    "city": { "sel": "input[name=\"location\"]", "kind": "text" },
+    "linkedin": { "sel": "input[name=\"urls[LinkedIn]\"]", "kind": "text" },
+    "github": { "sel": "input[name=\"urls[GitHub]\"]", "kind": "text" },
+    "website": [
+      { "sel": "input[name=\"urls[Portfolio]\"]", "kind": "text" },
+      { "sel": "input[name=\"urls[Other]\"]", "kind": "text" }
+    ]
+  },
+  "manual": [],
+  "absent": [],
+  "required": { "leftEmptyAfterFill": 0, "leftEmptyLabels": [] },
+  "submit": { "neverClick": ["#btn-submit"], "next": null }
+}

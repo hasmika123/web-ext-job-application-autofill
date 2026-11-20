@@ -22,6 +22,15 @@ public interface FillEventRepository extends JpaRepository<FillEvent, String> {
     )
     List<FillQualityRow> qualityByAtsSince(@Param("since") Instant since);
 
+    @Query(
+        "select new com.dossier.api.repository.FillQualityWindowRow(" +
+        "  f.ats, f.adapter, coalesce(f.extVersion, ''), count(f), coalesce(sum(f.fieldsFound), 0L)," +
+        "  coalesce(sum(f.fieldsFilled), 0L), sum(case when f.requiredLeftEmpty > 0 then 1L else 0L end)) " +
+        "from FillEvent f where f.createdAt >= :from and f.createdAt < :to " +
+        "group by f.ats, f.adapter, f.extVersion"
+    )
+    List<FillQualityWindowRow> qualityWindow(@Param("from") Instant from, @Param("to") Instant to);
+
     /**
      * One more field the user changed after we filled it. Bounded twice so a stray or replayed
      * signal can't inflate the stat: only within the window after the fill, and never past the

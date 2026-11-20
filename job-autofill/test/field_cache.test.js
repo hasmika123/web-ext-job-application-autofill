@@ -25,10 +25,18 @@ const itemOf = (field, label, value) => ({ field, label: label || field, value, 
   ok("fieldKeyFor falls back to label slug", FC.fieldKeyFor({ label: "Years of Go" }) === "years-of-go");
   ok("contextHash differs by label", FC.contextHash("h", "auth to work") !== FC.contextHash("h", "need sponsorship"));
   ok("contextHash stable", FC.contextHash("h", "Auth To Work") === FC.contextHash("h", "auth to work"));
+  ok("contextHash ignores generated question ids", FC.contextHash("h", "How did you hear about us? question_12345") === FC.contextHash("h", "How did you hear about us? question_99881"));
+  ok("stable free-form key ignores generated question ids", FC.fieldKeyFor({ label: "How did you hear about us? question_12345" }) === FC.fieldKeyFor({ label: "How did you hear about us? question_99881" }));
 
   /* ---- miss ---- */
   const c = fresh("p1");
   ok("miss: empty cache returns null", (await c.get(itemOf("country", "Country"))) === null);
+
+  const dynamicQuestion = fresh("dynamic");
+  const firstPosting = itemOf("", "How did you hear about us? question_12345");
+  const nextPosting = itemOf("", "How did you hear about us? question_99881");
+  await dynamicQuestion.remember(firstPosting, "Employee referral");
+  ok("dynamic question ids do not fragment learned answers", (await dynamicQuestion.get(nextPosting)) === "Employee referral");
 
   /* ---- write + hit ---- */
   await c.remember(itemOf("country", "Country"), "United States");
@@ -85,6 +93,49 @@ const itemOf = (field, label, value) => ({ field, label: label || field, value, 
   // idempotent binding: watching twice doesn't double-bind / throw
   c3.watch(item);
   ok("watch: re-watch is a no-op", true);
+
+  /* ---- watch(): a radio correction fires on the option the user selected ---- */
+  const c4 = fresh("p4");
+  const radioYes = w.document.createElement("input");
+  radioYes.type = "radio"; radioYes.name = "sponsor"; radioYes.value = "Yes"; radioYes.id = "sponsor-yes"; radioYes.checked = true;
+  const yesLabel = w.document.createElement("label"); yesLabel.htmlFor = radioYes.id; yesLabel.textContent = "Yes";
+  const radioNo = w.document.createElement("input");
+  radioNo.type = "radio"; radioNo.name = "sponsor"; radioNo.value = "No"; radioNo.id = "sponsor-no";
+  const noLabel = w.document.createElement("label"); noLabel.htmlFor = radioNo.id; noLabel.textContent = "No";
+  w.document.body.append(yesLabel, radioYes, noLabel, radioNo);
+  const radioItem = { field: "requireSponsorship", label: "Require sponsorship?", value: "Yes", kind: "boolean", el: radioYes };
+  c4.watch(radioItem, { baseline: "Yes" });
+  radioNo.checked = true;
+  radioYes.checked = false;
+  radioNo.dispatchEvent(new w.Event("change", { bubbles: true }));
+  await tick();
+  ok("watch: changing another radio option persists the selected label", (await c4.get(itemOf("requireSponsorship", "Require sponsorship?"))) === "No");
+
+  /* ---- watch(): native select and custom choice controls use visible committed text ---- */
+  const c5 = fresh("p5");
+  const select = w.document.createElement("select");
+  select.innerHTML = '<option value="">Select one</option><option value="referral">Employee referral</option><option value="search">Search</option>';
+  w.document.body.appendChild(select);
+  const selectItem = { field: "referralSource", label: "How did you hear about us?", value: "Employee referral", kind: "select", el: select };
+  c5.watch(selectItem);
+  select.value = "search";
+  select.dispatchEvent(new w.Event("change", { bubbles: true }));
+  await tick();
+  ok("watch: native select persists the visible option", (await c5.get(itemOf("referralSource", "How did you hear about us?"))) === "Search");
+  const combo = w.document.createElement("div");
+  combo.setAttribute("role", "combobox");
+  const comboInput = w.document.createElement("input");
+  const selected = w.document.createElement("span");
+  selected.className = "single-value";
+  selected.textContent = "Employee referral";
+  combo.append(comboInput, selected);
+  w.document.body.appendChild(combo);
+  const comboItem = { field: "referralSource", label: "How did you hear about us?", value: "Employee referral", kind: "combo", el: comboInput };
+  c5.watch(comboItem);
+  selected.textContent = "Company website";
+  comboInput.dispatchEvent(new w.Event("blur", { bubbles: true }));
+  await tick();
+  ok("watch: custom choice persists the visible selected text", (await c5.get(itemOf("referralSource", "How did you hear about us?"))) === "Company website");
 
   /* ---- Phase 4: exportAll / importEntries (cloud-sync helpers) ---- */
   const expBack = new w.Map();

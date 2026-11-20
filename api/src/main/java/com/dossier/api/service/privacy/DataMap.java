@@ -131,7 +131,7 @@ public final class DataMap {
         add(e, new Entry("org_member", DataClass.ORG_PEOPLE, List.of(), "OrgMembershipPrivacyService.eraseFor (user id, invite e-mail and name cleared, status ERASED)", "organizations", null, null));
 
         // ---- no user or organization reference ----------------------------------------------------------------------------------------------------
-        for (String t : List.of("databasechangelog", "databasechangeloglock", "feature_definition", "fill_event", "jhi_authority", "jhi_date_time_wrapper", "job_lease", "job_posting", "job_source", "product", "secret_canary", "org_role_permission")) {
+        for (String t : List.of("databasechangelog", "databasechangeloglock", "feature_definition", "fill_event", "fill_quality_daily", "jhi_authority", "jhi_date_time_wrapper", "job_lease", "job_posting", "job_source", "product", "secret_canary", "org_role_permission")) {
             add(e, new Entry(t, DataClass.SYSTEM, List.of(), "no user or organization reference", null, "not personal data", null));
         }
 
