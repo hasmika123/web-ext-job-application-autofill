@@ -41,6 +41,14 @@ async function loadDoc(id: string): Promise<{ dto: DocDto } | { error: Response 
   return { dto };
 }
 
+/** The persisted theme that produced an export after Chromium moved down the fit ladder. */
+function themeAtFitStep(theme: Partial<ResumeTheme> | null, step: number): Partial<ResumeTheme> {
+  return {
+    ...(theme ?? {}),
+    fit: { ...(theme?.fit ?? {}), step } as ResumeTheme["fit"],
+  };
+}
+
 /**
  * GET /api/resumes/:id/export?format=txt  (DESIGN 14, R2.10): the document as plain text, proxied from
  * Spring's `/doc/text` and served as a download. Reads only: no PDF, nothing stored or recorded.
@@ -94,8 +102,8 @@ async function exportText(request: Request, id: string): Promise<Response> {
  * (stepping the fit ladder down if Chromium needs more pages than the target), then:
  *   1. uploads the PDF to Spring `POST /api/resumes/:id/file` (stored through the FileStorage seam,
  *      so the extension can attach it), and
- *   2. records the export (`POST /api/profile/resumes/:id/export-recorded {hash}`) with the document's
- *      RENDER hash, which marks the resume's PDF job READY when the document has not moved on.
+ *   2. records the export (`POST /api/profile/resumes/:id/export-recorded`) with the effective fit rung
+ *      and final render hash, which keeps the editor, preview and cached PDF on the same layout.
  * and streams the PDF back as a download. A failed store does not fail the download: the user still
  * gets the file, `X-Resume-Pdf-Stored: 0` says it was not attached, and nothing is recorded.
  */
@@ -158,6 +166,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
             "x-resume-pdf-stored": "1",
             "x-resume-content-hash": dto.contentHash ?? "",
             "x-resume-render-hash": dto.renderHash,
+            "x-resume-fit-step": String(sanitizeTheme(dto.theme).fit.step),
           },
         });
       }
@@ -188,7 +197,7 @@ async function renderAndStore(request: Request, id: string, token: string, prelo
   }
   const hash = dto.contentHash || (await resumeContentHash(dto.doc));
   // What the stored PDF will be judged against. Spring computes it; the TS twin covers an API that does not.
-  const renderHash = dto.renderHash || (await resumeRenderHash(hash, dto.templateId, dto.theme ?? {}));
+  const sourceRenderHash = dto.renderHash || (await resumeRenderHash(hash, dto.templateId, dto.theme ?? {}));
 
   // 2) Print.
   const started = Date.now();
@@ -228,6 +237,12 @@ async function renderAndStore(request: Request, id: string, token: string, prelo
     }),
   );
 
+  // Chromium is the authority for the actual PDF page count. If it stepped down, the server must
+  // persist that exact rung before the stored bytes can be considered current.
+  const effectiveTheme = themeAtFitStep(dto.theme, result.step);
+  const effectiveRenderHash =
+    result.step === result.startStep ? sourceRenderHash : await resumeRenderHash(hash, dto.templateId, effectiveTheme);
+
   // 3) Store it and record the export (best effort: the download below does not depend on it).
   let stored = false;
   try {
@@ -240,7 +255,11 @@ async function renderAndStore(request: Request, id: string, token: string, prelo
       cache: "no-store",
     });
     if (up.ok) {
-      const rec = await serverApiFetch(`/api/profile/resumes/${id}/export-recorded`, { method: "POST", body: JSON.stringify({ hash: renderHash }) });
+      const recordBody =
+        result.step === result.startStep
+          ? { hash: sourceRenderHash }
+          : { hash: effectiveRenderHash, sourceHash: sourceRenderHash, fitStep: result.step };
+      const rec = await serverApiFetch(`/api/profile/resumes/${id}/export-recorded`, { method: "POST", body: JSON.stringify(recordBody) });
       stored = rec.ok;
       if (!rec.ok) console.error("resume.export.record_failed", rec.status);
     } else {
@@ -261,7 +280,8 @@ async function renderAndStore(request: Request, id: string, token: string, prelo
       "x-resume-pdf-fits": result.fits ? "1" : "0",
       "x-resume-pdf-stored": stored ? "1" : "0",
       "x-resume-content-hash": hash,
-      "x-resume-render-hash": renderHash,
+      "x-resume-render-hash": effectiveRenderHash,
+      "x-resume-fit-step": String(result.step),
     },
   });
 }

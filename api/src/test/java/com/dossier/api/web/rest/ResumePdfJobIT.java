@@ -24,10 +24,12 @@ import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.ResumeBuilderSettings;
+import com.dossier.api.service.ResumeDocService;
 import com.dossier.api.service.ResumePdfJobService;
 import com.dossier.api.service.ResumePdfJobService.ClaimedJob;
 import com.dossier.api.service.ResumePdfJobService.FailKind;
 import com.dossier.api.service.ResumePdfJobService.StoreResult;
+import com.dossier.api.service.resume.ResumeRenderHash;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.service.storage.StorageKeys;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -675,6 +677,55 @@ class ResumePdfJobIT {
             .perform(post("/api/profile/resumes/" + other + "/export-recorded").contentType(MediaType.APPLICATION_JSON).content("{\"hash\":\"" + "a".repeat(64) + "\"}"))
             .andExpect(status().isNoContent());
         assertThat(row(other).getPdfStatus()).isEqualTo("PENDING");
+    }
+
+    @Test
+    void exportRecordedPersistsTheEffectiveFitRungAndFinalRenderHash() throws Exception {
+        Long id = createBuilt("Sync fit");
+        ResumeDoc before = row(id);
+        int version = before.getDocVersion();
+        String sourceHash = renderHash(id);
+        String finalTheme = "{\"fit\":{\"step\":2}}";
+        String finalHash = ResumeRenderHash.computeFromThemeJson(before.getContentHash(), before.getTemplateId(), finalTheme);
+
+        mockMvc
+            .perform(
+                post("/api/profile/resumes/" + id + "/export-recorded")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"hash\":\"" + finalHash + "\",\"sourceHash\":\"" + sourceHash + "\",\"fitStep\":2}")
+            )
+            .andExpect(status().isNoContent());
+
+        ResumeDoc after = row(id);
+        assertThat(after.getThemeJson()).contains("\"step\":2");
+        assertThat(ResumeDocService.renderHash(after)).isEqualTo(finalHash);
+        assertThat(after.getExportedHash()).isEqualTo(finalHash);
+        assertThat(after.getPdfStatus()).isEqualTo("READY");
+        assertThat(after.getDocVersion()).as("export fit is a metadata write, not an editor conflict").isEqualTo(version);
+    }
+
+    @Test
+    void aLateFitExportCannotOverwriteAThemeThatChangedWhileItRendered() throws Exception {
+        Long id = createBuilt("Late fit");
+        ResumeDoc before = row(id);
+        String sourceHash = renderHash(id);
+        String finalHash = ResumeRenderHash.computeFromThemeJson(before.getContentHash(), before.getTemplateId(), "{\"fit\":{\"step\":2}}");
+
+        em.createQuery("update ResumeDoc d set d.themeJson = :theme where d.resumeId = :id")
+            .setParameter("theme", "{\"accent\":\"#2563eb\"}")
+            .setParameter("id", id)
+            .executeUpdate();
+        em.clear();
+
+        mockMvc
+            .perform(
+                post("/api/profile/resumes/" + id + "/export-recorded")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"hash\":\"" + finalHash + "\",\"sourceHash\":\"" + sourceHash + "\",\"fitStep\":2}")
+            )
+            .andExpect(status().isConflict());
+
+        assertThat(row(id).getThemeJson()).doesNotContain("\"step\":2");
     }
 
     // ---- internal routes -------------------------------------------------------
