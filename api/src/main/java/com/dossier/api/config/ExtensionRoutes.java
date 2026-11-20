@@ -34,7 +34,8 @@ public final class ExtensionRoutes {
         rule("POST", "/api/profile/applications/[0-9]+/attachment"),
         rule("POST", "/api/profile/field-caches/sync"),
         rule("POST", "/api/profile/suggestions"),
-        rule("POST", "/api/resumes/[0-9]+/file"),
+        // Prepare may need to download a resume created on the web before it can attach it to an ATS form.
+        rule("GET,POST", "/api/resumes/[0-9]+/file"),
         rule("GET", "/api/ai/usage"),
         rule("POST", "/api/ai/(draft|job-fit|parse-resume|resume-match)"),
         rule("POST", "/api/telemetry/fills"),

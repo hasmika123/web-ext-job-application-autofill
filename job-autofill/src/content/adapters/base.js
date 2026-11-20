@@ -141,6 +141,24 @@
     return ids.map(humanize).join(" ");
   }
 
+  // Associated labels live in the same tree as the field. A document-level
+  // lookup cannot see IDs or labels inside an open shadow root.
+  function elementRoot(el) {
+    try {
+      const root = el && el.getRootNode && el.getRootNode();
+      return root && root.querySelector ? root : document;
+    } catch (e) { return document; }
+  }
+  function rootElementById(el, id) {
+    const root = elementRoot(el);
+    try {
+      return root.getElementById ? root.getElementById(id) : root.querySelector("#" + cssEscape(id));
+    } catch (e) { return null; }
+  }
+  function rootQuerySelector(el, selector) {
+    try { return elementRoot(el).querySelector(selector); } catch (e) { return null; }
+  }
+
   // querySelectorAll that pierces OPEN shadow roots. Some ATS (e.g. SmartRecruiters
   // "oneclick-ui") render the entire form inside web components, so a plain
   // document.querySelectorAll finds ZERO fields. Recurses into every element's
@@ -196,7 +214,7 @@
         if (gal && gal.trim().length > 2) return gal;
         const glb = p.getAttribute && p.getAttribute("aria-labelledby");
         if (glb) {
-          const t = glb.split(/\s+/).map((id) => { const n = document.getElementById(id); return n ? n.textContent : ""; }).join(" ").replace(/\s+/g, " ").trim();
+          const t = glb.split(/\s+/).map((id) => { const n = rootElementById(p, id); return n ? n.textContent : ""; }).join(" ").replace(/\s+/g, " ").trim();
           if (t.length > 2) return t;
         }
         const lab = p.querySelector && p.querySelector('legend,[class*="question" i],[class*="label" i],label[id],h1,h2,h3,h4,[role="heading"]');
@@ -233,11 +251,11 @@
     if (el.getAttribute) {
       push(el.getAttribute("aria-label"), TIER.LABEL);
       const lb = el.getAttribute("aria-labelledby");
-      if (lb) lb.split(/\s+/).forEach((id) => { const n = document.getElementById(id); if (n) push(n.textContent, TIER.LABEL); });
+      if (lb) lb.split(/\s+/).forEach((id) => { const n = rootElementById(el, id); if (n) push(n.textContent, TIER.LABEL); });
     }
     // 3) Associated <label for=…>.
     if (el.id) {
-      const forLbl = document.querySelector('label[for="' + cssEscape(el.id) + '"]');
+      const forLbl = rootQuerySelector(el, 'label[for="' + cssEscape(el.id) + '"]');
       if (forLbl) push(forLbl.textContent, TIER.LABEL);
     }
     // 4) Wrapping <label>.
@@ -388,10 +406,17 @@
     return "text";
   }
 
+  // `document.contains()` excludes elements inside a shadow tree even when the
+  // host is connected to the page. Shadow-DOM ATS fields are valid fill targets
+  // as long as their node is still connected to the document.
+  function isAttached(el) {
+    return !!el && (el.isConnected === true || document.contains(el));
+  }
+
   // A planned element the page has since re-rendered (React forms remount their inputs while the
   // plan waits for AI drafts): find its replacement by id or name, else keep the stale node.
   function reattach(el) {
-    if (!el || document.contains(el)) return el;
+    if (isAttached(el)) return el;
     let r = null;
     try {
       if (el.id) r = document.getElementById(el.id);
@@ -403,7 +428,7 @@
   // Apply one planned fill item. Returns true on success.
   function applyItem(item, value) {
     const el = item.el = reattach(item.el);
-    if (!el || !document.contains(el)) return false;
+    if (!isAttached(el)) return false;
     const kind = item.kind || elKind(el);
     try {
       if (kind === "select") return selectOption(el, value);
@@ -629,7 +654,7 @@
     // matched against the page's own option list — never free text).
     if (item.kind === "choice") {
       const el = item.el = reattach(item.el);
-      if (!el || !document.contains(el)) return false;
+      if (!isAttached(el)) return false;
       realClick(el);
       if (!el.checked) { try { el.checked = true; fire(el, "input"); fire(el, "change"); } catch (e) {} }
       return el.checked === true;
