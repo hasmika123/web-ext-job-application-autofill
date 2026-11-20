@@ -43,6 +43,7 @@
     <include file="config/liquibase/changelog/20260921000000_subscription.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922000000_fill_event.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261120000000_fill_quality_daily.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121000000_fill_attachment_failure.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922010000_profile_suggestion.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922020000_ai_call.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922030000_ai_budget_override.xml" relativeToChangelogFile="false"/>

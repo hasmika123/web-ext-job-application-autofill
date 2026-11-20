@@ -55,7 +55,8 @@ public class AdminAnalyticsService {
         int gapRatePct,
         int correctionRatePct,
         int genericPct,
-        long fieldsFailed
+        long fieldsFailed,
+        long attachmentsFailed
     ) {}
 
     /** Count-only regression alerts emitted by the nightly adapter watch. */
@@ -218,7 +219,8 @@ public class AdminAnalyticsService {
             pct(nz(r.fillsWithRequiredGaps()), fills),
             pct(nz(r.userCorrected()), nz(r.fieldsFilled())),
             pct(nz(r.fillsOnGenericAdapter()), fills),
-            nz(r.fieldsFailed())
+            nz(r.fieldsFailed()),
+            nz(r.attachmentsFailed())
         );
     }
 

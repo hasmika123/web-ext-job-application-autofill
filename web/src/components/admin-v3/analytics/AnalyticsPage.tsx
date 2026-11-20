@@ -55,6 +55,7 @@ export interface FillQuality {
   correctionRatePct: number;
   genericPct: number;
   fieldsFailed: number;
+  attachmentsFailed: number;
 }
 export interface FillQualityAlert {
   ats: string;
@@ -303,7 +304,7 @@ export default function AnalyticsPage({ a }: { a: Analytics | null }) {
             <p className="py-6 text-center text-[13px] text-ink-soft">No fills recorded yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[420px] text-[13px]">
+              <table className="w-full min-w-[520px] text-[13px]">
                 <thead>
                   <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-v2-muted">
                     <th className="pb-2 pr-3 font-semibold">ATS</th>
@@ -311,6 +312,7 @@ export default function AnalyticsPage({ a }: { a: Analytics | null }) {
                     <th className="pb-2 pr-3 text-right font-semibold" title="Fills that left at least one required field empty">Gaps</th>
                     <th className="pb-2 pr-3 text-right font-semibold" title="Of the fields found, how many were filled">Filled</th>
                     <th className="pb-2 pr-3 text-right font-semibold" title="Of the fields filled, how many the user changed afterwards">Fixed</th>
+                    <th className="pb-2 pr-3 text-right font-semibold" title="Offered resumes that the ATS did not accept">Attach fails</th>
                     <th className="pb-2 text-right font-semibold" title="Fills handled by the generic scanner (no dedicated adapter)">Generic</th>
                   </tr>
                 </thead>
@@ -322,6 +324,7 @@ export default function AnalyticsPage({ a }: { a: Analytics | null }) {
                       <td className={cn("py-2 pr-3 text-right tabular-nums", q.gapRatePct >= 50 ? "font-semibold text-v2-coral-ink" : "text-ink")}>{q.gapRatePct}%</td>
                       <td className="py-2 pr-3 text-right tabular-nums text-ink">{q.fillRatePct}%</td>
                       <td className="py-2 pr-3 text-right tabular-nums text-ink">{q.correctionRatePct}%</td>
+                      <td className={cn("py-2 pr-3 text-right tabular-nums", (q.attachmentsFailed ?? 0) > 0 ? "font-semibold text-v2-coral-ink" : "text-ink")}>{q.attachmentsFailed ?? 0}</td>
                       <td className="py-2 text-right tabular-nums text-ink-soft">{q.genericPct}%</td>
                     </tr>
                   ))}

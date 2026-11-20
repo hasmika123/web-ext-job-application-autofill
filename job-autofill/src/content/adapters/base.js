@@ -456,16 +456,127 @@
     } catch (e) { return false; }
   }
 
-  async function attachFile(inputEl, blob, fileName) {
+  function attachmentParent(el) {
+    if (!el) return null;
+    if (el.parentElement) return el.parentElement;
+    try {
+      const root = el.getRootNode && el.getRootNode();
+      return root && root.host ? root.host : null;
+    } catch (e) { return null; }
+  }
+
+  function isDisplayNone(el) {
+    if (!el) return false;
+    try {
+      if (el.hidden) return true;
+      const inline = el.getAttribute && (el.getAttribute("style") || "");
+      if (/\bdisplay\s*:\s*none\b|\bvisibility\s*:\s*hidden\b/i.test(inline)) return true;
+      const css = window.getComputedStyle && window.getComputedStyle(el);
+      return !!css && (css.display === "none" || css.visibility === "hidden");
+    } catch (e) { return false; }
+  }
+
+  // ATS file widgets put the real input behind a visible drop zone. Keep this deliberately
+  // structural: it covers the common data attributes without depending on a tenant's generated
+  // class names, and it also works when the input lives in an open shadow root.
+  function fileDropTarget(inputEl) {
+    let node = inputEl;
+    for (let hops = 0; node && hops < 12; hops++) {
+      try {
+        if (node.matches && node.matches(
+          '[data-automation-id="file-upload-drop-zone"], [data-wd-file], [data-sr-file], ' +
+          '[data-file-drop-zone], [data-testid*="drop" i], [class*="drop-zone" i], [class*="dropzone" i]'
+        )) return node;
+      } catch (e) {}
+      node = attachmentParent(node);
+    }
+    return null;
+  }
+
+  function fileWidgetContainer(inputEl) {
+    let node = inputEl;
+    for (let hops = 0; node && hops < 12; hops++) {
+      try {
+        if (node.matches && node.matches('[data-wd-file], [data-sr-file], [data-file-upload-widget]')) return node;
+      } catch (e) {}
+      node = attachmentParent(node);
+    }
+    return null;
+  }
+
+  function fileListHas(fileList, expected) {
+    if (!fileList || !fileList.length || !expected) return false;
+    for (const actual of Array.from(fileList)) {
+      if (actual && actual.name === expected.name && Number(actual.size) === Number(expected.size)) return true;
+    }
+    return false;
+  }
+
+  function dispatchDrop(target, dataTransfer, type) {
+    if (!target) return false;
+    try {
+      let event;
+      if (typeof DragEvent === "function") {
+        event = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer });
+      } else {
+        event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "dataTransfer", { configurable: true, value: dataTransfer });
+      }
+      target.dispatchEvent(event);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  async function attachFileDetailed(inputEl, blob, fileName) {
+    if (!inputEl || String(inputEl.type || "").toLowerCase() !== "file") return { ok: false, reason: "no-file-input" };
+    if (!blob) return { ok: false, reason: "no-file-data" };
     try {
       const file = new File([blob], fileName || "resume.pdf", { type: blob.type || "application/pdf" });
       const dt = new DataTransfer();
       dt.items.add(file);
-      inputEl.files = dt.files;
-      fire(inputEl, "input");
-      fire(inputEl, "change");
-      return true;
-    } catch (e) { return false; }
+      const hidden = isDisplayNone(inputEl);
+      const target = hidden ? (fileDropTarget(inputEl) || inputEl) : null;
+      const widget = fileWidgetContainer(inputEl);
+      let assigned = false;
+      try {
+        inputEl.files = dt.files;
+        assigned = fileListHas(inputEl.files, file);
+      } catch (e) {}
+
+      // A hidden input is only the storage/control node. Drop the same payload on the visible
+      // widget as well, because some ATS implementations listen exclusively to drag events.
+      let dropped = false;
+      if (target) {
+        dispatchDrop(target, dt, "dragenter");
+        dispatchDrop(target, dt, "dragover");
+        dropped = dispatchDrop(target, dt, "drop");
+      }
+      try { fire(inputEl, "input"); fire(inputEl, "change"); } catch (e) {}
+      // Let synchronous framework listeners commit their state before verification. This is still
+      // one task turn and avoids claiming success before a React/Workday listener has run.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (fileListHas(inputEl.files, file)) return { ok: true, method: target ? "drop" : "input" };
+
+      // A few widgets replace the input's FileList and expose the accepted filename only in their
+      // upload row. Accept that explicit UI evidence, but never accept assignment alone.
+      if ([target, widget].some((node) => node && node.textContent && node.textContent.includes(file.name))) {
+        return { ok: true, method: "drop-ui" };
+      }
+      return {
+        ok: false,
+        reason: assigned || dropped ? "widget-rejected-file" : "file-assignment-failed",
+        method: target ? "drop" : "input",
+      };
+    } catch (e) {
+      return { ok: false, reason: "file-attach-error" };
+    }
+  }
+
+  // Keep the original boolean seam for callers and third-party adapters; richer diagnostics stay
+  // available to the filler and tests without leaking file metadata into telemetry.
+  async function attachFile(inputEl, blob, fileName) {
+    const result = await attachFileDetailed(inputEl, blob, fileName);
+    return !!(result && result.ok);
   }
 
   function isVisible(el) {
@@ -676,7 +787,7 @@
 
   JAF.adapterBase = {
     setNativeValue, fire, fillText, selectOption, setBooleanGroup, setChoiceGroup, numericValue, isoDate, labelText, labelParts, groupPrompt,
-    cssEscape, isFillable, scanGeneric, deepQueryAll, blockText, elKind, applyItem, applyItemAsync, attachFile, humanize,
+    cssEscape, isFillable, scanGeneric, deepQueryAll, blockText, elKind, applyItem, applyItemAsync, attachFile, attachFileDetailed, humanize,
     isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
     // exposed for unit tests (dropdown option scoping + matching + autocomplete)
     openListbox, visibleOptions, bestOption, autocompleteField, autocompleteTrusted,

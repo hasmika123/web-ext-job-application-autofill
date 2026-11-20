@@ -46,12 +46,13 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
   ok("id: a random v4 UUID", UUID_V4.test(id), id);
   ok("id: two fills never share one", T.newFillId() !== id);
 
-  const e = T.buildEvent({ id, hostname: "careers.acme-corp.com", adapter: "generic", found: 12, filled: 99, failed: -4, requiredLeftEmpty: "3" });
-  ok("event: only the agreed keys", JSON.stringify(Object.keys(e).sort()) === JSON.stringify(["adapter", "ats", "fieldsFailed", "fieldsFilled", "fieldsFound", "id", "requiredLeftEmpty"]), Object.keys(e).join(","));
+  const e = T.buildEvent({ id, hostname: "careers.acme-corp.com", adapter: "generic", found: 12, filled: 99, failed: -4, requiredLeftEmpty: "3", attachmentsFailed: 9 });
+  ok("event: only the agreed keys", JSON.stringify(Object.keys(e).sort()) === JSON.stringify(["adapter", "ats", "attachmentsFailed", "fieldsFailed", "fieldsFilled", "fieldsFound", "id", "requiredLeftEmpty"]), Object.keys(e).join(","));
   ok("event: the hostname never appears anywhere in it", JSON.stringify(e).indexOf("acme") === -1, JSON.stringify(e));
   ok("event: filled can't exceed found", e.fieldsFilled === 12);
   ok("event: negative counts become 0", e.fieldsFailed === 0);
   ok("event: numeric strings are counted", e.requiredLeftEmpty === 3);
+  ok("event: attachment failure is bounded to one", e.attachmentsFailed === 1);
   ok("event: an unknown adapter is `other`", T.buildEvent({ adapter: "evil" }).adapter === "other");
 })();
 

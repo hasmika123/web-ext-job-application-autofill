@@ -16,6 +16,7 @@ public interface FillEventRepository extends JpaRepository<FillEvent, String> {
         "select new com.dossier.api.repository.FillQualityRow(" +
         "  f.ats, count(f), coalesce(sum(f.fieldsFound), 0L), coalesce(sum(f.fieldsFilled), 0L)," +
         "  coalesce(sum(f.fieldsFailed), 0L), coalesce(sum(f.userCorrected), 0L)," +
+        "  coalesce(sum(f.attachmentsFailed), 0L)," +
         "  sum(case when f.requiredLeftEmpty > 0 then 1L else 0L end)," +
         "  sum(case when f.adapter = 'generic' then 1L else 0L end)) " +
         "from FillEvent f where f.createdAt >= :since group by f.ats"

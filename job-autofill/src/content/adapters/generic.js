@@ -21,7 +21,9 @@
     },
     fileInput() {
       // deepQueryAll pierces open shadow roots (BUG-5: web-component ATS).
-      const inputs = B.deepQueryAll(document, 'input[type="file"]').filter(B.isFillable);
+      // Do not use isFillable here: ATS uploaders commonly hide the real input behind a
+      // visible drop zone. Disabled/read-only controls are still excluded.
+      const inputs = B.deepQueryAll(document, 'input[type="file"]').filter((i) => !i.disabled && !i.readOnly);
       return inputs.find((i) => /resume|cv|attach/i.test(B.labelText(i))) || inputs[0] || null;
     },
   };

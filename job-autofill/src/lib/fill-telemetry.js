@@ -85,6 +85,9 @@
       fieldsFilled: Math.min(count(p.filled), found),
       fieldsFailed: Math.min(count(p.failed), found),
       requiredLeftEmpty: count(p.requiredLeftEmpty),
+      // One resume is offered per fill today; keep this a bounded class even if a caller sends
+      // an invalid larger number. No filename or attachment reason crosses this boundary.
+      attachmentsFailed: Math.min(count(p.attachmentsFailed), 1),
     };
   }
 

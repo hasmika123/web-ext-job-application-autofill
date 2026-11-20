@@ -12,6 +12,7 @@ public record FillQualityRow(
     Long fieldsFilled,
     Long fieldsFailed,
     Long userCorrected,
+    Long attachmentsFailed,
     Long fillsWithRequiredGaps,
     Long fillsOnGenericAdapter
 ) {}

@@ -899,6 +899,7 @@ async function recordFillStats(stats) {
     fieldsFilled: stats.fieldsFilled,
     fieldsFailed: stats.fieldsFailed,
     requiredLeftEmpty: stats.requiredLeftEmpty,
+    attachmentsFailed: stats.attachmentsFailed,
     extVersion: version,
   };
   try { await provider.recordFill(event); return { ok: true }; }

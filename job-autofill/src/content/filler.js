@@ -160,7 +160,10 @@
       if (file && fchk && fchk.checked) {
         const input = adapter.fileInput && adapter.fileInput();
         if (input) {
-          const ok = await B.attachFile(input, b64ToBlob(file.base64, file.type), file.name);
+          const attach = B.attachFileDetailed
+            ? await B.attachFileDetailed(input, b64ToBlob(file.base64, file.type), file.name)
+            : { ok: await B.attachFile(input, b64ToBlob(file.base64, file.type), file.name) };
+          const ok = !!(attach && attach.ok);
           fileMsg = ok ? " · résumé attached" : " · résumé attach failed (upload manually)";
           fileStatus = ok ? "ok" : "failed";
         } else { fileMsg = " · no file field found"; fileStatus = "nofield"; }
@@ -215,11 +218,15 @@
       const shownFile = file || (carry && carry.file) || null;
       const allFilled = filled + (carry ? carry.filled || 0 : 0);
       const allFailed = failedCount + (carry ? carry.failed || 0 : 0);
+      const attachmentFailed = file && fchk && fchk.checked && fileStatus !== "ok" ? 1 : 0;
+      const allAttachmentFailed = attachmentFailed || (carry && carry.attachmentFailed ? 1 : 0);
+
       let stepResult = false;
       if (opts.batch && typeof opts.onStep === "function") {
         try {
           stepResult = await opts.onStep({
-            outcomes: allOutcomes, fileStatus: allFileStatus, file: shownFile, filled: allFilled, failed: allFailed, gaps,
+            outcomes: allOutcomes, fileStatus: allFileStatus, file: shownFile, filled: allFilled, failed: allFailed,
+            attachmentFailed: allAttachmentFailed, gaps,
             say: (m) => flash(root, m),
           });
         } catch (e) { stepResult = false; }
@@ -232,6 +239,8 @@
       try {
         if (opts.batch && JAF.batchPrepare) JAF.batchPrepare.filled(opts.batch, { filled: allFilled, failed: allFailed, gaps: gaps.length });
       } catch (e) {}
+      // Keep one count-only event for the completed fill, including an attachment failure that
+      // happened on an earlier Prepare step.
       if (T && fillId) {
         try {
           send({
@@ -244,11 +253,11 @@
               filled,
               failed: failedCount,
               requiredLeftEmpty: gaps.length,
+              attachmentsFailed: allAttachmentFailed,
             }),
           });
         } catch (e) {}
       }
-
       const failMsg = failed.length ? ` · couldn't auto-pick ${failed.length} dropdown${failed.length === 1 ? "" : "s"} (${truncate(failed.join(", "), 40)}) — set those by hand` : "";
       // Prepare batch: the tab stays on a review of what was filled and what is still the consultant's
       // (the panel turns non-modal, so the page can be checked and completed beside it).
@@ -700,5 +709,5 @@
     .body .glist { margin-bottom: 6px; }
   `;
 
-  JAF.filler = { start, buildPlan };
+  JAF.filler = { start, buildPlan, batchReviewSnapshot };
 })();
