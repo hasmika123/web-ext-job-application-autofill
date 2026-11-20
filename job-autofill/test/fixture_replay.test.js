@@ -18,8 +18,10 @@ const SRC = [
   "src/content/field-mapper.js",
   "src/content/required-audit.js",
   "src/content/filler.js",
+  "src/content/batch-prepare.js",
 ];
 const FIXTURE_ROOT = path.join(__dirname, "fixtures");
+const EXT_ROOT = path.resolve(__dirname, "..");
 const PERSONA = {
   firstName: "Synthetic",
   lastName: "Candidate",
@@ -33,16 +35,70 @@ const PERSONA = {
 const RESUME = { skills: ["JavaScript", "TypeScript"] };
 
 function fixturePairs(dir) {
+  const manifestPath = path.join(dir, ".fixture-replay.json");
+  if (!fs.existsSync(manifestPath)) throw new Error(`missing fixture replay manifest: ${manifestPath}`);
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  if (!Array.isArray(manifest.fixtures) || !manifest.fixtures.length) throw new Error("fixture replay manifest must list at least one HTML fixture");
   const pairs = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) pairs.push(...fixturePairs(full));
-    else if (entry.isFile() && entry.name.endsWith(".expect.json")) {
-      const html = full.slice(0, -".expect.json".length) + ".html";
-      if (fs.existsSync(html)) pairs.push({ html, expect: full });
-    }
+  const listedExpectations = new Set();
+  for (const relative of manifest.fixtures) {
+    if (typeof relative !== "string" || !relative.endsWith(".html")) throw new Error(`manifest entry is not an HTML path: ${relative}`);
+    const html = path.resolve(dir, relative);
+    if (!html.startsWith(dir + path.sep) || !fs.existsSync(html)) throw new Error(`manifest HTML fixture is missing: ${relative}`);
+    const expect = html.slice(0, -".html".length) + ".expect.json";
+    if (!fs.existsSync(expect)) throw new Error(`manifest fixture has no sidecar: ${relative}`);
+    listedExpectations.add(path.normalize(expect));
+    pairs.push({ html, expect });
   }
+  const sidecars = (current) => fs.readdirSync(current, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(current, entry.name);
+    return entry.isDirectory() ? sidecars(full) : entry.isFile() && entry.name.endsWith(".expect.json") ? [full] : [];
+  });
+  const unlisted = sidecars(dir).filter((file) => !listedExpectations.has(path.normalize(file)));
+  if (unlisted.length) throw new Error(`fixture sidecar is not listed in .fixture-replay.json: ${path.relative(dir, unlisted[0])}`);
   return pairs;
+}
+
+function textOf(el) {
+  return String(el && (el.innerText || el.textContent || el.value || el.getAttribute("aria-label") || "")).replace(/\s+/g, " ").trim();
+}
+
+function sortedLabels(items, audit) {
+  return items.map((el) => audit.describe(el)).sort();
+}
+
+function assertExpected(value, expected, message, failures) {
+  if (expected !== undefined && JSON.stringify(value) !== JSON.stringify(expected)) failures.push(`${message} ${JSON.stringify(value)} != ${JSON.stringify(expected)}`);
+}
+
+function checkNoSubmit(w, expected, failures) {
+  const selectors = (expected.submit && expected.submit.neverClick) || [];
+  for (const selector of selectors) {
+    if (!w.document.querySelector(selector)) failures.push(`submit guard selector missing: ${selector}`);
+  }
+  const next = w.JAF.batchPrepare && w.JAF.batchPrepare.nextStepButton ? w.JAF.batchPrepare.nextStepButton() : w.JAF.adapterBase.findNextButton();
+  const wanted = expected.submit && expected.submit.next;
+  if (wanted == null && next) failures.push(`submit guard exposed a next button: ${textOf(next)}`);
+  if (wanted != null && (!next || !next.matches(wanted))) failures.push(`next button ${next ? textOf(next) : "none"} != ${wanted}`);
+  if (next && /\b(submit|apply|finish|complete|send)\b/i.test(textOf(next))) failures.push(`submit-like button returned as next: ${textOf(next)}`);
+  return next ? textOf(next) : null;
+}
+
+function fixtureReportPath() {
+  return path.join(EXT_ROOT, ".output", "fixture-report.json");
+}
+
+function fixtureSafetyFailures(html) {
+  const failures = [];
+  if (/<script\b|\son[a-z-]+\s*=|data:[^,;]+;base64,/i.test(html)) failures.push("contains executable content or a base64 blob");
+  if (/(?:href|src|action|formaction|poster|cite|background|manifest|srcset|imagesrcset)\s*=\s*["']https?:\/\/(?!fixture\.invalid(?:["'/]))/i.test(html)) failures.push("contains an external URL attribute");
+  if (/(?:href|src|action|formaction|poster|cite|background|manifest)\s*=\s*["'][^"']*[?#][^"']*["']/i.test(html)) failures.push("contains a URL query or fragment");
+  if (/<(?:input|textarea|select)\b[^>]*\bvalue\s*=/i.test(html)) failures.push("contains a form control value");
+  if (/(?:session|access|auth)[_-]?token\s*[=:]/i.test(html)) failures.push("contains a session/token marker");
+  const emails = html.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  const allowed = new Set(["synthetic@example.test", "accommodations@example.test"]);
+  if (emails.some((email) => !allowed.has(email.toLowerCase()))) failures.push("contains a non-synthetic email");
+  return failures;
 }
 
 function itemMatches(item, spec) {
@@ -58,6 +114,7 @@ async function replay(pair) {
   const values = w.JAF.schema.buildFillValues(PERSONA, RESUME, {});
   const plan = w.JAF.filler.buildPlan(values);
   const failures = [];
+  fixtureSafetyFailures(html).forEach((failure) => failures.push(`fixture safety: ${failure}`));
   if (plan.adapter.id !== expected.adapter) failures.push(`adapter ${plan.adapter.id} != ${expected.adapter}`);
 
   const entries = [];
@@ -82,6 +139,12 @@ async function replay(pair) {
     if (plan.items.some((item) => item.field === field)) failures.push(`${field}: unexpectedly mapped`);
   }
 
+  const beforeGaps = w.JAF.requiredAudit.findRequiredEmpty(w.document);
+  if (expected.required && Number.isInteger(expected.required.total) && beforeGaps.length !== expected.required.total) {
+    failures.push(`required gaps before fill ${beforeGaps.length} != ${expected.required.total}`);
+  }
+  const next = checkNoSubmit(w, expected, failures);
+
   const clicked = [];
   for (const selector of (expected.submit && expected.submit.neverClick) || []) {
     w.document.querySelectorAll(selector).forEach((el) => el.addEventListener("click", () => clicked.push(selector)));
@@ -101,7 +164,19 @@ async function replay(pair) {
   const gaps = w.JAF.requiredAudit.findRequiredEmpty(w.document);
   const wantedGaps = expected.required && expected.required.leftEmptyAfterFill || 0;
   if (gaps.length !== wantedGaps) failures.push(`required gaps ${gaps.length} != ${wantedGaps}`);
-  return { file: path.relative(FIXTURE_ROOT, pair.html), adapter: plan.adapter.id, mapped: used.size, expected: entries.length, gaps: gaps.length, failures };
+  const wantedLabels = expected.required && expected.required.leftEmptyLabels || [];
+  assertExpected(sortedLabels(gaps, w.JAF.requiredAudit), wantedLabels.slice().sort(), "required gap labels", failures);
+  return {
+    file: path.relative(FIXTURE_ROOT, pair.html),
+    adapter: plan.adapter.id,
+    mapped: used.size,
+    expected: entries.length,
+    requiredBefore: beforeGaps.length,
+    gaps: gaps.length,
+    gapLabels: sortedLabels(gaps, w.JAF.requiredAudit),
+    next,
+    failures,
+  };
 }
 
 (async function run() {
@@ -111,6 +186,13 @@ async function replay(pair) {
   const failures = report.flatMap((result) => result.failures.map((failure) => `${result.file}: ${failure}`));
   const mapped = report.reduce((sum, result) => sum + result.mapped, 0);
   const expected = report.reduce((sum, result) => sum + result.expected, 0);
+  const reportDocument = {
+    generatedAt: new Date().toISOString(),
+    fixtures: report,
+    summary: { fixtures: report.length, mapped, expected, failures: failures.length },
+  };
+  fs.mkdirSync(path.dirname(fixtureReportPath()), { recursive: true });
+  fs.writeFileSync(fixtureReportPath(), JSON.stringify(reportDocument, null, 2));
   console.log(`[fixture_replay] ${report.length} fixture(s), ${mapped}/${expected} mapped, ${failures.length} failure(s)`);
   report.forEach((result) => console.log(`  ${result.file}: ${result.mapped}/${result.expected}, required gaps ${result.gaps}`));
   if (failures.length) { failures.forEach((failure) => console.log(`  x ${failure}`)); process.exit(1); }

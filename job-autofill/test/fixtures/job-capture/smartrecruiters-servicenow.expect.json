@@ -1,0 +1,12 @@
+{
+  "url": "https://jobs.smartrecruiters.com/ServiceNow/744000156132859-senior-staff-platform-engineer-kubernetes-federal",
+  "adapter": "generic",
+  "capturedAt": "2026-10-19",
+  "step": "posting",
+  "notes": "Scrubbed public SmartRecruiters posting sentinel; no application controls are present on this snapshot.",
+  "map": {},
+  "manual": [],
+  "absent": [],
+  "required": { "total": 0, "leftEmptyAfterFill": 0, "leftEmptyLabels": [] },
+  "submit": { "neverClick": ["a.js-oneclick"], "next": null }
+}

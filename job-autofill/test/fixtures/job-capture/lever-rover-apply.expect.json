@@ -18,6 +18,6 @@
   },
   "manual": [],
   "absent": [],
-  "required": { "leftEmptyAfterFill": 0, "leftEmptyLabels": [] },
+  "required": { "total": 3, "leftEmptyAfterFill": 0, "leftEmptyLabels": [] },
   "submit": { "neverClick": ["#btn-submit"], "next": null }
 }
