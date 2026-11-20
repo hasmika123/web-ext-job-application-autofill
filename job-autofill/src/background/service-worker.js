@@ -652,7 +652,12 @@ function batchController() {
     inject: batchInject, scanFrames: batchScanFrames, sendTo: batchSendTo, loadMirror: loadBatchMirror, activate,
   });
   const controller = PB.createController({
-    tabs: { create: (o) => chrome.tabs.create(o), get: (id) => chrome.tabs.get(id), activate },
+    tabs: {
+      create: (o) => chrome.tabs.create(o),
+      get: (id) => chrome.tabs.get(id),
+      activate,
+      review: (id) => batchSendTo(id, { type: "JAF_BATCH_REVIEW" }, 0),
+    },
     storage: {
       get: (k) => sGet(k),
       set: (k, v) => sSet(k, v),
@@ -705,7 +710,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (!fromOurExtensionPage(sender)) return;
-  const act = { JAF_BATCH_STATUS: () => ctl.status(), JAF_BATCH_OPEN_NEXT: () => ctl.openNext(), JAF_BATCH_STOP: () => ctl.stop(), JAF_BATCH_DISMISS: () => ctl.dismiss() }[msg.type];
+  const act = {
+    JAF_BATCH_STATUS: () => ctl.status(),
+    JAF_BATCH_OPEN_NEXT: () => ctl.openNext(),
+    JAF_BATCH_FOCUS_JOB: () => ctl.focusJob(msg.matchId),
+    JAF_BATCH_STOP: () => ctl.stop(),
+    JAF_BATCH_DISMISS: () => ctl.dismiss(),
+  }[msg.type];
   if (!act) return;
   act().then(sendResponse).catch(() => sendResponse(null));
   return true;

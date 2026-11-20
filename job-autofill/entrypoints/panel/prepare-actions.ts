@@ -1,10 +1,24 @@
 /**
  * "Prepare selected openings" (X12.9) — the drawer's side of the batch. Thin by design: the service
  * worker owns the batch (JAF.prepareBatch, persisted per account); the drawer only asks for a summary,
- * repaints when the stored state changes, and sends three commands. Nothing here opens a tab, fills,
+ * repaints when the stored state changes, and sends four commands. Nothing here opens a tab, fills,
  * clicks or submits — "Open next" and "Stop batch" are requests to the worker, which does the opening.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+export type BatchAnswer = {
+  label: string;
+  value: string;
+  status: "ok" | "failed" | "skipped";
+};
+
+export type BatchReview = {
+  answers: BatchAnswer[];
+  missing: string[];
+  fileName: string;
+  fileStatus: string;
+  steps: number;
+};
 
 export type BatchJob = {
   matchId: number | string;
@@ -15,6 +29,10 @@ export type BatchJob = {
   /** What the consultant should do about `reason` (empty when there is nothing to do). */
   help: string;
   tabOpen: boolean;
+  /** Required fields still reported by the page; the transient review is never persisted or sent to the API. */
+  missingCount: number;
+  /** Transient review snapshot from the live tab; never persisted or sent to the API. */
+  review?: BatchReview | null;
 };
 
 export type BatchStatus = {
@@ -36,10 +54,10 @@ export type BatchStatus = {
   };
 };
 
-function ask(type: string): Promise<any> {
+function ask(type: string, payload?: Record<string, unknown>): Promise<any> {
   return new Promise((resolve) => {
     try {
-      chrome.runtime.sendMessage({ type }, (resp) => {
+      chrome.runtime.sendMessage({ type, ...(payload || {}) }, (resp) => {
         void chrome.runtime.lastError;
         resolve(resp ?? null);
       });
@@ -65,5 +83,7 @@ export function watchBatch(onChange: () => void): () => void {
 }
 
 export const openNext = (): Promise<{ ok: boolean; reason?: string } | null> => ask("JAF_BATCH_OPEN_NEXT");
+export const focusJob = (matchId: number | string): Promise<{ ok: boolean; reason?: string } | null> =>
+  ask("JAF_BATCH_FOCUS_JOB", { matchId });
 export const stopBatch = (): Promise<{ ok: boolean } | null> => ask("JAF_BATCH_STOP");
 export const dismissBatch = (): Promise<{ ok: boolean } | null> => ask("JAF_BATCH_DISMISS");

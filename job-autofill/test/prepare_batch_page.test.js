@@ -203,6 +203,16 @@ const FORM = `<body>
     ok("review: rows carry readable names, not field keys", /First name/.test(txt) && !/firstName/.test(txt), txt.slice(0, 300));
     ok("review: no backdrop — the page is usable beside the panel", !host.shadowRoot.querySelector(".backdrop"));
     ok("review: says nothing is submitted", /Nothing is submitted/.test(txt));
+    const snapshot = await p.deliver({ type: "JAF_BATCH_REVIEW" });
+    ok("review: the service worker can read the current transient answer snapshot", snapshot && snapshot.ok === true);
+    ok("review: snapshot has filled answer and missing field without page internals",
+      snapshot && snapshot.answers.some((a) => a.label === "First name" && a.value === "Cora") &&
+      snapshot.missing.some((name) => /Referral code/i.test(name)) &&
+      !JSON.stringify(snapshot).includes("HTMLInputElement"));
+    d.getElementById("fn").value = "Nova";
+    d.getElementById("fn").dispatchEvent(new w.Event("change", { bubbles: true }));
+    await wait(50);
+    ok("autoFill: batch watcher learns a text correction", (await w.JAF.fieldCache.exportAll()).some((entry) => entry.value === "Nova"));
     const filledMsg = p.sent.find((m) => m.type === "JAF_BATCH_PROGRESS" && m.phase === "filled");
     ok("autoFill: progress 'filled' reported with the batch ids and gap count", !!filledMsg && filledMsg.batch.sessionId === "s2" && filledMsg.batch.matchId === 7 && filledMsg.gaps >= 2, JSON.stringify(filledMsg));
     // the consultant fills the referral code: the review's list follows
@@ -216,6 +226,32 @@ const FORM = `<body>
     eq("attestation (autoFill): the certify and privacy boxes are untouched", [d.getElementById("cert").checked, d.getElementById("privacy").checked], [false, false]);
     host.shadowRoot.querySelector("#done").click();
     ok("review: Done closes the panel", !d.getElementById("__jaf_host"));
+    eq("review: closing clears the live snapshot", await p.deliver({ type: "JAF_BATCH_REVIEW" }), { ok: false, reason: "not-ready" });
+  }
+  {
+    // A consultant correction must be reflected in the central review, including choice groups and native selects.
+    const CHOICES = `<body><form>
+      <fieldset><legend>Are you authorized to work in the United States? *</legend>
+        <label><input id="auth-yes" type="radio" name="authorizedToWork" value="Yes"> Yes</label>
+        <label><input id="auth-no" type="radio" name="authorizedToWork" value="No"> No</label>
+      </fieldset>
+      <label for="hear">How did you hear about us? *</label>
+      <select id="hear" name="referralSource" required><option value="">Select one</option><option value="referral">Employee referral</option><option value="search">Search</option></select>
+    </form></body>`;
+    const p = page(CHOICES);
+    const d = p.w.document;
+    await p.deliver({ type: "JAF_BATCH_FILL", bio: { authorizedToWork: "Yes", referralSource: "Employee referral" }, options: { autoFill: true, batch: { sessionId: "s6", matchId: 4 } } });
+    await wait(1_200);
+    const yes = d.getElementById("auth-yes");
+    const no = d.getElementById("auth-no");
+    no.checked = true;
+    yes.checked = false;
+    no.dispatchEvent(new p.w.Event("change", { bubbles: true }));
+    d.getElementById("hear").value = "search";
+    d.getElementById("hear").dispatchEvent(new p.w.Event("change", { bubbles: true }));
+    const snapshot = await p.deliver({ type: "JAF_BATCH_REVIEW" });
+    ok("review: radio corrections report the selected option", snapshot.answers.some((a) => a.label && /authorized to work/i.test(a.label) && a.value === "No"), JSON.stringify(snapshot));
+    ok("review: native select corrections report visible option text", snapshot.answers.some((a) => a.label && /hear about/i.test(a.label) && a.value === "Search"), JSON.stringify(snapshot));
   }
   {
     // without autoFill (the person's own "Scan & fill" from the drawer) nothing is written before they press the button

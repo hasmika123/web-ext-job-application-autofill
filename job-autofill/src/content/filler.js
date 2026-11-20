@@ -406,12 +406,96 @@
     return s.length > 72 ? s.slice(0, 71) + "…" : s;
   }
 
+  // The batch drawer may request the current review while it is open. Keep this only in the page's
+  // live content-script memory: it is never written to extension storage or sent to the API.
+  let lastBatchReview = null;
+  function rootOf(el) {
+    try { return el && typeof el.getRootNode === "function" ? el.getRootNode() : document; } catch (e) { return document; }
+  }
+  function cleanText(node) {
+    return node && typeof node.textContent === "string" ? node.textContent.replace(/\s+/g, " ").trim() : "";
+  }
+  function choiceLabel(el) {
+    if (!el) return "";
+    const wrap = el.closest && el.closest("label");
+    if (wrap) return cleanText(wrap);
+    const id = el.id;
+    if (id) {
+      const root = rootOf(el);
+      const label = Array.from(root.querySelectorAll ? root.querySelectorAll("label") : []).find((n) => n.getAttribute("for") === id);
+      if (label) return cleanText(label);
+    }
+    return String(el.value || "").trim();
+  }
+  function selectedRadio(el) {
+    const root = rootOf(el);
+    const name = el && String(el.name || "");
+    const form = el && el.form;
+    const radios = Array.from(root.querySelectorAll ? root.querySelectorAll('input[type="radio"]') : [])
+      .filter((r) => (!name || r.name === name) && (!form || r.form === form));
+    return radios.find((r) => r.checked) || null;
+  }
+  function selectedComboText(el) {
+    const control = el && el.closest && el.closest('[class*="__control"],[class*="control"],[role="combobox"],[data-automation-id="multiSelectContainer"],[data-uxi-widget-type="multiselect"]');
+    if (!control) return "";
+    const selected = control.querySelector('[class*="single-value"],[class*="singleValue"],[role="option"][aria-selected="true"],[data-automation-id="selectedItem"]');
+    return cleanText(selected);
+  }
+  function liveValue(item) {
+    const el = item && item.el;
+    try {
+      const type = el && String(el.getAttribute("type") || "").toLowerCase();
+      if (item && item.choices && Array.isArray(item.choices)) {
+        const picked = item.choices.find((choice) => choice && choice.el && choice.el.checked);
+        if (picked) return String(picked.text || choiceLabel(picked.el) || picked.el.value || "").trim();
+        return "";
+      }
+      if (el && type === "radio") {
+        const picked = selectedRadio(el);
+        return picked ? choiceLabel(picked) : "";
+      }
+      if (el && type === "checkbox") return el.checked ? choiceLabel(el) : "";
+      if (el && (item.kind === "combo" || item.kind === "combo-multi" || el.getAttribute("role") === "combobox")) {
+        return selectedComboText(el) || (typeof el.value === "string" ? el.value : "");
+      }
+      if (el && el.tagName === "SELECT") {
+        const option = el.options && el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null;
+        return cleanText(option) || String(el.value || "");
+      }
+      if (el && typeof el.value === "string") return el.value;
+    } catch (e) { /* use the planned value below */ }
+    return item && item.value != null ? String(item.value) : "";
+  }
+  function batchReviewSnapshot() {
+    if (!lastBatchReview) return { ok: false, reason: "not-ready" };
+    let missing = lastBatchReview.missing.map((g) => g.name);
+    const audit = JAF.requiredAudit;
+    try {
+      if (audit) missing = audit.findRequiredEmpty(document).map((el) => audit.describe(el));
+    } catch (e) { /* keep the last known list */ }
+    return {
+      ok: true,
+      answers: lastBatchReview.rows.map((o) => ({ label: o.label, value: liveValue(o.item), status: o.status })),
+      missing,
+      fileName: lastBatchReview.fileName,
+      fileStatus: lastBatchReview.fileStatus,
+      steps: lastBatchReview.steps,
+    };
+  }
+
   function showReview(host, root, r) {
     const A = JAF.requiredAudit;
     root.querySelectorAll(".backdrop, .flash").forEach((n) => n.remove());
     host.style.cssText = "position:fixed;top:0;right:0;width:400px;max-width:100vw;height:100vh;z-index:2147483647;";
     const gaps = (r.gaps || []).map((el) => ({ el, name: A ? A.describe(el) : "Required field", done: false }));
     const rows = r.outcomes || [];
+    lastBatchReview = {
+      rows: rows.map((o) => ({ item: o.item, label: rowName(o.item), status: o.status })),
+      missing: gaps,
+      fileName: r.file ? String(r.file.name || "").slice(0, 200) : "",
+      fileStatus: r.fileStatus || "",
+      steps: Number(r.steps) || 0,
+    };
     const written = rows.filter((o) => o.status === "ok").length;
     const mark = (s) => s === "ok" ? '<span class="mark ok" aria-label="filled">✓</span>'
       : s === "failed" ? '<span class="mark bad" aria-label="could not fill">✗</span>'
@@ -452,7 +536,7 @@
     };
     document.addEventListener("input", recheck, true);
     document.addEventListener("change", recheck, true);
-    const done = () => { document.removeEventListener("input", recheck, true); document.removeEventListener("change", recheck, true); r.close(); };
+    const done = () => { document.removeEventListener("input", recheck, true); document.removeEventListener("change", recheck, true); lastBatchReview = null; r.close(); };
     footer.querySelector("#done").onclick = done;
     const x = root.querySelector(".x");
     if (x) x.onclick = done;
@@ -503,6 +587,14 @@
     } catch (e) {}
     renderOverlay(plan, file, null, options);
     return { adapter: plan.adapter.id, candidates: plan.items.length };
+  }
+
+  if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage && chrome.runtime.onMessage.addListener) {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (!msg || msg.type !== "JAF_BATCH_REVIEW" || (sender && sender.tab)) return;
+      sendResponse(batchReviewSnapshot());
+      return true;
+    });
   }
 
   const CSS_TEXT = `
