@@ -117,6 +117,24 @@ class AiRouterTest {
         verify(metering, never()).recordFailure(any(), any(), any(), any(), any(), anyInt());
     }
 
+    @Test
+    void anOrganizationFailureKeepsActorAndBeneficiaryAttribution() {
+        AiCallContext context = AiCallContext.organization("actor", "beneficiary", 7L, "ai.job_matching", 11L);
+        gemini.failure = http(400);
+
+        assertThatThrownBy(() -> router.generate(AiTask.PICK, "m", "q", "", context))
+            .isInstanceOf(AiProviderException.class);
+
+        verify(metering).recordFailureWithContext(
+            eq(context),
+            eq(AiTask.PICK),
+            eq("gemini"),
+            eq("m"),
+            eq(AiErrorKind.HTTP_4XX),
+            anyInt()
+        );
+    }
+
     // ---- disabled -----------------------------------------------------------
 
     @Test

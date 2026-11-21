@@ -26,7 +26,7 @@ public class UsageCounter implements Serializable {
     @Column(name = "feature_key", length = 60, nullable = false)
     private String featureKey;
 
-    @Column(name = "period_key", length = 8, nullable = false)
+    @Column(name = "period_key", length = 32, nullable = false)
     private String periodKey;
 
     @Column(name = "used", nullable = false)

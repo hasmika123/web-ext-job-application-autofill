@@ -78,6 +78,8 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_PIPELINE_SAME_CLIENT_WINDOW_DAYS = "org.pipeline.same_client_window_days";
     public static final String ORG_PIPELINE_MAX_PER_REQUIREMENT = "org.pipeline.max_submissions_per_requirement";
     public static final String ORG_PIPELINE_OPEN_MATCHES_MAX = "org.pipeline.open_matches_max";
+    /** AI job matching: maximum units reserved by one manual or scheduled matching run. */
+    public static final String MATCHING_BATCH_SIZE = "enterprise.matching.batch_size";
     public static final String ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK = "org.assignments.handover_open_work";
     /**
      * Sprint 2 / H-assign: the longest temporary cover (days) and how far ahead a handover may be scheduled (days); and the licence allowance
@@ -285,6 +287,7 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_PIPELINE_SAME_CLIENT_WINDOW_DAYS, 90, 1, 730, Risk.LOW, "Duplicate-submission guard: the same role for the same consultant through another vendor counts as a duplicate when the earlier assignment or application is at most this many days old. An organization can override it in org_setting.");
         integer(k, ORG_PIPELINE_MAX_PER_REQUIREMENT, 0, 0, 50, Risk.LOW, "Duplicate-submission guard: the most consultants that may hold one posting at the same time; the next assignment is a duplicate warning (or a block, per the policy). 0 = off. An organization can override it in org_setting.");
         integer(k, ORG_PIPELINE_OPEN_MATCHES_MAX, 0, 0, 1000, Risk.LOW, "Assignments: the most open opportunities one consultant may hold; the next assignment answers 409 ASSIGNMENT_CAP. 0 = off. An organization can override it in org_setting.");
+        integer(k, MATCHING_BATCH_SIZE, 20, 1, 100, Risk.LOW, "AI job matching: the most match units one manual or scheduled run may reserve for one consultant. An organization can override it in org_setting.");
         k.add(new Key(ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK, Type.BOOL, "true", null, null, null,
             "Marketing Assignments: when a consultant moves to a new marketer, the open opportunities, tasks and follow-ups the previous marketer owned for that consultant move with them (audited, with a note on each). Off: only the assignment moves and the open work stays with the previous owner. An organization can override it in org_setting.", null, Risk.MEDIUM));
         integer(k, ORG_ASSIGNMENTS_DELEGATE_MAX_DAYS, 90, 1, 365, Risk.LOW, "Marketing Assignments: the longest temporary cover (days) that can be set when a marketer is away. The cover ends by itself on its end date and the consultant goes back. An organization can override it in org_setting.");

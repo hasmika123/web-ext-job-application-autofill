@@ -5,6 +5,7 @@ import com.dossier.api.domain.AiUsage;
 import com.dossier.api.repository.AiCallRepository;
 import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.service.ai.AiErrorKind;
+import com.dossier.api.service.ai.AiCallContext;
 import com.dossier.api.service.ai.AiPricing;
 import com.dossier.api.service.ai.AiResult;
 import com.dossier.api.service.ai.AiTask;
@@ -60,13 +61,29 @@ public class AiMeteringService {
      * @return this login's call count for the month, including this one
      */
     public int record(String login, AiTask task, AiResult result) {
-        if (task != AiTask.PROBE) usageRepository.increment(login, period());
+        return recordWithContext(task, result, AiCallContext.personal(login));
+    }
+
+    /**
+     * Record an organization or personal call with explicit attribution. The old signature above
+     * remains the compatibility path for personal callers; an organization call never increments
+     * the personal {@code ai_usage} counter.
+     */
+    public int record(String login, AiTask task, AiResult result, AiCallContext context) {
+        return recordWithContext(task, result, context == null ? AiCallContext.personal(login) : context);
+    }
+
+    /** Record a successful call using the X5.8 context. */
+    public int recordWithContext(AiTask task, AiResult result, AiCallContext context) {
+        AiCallContext ctx = context == null ? AiCallContext.personal(null) : context;
+        String actorLogin = ctx.actorLogin();
+        if (task != AiTask.PROBE && !ctx.organizationCall()) usageRepository.increment(actorLogin, period());
 
         if (!pricing.isPriced(result.model()) && unpricedWarned.add(String.valueOf(result.model()))) {
             LOG.warn("No AI price configured for model '{}' — costing it at the fallback rate. Add dossier.ai.pricing.models[{}] or an ai.price.{}.* setting", result.model(), result.model(), result.model());
         }
         AiCall call = new AiCall();
-        call.setLogin(login);
+        call.setLogin(actorLogin);
         call.setTask(task.wire());
         call.setModel(result.model() == null || result.model().isBlank() ? "unknown" : truncate(result.model(), 80));
         call.setInputTokens(result.inputTokens());
@@ -76,10 +93,10 @@ public class AiMeteringService {
         call.setProvider(result.provider() == null || result.provider().isBlank() ? "gemini" : truncate(result.provider(), 20));
         call.setLatencyMs(result.latencyMs());
         call.setSuccess(true);
-        stamp(call, login, task);
+        stamp(call, actorLogin, task, ctx);
         callRepository.save(call);
 
-        return usedThisMonth(login);
+        return ctx.organizationCall() ? 0 : usedThisMonth(actorLogin);
     }
 
     /**
@@ -90,8 +107,15 @@ public class AiMeteringService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailure(String login, AiTask task, String provider, String model, AiErrorKind kind, int latencyMs) {
+        recordFailureWithContext(AiCallContext.personal(login), task, provider, model, kind, latencyMs);
+    }
+
+    /** Record a failed attempt with the same actor/beneficiary attribution as its successful path. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordFailureWithContext(AiCallContext context, AiTask task, String provider, String model, AiErrorKind kind, int latencyMs) {
+        AiCallContext ctx = context == null ? AiCallContext.personal(null) : context;
         AiCall call = new AiCall();
-        call.setLogin(login);
+        call.setLogin(ctx.actorLogin());
         call.setTask(task.wire());
         call.setModel(model == null || model.isBlank() ? "unknown" : truncate(model, 80));
         call.setCostMicros(0);
@@ -99,7 +123,7 @@ public class AiMeteringService {
         call.setLatencyMs(latencyMs);
         call.setSuccess(false);
         call.setErrorKind(kind == null ? AiErrorKind.UNKNOWN.name() : kind.name());
-        stamp(call, login, task);
+        stamp(call, ctx.actorLogin(), task, ctx);
         callRepository.save(call);
     }
 
@@ -109,7 +133,19 @@ public class AiMeteringService {
      * {@code PERSONAL}.
      */
     static void stamp(AiCall call, String login, AiTask task) {
-        call.setFeatureKey(com.dossier.api.service.entitlement.AiTaskFeatures.featureOf(task));
+        stamp(call, login, task, AiCallContext.personal(login));
+    }
+
+    static void stamp(AiCall call, String login, AiTask task, AiCallContext context) {
+        AiCallContext ctx = context == null ? AiCallContext.personal(login) : context;
+        call.setFeatureKey(ctx.featureKey() == null ? com.dossier.api.service.entitlement.AiTaskFeatures.featureOf(task) : ctx.featureKey());
+        call.setUsageEventId(ctx.usageEventId());
+        if (ctx.organizationCall()) {
+            call.setUsageScope("ORG");
+            call.setOrgId(ctx.orgId());
+            call.setBeneficiaryLogin(ctx.beneficiaryLogin());
+            return;
+        }
         if (login == null) return;
         java.util.Optional<Long> org = com.dossier.api.service.ent.licenses.EnterpriseLicenseAccess.orgOf(login);
         call.setUsageScope(org.isPresent() ? "ORG" : "PERSONAL");
