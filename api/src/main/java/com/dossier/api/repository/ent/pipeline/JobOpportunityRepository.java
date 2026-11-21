@@ -3,6 +3,8 @@ package com.dossier.api.repository.ent.pipeline;
 import com.dossier.api.domain.ent.pipeline.JobOpportunity;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +19,11 @@ public interface JobOpportunityRepository extends Repository<JobOpportunity, Lon
 
     @Query("select o from JobOpportunity o where o.orgId = :orgId and o.id = :id")
     Optional<JobOpportunity> findByOrgIdAndId(@Param("orgId") Long orgId, @Param("id") Long id);
+
+    /** Serializes the open/closed guard with a concurrent opportunity lifecycle write. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from JobOpportunity o where o.orgId = :orgId and o.id = :id")
+    Optional<JobOpportunity> lockByOrgIdAndId(@Param("orgId") Long orgId, @Param("id") Long id);
 
     List<JobOpportunity> findByOrgIdOrderByUpdatedAtDesc(Long orgId);
 
