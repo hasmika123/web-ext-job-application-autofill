@@ -25,6 +25,8 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> ✅ **Enterprise organization job matching — Ticket 04 complete (2026-11-21)** — `OpportunityCandidateProjector` now merges org-scoped open canonical opportunities with existing `JobPrefilter` candidates into one deduplicated, source-neutral read-only shape. Focused and full API tests are green; changes are committed locally only. **Next: Ticket 05 deterministic rule scorer.**
+
 > ✅ **Autofill accuracy pass complete on `develop` (2026-11-20)** — Issue 02's autopilot batch review is
 > finished and browser-verified; Issue 03's four tickets are resolved and hardened: stable learned-answer
 > keys, correction capture, scrubbed fixture replay, and nightly per-ATS quality alerts. The work is
@@ -3672,3 +3674,4 @@ focus to 0.2, add a Log line. Do NOT start 0.2.
 - 2026-11-20 · **autofill accuracy pass** · Issue 02 batch review completed with real Chrome verification; Issue 03 tickets 01–04 resolved with stable cache keys, correction watchers, scrubbed fixture replay (4 fixtures, 8/8 mapped), and the count-only nightly ATS quality watcher with admin alerts. Focused extension and API tests are green; the Docker-backed API integration test is present but local Docker is unavailable. Changes are committed locally; no push performed.
 - 2026-11-21 · **resume parser accuracy** · DOCX header XML is now merged with Mammoth body text in both web and extension parsing, so header-only name/email/phone fields reach the local bio parser. Added web and extension regressions, bumped extension version to 0.75.3, and verified the full extension suite plus focused web checks. The full web suite had one unrelated pre-existing date-format failure. Changes are committed locally; no push performed.
 - 2026-11-21 · **resume parser accuracy** · Empty/garbled PDF text now falls back to bundled local Tesseract OCR in web and extension parsing, with build-time asset copying, synthetic web/extension regressions, full extension tests, and web/extension production builds green. Local OCR keeps resume bytes in the browser; the existing opt-in server-AI file path remains unchanged. Extension version 0.75.4. Changes are committed locally; no push performed.
+- 2026-11-21 · **Enterprise organization job matching — Ticket 04** · Added the org-scoped, read-only `OpportunityCandidateProjector` and repository query for open canonical opportunities; merged existing prefiltered public postings with canonical-first posting/dedupe de-duplication into a source-neutral candidate record. Focused projector tests and the full API `test` task passed. Local commit only; no GitHub push performed. Next is Ticket 05 deterministic rule scoring.

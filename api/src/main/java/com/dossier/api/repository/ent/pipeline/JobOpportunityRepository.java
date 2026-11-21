@@ -1,6 +1,7 @@
 package com.dossier.api.repository.ent.pipeline;
 
 import com.dossier.api.domain.ent.pipeline.JobOpportunity;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
@@ -28,6 +29,12 @@ public interface JobOpportunityRepository extends Repository<JobOpportunity, Lon
     List<JobOpportunity> findByOrgIdOrderByUpdatedAtDesc(Long orgId);
 
     List<JobOpportunity> findByOrgIdAndStatusOrderByUpdatedAtDesc(Long orgId, String status);
+
+    @Query("select o from JobOpportunity o where o.orgId = :orgId and o.status in :statuses order by o.updatedAt desc")
+    List<JobOpportunity> findByOrgIdAndStatusInOrderByUpdatedAtDesc(
+        @Param("orgId") Long orgId,
+        @Param("statuses") Collection<String> statuses
+    );
 
     @Query("select count(o) from JobOpportunity o where o.orgId = :orgId")
     long countByOrgId(@Param("orgId") Long orgId);
