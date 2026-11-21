@@ -160,5 +160,6 @@
     <include file="config/liquibase/changelog/20261201010000_ent_org_dunning.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261202010000_ent_custom_domains.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261203010000_ent_domain_certs.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121030000_ent_opportunity_matching.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
