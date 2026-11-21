@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -35,6 +36,7 @@ import com.dossier.api.service.ai.AiProviderException;
 import com.dossier.api.service.ai.AiResult;
 import com.dossier.api.service.jobs.JobBoardProperties;
 import com.dossier.api.service.jobs.JobScoreParser;
+import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.ent.authz.AuthzDecision;
 import com.dossier.api.service.ent.authz.AuthzReason;
@@ -103,9 +105,9 @@ class OrgMatchServiceTest {
             jobProperties,
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
-        when(batchSettings.maxFor(ORG)).thenReturn(20);
-        when(jobProperties.getFreshHours()).thenReturn(48);
-        when(postings.findByPublishedAtAfter(any(Instant.class))).thenReturn(List.of());
+        lenient().when(batchSettings.maxFor(ORG)).thenReturn(20);
+        lenient().when(jobProperties.getFreshHours()).thenReturn(48);
+        lenient().when(postings.findByPublishedAtAfter(any(Instant.class))).thenReturn(List.of());
     }
 
     @Test
@@ -284,6 +286,24 @@ class OrgMatchServiceTest {
         verify(entitlement).release(decision, "FAILED", NOW);
         verify(matches, never()).saveAndFlush(any(OpportunityMatch.class));
         verify(entitlement, never()).commit(any(), any(Long.class), any(Instant.class));
+    }
+
+    @Test
+    void scheduledRunNeverFallsBackToRulesWhenFeatureIsUnlicensed() {
+        OrgMembership system = new OrgMembership(ORG, null, null, OrgAuditService.SYSTEM_ACTOR, null, OrgMemberStatus.ACTIVE, OrgStatus.ACTIVE, List.of(), Map.of());
+        OpportunityMatchingEntitlementService.Decision denied = new OpportunityMatchingEntitlementService.Decision(
+            false,
+            AuthzDecision.deny(ORG, AuthzReason.FEATURE_NOT_LICENSED, List.of(OpportunityMatchingEntitlementService.PERMISSION)),
+            AuthzReason.FEATURE_NOT_LICENSED,
+            Map.of(),
+            null,
+            null
+        );
+        when(entitlement.reserveSystem(system, CONSULTANT, "nightly", List.of(MARKETER), NOW)).thenReturn(denied);
+
+        assertThatThrownBy(() -> service.matchOneSystem(system, CONSULTANT, "nightly", List.of(MARKETER), NOW)).isInstanceOf(RuntimeException.class);
+
+        verifyNoInteractions(rules, projector, ai, consultants, matches, postings, personalResumes, bios, members, orgResumes);
     }
 
     private OpportunityMatchingEntitlementService.Decision allowedDecision() {

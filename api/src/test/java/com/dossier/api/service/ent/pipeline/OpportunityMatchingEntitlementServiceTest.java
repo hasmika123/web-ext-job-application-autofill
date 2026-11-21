@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.dossier.api.domain.User;
@@ -29,6 +31,7 @@ import com.dossier.api.service.ent.billing.MatchingUsageLedger;
 import com.dossier.api.service.ent.licenses.OrgLicenseGate;
 import com.dossier.api.service.entitlement.FeatureKeys;
 import com.dossier.api.service.org.DataShareService;
+import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgMembership;
 import java.time.Instant;
 import java.util.List;
@@ -160,6 +163,63 @@ class OpportunityMatchingEntitlementServiceTest {
     }
 
     @Test
+    void systemReservationUsesEffectiveAssigneeConsentAndSystemUsageIdentity() {
+        when(usage.reserve(any())).thenReturn(
+            new MatchingUsageLedger.Reservation(99L, MatchingUsageLedger.ReserveStatus.RESERVED, 20, "RESERVED"),
+            new MatchingUsageLedger.Reservation(99L, MatchingUsageLedger.ReserveStatus.EXISTING, 20, "RESERVED")
+        );
+        OpportunityMatchingEntitlementService.Decision decision = service.reserveSystem(
+            systemActor(),
+            CONSULTANT_MEMBER,
+            "match:7:20:2026-11-21",
+            List.of(ACTOR_MEMBER),
+            NOW
+        );
+        OpportunityMatchingEntitlementService.Decision replay = service.reserveSystem(
+            systemActor(),
+            CONSULTANT_MEMBER,
+            "match:7:20:2026-11-21",
+            List.of(ACTOR_MEMBER),
+            NOW
+        );
+
+        assertThat(decision.allowed()).isTrue();
+        assertThat(decision.newlyReserved()).isTrue();
+        assertThat(replay.allowed()).isTrue();
+        assertThat(replay.newlyReserved()).isFalse();
+        assertThat(decision.aiContext().actorLogin()).isEqualTo(OrgAuditService.SYSTEM_ACTOR);
+        assertThat(decision.aiContext().beneficiaryLogin()).isEqualTo("beneficiary");
+        verifyNoInteractions(authorization);
+
+        ArgumentCaptor<MatchingUsageLedger.Request> request = ArgumentCaptor.forClass(MatchingUsageLedger.Request.class);
+        verify(usage, times(2)).reserve(request.capture());
+        assertThat(request.getAllValues()).allSatisfy(value -> {
+            assertThat(value.actorMemberId()).isNull();
+            assertThat(value.actorLogin()).isEqualTo(OrgAuditService.SYSTEM_ACTOR);
+            assertThat(value.idempotencyKey()).isEqualTo("7:ai.job_matching:matching_run:20:match:7:20:2026-11-21");
+        });
+    }
+
+    @Test
+    void systemReservationRequiresConsentToOneEffectiveAssignee() {
+        when(dataShare.viewOf(ORG, CONSULTANT_MEMBER)).thenReturn(
+            Optional.of(new DataShareService.ShareView(ShareScope.FULL, 999L, "v1", NOW, NOW))
+        );
+
+        OpportunityMatchingEntitlementService.Decision decision = service.reserveSystem(
+            systemActor(),
+            CONSULTANT_MEMBER,
+            "match:7:20:2026-11-21",
+            List.of(ACTOR_MEMBER),
+            NOW
+        );
+
+        assertThat(decision.allowed()).isFalse();
+        assertThat(decision.reason()).isEqualTo(com.dossier.api.service.ent.authz.AuthzReason.CONSENT_REQUIRED);
+        verify(usage, never()).reserve(any());
+    }
+
+    @Test
     void authorizationScopeRefusalStopsBeforeLicenseAndUsageChecks() {
         when(authorization.authorize(any())).thenReturn(
             AuthzDecision.deny(ORG, com.dossier.api.service.ent.authz.AuthzReason.OUT_OF_SCOPE, List.of(OpportunityMatchingEntitlementService.PERMISSION))
@@ -210,5 +270,9 @@ class OpportunityMatchingEntitlementServiceTest {
             List.of(),
             Map.of(OpportunityMatchingEntitlementService.PERMISSION, PermissionScope.ORG)
         );
+    }
+
+    private static OrgMembership systemActor() {
+        return new OrgMembership(ORG, null, null, OrgAuditService.SYSTEM_ACTOR, null, OrgMemberStatus.ACTIVE, OrgStatus.ACTIVE, List.of(), Map.of());
     }
 }

@@ -27,6 +27,7 @@ import com.dossier.api.service.jobs.JobMatchPrompt;
 import com.dossier.api.service.jobs.JobPrefilter;
 import com.dossier.api.service.jobs.MatchPreferences;
 import com.dossier.api.service.jobs.JobScoreParser;
+import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
 import java.time.Clock;
@@ -35,6 +36,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -173,16 +175,43 @@ public final class OrgMatchService {
         return matchOne(actor, consultantMemberId, attemptId, clock.instant());
     }
 
+    /** Runs one scheduled batch as the explicit platform actor; licensed and consented only, never rule fallback. */
     @Transactional
+    public Result matchOneSystem(OrgMembership actor, Long consultantMemberId, String attemptId, Collection<Long> effectiveAssigneeMemberIds) {
+        return matchOneSystem(actor, consultantMemberId, attemptId, effectiveAssigneeMemberIds, clock.instant());
+    }
+
     Result matchOne(OrgMembership actor, Long consultantMemberId, String attemptId, Instant now) {
-        if (actor == null || actor.orgId() == null || actor.memberId() == null) throw new OrgNotFoundException();
+        return matchOneInternal(actor, consultantMemberId, attemptId, false, List.of(), now);
+    }
+
+    Result matchOneSystem(OrgMembership actor, Long consultantMemberId, String attemptId, Collection<Long> effectiveAssigneeMemberIds, Instant now) {
+        return matchOneInternal(actor, consultantMemberId, attemptId, true, effectiveAssigneeMemberIds, now);
+    }
+
+    private Result matchOneInternal(
+        OrgMembership actor,
+        Long consultantMemberId,
+        String attemptId,
+        boolean systemRun,
+        Collection<Long> effectiveAssigneeMemberIds,
+        Instant now
+    ) {
+        if (actor == null || actor.orgId() == null) throw new OrgNotFoundException();
+        if (systemRun) {
+            if (actor.memberId() != null || !OrgAuditService.SYSTEM_ACTOR.equals(actor.login())) throw new OrgNotFoundException();
+        } else if (actor.memberId() == null) {
+            throw new OrgNotFoundException();
+        }
         if (consultantMemberId == null) throw new OrgNotFoundException();
         if (attemptId == null || attemptId.isBlank()) throw new IllegalArgumentException("matching attempt id is required");
 
         Long orgId = actor.orgId();
-        OpportunityMatchingEntitlementService.Decision decision = entitlement.reserve(actor, consultantMemberId, attemptId.strip(), now);
+        OpportunityMatchingEntitlementService.Decision decision = systemRun
+            ? entitlement.reserveSystem(actor, consultantMemberId, attemptId.strip(), effectiveAssigneeMemberIds, now)
+            : entitlement.reserve(actor, consultantMemberId, attemptId.strip(), now);
         if (!decision.allowed()) {
-            if (decision.reason() == AuthzReason.FEATURE_NOT_LICENSED) {
+            if (!systemRun && decision.reason() == AuthzReason.FEATURE_NOT_LICENSED) {
                 ConsultantProfile profile = consultants.findByOrgIdAndMemberId(orgId, consultantMemberId).orElseThrow(OrgNotFoundException::new);
                 return runRules(actor, consultantMemberId, profilePreferences(orgId, profile), now);
             }

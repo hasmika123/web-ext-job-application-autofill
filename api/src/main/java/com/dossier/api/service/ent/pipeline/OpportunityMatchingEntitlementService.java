@@ -20,7 +20,9 @@ import com.dossier.api.service.ent.licenses.OrgLicenseGate;
 import com.dossier.api.service.entitlement.FeatureKeys;
 import com.dossier.api.service.ai.AiCallContext;
 import com.dossier.api.service.org.DataShareService;
+import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgMembership;
+import java.util.Collection;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
@@ -132,6 +134,62 @@ public final class OpportunityMatchingEntitlementService {
             return denied(AuthzDecision.deny(orgId, AuthzReason.CONSENT_REQUIRED, List.of(FEATURE), details), AuthzReason.CONSENT_REQUIRED, details);
         }
 
+        return reserveUsage(actor, consultantMemberId, attemptId, now, profile, authz);
+    }
+
+    /**
+     * Reserve a scheduled run for the platform actor. Scheduled matching has no request membership to authorize, so it
+     * uses the explicit effective-assignee list as its narrow scope proof and still performs the same license, consent,
+     * allowance, and usage reservation checks before the provider can be reached.
+     */
+    @Transactional
+    public Decision reserveSystem(
+        OrgMembership actor,
+        Long consultantMemberId,
+        String attemptId,
+        Collection<Long> effectiveAssigneeMemberIds,
+        Instant now
+    ) {
+        if (
+            actor == null ||
+            actor.orgId() == null ||
+            actor.memberId() != null ||
+            !OrgAuditService.SYSTEM_ACTOR.equals(actor.login()) ||
+            consultantMemberId == null ||
+            attemptId == null ||
+            attemptId.isBlank()
+        ) {
+            return denied(null, AuthzReason.NOT_MEMBER, Map.of());
+        }
+
+        Long orgId = actor.orgId();
+        ConsultantProfile profile = consultants.findByOrgIdAndMemberId(orgId, consultantMemberId).orElse(null);
+        if (profile == null) {
+            return denied(AuthzDecision.deny(orgId, AuthzReason.NOT_MEMBER, List.of(FEATURE)), AuthzReason.NOT_MEMBER, Map.of());
+        }
+        if (!licenses.has(orgId, profile.getId(), FEATURE, now)) {
+            return denied(AuthzDecision.deny(orgId, AuthzReason.FEATURE_NOT_LICENSED, List.of(FEATURE)), AuthzReason.FEATURE_NOT_LICENSED, Map.of("featureKey", FEATURE));
+        }
+        if (!fullConsentNamesAnyAssignee(orgId, consultantMemberId, effectiveAssigneeMemberIds)) {
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("beneficiaryMemberId", consultantMemberId);
+            details.put("consentKind", "consent.act_for");
+            return denied(AuthzDecision.deny(orgId, AuthzReason.CONSENT_REQUIRED, List.of(FEATURE), details), AuthzReason.CONSENT_REQUIRED, details);
+        }
+
+        AuthzDecision authorization = AuthzDecision.allow(orgId, actor, consultantMemberId, List.of(PERMISSION), Map.of());
+        return reserveUsage(actor, consultantMemberId, attemptId, now, profile, authorization);
+    }
+
+    private Decision reserveUsage(
+        OrgMembership actor,
+        Long consultantMemberId,
+        String attemptId,
+        Instant now,
+        ConsultantProfile profile,
+        AuthzDecision authz
+    ) {
+        Long orgId = actor.orgId();
         FeatureDefinition definition = definitions.findByFeatureKey(FEATURE).orElse(null);
         long allowance = allowance(orgId, profile, definition, now);
         String beneficiaryLogin = loginOf(orgId, consultantMemberId).orElse(null);
@@ -196,6 +254,13 @@ public final class OpportunityMatchingEntitlementService {
     private boolean fullConsentNamesActor(Long orgId, Long consultantMemberId, Long actorMemberId) {
         if (dataShare.scopeOf(orgId, consultantMemberId) != com.dossier.api.domain.enumeration.ShareScope.FULL) return false;
         return dataShare.viewOf(orgId, consultantMemberId).map(DataShareService.ShareView::fullToMemberId).filter(actorMemberId::equals).isPresent();
+    }
+
+    private boolean fullConsentNamesAnyAssignee(Long orgId, Long consultantMemberId, Collection<Long> assigneeMemberIds) {
+        if (assigneeMemberIds == null || assigneeMemberIds.isEmpty()) return false;
+        if (dataShare.scopeOf(orgId, consultantMemberId) != com.dossier.api.domain.enumeration.ShareScope.FULL) return false;
+        Long fullTo = dataShare.viewOf(orgId, consultantMemberId).map(DataShareService.ShareView::fullToMemberId).orElse(null);
+        return fullTo != null && assigneeMemberIds.stream().anyMatch(fullTo::equals);
     }
 
     private long allowance(Long orgId, ConsultantProfile profile, FeatureDefinition definition, Instant now) {

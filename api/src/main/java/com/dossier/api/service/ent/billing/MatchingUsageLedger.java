@@ -33,7 +33,8 @@ public interface MatchingUsageLedger {
         long ttlSeconds
     ) {
         public Request {
-            if (orgId == null || consultantMemberId == null || consultantProfileId == null || actorMemberId == null) throw new IllegalArgumentException("matching usage identities are required");
+            if (orgId == null || consultantMemberId == null || consultantProfileId == null) throw new IllegalArgumentException("matching usage identities are required");
+            if (actorMemberId == null && !"system".equals(actorLogin)) throw new IllegalArgumentException("a non-system matching actor needs a member id");
             if (featureKey == null || featureKey.isBlank() || unit == null || unit.isBlank()) throw new IllegalArgumentException("matching usage feature and unit are required");
             if (quantity < 1 || allowance < 0) throw new IllegalArgumentException("matching usage quantity is invalid");
             if (periodKey == null || periodKey.isBlank() || idempotencyKey == null || idempotencyKey.isBlank()) throw new IllegalArgumentException("matching usage period and idempotency key are required");
