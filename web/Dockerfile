@@ -65,6 +65,9 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 COPY --from=build --chown=nextjs:nodejs /repo/web/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /repo/web/.next/static ./web/.next/static
 COPY --from=build /repo/web/public ./web/public
+# Next's standalone tracer omits this Playwright metadata file, but the externalized runtime
+# package loads it even when connecting to the Chromium sidecar over CDP.
+COPY --from=build --chown=nextjs:nodejs /repo/node_modules/playwright-core/browsers.json ./node_modules/playwright-core/browsers.json
 USER nextjs
 EXPOSE 3000
 CMD ["node", "web/server.js"]
