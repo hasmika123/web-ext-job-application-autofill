@@ -35,7 +35,17 @@
         .map((it) => ({ x: it.transform[4], y: it.transform[5], w: it.width, str: it.str }));
       out += JAF.parserCore.reconstructPdfText(items) + "\n\n";
     }
-    return out.trim();
+    const extracted = out.trim();
+    if (!JAF.parserCore.looksGarbled(extracted) || !JAF.resumeOcr) return extracted;
+
+    // Keep OCR local. If the optional bundled adapter cannot run, preserve the
+    // extracted text so the existing server-AI opt-in/fallback behavior remains intact.
+    try {
+      const ocrText = await JAF.resumeOcr.ocrPdfDocument(doc);
+      return ocrText || extracted;
+    } catch {
+      return extracted;
+    }
   }
 
   async function extractDocx(file) {

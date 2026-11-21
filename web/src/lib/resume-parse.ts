@@ -19,6 +19,7 @@ import {
 } from "@/lib/parser-core";
 import { redactForParsing } from "@/lib/profile-setup/sensitive";
 import JSZip from "jszip";
+import { ocrPdfDocument } from "@/lib/resume-ocr";
 
 export interface ParsedResume {
   structured: StructuredResume;
@@ -67,7 +68,17 @@ async function extractPdf(file: File): Promise<string> {
       .map((it) => ({ x: it.transform[4], y: it.transform[5], w: it.width, str: it.str }));
     out += reconstructPdfText(items) + "\n\n";
   }
-  return out.trim();
+  const extracted = out.trim();
+  if (!looksGarbled(extracted)) return extracted;
+
+  // Image-only PDFs have no text layer. Render them locally and run the bundled OCR
+  // model; a missing/failed OCR asset must not block the upload or cause a network call.
+  try {
+    const ocrText = await ocrPdfDocument(doc);
+    return ocrText || extracted;
+  } catch {
+    return extracted;
+  }
 }
 
 async function extractDocx(file: File): Promise<string> {

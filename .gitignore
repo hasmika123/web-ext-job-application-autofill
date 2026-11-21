@@ -22,3 +22,7 @@ web/e2e/.auth-stories/
 
 # Organization extension packages (web/scripts/package-org-extension.mjs): zips and settings, never committed
 org-extensions/
+
+# OCR runtime assets are copied from pinned npm packages during web/extension builds.
+/web/public/ocr/
+/job-autofill/public/vendor/ocr/

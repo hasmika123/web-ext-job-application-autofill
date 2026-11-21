@@ -35,6 +35,11 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > Word header parts in both the web and extension paths, with synthetic header fixtures and the extension
 > version bumped to 0.75.3. Changes are committed locally; the remote was not pushed.
 
+> ✅ **Resume parser scanned-PDF OCR fix complete on `develop` (2026-11-21)** — empty/garbled PDF text
+> now falls back to a bundled local English OCR worker/model in both the web and extension paths. OCR
+> assets are copied from pinned npm packages at build time; no resume bytes are sent for the local path.
+> Extension version is 0.75.4. Changes are committed locally; the remote was not pushed.
+
 > 📄 **Resume Builder + Common Profile is designed (branch `resume-builder`, 2026-10-11)** — see the
 > *Resume Builder* section below (its own Current focus: **R1.1 Profile items API**) and `docs/HANDOFF-RESUME-BUILDER.md`.
 >
@@ -3666,3 +3671,4 @@ focus to 0.2, add a Log line. Do NOT start 0.2.
 - 2026-10-16 · **ent-stories: story suites green on the real stack (branch `ent-story-fixes`)** · admin 51/51, consultant 53, platform 51, marketing 27 + 6 BLOCKED; fixed the first-navigation "couldn't load your workspace" (one shared session call per burst, 8 s budget, logged cause), PLT-42 (marketing home tables scroll in their cards) and Add opportunity's 404 (fresh-snapshot re-read); two product gaps queued (two consultant opportunity implementations that do not share a record); see `docs/enterprise-v2/qa/videos-index.md`
 - 2026-11-20 · **autofill accuracy pass** · Issue 02 batch review completed with real Chrome verification; Issue 03 tickets 01–04 resolved with stable cache keys, correction watchers, scrubbed fixture replay (4 fixtures, 8/8 mapped), and the count-only nightly ATS quality watcher with admin alerts. Focused extension and API tests are green; the Docker-backed API integration test is present but local Docker is unavailable. Changes are committed locally; no push performed.
 - 2026-11-21 · **resume parser accuracy** · DOCX header XML is now merged with Mammoth body text in both web and extension parsing, so header-only name/email/phone fields reach the local bio parser. Added web and extension regressions, bumped extension version to 0.75.3, and verified the full extension suite plus focused web checks. The full web suite had one unrelated pre-existing date-format failure. Changes are committed locally; no push performed.
+- 2026-11-21 · **resume parser accuracy** · Empty/garbled PDF text now falls back to bundled local Tesseract OCR in web and extension parsing, with build-time asset copying, synthetic web/extension regressions, full extension tests, and web/extension production builds green. Local OCR keeps resume bytes in the browser; the existing opt-in server-AI file path remains unchanged. Extension version 0.75.4. Changes are committed locally; no push performed.
