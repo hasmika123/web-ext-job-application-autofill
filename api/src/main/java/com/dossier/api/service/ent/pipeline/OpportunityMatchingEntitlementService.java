@@ -39,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
  * through this class; callers must pass its returned context to {@link OpportunityAiScorer}.
  */
 @Service
-public final class OpportunityMatchingEntitlementService {
+public class OpportunityMatchingEntitlementService {
 
     public static final String FEATURE = FeatureKeys.AI_JOB_MATCHING;
     public static final String UNIT = "matches";

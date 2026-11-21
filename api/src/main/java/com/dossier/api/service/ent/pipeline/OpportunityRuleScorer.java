@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
  * AI, entitlement, consent, actor, or match-write dependency; the later run service owns those concerns.
  */
 @Service
-public final class OpportunityRuleScorer {
+public class OpportunityRuleScorer {
 
     public static final String ALGORITHM_VERSION = "RULE_V1";
     public static final int MAX_REASON_LENGTH = 300;

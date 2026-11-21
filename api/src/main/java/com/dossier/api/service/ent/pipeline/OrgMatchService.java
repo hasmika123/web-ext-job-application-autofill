@@ -54,7 +54,7 @@ import org.springframework.transaction.annotation.Transactional;
  * candidate projector, rule scorer, AI scorer, and entitlement service each keep their narrower boundaries.
  */
 @Service
-public final class OrgMatchService {
+public class OrgMatchService {
 
     private static final Logger LOG = LoggerFactory.getLogger(OrgMatchService.class);
 

@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
  * validation. It does not know about opportunities, HTTP, licenses, consent, or match writes.</p>
  */
 @Service
-public final class OpportunityAiScorer {
+public class OpportunityAiScorer {
 
     public static final int MAX_REASON_LENGTH = 300;
 

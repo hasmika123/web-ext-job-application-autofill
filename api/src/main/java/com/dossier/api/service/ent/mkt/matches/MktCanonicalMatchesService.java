@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * The canonical query service remains the owner of tenant, dynamic permission, and consultant-scope filtering.
  */
 @Service
-public final class MktCanonicalMatchesService {
+public class MktCanonicalMatchesService {
 
     private final MktScope scope;
     private final OrgMatchQueryService canonical;

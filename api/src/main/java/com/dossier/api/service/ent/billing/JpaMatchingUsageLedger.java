@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * inserted, so parallel runs for one consultant cannot both consume the last batch units.
  */
 @Service
-public final class JpaMatchingUsageLedger implements MatchingUsageLedger {
+public class JpaMatchingUsageLedger implements MatchingUsageLedger {
 
     private static final String RESERVED = "RESERVED";
     private static final String COMMITTED = "COMMITTED";

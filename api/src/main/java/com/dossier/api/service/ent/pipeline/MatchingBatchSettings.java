@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 /** Resolves the per-run matching cap: organization override, then the platform setting. */
 @Service
-public final class MatchingBatchSettings {
+public class MatchingBatchSettings {
 
     public static final int DEFAULT = 20;
 

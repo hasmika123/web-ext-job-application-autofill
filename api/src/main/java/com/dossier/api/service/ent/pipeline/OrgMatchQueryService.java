@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Reads canonical organization suggestions while keeping dynamic permission and consultant scope in one service seam. */
 @Service
-public final class OrgMatchQueryService {
+public class OrgMatchQueryService {
 
     public static final String PERMISSION = "matches.run";
     private static final int MAX_ITEMS = 100;

@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
  * maps fields, and removes identities that would otherwise be scored twice.
  */
 @Service
-public final class OpportunityCandidateProjector {
+public class OpportunityCandidateProjector {
 
     public static final List<String> OPEN_STATUSES = List.of("NEW", "TRIAGED", "ASSIGNED");
     private static final Set<String> OPEN_STATUS_SET = Set.copyOf(OPEN_STATUSES);
