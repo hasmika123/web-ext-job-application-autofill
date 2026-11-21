@@ -21,6 +21,7 @@ import com.dossier.api.service.ent.authz.Beneficiary;
 import com.dossier.api.service.ent.authz.ScopeEvaluator;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
+import com.dossier.api.service.org.OrgNotFoundException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -92,6 +93,32 @@ class OrgMatchQueryServiceTest {
         assertThatThrownBy(() -> service.list(actor, new OrgMatchViews.Query(null, "pending")))
             .isInstanceOf(OrgException.class)
             .hasFieldOrPropertyWithValue("code", OrgException.CODE_ORG_INVALID);
+    }
+
+    @Test
+    void readsOneRowOnlyAfterPathMemberAuthorizationAndEffectiveScope() {
+        OpportunityMatch visible = match(11L, CONSULTANT, "SUGGESTED", 91, NOW);
+        when(matches.findByOrgIdAndId(ORG, 11L)).thenReturn(java.util.Optional.of(visible));
+        when(scopes.inScope(actor, PermissionScope.ASSIGNED, CONSULTANT)).thenReturn(true);
+        when(opportunities.findByOrgIdAndId(ORG, 101L)).thenReturn(java.util.Optional.of(opportunity(101L)));
+
+        OrgMatchViews.Row row = service.get(actor, 11L);
+
+        assertThat(row.id()).isEqualTo(11L);
+        assertThat(row.opportunityId()).isEqualTo(101L);
+        ArgumentCaptor<AuthzRequest> request = ArgumentCaptor.forClass(AuthzRequest.class);
+        verify(authorization).require(request.capture());
+        assertThat(request.getValue().beneficiary()).isEqualTo(Beneficiary.PATH_MEMBER);
+        assertThat(request.getValue().beneficiaryMemberId()).isEqualTo(CONSULTANT);
+    }
+
+    @Test
+    void hidesOneRowOutsideTheEffectiveScope() {
+        OpportunityMatch hidden = match(11L, CONSULTANT, "SUGGESTED", 91, NOW);
+        when(matches.findByOrgIdAndId(ORG, 11L)).thenReturn(java.util.Optional.of(hidden));
+        when(scopes.inScope(actor, PermissionScope.ASSIGNED, CONSULTANT)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.get(actor, 11L)).isInstanceOf(OrgNotFoundException.class);
     }
 
     private static OpportunityMatch match(Long id, Long consultant, String status, int score, Instant updatedAt) {

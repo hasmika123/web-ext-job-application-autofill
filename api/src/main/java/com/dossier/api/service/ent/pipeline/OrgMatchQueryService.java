@@ -66,6 +66,20 @@ public final class OrgMatchQueryService {
         return new OrgMatchViews.Response(rows, rows.size());
     }
 
+    /** Reads one canonical row only after the same dynamic permission and effective consultant-scope checks as the list. */
+    @Transactional(readOnly = true)
+    public OrgMatchViews.Row get(OrgMembership actor, Long matchId) {
+        requireActor(actor);
+        if (matchId == null) throw new OrgNotFoundException();
+        OpportunityMatch match = matches.findByOrgIdAndId(actor.orgId(), matchId).orElseThrow(OrgNotFoundException::new);
+        authorize(actor, match.getConsultantMemberId());
+        PermissionScope scope = actor.scopeFor(PERMISSION).orElseThrow(OrgNotFoundException::new);
+        if (!scopes.inScope(actor, scope, match.getConsultantMemberId())) throw new OrgNotFoundException();
+        OrgMatchViews.Row row = rowOrNull(match);
+        if (row == null) throw new OrgNotFoundException();
+        return row;
+    }
+
     /** Maps a lifecycle result after the caller has already been authorized by that lifecycle service. */
     @Transactional(readOnly = true)
     public OrgMatchViews.Row row(OpportunityMatch match) {

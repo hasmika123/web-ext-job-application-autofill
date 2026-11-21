@@ -1,6 +1,7 @@
 package com.dossier.api.service.ent.mkt.matches;
 
 import com.dossier.api.service.ent.mkt.MktScope;
+import com.dossier.api.service.ent.pipeline.OpportunityMatchLifecycleService;
 import com.dossier.api.service.ent.pipeline.OrgMatchQueryService;
 import com.dossier.api.service.ent.pipeline.OrgMatchViews;
 import com.dossier.api.service.org.OrgMembership;
@@ -16,10 +17,12 @@ public final class MktCanonicalMatchesService {
 
     private final MktScope scope;
     private final OrgMatchQueryService canonical;
+    private final OpportunityMatchLifecycleService lifecycle;
 
-    public MktCanonicalMatchesService(MktScope scope, OrgMatchQueryService canonical) {
+    public MktCanonicalMatchesService(MktScope scope, OrgMatchQueryService canonical, OpportunityMatchLifecycleService lifecycle) {
         this.scope = scope;
         this.canonical = canonical;
+        this.lifecycle = lifecycle;
     }
 
     @Transactional(readOnly = true)
@@ -27,5 +30,23 @@ public final class MktCanonicalMatchesService {
         scope.resolve(actor, MktMatchesService.PAGE_KEY);
         OrgMatchViews.Response response = canonical.list(actor, query == null ? new OrgMatchViews.Query(null, null) : query);
         return new MktCanonicalMatchesDto.Response(MktCanonicalMatchesDto.SOURCE, response.items(), response.total());
+    }
+
+    @Transactional(readOnly = true)
+    public OrgMatchViews.Row detail(OrgMembership actor, Long matchId) {
+        scope.resolve(actor, MktMatchesService.PAGE_KEY);
+        return canonical.get(actor, matchId);
+    }
+
+    @Transactional
+    public OrgMatchViews.Row assign(OrgMembership actor, Long matchId) {
+        scope.resolve(actor, MktMatchesService.PAGE_KEY);
+        return canonical.row(lifecycle.assign(actor, matchId));
+    }
+
+    @Transactional
+    public OrgMatchViews.Row dismiss(OrgMembership actor, Long matchId) {
+        scope.resolve(actor, MktMatchesService.PAGE_KEY);
+        return canonical.row(lifecycle.dismiss(actor, matchId));
     }
 }

@@ -61,10 +61,32 @@ class MktCanonicalMatchesResourceTest {
     }
 
     @Test
-    void exposesOnlyTheReadHandlerUnderTheCanonicalPathAndKeepsThePermissionGuard() throws Exception {
+    void bindsCanonicalDetailAndActionsWithoutUsingTheLegacyResource() throws Exception {
+        OrgMatchViews.Row row = new OrgMatchViews.Row(11L, 7L, 101L, "JOB_POSTING", "Backend Engineer", "Acme", "Remote", null, null, "BOARD_API", 91, "Strong Java fit", "gpt-test", "SUGGESTED_AI", "SUGGESTED", null, null);
+        when(service.detail(actor, 11L)).thenReturn(row);
+        when(service.assign(actor, 11L)).thenReturn(row);
+        when(service.dismiss(actor, 11L)).thenReturn(row);
+
+        mvc.perform(get("/api/orgs/1/mkt/matches/canonical/11").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, actor))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(11));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/orgs/1/mkt/matches/canonical/11/assign").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, actor))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(11));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/orgs/1/mkt/matches/canonical/11/dismiss").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, actor))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(11));
+
+        verify(service).detail(actor, 11L);
+        verify(service).assign(actor, 11L);
+        verify(service).dismiss(actor, 11L);
+    }
+
+    @Test
+    void exposesCanonicalHandlersUnderTheSourceSpecificPathAndKeepsThePermissionGuard() throws Exception {
         assertThat(MktCanonicalMatchesResource.class.getAnnotation(RequestMapping.class).value()).containsExactly("/api/orgs/{orgId}/mkt/matches/canonical");
         Method list = MktCanonicalMatchesResource.class.getDeclaredMethod("list", OrgMembership.class, Long.class, String.class);
         assertThat(list.isAnnotationPresent(OrgPermissionRequired.class)).isTrue();
-        assertThat(MktCanonicalMatchesResource.class.getDeclaredMethods()).noneMatch(m -> m.getName().toLowerCase().contains("assign"));
+        assertThat(MktCanonicalMatchesResource.class.getDeclaredMethods()).allMatch(m -> m.isSynthetic() || m.isAnnotationPresent(OrgPermissionRequired.class));
     }
 }
