@@ -55,6 +55,8 @@ class OpportunityCandidateProjectorTest {
         assertThat(result.get(1).postingId()).isEqualTo(601L);
         assertThat(result.get(1).prefilterRank()).isEqualTo(9);
         assertThat(result.get(1).sourceLabel()).isEqualTo("BOARD_API");
+        assertThat(result.get(1).workplaceType()).isEqualTo("REMOTE");
+        assertThat(result.get(1).remote()).isTrue();
         assertThat(result.get(1).applyUrl()).isEqualTo("https://jobs.example/apply-posting/601");
         assertThat(result.get(1).availableAt()).isEqualTo(Instant.parse("2026-11-21T08:00:00Z"));
         assertThat(result).allSatisfy(candidate -> assertThat(candidate.orgId()).isEqualTo(ORG));
@@ -146,6 +148,8 @@ class OpportunityCandidateProjectorTest {
         posting.setTitle(title);
         posting.setCompany("Acme");
         posting.setLocation("Remote (US)");
+        posting.setWorkplaceType("REMOTE");
+        posting.setRemote(true);
         posting.setUrl("https://jobs.example/posting/" + id);
         posting.setApplyUrl("https://jobs.example/apply-posting/" + id);
         posting.setDescriptionText("Public description");
