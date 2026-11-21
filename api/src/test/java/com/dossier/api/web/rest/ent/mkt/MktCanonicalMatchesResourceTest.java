@@ -43,7 +43,9 @@ class MktCanonicalMatchesResourceTest {
     @Test
     void bindsTheDedicatedCanonicalRouteAndLabelsTheResponse() throws Exception {
         OrgMatchViews.Row row = new OrgMatchViews.Row(11L, 7L, 101L, "JOB_POSTING", "Backend Engineer", "Acme", "Remote", null, null, "BOARD_API", 91, "Strong Java fit", "gpt-test", "SUGGESTED_AI", "SUGGESTED", null, null);
-        MktCanonicalMatchesDto.Response response = new MktCanonicalMatchesDto.Response("wrong", List.of(row), 1);
+        MktCanonicalMatchesDto.Consultant consultant = new MktCanonicalMatchesDto.Consultant(7L, "Alex Morgan", "Java Developer", "Java", "AVAILABLE", null);
+        MktCanonicalMatchesDto.Item item = new MktCanonicalMatchesDto.Item("wrong", row, consultant);
+        MktCanonicalMatchesDto.Response response = new MktCanonicalMatchesDto.Response("wrong", List.of(item), 1);
         when(service.list(actor, new OrgMatchViews.Query(7L, "SUGGESTED"))).thenReturn(response);
 
         mvc.perform(
@@ -54,7 +56,8 @@ class MktCanonicalMatchesResourceTest {
         )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.source").value("OPPORTUNITY_MATCH"))
-            .andExpect(jsonPath("$.items[0].opportunityId").value(101))
+            .andExpect(jsonPath("$.items[0].match.opportunityId").value(101))
+            .andExpect(jsonPath("$.items[0].consultant.name").value("Alex Morgan"))
             .andExpect(jsonPath("$.total").value(1));
 
         verify(service).list(actor, new OrgMatchViews.Query(7L, "SUGGESTED"));
@@ -63,19 +66,21 @@ class MktCanonicalMatchesResourceTest {
     @Test
     void bindsCanonicalDetailAndActionsWithoutUsingTheLegacyResource() throws Exception {
         OrgMatchViews.Row row = new OrgMatchViews.Row(11L, 7L, 101L, "JOB_POSTING", "Backend Engineer", "Acme", "Remote", null, null, "BOARD_API", 91, "Strong Java fit", "gpt-test", "SUGGESTED_AI", "SUGGESTED", null, null);
-        when(service.detail(actor, 11L)).thenReturn(row);
-        when(service.assign(actor, 11L)).thenReturn(row);
-        when(service.dismiss(actor, 11L)).thenReturn(row);
+        MktCanonicalMatchesDto.Item item = new MktCanonicalMatchesDto.Item("wrong", row, new MktCanonicalMatchesDto.Consultant(7L, "Alex Morgan", "Java Developer", "Java", "AVAILABLE", null));
+        when(service.detail(actor, 11L)).thenReturn(item);
+        when(service.assign(actor, 11L)).thenReturn(item);
+        when(service.dismiss(actor, 11L)).thenReturn(item);
 
         mvc.perform(get("/api/orgs/1/mkt/matches/canonical/11").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, actor))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(11));
+            .andExpect(jsonPath("$.match.id").value(11))
+            .andExpect(jsonPath("$.source").value("OPPORTUNITY_MATCH"));
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/orgs/1/mkt/matches/canonical/11/assign").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, actor))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(11));
+            .andExpect(jsonPath("$.match.id").value(11));
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/orgs/1/mkt/matches/canonical/11/dismiss").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, actor))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(11));
+            .andExpect(jsonPath("$.match.id").value(11));
 
         verify(service).detail(actor, 11L);
         verify(service).assign(actor, 11L);

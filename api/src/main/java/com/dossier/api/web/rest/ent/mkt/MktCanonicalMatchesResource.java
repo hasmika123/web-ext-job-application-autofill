@@ -44,7 +44,7 @@ public class MktCanonicalMatchesResource {
     @Operation(summary = "Read one canonical marketer match", description = "Returns one canonical non-PII match row after tenant, permission, and effective consultant scope checks.")
     @GetMapping("/{id}")
     @OrgPermissionRequired
-    public OrgMatchViews.Row get(
+    public MktCanonicalMatchesDto.Item get(
         @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
         @PathVariable Long id
     ) {
@@ -54,7 +54,7 @@ public class MktCanonicalMatchesResource {
     @Operation(summary = "Assign one canonical marketer match", description = "Delegates the canonical assign transition; it never uses the legacy requirement_match duplicate-guard path.")
     @PostMapping("/{id}/assign")
     @OrgPermissionRequired
-    public OrgMatchViews.Row assign(
+    public MktCanonicalMatchesDto.Item assign(
         @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
         @PathVariable Long id
     ) {
@@ -64,7 +64,7 @@ public class MktCanonicalMatchesResource {
     @Operation(summary = "Dismiss one canonical marketer match", description = "Delegates the canonical dismiss transition; it never directly mutates status.")
     @PostMapping("/{id}/dismiss")
     @OrgPermissionRequired
-    public OrgMatchViews.Row dismiss(
+    public MktCanonicalMatchesDto.Item dismiss(
         @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
         @PathVariable Long id
     ) {
