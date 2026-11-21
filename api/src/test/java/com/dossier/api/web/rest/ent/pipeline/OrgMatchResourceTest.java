@@ -152,11 +152,31 @@ class OrgMatchResourceTest {
     }
 
     @Test
+    void assignsThroughTheCanonicalLifecycleAndReturnsTheSafeRow() throws Exception {
+        OpportunityMatch match = new OpportunityMatch();
+        match.setId(11L);
+        OrgMatchViews.Row row = new OrgMatchViews.Row(11L, CONSULTANT, 101L, "JOB_POSTING", "Backend Engineer", "Acme", "Remote", null, null, "BOARD_API", 91, "Strong Java fit", "gpt-test", "SUGGESTED_AI", "ASSIGNED", null, null);
+        when(lifecycle.assign(me, 11L)).thenReturn(match);
+        when(query.row(match)).thenReturn(row);
+
+        mvc.perform(post("/api/orgs/1/matches/11/assign").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, me))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(11))
+            .andExpect(jsonPath("$.status").value("ASSIGNED"))
+            .andExpect(jsonPath("$.consultantMemberId").value(7));
+
+        verify(lifecycle).assign(me, 11L);
+        verify(query).row(match);
+    }
+
+    @Test
     void reviewHandlersCarryTheBeneficiaryMetadataTheyNeed() throws Exception {
         Method list = OrgMatchResource.class.getDeclaredMethod("list", OrgMembership.class, Long.class, String.class);
         Method dismiss = OrgMatchResource.class.getDeclaredMethod("dismiss", OrgMembership.class, Long.class);
+        Method assign = OrgMatchResource.class.getDeclaredMethod("assign", OrgMembership.class, Long.class);
         assertThat(list.getAnnotation(OrgPermissionRequired.class).beneficiary()).isEqualTo(Beneficiary.QUERY_MEMBER);
         assertThat(dismiss.getAnnotation(OrgPermissionRequired.class).beneficiary()).isEqualTo(Beneficiary.NONE);
+        assertThat(assign.getAnnotation(OrgPermissionRequired.class).beneficiary()).isEqualTo(Beneficiary.NONE);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

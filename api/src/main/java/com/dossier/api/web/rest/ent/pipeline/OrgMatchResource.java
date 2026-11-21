@@ -95,4 +95,15 @@ public class OrgMatchResource {
         OpportunityMatch match = lifecycle.dismiss(me, id);
         return query.row(match);
     }
+
+    @Operation(summary = "Assign a canonical organization match", description = "Moves a SUGGESTED canonical match to ASSIGNED through the lifecycle transition service. Retrying an already assigned match is idempotent; closed opportunities and illegal lifecycle states remain refused.")
+    @PostMapping("/matches/{id}/assign")
+    @OrgPermissionRequired
+    public OrgMatchViews.Row assign(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long id
+    ) {
+        OpportunityMatch match = lifecycle.assign(me, id);
+        return query.row(match);
+    }
 }
