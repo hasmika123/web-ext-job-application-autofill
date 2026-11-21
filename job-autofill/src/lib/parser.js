@@ -42,7 +42,21 @@
     if (!window.mammoth) throw new Error("DOCX support not loaded.");
     const buf = await file.arrayBuffer();
     const res = await window.mammoth.extractRawText({ arrayBuffer: buf });
-    return (res.value || "").trim();
+    const body = (res.value || "").trim();
+    const JSZip = globalThis.JSZip;
+    if (!JSZip) throw new Error("DOCX ZIP support not loaded.");
+    const zip = await JSZip.loadAsync(buf);
+    const headerPaths = Object.keys(zip.files)
+      .filter((path) => /^word\/header\d+\.xml$/i.test(path))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const headers = [];
+    for (const path of headerPaths) {
+      const entry = zip.file(path);
+      if (!entry) continue;
+      const text = JAF.parserCore.extractWordXmlText(await entry.async("text"));
+      if (text && !headers.includes(text)) headers.push(text);
+    }
+    return [headers.join("\n"), body].filter(Boolean).join("\n\n").trim();
   }
 
   // Structuring is delegated to the shared core module.

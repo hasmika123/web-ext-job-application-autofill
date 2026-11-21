@@ -13,6 +13,7 @@ function ok(n, c, e) { if (c) pass++; else { fail++; fails.push(n + (e ? "  ->  
 // The module exports its API directly (no global side-effect required).
 ok("exports heuristicStructure", typeof core.heuristicStructure === "function");
 ok("exports parseBio", typeof core.parseBio === "function");
+ok("exports extractWordXmlText", typeof core.extractWordXmlText === "function");
 // And there is no leaked browser global from loading it.
 ok("does not require a window/JAF global", typeof global.JAF === "undefined" || !global.JAF.parserCore || true);
 
@@ -62,6 +63,14 @@ ok("bio linkedin", /linkedin\.com\/in\/adalovelace/i.test(bio.linkedin || ""), J
 ok("bio github", /github\.com\/ada/i.test(bio.github || ""), JSON.stringify(bio));
 ok("bio city", bio.city === "San Francisco", JSON.stringify(bio));
 ok("bio state full name", bio.state === "California", JSON.stringify(bio));
+
+const headerXml = `<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p><w:r><w:t>Ada &amp; Grace</w:t><w:tab/><w:t>Engineer</w:t></w:r></w:p>
+  <w:p><w:r><w:txbxContent><w:p><w:r><w:t>ada@example.test</w:t></w:r></w:p></w:txbxContent></w:r></w:p>
+</w:hdr>`;
+const headerText = core.extractWordXmlText(headerXml);
+ok("word header: paragraph text extracted", headerText.includes("Ada & Grace\tEngineer"), JSON.stringify(headerText));
+ok("word header: nested text extracted", headerText.includes("ada@example.test"), JSON.stringify(headerText));
 
 // --- Multi-entry experience layouts (regression for the date-on-its-own-line collapse
 // and parenthesized date ranges). Each must yield every company/title, not just the first.

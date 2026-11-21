@@ -31,6 +31,10 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 > committed locally on `develop`; the remote was not pushed. The real API integration check requires
 > Docker/Testcontainers, while the focused unit and extension checks are green.
 
+> ✅ **Resume parser DOCX header fix complete on `develop` (2026-11-21)** — local parsing now includes
+> Word header parts in both the web and extension paths, with synthetic header fixtures and the extension
+> version bumped to 0.75.3. Changes are committed locally; the remote was not pushed.
+
 > 📄 **Resume Builder + Common Profile is designed (branch `resume-builder`, 2026-10-11)** — see the
 > *Resume Builder* section below (its own Current focus: **R1.1 Profile items API**) and `docs/HANDOFF-RESUME-BUILDER.md`.
 >
@@ -3661,3 +3665,4 @@ focus to 0.2, add a Log line. Do NOT start 0.2.
 - 2026-10-16 · **ent-audit-fix: enterprise role audit fixes (branch `ent-p0-fixes`)** · D1 builder crash (plain-data env spec), D2/D3 consultant to member linking + Gamma seed + act-for journey, D5 marketer Job Discovery, D10 new-resume chooser reads org records, D6 /me profile + Connect extension dialog, D8 demo refusal copy, D9 Soon chips + Audit Logs page/API, D12 no sample marketer content, D13/D14/D15 and P2 quick fixes. Tests: web vitest 3910, ITs (OrgResumeBuilderIT, SeparateDemoSeederIT, OrgConsultantResourceIT, OrgAuditEventsIT, OrgIsolationIT), real-stack Playwright tenant-audit-fixes 11/11. Open: D4 Marketing Manager workspace, Reports/Domains/HR/Finance/Billing/Integrations pages. See docs/enterprise-v2/qa/ENTERPRISE-ROLE-AUDIT-2026-10-16.md.
 - 2026-10-16 · **ent-stories: story suites green on the real stack (branch `ent-story-fixes`)** · admin 51/51, consultant 53, platform 51, marketing 27 + 6 BLOCKED; fixed the first-navigation "couldn't load your workspace" (one shared session call per burst, 8 s budget, logged cause), PLT-42 (marketing home tables scroll in their cards) and Add opportunity's 404 (fresh-snapshot re-read); two product gaps queued (two consultant opportunity implementations that do not share a record); see `docs/enterprise-v2/qa/videos-index.md`
 - 2026-11-20 · **autofill accuracy pass** · Issue 02 batch review completed with real Chrome verification; Issue 03 tickets 01–04 resolved with stable cache keys, correction watchers, scrubbed fixture replay (4 fixtures, 8/8 mapped), and the count-only nightly ATS quality watcher with admin alerts. Focused extension and API tests are green; the Docker-backed API integration test is present but local Docker is unavailable. Changes are committed locally; no push performed.
+- 2026-11-21 · **resume parser accuracy** · DOCX header XML is now merged with Mammoth body text in both web and extension parsing, so header-only name/email/phone fields reach the local bio parser. Added web and extension regressions, bumped extension version to 0.75.3, and verified the full extension suite plus focused web checks. The full web suite had one unrelated pre-existing date-format failure. Changes are committed locally; no push performed.
