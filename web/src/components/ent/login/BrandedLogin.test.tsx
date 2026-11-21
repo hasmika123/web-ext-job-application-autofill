@@ -194,6 +194,54 @@ describe("the sign-in states", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/w/admin"));
   });
 
+  it("gap D-2: the code step offers to remember the browser for the platform's days, and sends the choice", async () => {
+    const calls: { url: string; body: Record<string, unknown> }[] = [];
+    const replies = [
+      [200, { mfaRequired: true, mfaToken: "h", rememberDays: 30 }],
+      [200, { ok: true }],
+    ] as const;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ url, body: JSON.parse(String(init.body)) });
+        const [status, body] = replies[calls.length - 1];
+        return new Response(JSON.stringify(body), { status });
+      }),
+    );
+    render(<BrandedLogin name="Acme" next="/w/admin" />);
+    await fill();
+    await waitFor(() => expect(screen.getByText("Check your email")).toBeTruthy());
+    fireEvent.click(screen.getByLabelText("Don't ask again on this browser for 30 days"));
+    fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify & sign in" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/w/admin"));
+    expect(calls[1]).toEqual({ url: "/api/auth/login/mfa", body: { mfaToken: "h", code: "123456", remember: true } });
+  });
+
+  it("gap D-2: no remember box when the platform remembers nothing, and a temporary password still goes to the change screen", async () => {
+    const replies = [
+      [200, { mfaRequired: true, mfaToken: "h", rememberDays: 0 }],
+      [200, { ok: true, passwordChangeRequired: true }],
+    ] as const;
+    let n = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(replies[n++][1]), { status: 200 })));
+    render(<BrandedLogin name="Acme" />);
+    await fill();
+    await waitFor(() => expect(screen.getByText("Check your email")).toBeTruthy());
+    expect(screen.queryByText(/Don't ask again/)).toBeNull();
+    fireEvent.change(screen.getByLabelText("Verification code"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Verify & sign in" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/change-password"));
+  });
+
+  it("gap D-2: an account with no email gets the API's sentence, not a code step", async () => {
+    answer(403, { error: "Your account has no email address for a sign-in code. Ask your administrator to add one.", code: "TWO_STEP_NO_EMAIL" });
+    render(<BrandedLogin name="Acme" />);
+    await fill();
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("no email address"));
+    expect(screen.queryByText("Check your email")).toBeNull();
+  });
+
   it("the password can be shown and hidden", () => {
     render(<BrandedLogin name="Acme" />);
     const pw = screen.getByLabelText("Password") as HTMLInputElement;

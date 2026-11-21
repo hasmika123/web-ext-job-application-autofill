@@ -27,6 +27,11 @@ export const SESSION_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
  */
 export const TENANT_ACCESS_COOKIE = "__Host-kiwiply_access";
 export const TENANT_REFRESH_COOKIE = "__Host-kiwiply_refresh";
+/**
+ * Gap D-2: a browser remembered after an organization's sign-in code (tenant hosts only). httpOnly like the session; the web hands it to the API as
+ * `X-Kiwiply-Device` on the next sign-in, and only its hash is stored there. Signing out keeps it: remembering the browser is the point.
+ */
+export const TENANT_DEVICE_COOKIE = "__Host-kiwiply_device";
 
 export function sessionCookieNames(tenant: boolean): { access: string; refresh: string } {
   return tenant ? { access: TENANT_ACCESS_COOKIE, refresh: TENANT_REFRESH_COOKIE } : { access: ACCESS_COOKIE, refresh: REFRESH_COOKIE };

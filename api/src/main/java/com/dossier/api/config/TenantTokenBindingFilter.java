@@ -41,12 +41,19 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
     /** Gap D-3 (10-domain-routing.md section 6): the token was signed in on a hostname that is suspended, removed or no longer served. */
     public static final String HOST_REVOKED = "TOKEN_HOST_REVOKED";
 
+    /** Gap D-2: the organization requires two-step sign-in, so its routes need a session signed in on its own address (which asked for the code). */
+    public static final String TWO_STEP_HERE = "ORG_TWO_STEP_REQUIRED";
+
+    private static final Pattern ORG_ID = Pattern.compile("^/api/orgs/([0-9]{1,18})(/.*)?$");
+
     private static final Pattern ORG_SCOPED = Pattern.compile("^/api/(orgs/[0-9]+(/.*)?|ent(/.*)?)$");
 
     // Absent in the hand-wired security slices: then there is no world check, exactly the pre-O4 rules.
     private final ObjectProvider<AccountScopes> accountScopes;
     // Absent in the hand-wired security slices: then a token's hostname is not checked.
     private final ObjectProvider<com.dossier.api.service.ent.TenantResolver> resolvers;
+    // Absent in the hand-wired security slices: then no organization requires two-step here.
+    private final ObjectProvider<com.dossier.api.service.ent.settings.OrgSecurityPolicy> orgSecurity;
 
     public TenantTokenBindingFilter() {
         this(null, null);
@@ -57,8 +64,17 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
     }
 
     public TenantTokenBindingFilter(ObjectProvider<AccountScopes> accountScopes, ObjectProvider<com.dossier.api.service.ent.TenantResolver> resolvers) {
+        this(accountScopes, resolvers, null);
+    }
+
+    public TenantTokenBindingFilter(
+        ObjectProvider<AccountScopes> accountScopes,
+        ObjectProvider<com.dossier.api.service.ent.TenantResolver> resolvers,
+        ObjectProvider<com.dossier.api.service.ent.settings.OrgSecurityPolicy> orgSecurity
+    ) {
         this.accountScopes = accountScopes;
         this.resolvers = resolvers;
+        this.orgSecurity = orgSecurity;
     }
 
     @Override
@@ -100,6 +116,10 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
                     return;
                 }
             }
+        } else if (tid == null && requiresTwoStepElsewhere(path)) {
+            // Gap D-2 (user decision 2026-11-19): a session from kiwiply.com (no tid) never reaches an organization that requires two-step sign-in.
+            forbidden(response, TWO_STEP_HERE);
+            return;
         } else if (tid != null && !ext && ORG_SCOPED.matcher(path).matches()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             response.setContentType("application/problem+json");
@@ -108,6 +128,21 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    /** Whether {@code path} is an organization route of an organization that requires two-step sign-in. */
+    private boolean requiresTwoStepElsewhere(String path) {
+        com.dossier.api.service.ent.settings.OrgSecurityPolicy policy = orgSecurity == null ? null : orgSecurity.getIfAvailable();
+        if (policy == null) return false;
+        java.util.regex.Matcher m = ORG_ID.matcher(path);
+        return m.matches() && policy.twoStepRequired(Long.valueOf(m.group(1)));
+    }
+
+    private static void forbidden(HttpServletResponse response, String code) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/problem+json");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("{\"status\":403,\"title\":\"Forbidden\",\"code\":\"" + code + "\",\"message\":\"This organization requires two-step sign-in. Sign in on its own address.\"}");
     }
 
     private static void unauthorized(HttpServletResponse response, String code) throws IOException {

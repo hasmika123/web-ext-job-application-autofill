@@ -122,6 +122,13 @@ public class AuthenticateController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.dossier.api.service.ent.settings.OrgSecurityPolicy orgSecurity;
 
+    // Gap D-2: an organization's required two-step sign-in. Optional for the same reason (the pinned slice): absent = no second step.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.OrgTwoStepService orgTwoStep;
+
+    /** The header the web sends with the remembered-browser token of the organization's host (its own __Host- cookie, never readable by a page). */
+    public static final String DEVICE_HEADER = "X-Kiwiply-Device";
+
     public AuthenticateController(
         JwtEncoder jwtEncoder,
         @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
@@ -182,7 +189,16 @@ public class AuthenticateController {
         }
 
         // X1.5: on a tenant host the user needs an active seat in that org (403 NOT_A_MEMBER) BEFORE any MFA mail goes out.
-        bindingFor(userId, authentication.getName(), true);
+        Optional<TenantBinding> loginBinding = bindingFor(userId, authentication.getName(), true);
+
+        // Gap D-2: the organization of this host requires two-step sign-in: an emailed code first, unless this browser was remembered.
+        if (orgTwoStep != null && loginBinding.isPresent() && orgTwoStep.required(loginBinding.get().orgId())) {
+            TenantBinding b = loginBinding.get();
+            if (!orgTwoStep.trusted(b.orgId(), userId, deviceHeader())) {
+                com.dossier.api.service.ent.OrgTwoStepService.Challenge ch = orgTwoStep.start(b.orgId(), b.hostnameId(), userId, authentication.getName(), authorities);
+                return ResponseEntity.ok(new MfaRequiredResponse(ch.token(), ch.rememberDays()));
+            }
+        }
 
         // Admin email-OTP MFA (Phase 9.X.3) — when enabled, an admin gets an emailed code instead
         // of tokens here, and completes sign-in at /authenticate/mfa. If they have no email on file,
@@ -204,12 +220,52 @@ public class AuthenticateController {
     @Operation(summary = "Complete MFA sign-in", description = "Exchange a valid mfaToken + emailed code for the token pair.")
     @PostMapping("/authenticate/mfa")
     public ResponseEntity<?> authorizeMfa(@Valid @RequestBody MfaVM mfaVM) {
+        // Gap D-2: an organization's sign-in code, accepted only on the host it was asked for.
+        if (orgTwoStep != null && orgTwoStep.owns(mfaVM.getMfaToken())) {
+            com.dossier.api.service.ent.TenantContext here = com.dossier.api.service.ent.TenantContextHolder.current().filter(com.dossier.api.service.ent.TenantContext::isTenant).orElse(null);
+            Optional<com.dossier.api.service.ent.OrgTwoStepService.Verified> v = orgTwoStep.verify(
+                mfaVM.getMfaToken(),
+                mfaVM.getCode(),
+                here == null ? null : here.orgId(),
+                here == null ? null : here.hostnameId()
+            );
+            if (v.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            com.dossier.api.service.ent.OrgTwoStepService.Verified ok = v.get();
+            boolean pcr = passwordChangeRequiredNow(ok.userId());
+            Optional<com.dossier.api.service.ent.OrgTwoStepService.Device> device = orgTwoStep.passed(ok, Boolean.TRUE.equals(mfaVM.getRememberDevice()));
+            ResponseEntity<TokenResponse> r = issueTokens(ok.login(), ok.authorities(), ok.userId(), pcr);
+            if (device.isPresent() && r.getBody() != null) {
+                r.getBody().setDeviceToken(device.get().token());
+                r.getBody().setDeviceExpiresAt(device.get().expiresAt());
+            }
+            return r;
+        }
         Optional<AdminMfaService.VerifiedClaims> claims = adminMfaService.verify(mfaVM.getMfaToken(), mfaVM.getCode());
         if (claims.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         AdminMfaService.VerifiedClaims c = claims.get();
-        return issueTokens(c.login(), c.authorities(), c.userId(), false);
+        // the code step never drops "change your temporary password first" (it used to issue a clean session here)
+        return issueTokens(c.login(), c.authorities(), c.userId(), passwordChangeRequiredNow(c.userId()));
+    }
+
+    /** The account's must-change-password flag as stored now; an expired temporary password is the same 403 the password step gives. */
+    private boolean passwordChangeRequiredNow(Long userId) {
+        if (userRepository == null || userId == null) return false;
+        com.dossier.api.domain.User u = userRepository.findById(userId).orElse(null);
+        if (u == null || !u.isPasswordChangeRequired()) return false;
+        if (u.getPasswordTempExpiresAt() != null && u.getPasswordTempExpiresAt().isBefore(Instant.now())) {
+            throw com.dossier.api.service.org.OrgException.coded(403, "TEMP_PASSWORD_EXPIRED", "This temporary password has expired. Ask your administrator to issue a new one.", java.util.Map.of());
+        }
+        return true;
+    }
+
+    /** The remembered-browser token the web forwarded for this sign-in (gap D-2), or null. */
+    private static String deviceHeader() {
+        if (org.springframework.web.context.request.RequestContextHolder.getRequestAttributes() instanceof org.springframework.web.context.request.ServletRequestAttributes attrs) {
+            return attrs.getRequest().getHeader(DEVICE_HEADER);
+        }
+        return null;
     }
 
     /** Build the access + refresh token pair (new rotation family) and the bearer header. */
@@ -578,9 +634,16 @@ public class AuthenticateController {
 
         private final boolean mfaRequired = true;
         private final String mfaToken;
+        /** Gap D-2: days a browser can be remembered after the organization's code (absent for the admin flow; 0 = not offered). */
+        private final Integer rememberDays;
 
         MfaRequiredResponse(String mfaToken) {
+            this(mfaToken, null);
+        }
+
+        MfaRequiredResponse(String mfaToken, Integer rememberDays) {
             this.mfaToken = mfaToken;
+            this.rememberDays = rememberDays;
         }
 
         public boolean isMfaRequired() {
@@ -590,6 +653,11 @@ public class AuthenticateController {
         public String getMfaToken() {
             return mfaToken;
         }
+
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        public Integer getRememberDays() {
+            return rememberDays;
+        }
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -597,6 +665,25 @@ public class AuthenticateController {
 
         private String accessToken;
         private String refreshToken;
+        // Gap D-2: the remembered-browser token after an organization's code (the web keeps it in its own __Host- cookie), and when it lapses.
+        private String deviceToken;
+        private Instant deviceExpiresAt;
+
+        public String getDeviceToken() {
+            return deviceToken;
+        }
+
+        public void setDeviceToken(String deviceToken) {
+            this.deviceToken = deviceToken;
+        }
+
+        public Instant getDeviceExpiresAt() {
+            return deviceExpiresAt;
+        }
+
+        public void setDeviceExpiresAt(Instant deviceExpiresAt) {
+            this.deviceExpiresAt = deviceExpiresAt;
+        }
 
         TokenResponse(String accessToken, String refreshToken) {
             this.accessToken = accessToken;

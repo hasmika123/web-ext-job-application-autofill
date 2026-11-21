@@ -53,6 +53,13 @@ public class GoogleAuthController {
     private final ObjectProvider<TenantSessionService> tenantSessions;
     private final AccountScopes accountScopes;
 
+    /** Gap D-2: an organization that requires two-step sign-in refuses Google sign-in on its host. */
+    public static final String TWO_STEP_USE_PASSWORD = "TWO_STEP_USE_PASSWORD";
+
+    // Optional (field injection): absent = no organization requires two-step.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.settings.OrgSecurityPolicy orgSecurity;
+
     public GoogleAuthController(
         GoogleIdTokenService googleIdTokenService,
         UserService userService,
@@ -114,6 +121,10 @@ public class GoogleAuthController {
                 binding = Optional.of(sessions.bindingForEnterpriseAccount(user.getOrgId(), user.getId(), user.getLogin()));
             } else {
                 binding = sessions == null ? Optional.empty() : sessions.bindingForLogin(user.getId(), user.getLogin());
+            }
+            // Gap D-2 (user decision 2026-11-19): while the organization requires two-step sign-in, Google sign-in on its host is refused.
+            if (binding.isPresent() && orgSecurity != null && orgSecurity.twoStepRequired(binding.get().orgId())) {
+                throw OrgException.coded(403, TWO_STEP_USE_PASSWORD, "This organization requires a sign-in code. Sign in with your email and password.", java.util.Map.of());
             }
             TokenIssuer.TokenPair pair = tokenIssuer.issue(user.getLogin(), authorities, user.getId(), binding.orElse(null));
             HttpHeaders httpHeaders = new HttpHeaders();

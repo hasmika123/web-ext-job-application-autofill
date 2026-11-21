@@ -41,6 +41,29 @@ public class OrgSecurityPolicy {
         return settings.getInt(EnterpriseSettingKeys.ORG_SETTINGS_REASON_MIN_CHARS);
     }
 
+    /** Gap D-2: whether the organization requires two-step sign-in (its own org_setting row says {@code true}; anything else is off). */
+    public boolean twoStepRequired(Long orgId) {
+        if (orgId == null) return false;
+        return orgSettings
+            .findByOrgIdAndSettingKey(orgId, EnterpriseSettingKeys.ORG_SECURITY_TWO_STEP_REQUIRED)
+            .map(OrgSetting::getValueJson)
+            .map(v -> "true".equals(v == null ? "" : v.strip().toLowerCase(java.util.Locale.ROOT)))
+            .orElse(false);
+    }
+
+    /** Gap D-2: days a browser stays remembered after the second step (0 = never). */
+    public int twoStepRememberDays() {
+        return Math.max(0, settings.getInt(EnterpriseSettingKeys.ORG_SECURITY_TWO_STEP_REMEMBER_DAYS));
+    }
+
+    public int twoStepCodeMinutes() {
+        return Math.max(1, settings.getInt(EnterpriseSettingKeys.ORG_SECURITY_TWO_STEP_CODE_MINUTES));
+    }
+
+    public int twoStepCodesPerHour() {
+        return Math.max(1, settings.getInt(EnterpriseSettingKeys.ORG_SECURITY_TWO_STEP_CODES_PER_HOUR));
+    }
+
     /** The organization's own idle-session timeout in minutes, when it set one inside the bounds. */
     public Optional<Integer> sessionTimeoutMinutes(Long orgId) {
         Bounds b = bounds();

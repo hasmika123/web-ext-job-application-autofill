@@ -124,6 +124,12 @@ public class OrgAuditService {
     public static final String TARGET_SESSION = "SESSION";
     /** X1.8: sign-in on an organization host by someone with no seat yet, who holds a live invitation to that organization (no tid until accepted). */
     public static final String LOGIN_FOR_INVITE = "LOGIN_FOR_INVITE";
+    /** Gap D-2: a sign-in code was emailed for this organization (two-step sign-in required). */
+    public static final String LOGIN_TWO_STEP_CHALLENGED = "LOGIN_TWO_STEP_CHALLENGED";
+    /** Gap D-2: the emailed code was right; {@code details} says whether the browser was remembered. */
+    public static final String LOGIN_TWO_STEP_PASSED = "LOGIN_TWO_STEP_PASSED";
+    /** Gap D-2: a wrong code, or one presented on another host, too late or too often. */
+    public static final String LOGIN_TWO_STEP_FAILED = "LOGIN_TWO_STEP_FAILED";
     /** X2.5: a branding publish, a restore into the draft, and an asset upload or removal (draft edits and discards write none). */
     public static final String BRANDING_PUBLISH = "BRANDING_PUBLISH";
     public static final String BRANDING_RESTORE = "BRANDING_RESTORE";

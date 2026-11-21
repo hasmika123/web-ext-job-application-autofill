@@ -11,7 +11,7 @@
  * names they always were.
  */
 import { cookies, headers } from "next/headers";
-import { ACCESS_COOKIE, REFRESH_COOKIE, expiredCookieOptionsFor, sessionCookieNames, sessionCookieOptionsFor } from "@/lib/cookies";
+import { ACCESS_COOKIE, REFRESH_COOKIE, TENANT_DEVICE_COOKIE, expiredCookieOptionsFor, sessionCookieNames, sessionCookieOptionsFor } from "@/lib/cookies";
 import { getEnterpriseSwitch } from "@/lib/tenant";
 import { isPlatformHost, requestHost } from "@/lib/tenant-host";
 
@@ -34,6 +34,22 @@ export async function onTenantHost(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Gap D-2: the remembered-browser token of this organization's host, as the header the API reads (nothing on the platform). */
+export async function deviceHeaders(): Promise<Record<string, string>> {
+  if (!(await onTenantHost())) return {};
+  const value = (await cookies()).get(TENANT_DEVICE_COOKIE)?.value;
+  return value && value.length <= 200 ? { "x-kiwiply-device": value } : {};
+}
+
+/** Gap D-2: remember this browser on this organization's host until `expiresAt` (only after the right code, only when asked). */
+export async function setDeviceCookie(token: string, expiresAt: string | null | undefined) {
+  if (!(await onTenantHost())) return;
+  const until = expiresAt ? Date.parse(expiresAt) : NaN;
+  const maxAge = Number.isFinite(until) ? Math.max(0, Math.floor((until - Date.now()) / 1000)) : 0;
+  if (maxAge <= 0) return;
+  (await cookies()).set(TENANT_DEVICE_COOKIE, token, { ...sessionCookieOptionsFor(true), maxAge });
 }
 
 /** Set the access (and optionally refresh) token cookies. Call from a Route Handler. */
