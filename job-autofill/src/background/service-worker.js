@@ -29,7 +29,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   } catch (e) { /* best-effort; clearAccountData also removes them */ }
   if (details.reason === "install") {
     // Onboard on the web app: sign in / sign up there and connect the extension.
-    chrome.tabs.create({ url: "https://kiwiply.com/connect" });
+    chrome.tabs.create({ url: "https://kiwiply.rootcrmtech.com/connect" });
   }
   track(details.reason === "install" ? "extension_install" : "extension_update", { reason: details.reason });
 });
@@ -358,7 +358,7 @@ async function acceptConnectSession(tokens) {
   try {
     // Ensure the API base is set, then store the session via the shared token store.
     const settings = (await sGet("settings")) || {};
-    if (!settings.apiBaseUrl) { settings.apiBaseUrl = "https://api.kiwiply.com"; await sSet("settings", settings); }
+    if (!settings.apiBaseUrl) { settings.apiBaseUrl = "https://api-kiwiply.rootcrmtech.com"; await sSet("settings", settings); }
     // A DIFFERENT account connecting over one that never signed out (the sign-out signal can be
     // missed — browser closed, extension updated) must not inherit its data: the previous
     // account's caches are cleared first, THEN the session is replaced (never two sessions).

@@ -54,7 +54,7 @@ import {
 } from "./workspace-actions";
 import type { Handoff } from "./services";
 
-const WEB = "https://kiwiply.com";
+const WEB = "https://kiwiply.rootcrmtech.com";
 
 type Status = { msg: string; kind: "ok" | "err" | "neutral" };
 const NEUTRAL: Status = { msg: "", kind: "neutral" };

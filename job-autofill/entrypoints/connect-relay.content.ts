@@ -75,6 +75,8 @@ export default defineContentScript({
     // Tenant hosts, for the prepare batch only (the background applies the exact-origin gate to
     // everything else). Same list as externally_connectable in wxt.config.ts.
     "https://*.kiwiply.com/*",
+    "https://kiwiply.rootcrmtech.com/*",
+    "https://*.rootcrmtech.com/*",
     // Dev builds only: local tenant hosts (WXT_DEV_TENANT_ORIGINS, e.g. http://*.localhost:3200).
     ...(import.meta.env.MODE === "production" || !import.meta.env.WXT_DEV_TENANT_ORIGINS
       ? []

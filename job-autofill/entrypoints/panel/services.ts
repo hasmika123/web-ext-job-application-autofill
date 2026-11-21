@@ -197,8 +197,8 @@ export function makeServices(handoff: Handoff): ResumeUploadServices {
               // K7.6: the server says which plan unlocks more room; fall back to the pricing page.
               const up = (capped as { upgrade?: { path?: string; planName?: string; planKey?: string } | null }).upgrade;
               return up && typeof up.path === "string" && up.path.startsWith("/")
-                ? { href: "https://kiwiply.com" + up.path, label: "See " + (up.planName || up.planKey || "Pro") }
-                : { href: "https://kiwiply.com/pricing", label: "See Pro" };
+                ? { href: "https://kiwiply.rootcrmtech.com" + up.path, label: "See " + (up.planName || up.planKey || "Pro") }
+                : { href: "https://kiwiply.rootcrmtech.com/pricing", label: "See Pro" };
             })(),
           };
         }

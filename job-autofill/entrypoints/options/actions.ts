@@ -5,8 +5,8 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const JAF = () => window.JAF;
-export const WEB = "https://kiwiply.com";
-const API_FALLBACK = "https://api.kiwiply.com";
+export const WEB = "https://kiwiply.rootcrmtech.com";
+const API_FALLBACK = "https://api-kiwiply.rootcrmtech.com";
 
 export type Settings = {
   llm: boolean;
