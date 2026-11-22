@@ -54,9 +54,6 @@ export default defineConfig({
     // ship — the service worker derives its accept-list from these matches, not from a
     // hardcoded origin, so dropping it here is enough (see service-worker.js).
     const devConnectOrigins = devOrigins(process.env.WXT_DEV_WEB_ORIGINS, ["http://localhost:3000"]);
-    // The rootcrmtech deployment is the available hosted test environment for this build.
-    // Keep its API and /connect origins in the manifest so the unpacked extension can be tested there.
-    const customConnectOrigins = ["https://kiwiply.rootcrmtech.com/*", "https://*.rootcrmtech.com/*"];
     // Dev-only too (both default to none): local tenant hosts that may send "Prepare selected openings"
     // (e.g. http://*.localhost:3200, the enterprise demo), and local stand-in ATS pages the content script
     // and the batch may run on (e.g. http://jobs.localhost:3399, web/scripts/demo-ats-server.mjs).
@@ -67,7 +64,7 @@ export default defineConfig({
 
     return {
       name: "Kiwiply — Job Application Autofill",
-      version: "0.75.4",
+      version: "0.75.5",
       // ⚠️ Chrome Web Store hard limit: 132 characters. The upload is rejected outright above it,
       // so `.github/scripts/check-manifest-limits.mjs` enforces it at build time. This is the same
       // sentence as the listing's short description in STORE-LISTING.md — keep the two in step.
@@ -151,7 +148,6 @@ export default defineConfig({
         // GA4 Measurement Protocol (anonymous counts, off unless CI injected credentials).
         "https://www.google-analytics.com/*",
         "https://api.kiwiply.com/*",
-        "https://api-kiwiply.rootcrmtech.com/*",
         ...(dev ? [...devApiHosts, ...devAtsOrigins] : []),
       ],
       externally_connectable: {
@@ -164,7 +160,6 @@ export default defineConfig({
           // (connect handoff and sync signals still need the exact origins above). Custom tenant domains
           // cannot be listed in a manifest; see ARCHITECTURE.md "Prepare batch".
           "https://*.kiwiply.com/*",
-          ...customConnectOrigins,
           ...(dev ? [...devConnectOrigins, ...devTenantOrigins] : []),
         ],
       },

@@ -99,8 +99,15 @@
   const getResumeFile = (id) => idbGet(id);
   const deleteResumeFile = (id) => idbDel(id);
 
+  // api.kiwiply.com unless a DEVELOPMENT build published another API on globalThis.JAF_BUILD
+  // (lib/hosts.ts); a store build never does. Never hard-code another host here.
+  function defaultApiBase() {
+    const b = typeof globalThis !== "undefined" && globalThis.JAF_BUILD;
+    return (b && typeof b.apiOrigin === "string" && b.apiOrigin) || "https://api.kiwiply.com";
+  }
+
   async function getSettings() {
-    const defaults = { llmEnabled: false, apiKey: "", jobAiEnabled: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, apiBaseUrl: "https://api-kiwiply.rootcrmtech.com" };
+    const defaults = { llmEnabled: false, apiKey: "", jobAiEnabled: false, lastResumeId: "", autoAdvance: false, autoAddRows: true, apiBaseUrl: defaultApiBase() };
     return Object.assign(defaults, (await get(KEYS.settings)) || {});
   }
   const saveSettings = (s) => set({ [KEYS.settings]: s });

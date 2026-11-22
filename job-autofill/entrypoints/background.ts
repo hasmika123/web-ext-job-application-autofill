@@ -9,6 +9,9 @@
 // storage.js (chrome.storage + IndexedDB, attaches to globalThis) is what sync.pullAll writes
 // the mirror into — needed since 11.1, when the web's change signal made the background pull
 // directly instead of waiting for the drawer to open.
+// FIRST: publishes globalThis.JAF_BUILD (the web/API origins) for service-worker.js and storage.js.
+// kiwiply.com in a store build; a dev build may point elsewhere (lib/hosts.ts).
+import { API_ORIGIN, PROD_API_ORIGIN } from "../lib/hosts";
 import "../src/lib/storage.js";
 import "../src/lib/tracking.js";
 import "../src/lib/sync.js";
@@ -28,14 +31,14 @@ export default defineBackground(() => {
   // Development builds only: a build made for a local stack (WXT_DEV_API_ORIGINS, see wxt.config.ts) talks to that
   // API from the start, instead of api.kiwiply.com, so an unpacked dev extension needs no storage edit. The store
   // build has no such origin and keeps its default; a value the person changed by hand is never overwritten.
-  const devApi = import.meta.env.MODE === "production" ? "" : (import.meta.env.WXT_DEV_API_ORIGINS || "").split(",")[0]?.trim();
+  const devApi = API_ORIGIN !== PROD_API_ORIGIN ? API_ORIGIN : "";
   if (devApi) {
     chrome.runtime.onInstalled.addListener(() => {
       chrome.storage.local.get("settings", (o) => {
         const cur = (o && o.settings) || {};
         const base = typeof cur.apiBaseUrl === "string" ? cur.apiBaseUrl : "";
-        if (base && base !== "https://api.kiwiply.com") return;
-        chrome.storage.local.set({ settings: { ...cur, apiBaseUrl: devApi.replace(/\/+$/, "") } });
+        if (base && base !== PROD_API_ORIGIN) return;
+        chrome.storage.local.set({ settings: { ...cur, apiBaseUrl: devApi } });
       });
     });
   }
