@@ -6,6 +6,9 @@
 
 ## The one thing to know first
 
+> **Checked 2026-11-23** against `develop` (a625c9b2): every row that is not ✅ was re-checked in the code, and its Status or Note now says what is
+> really there. The step-by-step build guide for everything still open is **`docs/HANDOFF-REMAINING-GAPS.md`**.
+>
 > **Update 2026-11-10: B1 and B2 are built** (branch `ent-licences`, `LICENCES-BUILD.md`). Licences now work without money. The paragraph below describes the state before that.
 
 **Licences are not real yet.** The database has licence tables, but only the demo seeders write to them. There is no page or API that gives a consultant a licence. The demo seeders also supplied the data behind AI help, the Gmail inbox and Autopilot Prepare. **A brand-new organization would get none of the three.** This is the root blocker, so it is item **B1** below.
@@ -16,10 +19,10 @@
 
 | # | Item | Note |
 |---|---|---|
-| 0.1 | **4 open PRs into `version2`:** #131 demo prep, #132 job descriptions, #133 UI refresh Phase 1, #134 resume parser | `ent-demo-p1` is 52 commits ahead of `version2`. New work should start from wherever these land. |
-| 0.2 | **`version2` → `main` (PR #130) = production deploy** | First: a DB dump copied off the box, a migration review, prod flags off, and the Caddy routes. |
-| 0.3 | **Backups go live** | The scripts are done. Still needed: bucket, IAM user, cron, the first dump and a restore drill. Without it, the 2026-09-17 data loss can happen again. |
-| 0.4 | **A fresh database fails to migrate on MySQL 8.4+/9** (S, code) | Foreign keys onto `hr_employee(org_id, id)` are refused, and the demo works around it on every start. Also check which MySQL version prod runs. |
+| 0.1 ✅ | **4 open PRs into `version2`:** #131 demo prep, #132 job descriptions, #133 UI refresh Phase 1, #134 resume parser | Done (checked 2026-11-23): all four merged on 2026-11-10, and `version2` was folded into `develop` and retired the same day. |
+| 0.2 | **`develop` → `main` = production deploy** (was PR #130 from `version2`; that PR was closed 2026-11-10 when `version2` retired) | Still open (checked 2026-11-23): `main` last changed 2026-10-06, so production has none of the November work. First: a DB dump copied off the box, a migration review, prod flags off, and the Caddy routes. Only you promote. |
+| 0.3 | **Backups go live** | The scripts are done. Still needed: bucket, IAM user, cron, the first dump and a restore drill. Without it, the 2026-09-17 data loss can happen again. (checked 2026-11-23: nothing in the repo shows it was set up; `PROGRESS.md` 15.1c is still unticked. Confirm on the box. Note: `main` has only `backup-db.sh` and `verify-restore.sh`; `ship-binlogs.sh`, `restore-drill.sh`, `install-cron.sh` and `host-guard.sh` reach the box only with the next `develop` → `main` promotion.) |
+| 0.4 | **A fresh database fails to migrate on MySQL 8.4+/9** (S, code) | Foreign keys onto `hr_employee(org_id, id)` are refused, and the demo works around it on every start (`SET GLOBAL restrict_fk_on_non_standard_key = OFF` in the untracked `.claude/ent-demo-api.cmd`). (checked 2026-11-23: prod runs `mysql:9.2.0` (`docker-compose.prod.yml`), so a fresh prod database would hit this. `uk_hr_employee_org_id` on `(org_id, id)` already exists in the same changeset, so "add a unique key" is not the fix. CI already runs the whole changelog on `mysql:9.2.0` (Testcontainers) and passes, so it may only fail with the production server flags (`--lower_case_table_names=1` and others) or not at all: reproduce with those flags first. These changesets are not on `main` yet, so the next promotion runs them on the production database.) |
 
 ---
 
@@ -30,12 +33,12 @@
 | D1 ✅ | **Pro AI** in the extension: answer help, best resume, job fit (built 2026-11-17, `LICENCES-BUILD.md` D1 + D7. Already true since L2: an enterprise account's AI budget is its licence's AI add-ons, one pooled monthly budget for every AI task, with the cost check on every call. Added: a consultant without AI on the licence gets 402 `FEATURE_NOT_LICENSED`, "ask your organization's admin", never "upgrade", in the API and the extension; the account's AI calls are recorded as the organization's (`ai_call.usage_scope=ORG`, `org_id`). Decisions 2026-11-15: separate enterprise accounts only, one pooled budget. Left: moving the demo organization to separate accounts, so it no longer needs the admin AI override; a real AI key on the demo stack) | A fake AI (`ai-stub`), plus an admin AI-quota override per consultant. `isPro()` is always false for enterprise logins. | AI budget comes from the org licence (see B2), plus a real AI provider key and a cost check | M |
 | D2 ✅ | **Marketer tailors a resume** (58% → 87%; built 2026-11-11, `MKT-TAILOR-BUILD.md`) | A preset for one job and one consultant (`lib/ent/demo/tailor-preset.json`). The steps run on a timer. | A marketer tailoring endpoint (acting for the consultant over `ResumeTailorService`), a real before/after score and keywords, and a tailoring UI for any job | M–L |
 | D3 ✅ | **Tailored resume goes with the job into Prepare** (built 2026-11-10, `PINNED-RESUME-BUILD.md`) | Pinned only for the preset job, in the browser. The server has no field for it. | `mkt_opportunity.resume_id` (additive migration), a `resumeId` on `ConPrepareDTO`, and a real "consultant approves the marketer's resume" step | M |
-| D4 | **Gmail inbox updates applications** | A sample mailbox (fake IMAP, mails sent from a fake Gmail page). A real Gmail was never run live. | A real-Gmail rehearsal, a key-handling runbook (`DOSSIER_INBOX_KEY`), and a check of which moves reach the marketer's board (only with the consultant's sharing consent) | S–M |
+| D4 | **Gmail inbox updates applications** | A sample mailbox (fake IMAP, mails sent from a fake Gmail page). A real Gmail was never run live. | A real-Gmail rehearsal, a key-handling runbook (`DOSSIER_INBOX_KEY`), and a check of which moves reach the marketer's board (only with the consultant's sharing consent). (checked 2026-11-23: the key runbook exists (`DEPLOY.md` inbox-key section, `docs/ops/secrets-rotation.md`) and so does the rehearsal script `qa/REAL-GMAIL-DEMO.md`; the rehearsal itself was never run or recorded.) | S–M |
 | D5 ✅ | **Job matches "using AI"** (wording fixed 2026-11-11: called rule-based ranking; real AI scoring is still an option) | Rule-based formulas (skill overlap, location, experience) | Either change the wording (S) or build real AI scoring (M) | S / M |
 | D6 ✅ | **Interview prep "AI questions"** (wording fixed 2026-11-11: practice questions you score yourself; AI questions are still an option) | A fixed question list, scored by the consultant themself | Either change the wording (S) or have AI generate the questions (M) | S / M |
 | D7 ✅ | **My Features usage** (built 2026-11-17, `LICENCES-BUILD.md` D1 + D7: no made-up allowance is left (the 50 / 20 / 20 stand-ins are gone); tailoring and resume checks count the consultant's real AI calls and show "Shares your AI budget"; an AI budget card shows the share used and when it starts again; Feature Usage adds the organization's AI share this month. A percent, never money. The old tiles row was already removed in the UI refresh) | Hard-coded numbers; usage is never counted | Real usage metering per consultant, tied to B1/B2 | M |
 | D8 ✅ | **Organization-branded extension** (no Kiwiply anywhere; built 2026-11-15, `CUSTOM-DOMAINS-BUILD.md` A6 + D8: a per-organization package for its own unlisted Chrome Web Store item, made from the admin's package settings; Edge and automated uploads left) | A script re-skins a dev build on this laptop (`brand-extension.mjs`). It keeps the same extension ID. | A per-org build, signing and store-listing pipeline (Chrome, Edge) | L |
-| D9 | **Autopilot on Workday and SmartRecruiters** | Local copies of those sites. SmartRecruiters sits behind a bot check (never bypassed), and real Workday was never filled past step 1 in a batch. | Test the multi-step fill on a real Workday posting. Accept that SmartRecruiters stays manual. Merge PR #132 (full job text on Greenhouse, Lever and SmartRecruiters). | S–M |
+| D9 | **Autopilot on Workday and SmartRecruiters** | Local copies of those sites. SmartRecruiters sits behind a bot check (never bypassed), and real Workday was never filled past step 1 in a batch. | Test the multi-step fill on a real Workday posting. Accept that SmartRecruiters stays manual. (checked 2026-11-23: PR #132 merged 2026-11-10; the real Workday multi-step fill is still untested, `MANUAL-QA.md` unticked.) | S–M |
 | D10 ✅ | **Demo sign-in tabs** (passwordless "sign in as"; checked and locked 2026-11-15, `DEPLOY.md` §12.1: production passes only `DEMO_ENABLED`, default off; the `prod` profile refuses `demo-admin`, the write override and the organization demo seed; the organization demo tab works only on the demo tenant's own `.localhost` host) | Only on when `DEMO_ENABLED` is set | Confirm it is off and unreachable on prod and on real tenants | S |
 | D11 ✅ | **Extension Jobs tab** (built 2026-11-17: the Jobs tab answers the marketer with Interested, Need info (a question) and Decline (a reason, optional note), only where the server allows it (`allowedActions`); the marketer's Opportunities page and its detail show how far each job got in the consultant's browser ("Prepared · Filled, waiting on the consultant" and so on, from the newest prepare item). Extension 0.75.0) | Only "Open posting" and "I applied". Interested, Decline and Need info exist in code but have no buttons. | Add those buttons, plus a "Prepared" status the marketer can see | S–M |
 | D12 ✅ | **Autopilot on/off for the whole platform** (built 2026-11-17: an **Autopilot** panel on the platform admin's Organizations page with the master switch of Prepare selected openings, a reason on every change (audited), and the platform maximums each organization can lower; web route `/api/admin/settings/{key}` passes the Autopilot keys only. The admin console has no general Settings page) | API call only, with no page | A switch on the platform admin settings page | S |
@@ -51,11 +54,11 @@
 | A1 | Create the organization, its owner and its subdomain | **Built** (platform admin "Create organization") | — |
 | A2 ✅ | **Onboarding runbook and checklist**: create, enable modules, branding, invite people, give licences (written 2026-11-11, `ONBOARDING-RUNBOOK.md`) | Not written. The licence step has nothing behind it (B1). | S |
 | A3 ✅ | **Bulk import** of consultants and resumes (CSV / many files; consultants from a CSV with their invitation built 2026-11-11, `ONBOARDING-BUILD.md`; resumes in bulk left out by user decision) | Not built. Only a bulk e-mail invite exists. A real consultancy arrives with 50–150 people. | M–L |
-| A4 | **Custom domain** (e.g. `jobs.aaruna.com`): DNS check, certificate, Domains page (**A4a built 2026-11-12**, `CUSTOM-DOMAINS-BUILD.md`: add a domain, its DNS records, verify, live, suspend, resume, remove, and the re-check job; **A4b built 2026-11-14**: certificate tracking (ask → probe → issued), the main address, the platform admin's Domains list; left: redirects to the main address, proxy/CAA hints, failure notifications) | Tables and host lookup exist. Not built: the API, the checks and the page. | L |
+| A4 | **Custom domain** (e.g. `jobs.aaruna.com`): DNS check, certificate, Domains page (**A4a built 2026-11-12**, `CUSTOM-DOMAINS-BUILD.md`: add a domain, its DNS records, verify, live, suspend, resume, remove, and the re-check job; **A4b built 2026-11-14**: certificate tracking (ask → probe → issued), the main address, the platform admin's Domains list; left: redirects to the main address, proxy/CAA hints, failure notifications) | Built: A4a + A4b. Left (checked 2026-11-23): redirects from other hostnames to the main address, real proxy/CAA diagnostics (today only a fixed "keep the records DNS-only" sentence), and failure notifications (the probe job only logs). | M |
 | A5 | **Edge Caddy change** for custom domains (on-demand certificates, deny rules) | Yours: you apply it on the shared box | yours |
 | A6 ✅ | **Extension works on a custom domain** (connect, Prepare batch; built 2026-11-15 in the organization's own build, which lists its live custom domains exactly) | Blocked: the extension trusts `*.kiwiply.com` only | M |
 | A7 ✅ | **Real enterprise accounts carry their organization** (the demo members were special-cased; checked 2026-11-11, runbook §5) | Check that invited and created accounts work in connect and profile-version without the demo special case | S |
-| A8 | **Org terms / data processing agreement** at sign-up | Not built; legal text is yours | S + yours |
+| A8 | **Org terms / data processing agreement** at sign-up | Not built (checked 2026-11-23): organization creation takes no terms; `TermsAcceptanceService` records personal accounts only. Legal text is yours. | S + yours |
 
 ### B. Licences and billing
 
@@ -71,33 +74,33 @@
 
 | # | Item | Status | Size |
 |---|---|---|---|
-| C1 | HR (onboarding, documents, compliance, offboarding): records only, no identity documents | Tables and seed data only | L |
-| C2 | Finance / timesheets: records only, never move money | Parked; the timesheets design questions are open | L |
-| C3 | Integrations: webhooks, CSV import/export | Not built | L |
-| C4 | Reports beyond the 30/90-day overview; scheduled reports | Partial | M |
-| C5 | Executive overview workspace | Not built | M |
-| C6 | Marketing Manager workspace (8 pages: approvals, escalations, workload, team pipeline) | Not built (parked) | L |
-| C7 | Small gaps: admin password reset, "Message your marketer", vacation approval, placement milestones/resources (sample data), search beyond page names | Placeholders inside real pages | S each |
-| C8 | UI refresh: Phase 1 (structure and wording) is in PR #133; Phase 2 (visuals) | Phase 1 waits on merge; Phase 2 not started | M |
+| C1 | HR (onboarding, documents, compliance, offboarding): records only, no identity documents | Tables, entities and demo seed only (checked 2026-11-23): no API; the HR workspace pages show "This page is on the way". | L |
+| C2 | Finance / timesheets: records only, never move money | Tables, entities and demo seed only (checked 2026-11-23); parked until the timesheets design questions are answered. | L |
+| C3 | Integrations: webhooks, CSV import/export | Partly (checked 2026-11-23): the consultant CSV import (A3) and the October CSV exports (audit log, reports, opportunities) exist. No outbound webhooks, no Integrations page. | L |
+| C4 | Reports beyond the 30/90-day overview; scheduled reports | Partly (checked 2026-11-23): the 30/90-day overview and its CSV, in the Admin workspace only. No other ranges, no breakdowns, no scheduled reports. | M |
+| C5 | Executive overview workspace | Not built (checked 2026-11-23): no API and no page; the EXEC workspace shows "on the way". | M |
+| C6 | Marketing Manager workspace (8 pages: approvals, escalations, workload, team pipeline) | **API built** (`web/rest/ent/mgmt/`: approvals, escalations, assignments and workload, team, pipeline, home, reports; merged in PR #136 on 2026-11-10). **No web pages or BFF routes** (checked 2026-11-23): all 8 pages show "on the way". | M |
+| C7 | Small gaps: admin password reset, "Message your marketer", vacation approval, placement milestones/resources (sample data), search beyond page names | (checked 2026-11-23) Admin password reset exists only while the member still has a temporary password (otherwise 409 `PASSWORD_ALREADY_SET` and they use Forgot password). "Message your marketer", vacation approval, placement milestones/resources (sample data) and search beyond page names are still placeholders. | S each |
+| C8 | UI refresh: Phase 1 (structure and wording) is in PR #133; Phase 2 (visuals) | Phase 1 merged (PR #133, 2026-11-10). Phase 2 (visuals) not started (checked 2026-11-23). | M |
 
 ### D. Security and operations (what a consultancy's IT will ask about)
 
 | # | Item | Status | Size |
 |---|---|---|---|
-| D-1 | Single sign-on per organization (Google Workspace / Microsoft), sign-in codes or passkeys | Not built | L |
+| D-1 | Single sign-on per organization (Google Workspace / Microsoft), sign-in codes or passkeys | Not built (checked 2026-11-23): no SAML, OIDC, passkey or TOTP code. D-2's emailed code is the only second step today. | L |
 | D-2 ✅ | Organization can require two-step sign-in (built 2026-11-19: an Org Admin switches it on in Settings → Security with a reason; then everyone gets a 6-digit code by email after the password, on the organization's own address only; a browser can be remembered for the platform's `org.security.two_step_remember_days` (default 30, 0 = never) until the password changes; a kiwiply.com session can no longer open that organization; Google sign-in there is refused; an emailed invite link counts as the second step, a shared join code gives the seat but no session; an account with no email is refused with a message) | Not built | M |
 | D-3 ✅ | Cross-tenant isolation test suite (forged host, unknown host, suspended domain) (built 2026-11-18: fixed a browser-sent `X-Kiwiply-Host` reaching the API through the platform `/api/auth/*` routes, and admin org suspend/resume not clearing the tenant cache; a session from a suspended or removed hostname now ends everywhere (`401 TOKEN_HOST_REVOKED`, doc 10 §6) and an organization session renews only on its own live host (user decisions 2026-11-18); tests for suspended organizations and domains, the per-organization domains flag, trailing dots and IP literals. `OrgIsolationIT` already covers all 498 organization routes by path) | Partial | M |
-| D-4 | Monitoring and alerts, incident process, status page | Not built | M |
+| D-4 | Monitoring and alerts, incident process, status page | Partly (checked 2026-11-23): monitor definitions (`docs/ops/monitors.md`, `monitors.json`), `scripts/ops/host-guard.sh`, the server-error email digest and `docs/ops/incident-runbook.md` exist. Nothing is set up live, the runbook's people are blank, and there is no status page. | M |
 | D-5 ✅ | `security.txt` / security page, dependency scanning, secrets rotation (built 2026-11-18: `kiwiply.com/.well-known/security.txt` naming support@kiwiply.com, Kiwiply's hosts only; Dependabot weekly and grouped for Actions, npm, Gradle and Docker, into `develop`; `docs/ops/secrets-rotation.md` for every secret. The public /security page is left for later, by user decision) | Not built | S–M |
-| D-6 | Break-glass platform access (audited support access) | Not built | M |
-| D-7 | Least-privilege DB user, point-in-time recovery, S3 versioning | Yours | yours |
-| D-8 | Re-run the full story suites (19 stale failures) and re-record the videos | Open | M |
+| D-6 | Break-glass platform access (audited support access) | Not built (checked 2026-11-23): only the unenforced setting `admin.support_access_hours`; design in `docs/design/admin/rbac-audit-mfa-impersonation.md` (X6.17). | M |
+| D-7 | Least-privilege DB user, point-in-time recovery, S3 versioning | Yours, with scripts ready (checked 2026-11-23): binlog point-in-time recovery scripts and runbook exist (tested in CI); the API still connects as root; bucket versioning is an instruction only. | yours |
+| D-8 | Re-run the full story suites (19 stale failures) and re-record the videos | Open (checked 2026-11-23): last full run 2026-10-18 (101 passed, 19 failed, 2 skipped); not re-run since. Videos not re-recorded. | M |
 
 ### E. Open decisions (yours, in `08-decisions-for-user.md`)
-- **Commercial (C1–C10):** credits, Stripe Tax, USD only, proration.
-- **Product (D1, D3, D4, D6, D7):** marketer inbox attribution and similar.
-- **Separate accounts (O4 Q1–Q5):** offboarding export, bring-your-own AI key.
-- **DD-12 (sell custom domains at launch)** and **DD-14 (local licence applier first).**
+- ✅ **Commercial (C1–C10):** answered 2026-11-11 (the safe defaults as written, invoices paid in 15 days, the setup fee on the first invoice).
+- **Product (D1, D3, D4, D6, D7):** marketer inbox attribution and similar. Still on their safe defaults (checked 2026-11-23).
+- **Separate accounts (O4 Q1–Q5):** offboarding export, bring-your-own AI key. Still on their safe defaults; the demo organizations moved to separate accounts on 2026-11-17.
+- ✅ **DD-12 (sell custom domains at launch)** and **DD-14 (local licence applier first):** decided as recommended, and both are built (A4, B4).
 - **White-label:** whether the bee mascot stays on the sign-in backdrop, and where "Get the extension" points for a branded org.
 
 ---
