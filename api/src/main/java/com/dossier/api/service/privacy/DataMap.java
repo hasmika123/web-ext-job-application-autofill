@@ -162,7 +162,10 @@ public final class DataMap {
             "usage_event",
             "mkt_approval_request", "mkt_escalation", "mkt_escalation_event",
             // Sprint 2 "prepare": a consultant's prepared-application batches. They carry the organization and seat/match ids, never an account
-            "prepare_event", "prepare_item", "prepare_session"
+            "prepare_event", "prepare_item", "prepare_session",
+            // phase 8 organization matching: canonical opportunities and their consultant matches. They carry the organization and seat ids
+            // (consultant_member_id, created_by_member_id), never an account, and hold no resume or profile text
+            "job_opportunity", "opportunity_match"
         )) {
             add(e, new Entry(t, DataClass.ORG_TENANT, List.of(), "organization-owned: follows the organization; the person is a seat (org_member), which erasure anonymises", null, "organization data, reachable through the organization's own exports, not a personal account export", null));
         }
