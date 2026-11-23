@@ -15,6 +15,18 @@
 // runs — they attach to globalThis.JAF, so `self.JAF.*` below is available. (Under WXT
 // the background is bundled into one file; classic `importScripts` is no longer used.)
 
+// The web app / API origins. kiwiply.com unless a DEVELOPMENT build published others on
+// globalThis.JAF_BUILD (lib/hosts.ts, imported first by entrypoints/background.ts); a store build
+// never does. Never hard-code another host here: a store build would ship it.
+function buildWebOrigin() {
+  const b = typeof self !== "undefined" && self.JAF_BUILD;
+  return (b && typeof b.webOrigin === "string" && b.webOrigin) || "https://kiwiply.com";
+}
+function buildApiOrigin() {
+  const b = typeof self !== "undefined" && self.JAF_BUILD;
+  return (b && typeof b.apiOrigin === "string" && b.apiOrigin) || "https://api.kiwiply.com";
+}
+
 // Fire-and-forget analytics. NEVER pass PII — coarse params only (see analytics.js).
 function track(name, params) {
   try { return self.JAF && self.JAF.analytics ? self.JAF.analytics.track(name, params) : Promise.resolve(); }
@@ -29,7 +41,7 @@ chrome.runtime.onInstalled.addListener((details) => {
   } catch (e) { /* best-effort; clearAccountData also removes them */ }
   if (details.reason === "install") {
     // Onboard on the web app: sign in / sign up there and connect the extension.
-    chrome.tabs.create({ url: "https://kiwiply.com/connect" });
+    chrome.tabs.create({ url: buildWebOrigin() + "/connect" });
   }
   track(details.reason === "install" ? "extension_install" : "extension_update", { reason: details.reason });
 });
@@ -358,7 +370,7 @@ async function acceptConnectSession(tokens) {
   try {
     // Ensure the API base is set, then store the session via the shared token store.
     const settings = (await sGet("settings")) || {};
-    if (!settings.apiBaseUrl) { settings.apiBaseUrl = "https://api.kiwiply.com"; await sSet("settings", settings); }
+    if (!settings.apiBaseUrl) { settings.apiBaseUrl = buildApiOrigin(); await sSet("settings", settings); }
     // A DIFFERENT account connecting over one that never signed out (the sign-out signal can be
     // missed — browser closed, extension updated) must not inherit its data: the previous
     // account's caches are cleared first, THEN the session is replaced (never two sessions).
@@ -652,7 +664,12 @@ function batchController() {
     inject: batchInject, scanFrames: batchScanFrames, sendTo: batchSendTo, loadMirror: loadBatchMirror, activate,
   });
   const controller = PB.createController({
-    tabs: { create: (o) => chrome.tabs.create(o), get: (id) => chrome.tabs.get(id), activate },
+    tabs: {
+      create: (o) => chrome.tabs.create(o),
+      get: (id) => chrome.tabs.get(id),
+      activate,
+      review: (id) => batchSendTo(id, { type: "JAF_BATCH_REVIEW" }, 0),
+    },
     storage: {
       get: (k) => sGet(k),
       set: (k, v) => sSet(k, v),
@@ -705,7 +722,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (!fromOurExtensionPage(sender)) return;
-  const act = { JAF_BATCH_STATUS: () => ctl.status(), JAF_BATCH_OPEN_NEXT: () => ctl.openNext(), JAF_BATCH_STOP: () => ctl.stop(), JAF_BATCH_DISMISS: () => ctl.dismiss() }[msg.type];
+  const act = {
+    JAF_BATCH_STATUS: () => ctl.status(),
+    JAF_BATCH_OPEN_NEXT: () => ctl.openNext(),
+    JAF_BATCH_FOCUS_JOB: () => ctl.focusJob(msg.matchId),
+    JAF_BATCH_STOP: () => ctl.stop(),
+    JAF_BATCH_DISMISS: () => ctl.dismiss(),
+  }[msg.type];
   if (!act) return;
   act().then(sendResponse).catch(() => sendResponse(null));
   return true;
@@ -888,6 +911,7 @@ async function recordFillStats(stats) {
     fieldsFilled: stats.fieldsFilled,
     fieldsFailed: stats.fieldsFailed,
     requiredLeftEmpty: stats.requiredLeftEmpty,
+    attachmentsFailed: stats.attachmentsFailed,
     extVersion: version,
   };
   try { await provider.recordFill(event); return { ok: true }; }

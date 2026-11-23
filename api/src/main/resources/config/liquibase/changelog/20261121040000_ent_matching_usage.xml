@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Add the reservation/attribution half of the enterprise usage ledger for matching (X5.7/X5.8).
+        The billing foundation intentionally shipped a committed-only usage_event. These nullable,
+        additive columns preserve old demo rows while allowing new consumers to reserve, commit, or
+        release a batch with actor/beneficiary attribution and an idempotency key.
+    -->
+    <changeSet id="ent-matching-usage-event-reservations" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="usage_event" columnName="idempotency_key"/></not></preConditions>
+        <addColumn tableName="usage_event">
+            <column name="member_id" type="bigint"/>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="actor_login" type="varchar(50)"/>
+            <column name="beneficiary_login" type="varchar(50)"/>
+            <column name="unit" type="varchar(24)"/>
+            <column name="reserved_quantity" type="bigint"/>
+            <column name="allowance_snapshot" type="bigint"/>
+            <column name="release_reason" type="varchar(16)"/>
+            <column name="period_start_at" type="${datetimeType}"/>
+            <column name="period_end_at" type="${datetimeType}"/>
+            <column name="idempotency_key" type="varchar(120)"/>
+            <column name="reference_type" type="varchar(30)"/>
+            <column name="reference_id" type="bigint"/>
+            <column name="ai_call_id" type="bigint"/>
+            <column name="expires_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"/>
+            <column name="committed_at" type="${datetimeType}"/>
+            <column name="released_at" type="${datetimeType}"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="usage_event" baseColumnNames="org_id, member_id" constraintName="fk_usage_event_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="usage_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_usage_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="usage_event" columnNames="org_id, idempotency_key" constraintName="uk_usage_event_idempotency"/>
+        <createIndex tableName="usage_event" indexName="ix_usage_event_expiry"><column name="status"/><column name="expires_at"/></createIndex>
+        <createIndex tableName="usage_event" indexName="ix_usage_event_member_period"><column name="org_id"/><column name="member_id"/><column name="period_key"/><column name="status"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-matching-usage-period-key" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="usage_event"/>
+                <tableExists tableName="usage_counter"/>
+            </and>
+        </preConditions>
+        <!-- The foundation used YYYY-MM (length 8); enterprise period keys are M:yyyy-MM and can also be P:/D: windows. -->
+        <modifyDataType tableName="usage_event" columnName="period_key" newDataType="varchar(32)"/>
+        <modifyDataType tableName="usage_counter" columnName="period_key" newDataType="varchar(32)"/>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

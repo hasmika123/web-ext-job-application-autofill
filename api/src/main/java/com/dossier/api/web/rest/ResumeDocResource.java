@@ -169,21 +169,31 @@ public class ResumeDocResource {
     }
 
     /** Body of {@code POST /{id}/export-recorded}. */
-    public record ExportRecordedVM(@Schema(description = "The content hash of the document that was exported (ResumeDocDTO.contentHash).") String hash) {}
+    public record ExportRecordedVM(
+        @Schema(description = "The render hash of the PDF bytes.") String hash,
+        @Schema(description = "When auto-fit stepped down, the render hash loaded before that step.") String sourceHash,
+        @Schema(description = "When auto-fit stepped down, the ladder rung used for the PDF (0-6).") Integer fitStep
+    ) {}
 
     /**
      * {@code POST /api/profile/resumes/:id/export-recorded} : the web calls it after a PDF was
      * uploaded to {@code /api/resumes/:id/file}. Sets {@code exportedAt}/{@code exportedHash}; never
-     * bumps the document version.
+     * bumps the document version. When {@code fitStep} is present, the source snapshot must still be
+     * current before the effective theme and PDF metadata are updated together.
      */
     @Operation(
         summary = "Record a successful PDF export",
-        description = "Body {hash}: the contentHash that was exported. Sets exportedAt and exportedHash; 404 if not owned, 422 DOC_INVALID for a malformed hash."
+        description = "Body {hash}; optional sourceHash and fitStep persist an automatic fit result. 404 if not owned, 409 when the source changed during rendering, 422 DOC_INVALID for malformed values."
     )
     @PostMapping("/{id}/export-recorded")
     public ResponseEntity<Void> exportRecorded(@PathVariable("id") Long id, @RequestBody(required = false) ExportRecordedVM vm) {
-        resumeDocService.recordExport(id, vm == null ? null : vm.hash());
-        return ResponseEntity.noContent().build();
+        boolean recorded = resumeDocService.recordExport(
+            id,
+            vm == null ? null : vm.hash(),
+            vm == null ? null : vm.fitStep(),
+            vm == null ? null : vm.sourceHash()
+        );
+        return recorded ? ResponseEntity.noContent().build() : ResponseEntity.status(HttpStatus.CONFLICT).build();
     }
 
     /**

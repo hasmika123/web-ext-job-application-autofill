@@ -25,6 +25,23 @@ let `CLAUDE.md` carry the standing context so you never re-explain it.
 ---
 
 ## Current focus
+> ✅ **Enterprise organization job matching — Ticket 05 complete (2026-11-21)** — `OpportunityRuleScorer` now ranks projected opportunities with shared deterministic title/skill/location/seniority rules, bounded component signals, and ≤300-character reasons; projected public workplace metadata is preserved. Focused and forced full API tests are green; changes are committed locally only. **Next: Ticket 06 AI scoring, entitlement, consent, and metering.**
+
+> ✅ **Autofill accuracy pass complete on `develop` (2026-11-20)** — Issue 02's autopilot batch review is
+> finished and browser-verified; Issue 03's four tickets are resolved and hardened: stable learned-answer
+> keys, correction capture, scrubbed fixture replay, and nightly per-ATS quality alerts. The work is
+> committed locally on `develop`; the remote was not pushed. The real API integration check requires
+> Docker/Testcontainers, while the focused unit and extension checks are green.
+
+> ✅ **Resume parser DOCX header fix complete on `develop` (2026-11-21)** — local parsing now includes
+> Word header parts in both the web and extension paths, with synthetic header fixtures and the extension
+> version bumped to 0.75.3. Changes are committed locally; the remote was not pushed.
+
+> ✅ **Resume parser scanned-PDF OCR fix complete on `develop` (2026-11-21)** — empty/garbled PDF text
+> now falls back to a bundled local English OCR worker/model in both the web and extension paths. OCR
+> assets are copied from pinned npm packages at build time; no resume bytes are sent for the local path.
+> Extension version is 0.75.4. Changes are committed locally; the remote was not pushed.
+
 > 📄 **Resume Builder + Common Profile is designed (branch `resume-builder`, 2026-10-11)** — see the
 > *Resume Builder* section below (its own Current focus: **R1.1 Profile items API**) and `docs/HANDOFF-RESUME-BUILDER.md`.
 >
@@ -3656,3 +3673,9 @@ focus to 0.2, add a Log line. Do NOT start 0.2.
 ```
 - 2026-10-16 · **ent-audit-fix: enterprise role audit fixes (branch `ent-p0-fixes`)** · D1 builder crash (plain-data env spec), D2/D3 consultant to member linking + Gamma seed + act-for journey, D5 marketer Job Discovery, D10 new-resume chooser reads org records, D6 /me profile + Connect extension dialog, D8 demo refusal copy, D9 Soon chips + Audit Logs page/API, D12 no sample marketer content, D13/D14/D15 and P2 quick fixes. Tests: web vitest 3910, ITs (OrgResumeBuilderIT, SeparateDemoSeederIT, OrgConsultantResourceIT, OrgAuditEventsIT, OrgIsolationIT), real-stack Playwright tenant-audit-fixes 11/11. Open: D4 Marketing Manager workspace, Reports/Domains/HR/Finance/Billing/Integrations pages. See docs/enterprise-v2/qa/ENTERPRISE-ROLE-AUDIT-2026-10-16.md.
 - 2026-10-16 · **ent-stories: story suites green on the real stack (branch `ent-story-fixes`)** · admin 51/51, consultant 53, platform 51, marketing 27 + 6 BLOCKED; fixed the first-navigation "couldn't load your workspace" (one shared session call per burst, 8 s budget, logged cause), PLT-42 (marketing home tables scroll in their cards) and Add opportunity's 404 (fresh-snapshot re-read); two product gaps queued (two consultant opportunity implementations that do not share a record); see `docs/enterprise-v2/qa/videos-index.md`
+- 2026-11-20 · **autofill accuracy pass** · Issue 02 batch review completed with real Chrome verification; Issue 03 tickets 01–04 resolved with stable cache keys, correction watchers, scrubbed fixture replay (4 fixtures, 8/8 mapped), and the count-only nightly ATS quality watcher with admin alerts. Focused extension and API tests are green; the Docker-backed API integration test is present but local Docker is unavailable. Changes are committed locally; no push performed.
+- 2026-11-21 · **resume parser accuracy** · DOCX header XML is now merged with Mammoth body text in both web and extension parsing, so header-only name/email/phone fields reach the local bio parser. Added web and extension regressions, bumped extension version to 0.75.3, and verified the full extension suite plus focused web checks. The full web suite had one unrelated pre-existing date-format failure. Changes are committed locally; no push performed.
+- 2026-11-21 · **resume parser accuracy** · Empty/garbled PDF text now falls back to bundled local Tesseract OCR in web and extension parsing, with build-time asset copying, synthetic web/extension regressions, full extension tests, and web/extension production builds green. Local OCR keeps resume bytes in the browser; the existing opt-in server-AI file path remains unchanged. Extension version 0.75.4. Changes are committed locally; no push performed.
+- 2026-11-21 · **Enterprise organization job matching — Ticket 04** · Added the org-scoped, read-only `OpportunityCandidateProjector` and repository query for open canonical opportunities; merged existing prefiltered public postings with canonical-first posting/dedupe de-duplication into a source-neutral candidate record. Focused projector tests and the full API `test` task passed. Local commit only; no GitHub push performed. Next is Ticket 05 deterministic rule scoring.
+- 2026-11-21 · **Enterprise organization job matching — Ticket 05** · Added the pure `OpportunityRuleScorer`, shared `JobPrefilter.evaluate` signals, and projected workplace metadata; added red/green scorer, prefilter, and projector regressions. Forced full API `test` passed; Tickets 01–04 had no regression; Docker/Testcontainers remains unavailable; no GitHub push performed. Next is Ticket 06 AI/entitlement/consent/metering.
+- 2026-11-21 · **extension hosts: test environment is a dev-only build setting** · Reverted b2f9db8d, which hard-coded the rootcrmtech test site as the extension's web app, API, install tab and a trusted sign-in origin in every build, store builds included. New `job-autofill/lib/hosts.ts` takes the web/API origins from `WXT_DEV_WEB_ORIGINS` / `WXT_DEV_API_ORIGINS` only outside production mode (the vanilla engine reads them from `globalThis.JAF_BUILD`); test pages that send Prepare use the existing `WXT_DEV_TENANT_ORIGINS`. New `test/build_hosts.test.js` fails on any unlisted host in the shipped sources. Extension 0.75.5; tests 1,853 green, typecheck green; the store build has no rootcrmtech in its files or manifest, and a development build with the env vars points at it (README shows how).

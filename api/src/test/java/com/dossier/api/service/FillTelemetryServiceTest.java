@@ -67,7 +67,14 @@ class FillTelemetryServiceTest {
         assertThat(e.getFieldsFilled()).isEqualTo(500);
         assertThat(e.getFieldsFailed()).isZero();
         assertThat(e.getRequiredLeftEmpty()).isZero();
+        assertThat(e.getAttachmentsFailed()).isZero();
         assertThat(e.getExtVersion()).isNull();
+    }
+
+    @Test
+    void attachmentFailuresAreCountedOncePerFill() {
+        FillEvent e = saved(new FillTelemetryDTO(id(), "workday", "workday", 2, 2, 0, 0, "0.56.0", 99));
+        assertThat(e.getAttachmentsFailed()).isEqualTo(1);
     }
 
     @Test
@@ -102,17 +109,18 @@ class FillTelemetryServiceTest {
 
     @Test
     void ratesAreComputedFromSums() {
-        var q = AdminAnalyticsService.toFillQuality(new FillQualityRow("icims", 4L, 40L, 20L, 3L, 2L, 3L, 4L));
+        var q = AdminAnalyticsService.toFillQuality(new FillQualityRow("icims", 4L, 40L, 20L, 3L, 2L, 2L, 3L, 4L));
         assertThat(q.fillRatePct()).isEqualTo(50); // 20 of 40 found
         assertThat(q.gapRatePct()).isEqualTo(75); // 3 of 4 fills left a required field empty
         assertThat(q.correctionRatePct()).isEqualTo(10); // 2 of 20 filled were changed
         assertThat(q.genericPct()).isEqualTo(100); // all 4 on the generic scanner
         assertThat(q.fieldsFailed()).isEqualTo(3);
+        assertThat(q.attachmentsFailed()).isEqualTo(2);
     }
 
     @Test
     void emptySumsAreZeroNotADivideByZero() {
-        var q = AdminAnalyticsService.toFillQuality(new FillQualityRow("lever", 0L, 0L, 0L, 0L, 0L, 0L, 0L));
+        var q = AdminAnalyticsService.toFillQuality(new FillQualityRow("lever", 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
         assertThat(q.fillRatePct()).isZero();
         assertThat(q.gapRatePct()).isZero();
         assertThat(q.correctionRatePct()).isZero();

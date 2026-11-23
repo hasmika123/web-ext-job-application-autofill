@@ -11,8 +11,15 @@ import "../../src/lib/sync.js";
 import "../../src/lib/app-tracking.js";
 import "../../src/lib/workspace.js"; // org workspaces: marketer trim/save + consultant matching (WP5)
 import "../../src/lib/parser-core.js";
+import "../../src/lib/pdf-ocr.js";
 import "../../src/lib/parser.js";
+import JSZip from "jszip";
 // The drawer syncs the learned-answer cache to the server (home-actions.refreshMirror),
 // so it needs the cache module too. Safe here: the store is chrome.storage, not the
 // page's IndexedDB, so this frame sees the same entries the content script wrote.
 import "../../src/lib/field-cache.js";
+
+// parser.js stays a classic, testable IIFE; provide its ZIP reader from the bundled
+// panel dependency rather than turning the engine module into the parser's boundary.
+const runtime = globalThis as typeof globalThis & { JSZip?: typeof JSZip };
+runtime.JSZip = JSZip;

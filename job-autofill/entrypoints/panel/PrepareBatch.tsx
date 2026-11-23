@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, useToast } from "@kiwiply/ui";
-import { dismissBatch, openNext, readBatch, stopBatch, watchBatch, type BatchJob, type BatchStatus } from "./prepare-actions";
+import { dismissBatch, focusJob, openNext, readBatch, stopBatch, watchBatch, type BatchAnswer, type BatchJob, type BatchStatus } from "./prepare-actions";
 
 const STATE_LABEL: Record<BatchJob["state"], string> = {
   QUEUED: "Queued",
@@ -22,6 +22,10 @@ function variantOf(state: BatchJob["state"]): "ready" | "review" | "default" {
   if (state === "PREFILLED" || state === "SUBMIT_DETECTED") return "ready";
   if (state === "NEEDS_INPUT" || state === "FAILED") return "review";
   return "default";
+}
+
+function answerMark(status: BatchAnswer["status"]): string {
+  return status === "ok" ? "✓" : status === "failed" ? "!" : "–";
 }
 
 export function PrepareBatch() {
@@ -59,6 +63,19 @@ export function PrepareBatch() {
     setBusy(false);
     refresh();
   }
+  async function onFocus(matchId: number | string) {
+    setBusy(true);
+    const r = await focusJob(matchId);
+    setBusy(false);
+    if (r && !r.ok) {
+      toast({
+        variant: "error",
+        title: r.reason === "tab-closed" ? "Application tab is closed" : "Could not open that application tab",
+        description: r.reason === "tab-closed" ? "Open the job again from the batch or continue with another job." : undefined,
+      });
+      refresh();
+    }
+  }
   async function onDismiss() {
     await dismissBatch();
     setBatch(null);
@@ -92,6 +109,59 @@ export function PrepareBatch() {
                 {j.reason}
                 {j.help ? ` — ${j.help}` : ""}
               </p>
+            )}
+            {j.missingCount > 0 && (
+              <p className="mt-1 text-[11.5px] leading-snug text-accent-deep">
+                {j.missingCount} required field{j.missingCount === 1 ? "" : "s"} still need your input
+              </p>
+            )}
+            {j.state === "CLOSED" && (
+              <p className="mt-1 text-[11.5px] leading-snug text-muted">
+                Application tab closed — reopen the posting to continue.
+              </p>
+            )}
+            {j.review && (
+              <div className="mt-2 rounded-[var(--radius)] border border-line bg-paper-2 px-2 py-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                  Filled answers{j.review.steps > 1 ? ` · ${j.review.steps} steps` : ""}
+                </p>
+                <ul className="mt-1 flex flex-col gap-0.5">
+                  {j.review.answers.map((a, i) => (
+                    <li key={`${a.label}-${i}`} className="grid grid-cols-[14px_minmax(0,1fr)] gap-1 text-[11.5px] leading-snug">
+                      <span aria-label={a.status}>{answerMark(a.status)}</span>
+                      <span className="min-w-0 break-words">
+                        <span className="font-medium text-ink-soft">{a.label}:</span>{" "}
+                        <span className="text-ink">{a.value || "(blank)"}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {j.review.fileName && (
+                  <p className="mt-1 text-[11.5px] leading-snug text-ink-soft">
+                    Résumé: <span className="text-ink">{j.review.fileName}</span>{j.review.fileStatus !== "ok" ? " · attach manually" : ""}
+                  </p>
+                )}
+                {j.review.missing.length > 0 && (
+                  <div className="mt-1.5">
+                    <p className="text-[11.5px] font-semibold text-accent-deep">Still needs you</p>
+                    <ul className="mt-0.5 list-disc pl-4 text-[11.5px] leading-snug text-accent-deep">
+                      {j.review.missing.map((name, i) => <li key={`${name}-${i}`}>{name}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+            {j.tabOpen && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="mt-1"
+                disabled={busy}
+                onClick={() => onFocus(j.matchId)}
+                aria-label={`Go to ${j.title || "application"}`}
+              >
+                Go to tab
+              </Button>
             )}
           </li>
         ))}

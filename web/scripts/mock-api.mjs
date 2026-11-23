@@ -2091,7 +2091,7 @@ const server = http.createServer((req, res) => {
         funnel: { signedUp: 1284, activated: 912, withProfile: 700, startedApplying: 520, applied: 430 },
         applicationsByStatus: { SAVED: 900, DRAFT: 300, APPLIED: 3100, INTERVIEW: 700, OFFER: 120, REJECTED: 300 },
         billing: { activePro: 64, monthlyCount: 40, threeMonthCount: 24, mrr: 1400, newThisMonth: 11, churnedThisMonth: 2, pastDue: 1 },
-        fillQuality: [{ ats: "greenhouse", fills: 320, fillRatePct: 92, gapRatePct: 6, correctionRatePct: 4, genericPct: 3, fieldsFailed: 12 }],
+        fillQuality: [{ ats: "greenhouse", fills: 320, fillRatePct: 92, gapRatePct: 6, correctionRatePct: 4, genericPct: 3, fieldsFailed: 12, attachmentsFailed: 4 }],
       });
     if (path === "/api/admin/users") {
       const users = Object.values(ACCOUNTS).map((a, i) => ({

@@ -289,6 +289,8 @@ export type ExportPdfResult =
       contentHash: string | null;
       /** Served from the stored file (it was current), no render happened. */
       cached: boolean;
+      /** The fit ladder rung the PDF bytes were made with (server-persisted when auto-fit stepped). */
+      fitStep?: number;
     }
   | { kind: "error"; status: number; code?: string; message: string };
 
@@ -312,6 +314,8 @@ export async function exportPdf(resumeId: number): Promise<ExportPdfResult> {
   }
   if (res.ok) {
     const blob = await res.blob();
+    const fitStepHeader = res.headers.get("x-resume-fit-step");
+    const fitStep = fitStepHeader === null ? undefined : Number(fitStepHeader);
     return {
       kind: "ok",
       blob,
@@ -321,6 +325,7 @@ export async function exportPdf(resumeId: number): Promise<ExportPdfResult> {
       stored: res.headers.get("x-resume-pdf-stored") === "1",
       contentHash: res.headers.get("x-resume-content-hash") || null,
       cached: res.headers.get("x-resume-pdf-cached") === "1",
+      fitStep: fitStep !== undefined && Number.isInteger(fitStep) && fitStep >= 0 ? fitStep : undefined,
     };
   }
   const p = (await readJson<Problem>(res)) ?? {};

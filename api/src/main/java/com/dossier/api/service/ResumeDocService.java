@@ -90,6 +90,8 @@ public class ResumeDocService {
     /** The persisted score record (DESIGN 9.2 / 11.5): {rulesetVersion, score, groups[<= 6]}, at most 4 KB. */
     private static final int MAX_SCORE_BYTES = 4 * 1024;
     private static final int MAX_SCORE_GROUPS = 6;
+    /** Must stay in step with packages/ui/src/resume/fit.ts. */
+    private static final int MAX_EXPORT_FIT_STEP = 6;
     private static final java.util.regex.Pattern HASH_PATTERN = java.util.regex.Pattern.compile("[0-9a-f]{64}");
 
     private final ResumeDocRepository resumeDocRepository;
@@ -988,27 +990,73 @@ public class ResumeDocService {
         }
     }
 
+    /** Record a PDF made from the current render hash (the legacy, no-fit path). */
+    public boolean recordExport(Long resumeId, String hash) {
+        return recordExport(resumeId, hash, null, null);
+    }
+
     /**
-     * Record that a PDF of the document with content hash {@code hash} was exported and stored (R0.6).
-     * Sets {@code exported_at} and {@code exported_hash} only: it never bumps {@code doc_version} or
-     * touches the content, so an open editor's ETag stays valid. Whether the PDF is "out of date" is
-     * then simply {@code exportedHash != contentHash}.
+     * Record a PDF export. When Chromium had to move down the automatic fit ladder, {@code sourceHash}
+     * identifies the render that was loaded and {@code fitStep} identifies the rung that produced the
+     * bytes. The theme, final hash and READY metadata are then updated in one conditional bulk write,
+     * without bumping {@code doc_version}; a late render is rejected instead of making a newer edit look
+     * current.
      */
-    public void recordExport(Long resumeId, String hash) {
+    public boolean recordExport(Long resumeId, String hash, Integer fitStep, String sourceHash) {
         ResumeDoc d = ownedDoc(resumeId);
         if (hash == null || !HASH_PATTERN.matcher(hash).matches()) {
             throw ResumeDocException.invalid("$.hash", "must be a 64-character lowercase hex content hash");
         }
-        // A bulk update, not d.setExportedHash(..) + save: the entity's @Version would tick and the
-        // editor's next autosave (If-Match: the old version) would 409 right after an export.
-        resumeDocRepository.recordExport(d.getResumeId(), hash, Instant.now());
-        // A synchronous export that stored the CURRENT render leaves nothing for the worker to do.
-        // Deliberately no card thumbnail here: only the PDF worker (a browser) can screenshot page 1, and DESIGN 8.10
-        // asks for the thumbnail "during the PDF job", not for READY to imply one. The card keeps the previous (or the
-        // template) picture until the next worker render; the thumbnail is always keyed by the render hash it shows.
-        if (hash.equals(renderHash(d))) {
-            resumeDocRepository.markReadyNow(d.getResumeId());
+        if (fitStep == null) {
+            // A bulk update, not d.setExportedHash(..) + save: the entity's @Version would tick and the
+            // editor's next autosave (If-Match: the old version) would 409 right after an export.
+            resumeDocRepository.recordExport(d.getResumeId(), hash, Instant.now());
+            // A synchronous export that stored the CURRENT render leaves nothing for the worker to do.
+            // Deliberately no card thumbnail here: only the PDF worker (a browser) can screenshot page 1, and DESIGN 8.10
+            // asks for the thumbnail "during the PDF job", not for READY to imply one. The card keeps the previous (or the
+            // template) picture until the next worker render; the thumbnail is always keyed by the render hash it shows.
+            if (hash.equals(renderHash(d))) resumeDocRepository.markReadyNow(d.getResumeId());
+            return true;
         }
+
+        if (fitStep < 0 || fitStep > MAX_EXPORT_FIT_STEP) {
+            throw ResumeDocException.invalid("$.fitStep", "must be a whole number from 0 to " + MAX_EXPORT_FIT_STEP);
+        }
+        if (sourceHash == null || !HASH_PATTERN.matcher(sourceHash).matches()) {
+            throw ResumeDocException.invalid("$.sourceHash", "must be a 64-character lowercase render hash");
+        }
+
+        // Do not let an export started before a save rewrite the newer theme. The repository predicate below
+        // repeats this snapshot, closing the check/update race after this entity is read.
+        if (!sourceHash.equals(renderHash(d))) return false;
+
+        String sourceTheme = d.getThemeJson();
+        String effectiveTheme = themeWithFitStep(sourceTheme, fitStep);
+        String effectiveHash = ResumeRenderHash.computeFromThemeJson(d.getContentHash(), d.getTemplateId(), effectiveTheme);
+        if (!hash.equals(effectiveHash)) {
+            throw ResumeDocException.invalid("$.hash", "does not match the supplied fit step and document");
+        }
+
+        return resumeDocRepository.recordExportWithFit(
+            d.getResumeId(),
+            d.getContentHash(),
+            d.getTemplateId(),
+            sourceTheme,
+            effectiveTheme,
+            effectiveHash,
+            Instant.now()
+        ) > 0;
+    }
+
+    /** Add only the effective fit rung; preserve the user's other stored theme choices byte-for-byte semantically. */
+    private static String themeWithFitStep(String themeJson, int fitStep) {
+        JsonNode parsed = parseQuietly(themeJson);
+        ObjectNode next = parsed != null && parsed.isObject() ? (ObjectNode) parsed.deepCopy() : JsonNodeFactory.instance.objectNode();
+        JsonNode currentFit = next.get("fit");
+        ObjectNode fit = currentFit != null && currentFit.isObject() ? (ObjectNode) currentFit.deepCopy() : JsonNodeFactory.instance.objectNode();
+        fit.put("step", fitStep);
+        next.set("fit", fit);
+        return ResumeDocumentJson.write(next, 0);
     }
 
     // ---- the async PDF pipeline's side of a save (R3.7, DESIGN 8.5) -----------------------------

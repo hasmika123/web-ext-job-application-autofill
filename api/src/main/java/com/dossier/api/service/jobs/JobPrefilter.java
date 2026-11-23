@@ -37,6 +37,34 @@ public final class JobPrefilter {
 
     public record Candidate(JobPosting posting, int rank) {}
 
+    /**
+     * The reusable, source-neutral rule signals used by both public prefiltering and enterprise rule scoring.
+     * A negative {@code seniorityGap} means that one of the two titles did not state a level.
+     */
+    public record Evaluation(
+        boolean locationAllowed,
+        boolean lineOfWork,
+        int locationFit,
+        int titleTellingMatches,
+        int titleGenericMatches,
+        List<String> matchedTitleWords,
+        List<String> matchedSkills,
+        int seniorityGap
+    ) {
+        public boolean seniorityAllowed() {
+            return seniorityGap < 0 || seniorityGap < 2;
+        }
+
+        public boolean eligible() {
+            return locationAllowed && lineOfWork && seniorityAllowed();
+        }
+
+        /** The legacy prefilter rank, retained so the personal pipeline does not change behavior. */
+        public int rank() {
+            return titleTellingMatches * 4 + titleGenericMatches + matchedSkills.size() + locationFit - (seniorityGap == 1 ? 1 : 0);
+        }
+    }
+
     /** Words that say nothing about the line of work. */
     private static final Set<String> STOP = Set.of(
         "a", "an", "and", "the", "of", "for", "to", "in", "at", "on", "with", "or", "i", "ii", "iii", "iv", "1", "2", "3", "4",
@@ -67,42 +95,15 @@ public final class JobPrefilter {
     private JobPrefilter() {}
 
     public static List<Candidate> select(MatchPreferences p, List<JobPosting> postings, Set<Long> alreadyScored, Set<String> tracked, int limit) {
-        Set<String> titleWords = new HashSet<>();
-        for (String t : p.titles()) titleWords.addAll(words(t));
-        List<Pattern> skillRes = new ArrayList<>();
-        for (String s : p.skills()) skillRes.add(Pattern.compile("(?<![\\p{L}\\p{N}])" + Pattern.quote(s.toLowerCase(Locale.ROOT)) + "(?![\\p{L}\\p{N}])"));
-        Place home = Place.of(p.city(), p.state(), p.country());
-
         List<Candidate> out = new ArrayList<>();
         for (JobPosting j : postings) {
             if (j.getId() != null && alreadyScored.contains(j.getId())) continue;
             if (tracked.contains(trackedKey(j.getCompany(), j.getTitle())) || (j.getUrl() != null && tracked.contains(j.getUrl()))) continue;
 
-            int where = home.fit(j, p.workPreference(), p.relocate());
-            if (where < 0) continue;
+            Evaluation evaluation = evaluate(p, j);
+            if (!evaluation.eligible()) continue;
 
-            int telling = 0, generic = 0;
-            for (String w : words(j.getTitle())) {
-                if (!titleWords.contains(w)) continue;
-                if (GENERIC.contains(w)) generic++;
-                else telling++;
-            }
-            String text = (j.getTitle() + "\n" + (j.getDescriptionText() == null ? "" : j.getDescriptionText())).toLowerCase(Locale.ROOT);
-            int skillHits = 0;
-            for (Pattern re : skillRes) {
-                if (skillHits >= 10) break;
-                if (re.matcher(text).find()) skillHits++;
-            }
-            boolean lineOfWork = telling > 0 || (generic > 0 && skillHits >= 3) || (titleWords.isEmpty() ? skillHits >= 4 : skillHits >= 6);
-            if (!lineOfWork) continue;
-
-            int level = MatchPreferences.Seniority.of(j.getTitle());
-            int gap = level == MatchPreferences.Seniority.UNKNOWN || p.seniority() == MatchPreferences.Seniority.UNKNOWN
-                ? 0
-                : Math.abs(level - p.seniority());
-            if (gap >= 2) continue;
-
-            out.add(new Candidate(j, telling * 4 + generic + skillHits + where - (gap == 1 ? 1 : 0)));
+            out.add(new Candidate(j, evaluation.rank()));
         }
         out.sort(
             Comparator.comparingInt(Candidate::rank)
@@ -110,6 +111,62 @@ public final class JobPrefilter {
                 .thenComparing(c -> c.posting().getPublishedAt(), Comparator.nullsLast(Comparator.reverseOrder()))
         );
         return out.size() > limit ? out.subList(0, limit) : out;
+    }
+
+    /**
+     * Evaluates the deterministic signals without applying personal persistence gates. Enterprise matching uses this
+     * same method after adapting its projected candidate to a {@link JobPosting}; no source or storage concern enters
+     * the rule calculation.
+     */
+    public static Evaluation evaluate(MatchPreferences p, JobPosting j) {
+        Set<String> titleWords = new HashSet<>();
+        for (String t : emptyIfNull(p.titles())) titleWords.addAll(words(t));
+        TitleOverlap overlap = titleOverlap(titleWords, j.getTitle());
+        String text = (String.valueOf(j.getTitle()) + "\n" + (j.getDescriptionText() == null ? "" : j.getDescriptionText())).toLowerCase(Locale.ROOT);
+        List<String> matchedSkills = namedSkills(p.skills(), text, 10);
+        int where = Place.of(p.city(), p.state(), p.country()).fit(j, p.workPreference(), p.relocate());
+        boolean lineOfWork = overlap.telling() > 0
+            || (overlap.generic() > 0 && matchedSkills.size() >= 3)
+            || (titleWords.isEmpty() ? matchedSkills.size() >= 4 : matchedSkills.size() >= 6);
+        int level = MatchPreferences.Seniority.of(j.getTitle());
+        int gap = level == MatchPreferences.Seniority.UNKNOWN || p.seniority() == MatchPreferences.Seniority.UNKNOWN
+            ? -1
+            : Math.abs(level - p.seniority());
+        return new Evaluation(
+            where >= 0,
+            lineOfWork,
+            where,
+            overlap.telling(),
+            overlap.generic(),
+            overlap.matched(),
+            matchedSkills,
+            gap
+        );
+    }
+
+    private record TitleOverlap(List<String> matched, int telling, int generic) {}
+
+    private static TitleOverlap titleOverlap(Set<String> preferred, String title) {
+        List<String> matched = words(title).stream().filter(preferred::contains).sorted().toList();
+        int generic = (int) matched.stream().filter(GENERIC::contains).count();
+        return new TitleOverlap(matched, matched.size() - generic, generic);
+    }
+
+    private static List<String> namedSkills(List<String> skills, String text, int limit) {
+        List<String> matched = new ArrayList<>();
+        String lower = text == null ? "" : text.toLowerCase(Locale.ROOT);
+        for (String skill : emptyIfNull(skills)) {
+            if (skill == null || skill.isBlank()) continue;
+            String value = skill.trim();
+            Pattern re = Pattern.compile("(?<![\\p{L}\\p{N}])" + Pattern.quote(value.toLowerCase(Locale.ROOT)) + "(?![\\p{L}\\p{N}])");
+            if (re.matcher(lower).find()) matched.add(value);
+            if (matched.size() >= limit) break;
+        }
+        return List.copyOf(matched);
+    }
+
+    private static <T> List<T> emptyIfNull(List<T> values) {
+        return values == null ? List.of() : values;
     }
 
     /** How a tracked application is recognised among postings: company + title, normalised. */

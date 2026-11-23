@@ -12,6 +12,7 @@ import {
 import type { DuplicateConfirm, DuplicateFinding } from "@/lib/ent/marketer-ws/duplicate";
 import { DuplicateConfirmDialog } from "../DuplicateConfirm";
 import { AvailabilityDot, CompareDrawer, ExplanationCard, Person, ResumeCell, ReviewDrawer, ScoreChip } from "./MatchParts";
+import CanonicalMatchesPanel from "./CanonicalMatchesPanel";
 
 /**
  * The Matches tab of Jobs. One call draws the board; the explanation of a clicked row (the right side) is one small call. Every number comes
@@ -272,6 +273,8 @@ export default function JobMatchesPage({ orgId }: MktPageProps) {
           <ExplanationCard detail={explanation} loading={loading || explaining} stacked />
         </aside>
       </div>
+
+      <CanonicalMatchesPanel orgId={orgId} />
 
 
       <ReviewDrawer orgId={orgId} matchId={reviewId} onClose={() => setReviewId(null)} onAssign={(row) => void act(row, "assign")} busy={reviewId !== null && busy.has(reviewId)} />

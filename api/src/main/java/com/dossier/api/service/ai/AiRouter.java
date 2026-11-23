@@ -99,17 +99,34 @@ public class AiRouter implements AiProvider {
 
     @Override
     public AiResult generate(AiTask task, String model, String question, String context) throws AiProviderException {
-        return generate(task, model, question, context, 0);
+        return generate(task, model, question, context, 0, personalContext());
     }
 
     @Override
     public AiResult generate(AiTask task, String model, String question, String context, int maxOutputTokens) throws AiProviderException {
+        return generate(task, model, question, context, maxOutputTokens, personalContext());
+    }
+
+    /** Organization-aware overload; the provider boundary remains the same, but failure and success ledger rows retain attribution. */
+    public AiResult generate(AiTask task, String model, String question, String context, AiCallContext callContext) throws AiProviderException {
+        return generate(task, model, question, context, 0, callContext);
+    }
+
+    /** Organization-aware overload with an explicit output-token ceiling. */
+    public AiResult generate(
+        AiTask task,
+        String model,
+        String question,
+        String context,
+        int maxOutputTokens,
+        AiCallContext callContext
+    ) throws AiProviderException {
         Route route = runtime.route(task);
         String m = isBlank(model) ? route.model() : model.trim();
         int cap = maxOutputTokens > 0 ? maxOutputTokens : route.maxOutputTokens();
         String q = guard(task, question);
         String c = guard(task, context);
-        return execute(task, route, m, (adapter, mm) -> adapter.generate(task, mm, q, c, cap));
+        return execute(task, route, m, (adapter, mm) -> adapter.generate(task, mm, q, c, cap), callContext);
     }
 
     @Override
@@ -118,25 +135,25 @@ public class AiRouter implements AiProvider {
         String m = isBlank(model) ? route.model() : model.trim();
         int cap = route.maxOutputTokens();
         String t = guard(AiTask.PARSE, text);
-        return execute(AiTask.PARSE, route, m, (adapter, mm) -> adapter.parseResume(mm, t, fileBase64, fileMimeType, cap));
+        return execute(AiTask.PARSE, route, m, (adapter, mm) -> adapter.parseResume(mm, t, fileBase64, fileMimeType, cap), personalContext());
     }
 
     // ---- the call -----------------------------------------------------------
 
-    private AiResult execute(AiTask task, Route route, String model, Invocation call) {
+    private AiResult execute(AiTask task, Route route, String model, Invocation call, AiCallContext callContext) {
         if (!runtime.globalEnabled() || !route.enabled()) {
-            recordFailure(task, route.provider(), model, AiErrorKind.DISABLED, 0);
+            recordFailure(callContext, task, route.provider(), model, AiErrorKind.DISABLED, 0);
             count(task, route.provider(), AiErrorKind.DISABLED.name());
             throw new AiProviderException("AI is disabled for " + task.wire(), AiErrorKind.DISABLED);
         }
-        Attempt first = attempt(task, route.provider(), model, call);
+        Attempt first = attempt(task, route.provider(), model, call, callContext);
         if (first.result != null) return first.result;
 
         String fallback = route.fallbackProvider();
         if (first.kind.retryable() && fallback != null && !fallback.equals(route.provider())) {
             String fallbackModel = isBlank(route.fallbackModel()) ? registry.get(fallback).defaultModel() : route.fallbackModel();
             LOG.warn("AI {} failed on {} ({}); trying fallback {}", task.wire(), route.provider(), first.kind, fallback);
-            Attempt second = attempt(task, fallback, fallbackModel, call);
+            Attempt second = attempt(task, fallback, fallbackModel, call, callContext);
             if (second.result != null) return second.result;
             throw second.error;
         }
@@ -145,10 +162,10 @@ public class AiRouter implements AiProvider {
 
     private record Attempt(AiResult result, AiErrorKind kind, AiProviderException error) {}
 
-    private Attempt attempt(AiTask task, String providerId, String model, Invocation call) {
+    private Attempt attempt(AiTask task, String providerId, String model, Invocation call, AiCallContext callContext) {
         AiProvider adapter = registry.get(providerId);
-        if (!runtime.providerEnabled(providerId)) return failed(task, providerId, model, AiErrorKind.DISABLED, 0, new AiProviderException("AI provider " + providerId + " is off", AiErrorKind.DISABLED));
-        if (!adapter.isConfigured()) return failed(task, providerId, model, AiErrorKind.UNCONFIGURED, 0, new AiProviderException("AI provider " + providerId + " is not configured", AiErrorKind.UNCONFIGURED));
+        if (!runtime.providerEnabled(providerId)) return failed(callContext, task, providerId, model, AiErrorKind.DISABLED, 0, new AiProviderException("AI provider " + providerId + " is off", AiErrorKind.DISABLED));
+        if (!adapter.isConfigured()) return failed(callContext, task, providerId, model, AiErrorKind.UNCONFIGURED, 0, new AiProviderException("AI provider " + providerId + " is not configured", AiErrorKind.UNCONFIGURED));
 
         long t0 = System.nanoTime();
         try {
@@ -159,14 +176,14 @@ public class AiRouter implements AiProvider {
             return new Attempt(res.withProvider(providerId, ms), null, null);
         } catch (AiProviderException e) {
             AiErrorKind kind = AiErrorKind.classify(e);
-            return failed(task, providerId, model, kind, elapsedMs(t0), scrubbed(e, kind));
+            return failed(callContext, task, providerId, model, kind, elapsedMs(t0), scrubbed(e, kind));
         } catch (RuntimeException e) {
-            return failed(task, providerId, model, AiErrorKind.UNKNOWN, elapsedMs(t0), scrubbed(new AiProviderException(e.getClass().getSimpleName(), AiErrorKind.UNKNOWN, e), AiErrorKind.UNKNOWN));
+            return failed(callContext, task, providerId, model, AiErrorKind.UNKNOWN, elapsedMs(t0), scrubbed(new AiProviderException(e.getClass().getSimpleName(), AiErrorKind.UNKNOWN, e), AiErrorKind.UNKNOWN));
         }
     }
 
-    private Attempt failed(AiTask task, String providerId, String model, AiErrorKind kind, int ms, AiProviderException error) {
-        recordFailure(task, providerId, model, kind, ms);
+    private Attempt failed(AiCallContext callContext, AiTask task, String providerId, String model, AiErrorKind kind, int ms, AiProviderException error) {
+        recordFailure(callContext, task, providerId, model, kind, ms);
         count(task, providerId, kind.name());
         time(task, providerId, kind.name(), ms);
         return new Attempt(null, kind, error);
@@ -179,13 +196,22 @@ public class AiRouter implements AiProvider {
         return out;
     }
 
-    private void recordFailure(AiTask task, String provider, String model, AiErrorKind kind, int ms) {
+    private void recordFailure(AiCallContext callContext, AiTask task, String provider, String model, AiErrorKind kind, int ms) {
         try {
-            metering.recordFailure(SecurityUtils.getCurrentUserLogin().orElse(null), task, provider, model, kind, ms);
+            AiCallContext ctx = callContext == null ? personalContext() : callContext;
+            if (ctx.organizationCall()) {
+                metering.recordFailureWithContext(ctx, task, provider, model, kind, ms);
+            } else {
+                metering.recordFailure(ctx.actorLogin(), task, provider, model, kind, ms);
+            }
         } catch (RuntimeException e) {
             // The ledger is bookkeeping: never let it turn a provider failure into a different failure.
             LOG.warn("Could not record the failed AI call ({} on {}): {}", task.wire(), provider, e.getClass().getSimpleName());
         }
+    }
+
+    private void recordFailure(AiTask task, String provider, String model, AiErrorKind kind, int ms) {
+        recordFailure(personalContext(), task, provider, model, kind, ms);
     }
 
     // ---- the admin probe ----------------------------------------------------
@@ -275,5 +301,9 @@ public class AiRouter implements AiProvider {
 
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();
+    }
+
+    private static AiCallContext personalContext() {
+        return AiCallContext.personal(SecurityUtils.getCurrentUserLogin().orElse(null));
     }
 }

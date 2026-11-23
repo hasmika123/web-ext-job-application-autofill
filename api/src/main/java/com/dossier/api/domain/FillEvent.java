@@ -41,6 +41,9 @@ public class FillEvent implements Serializable, Persistable<String> {
     @Column(name = "required_left_empty", nullable = false)
     private int requiredLeftEmpty;
 
+    @Column(name = "attachments_failed", nullable = false)
+    private int attachmentsFailed;
+
     @Column(name = "user_corrected", nullable = false)
     private int userCorrected;
 
@@ -119,6 +122,14 @@ public class FillEvent implements Serializable, Persistable<String> {
 
     public void setRequiredLeftEmpty(int requiredLeftEmpty) {
         this.requiredLeftEmpty = requiredLeftEmpty;
+    }
+
+    public int getAttachmentsFailed() {
+        return attachmentsFailed;
+    }
+
+    public void setAttachmentsFailed(int attachmentsFailed) {
+        this.attachmentsFailed = attachmentsFailed;
     }
 
     public int getUserCorrected() {

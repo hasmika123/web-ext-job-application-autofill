@@ -8,6 +8,7 @@
  * keeps resume content off our servers until the user chooses to save.
  */
 import {
+  extractWordXmlText,
   heuristicStructure,
   parseBio,
   reconstructPdfText,
@@ -17,6 +18,8 @@ import {
   type ParsedBio,
 } from "@/lib/parser-core";
 import { redactForParsing } from "@/lib/profile-setup/sensitive";
+import JSZip from "jszip";
+import { ocrPdfDocument } from "@/lib/resume-ocr";
 
 export interface ParsedResume {
   structured: StructuredResume;
@@ -65,7 +68,17 @@ async function extractPdf(file: File): Promise<string> {
       .map((it) => ({ x: it.transform[4], y: it.transform[5], w: it.width, str: it.str }));
     out += reconstructPdfText(items) + "\n\n";
   }
-  return out.trim();
+  const extracted = out.trim();
+  if (!looksGarbled(extracted)) return extracted;
+
+  // Image-only PDFs have no text layer. Render them locally and run the bundled OCR
+  // model; a missing/failed OCR asset must not block the upload or cause a network call.
+  try {
+    const ocrText = await ocrPdfDocument(doc);
+    return ocrText || extracted;
+  } catch {
+    return extracted;
+  }
 }
 
 async function extractDocx(file: File): Promise<string> {
@@ -73,7 +86,19 @@ async function extractDocx(file: File): Promise<string> {
   const mammoth = (await import("mammoth")).default;
   const arrayBuffer = await file.arrayBuffer();
   const result = await mammoth.extractRawText({ arrayBuffer });
-  return (result.value || "").trim();
+  const body = (result.value || "").trim();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const headerPaths = Object.keys(zip.files)
+    .filter((path) => /^word\/header\d+\.xml$/i.test(path))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const headers: string[] = [];
+  for (const path of headerPaths) {
+    const entry = zip.file(path);
+    if (!entry) continue;
+    const text = extractWordXmlText(await entry.async("text"));
+    if (text && !headers.includes(text)) headers.push(text);
+  }
+  return [headers.join("\n"), body].filter(Boolean).join("\n\n").trim();
 }
 
 /** Extract plain text from a resume file (PDF / DOCX / TXT), in the browser. */

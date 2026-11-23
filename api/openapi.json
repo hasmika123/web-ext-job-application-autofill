@@ -33495,6 +33495,10 @@
           },
           "extVersion" : {
             "type" : "string"
+          },
+          "attachmentsFailed" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -44745,6 +44749,10 @@
             "format" : "int32"
           },
           "fieldsFailed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "attachmentsFailed" : {
             "type" : "integer",
             "format" : "int64"
           }

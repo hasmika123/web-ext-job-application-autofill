@@ -42,6 +42,8 @@
     <include file="config/liquibase/changelog/20260703000100_add_application_salary.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260921000000_subscription.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922000000_fill_event.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261120000000_fill_quality_daily.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121000000_fill_attachment_failure.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922010000_profile_suggestion.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922020000_ai_call.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260922030000_ai_budget_override.xml" relativeToChangelogFile="false"/>
@@ -158,6 +160,8 @@
     <include file="config/liquibase/changelog/20261201010000_ent_org_dunning.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261202010000_ent_custom_domains.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261203010000_ent_domain_certs.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121030000_ent_opportunity_matching.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121040000_ent_matching_usage.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261210010000_org_two_step.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

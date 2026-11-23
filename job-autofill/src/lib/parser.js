@@ -35,14 +35,38 @@
         .map((it) => ({ x: it.transform[4], y: it.transform[5], w: it.width, str: it.str }));
       out += JAF.parserCore.reconstructPdfText(items) + "\n\n";
     }
-    return out.trim();
+    const extracted = out.trim();
+    if (!JAF.parserCore.looksGarbled(extracted) || !JAF.resumeOcr) return extracted;
+
+    // Keep OCR local. If the optional bundled adapter cannot run, preserve the
+    // extracted text so the existing server-AI opt-in/fallback behavior remains intact.
+    try {
+      const ocrText = await JAF.resumeOcr.ocrPdfDocument(doc);
+      return ocrText || extracted;
+    } catch {
+      return extracted;
+    }
   }
 
   async function extractDocx(file) {
     if (!window.mammoth) throw new Error("DOCX support not loaded.");
     const buf = await file.arrayBuffer();
     const res = await window.mammoth.extractRawText({ arrayBuffer: buf });
-    return (res.value || "").trim();
+    const body = (res.value || "").trim();
+    const JSZip = globalThis.JSZip;
+    if (!JSZip) throw new Error("DOCX ZIP support not loaded.");
+    const zip = await JSZip.loadAsync(buf);
+    const headerPaths = Object.keys(zip.files)
+      .filter((path) => /^word\/header\d+\.xml$/i.test(path))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const headers = [];
+    for (const path of headerPaths) {
+      const entry = zip.file(path);
+      if (!entry) continue;
+      const text = JAF.parserCore.extractWordXmlText(await entry.async("text"));
+      if (text && !headers.includes(text)) headers.push(text);
+    }
+    return [headers.join("\n"), body].filter(Boolean).join("\n\n").trim();
   }
 
   // Structuring is delegated to the shared core module.

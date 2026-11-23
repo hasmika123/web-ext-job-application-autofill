@@ -40,6 +40,7 @@ interface Props {
   autoRefresh: boolean;
   pdfInfo: PdfInfo | null;
   onStored: () => void;
+  onFitStep: (step: number) => void;
   disabled: boolean;
 }
 
@@ -51,6 +52,7 @@ function view(over: Partial<Props> = {}) {
     autoRefresh: false,
     pdfInfo: { status: "READY", hash: "h" },
     onStored: vi.fn(),
+    onFitStep: vi.fn(),
     disabled: false,
     ...over,
   };
@@ -126,6 +128,22 @@ describe("PdfView (R3.3, DESIGN 10.8)", () => {
     await flush();
     expect(frame()).toBeTruthy();
     expect(props.onStored).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the persisted fit step back to the editor after a fresh render", async () => {
+    exportPdf.mockResolvedValue(okPdf({ cached: false, fitStep: 3 }));
+    const { props } = view({ pdfInfo: { status: "NONE" } });
+    await flush();
+    expect(props.onStored).toHaveBeenCalledTimes(1);
+    expect(props.onFitStep).toHaveBeenCalledWith(3);
+  });
+
+  it("passes a cached PDF's persisted fit step back too", async () => {
+    exportPdf.mockResolvedValue(okPdf({ fitStep: 4 }));
+    const { props } = view();
+    await flush();
+    expect(props.onFitStep).toHaveBeenCalledWith(4);
+    expect(props.onStored).not.toHaveBeenCalled();
   });
 
   it("shows the busy copy with Retry on a 503 PDF_BUSY, and Retry tries again", async () => {

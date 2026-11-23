@@ -56,7 +56,7 @@ Columns (final): `id, org_id, kind JOB_POSTING|CLIENT_REQUIREMENT, posting_id NU
 requirement_id NULL, title (300), company (200), location (300), url (1000), apply_url (1000),
 source_label (40: BOARD_API|PASTED|REQUIREMENT|EXTENSION|MATCH), description_text (consented copy from
 the public API or marketer-typed; never fetched from arbitrary HTML), skills_json, status, priority
-LOW|NORMAL|HIGH, closes_at, created_by_member_id, assignment_id NULL, bank_id NULL (org job bank),
+LOW|NORMAL|HIGH, closes_at, created_by_member_id, updated_by_member_id, assignment_id NULL, bank_id NULL (org job bank),
 dedupe_key (64), created_at, updated_at`. Exactly one of `posting_id`/`requirement_id`
 (CHECK). UNIQUE `(org_id, posting_id)` and `(org_id, requirement_id)` live keys; `dedupe_key` =
 `JobIngestService.dedupKey(company,title,location)` for pasted links → warning on collision.
@@ -76,7 +76,8 @@ assigned_at, note_to_consultant (500), resume_id (org-approved org_resume.resume
 consultant_decided_at, decline_reason (40: NOT_INTERESTED|LOCATION|RATE|ALREADY_APPLIED|OTHER) + decline_note (200),
 authorization CONSULTANT_APPROVED|PENDING|DECLINED|NOT_NEEDED, authorized_at, authorization_scope
 APPLY_SELF|SUBMIT_RECORD|BOTH, approval_required BOOLEAN, approved_by_member_id, approved_at,
-application_id NULL (via pipeline_application_link), submission_id NULL, withdrawn_reason, created_at, updated_at`.
+application_id NULL (via pipeline_application_link), submission_id NULL, withdrawn_reason, created_by_member_id NULL,
+updated_by_member_id NULL, created_at, updated_at`.
 UNIQUE `(org_id, opportunity_id, consultant_member_id)` — **the duplicate guard** (one row per pair, ever;
 re-proposing after DECLINED reopens the same row with history).
 

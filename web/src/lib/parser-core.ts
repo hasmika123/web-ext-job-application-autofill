@@ -74,6 +74,7 @@ const impl = core as {
   heuristicStructure: (text: string) => StructuredResume;
   parseBio: (text: string) => ParsedBio;
   splitSkills: (input: string | string[]) => string[];
+  extractWordXmlText: (xml: string) => string;
   reconstructPdfText: (items: PdfTextItem[]) => string;
   cleanForLlm: (text: string) => string;
   looksGarbled: (text: string) => boolean;
@@ -92,6 +93,11 @@ export function parseBio(text: string): ParsedBio {
 /** Split a skills blob into separate, deduped skills. */
 export function splitSkills(input: string | string[]): string[] {
   return impl.splitSkills(input);
+}
+
+/** Visible paragraph text from a Word header XML part. ZIP/file I/O stays outside the core. */
+export function extractWordXmlText(xml: string): string {
+  return impl.extractWordXmlText(xml);
 }
 
 /** Column-aware reading-order text from positioned PDF items (handles two-column resumes). */

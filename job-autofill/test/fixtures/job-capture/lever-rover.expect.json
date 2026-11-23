@@ -1,0 +1,12 @@
+{
+  "url": "https://jobs.lever.co/rover/861c2f1c-6586-40b6-87b8-4140c9379780",
+  "adapter": "lever",
+  "capturedAt": "2026-10-19",
+  "step": "posting",
+  "notes": "Scrubbed public Lever posting sentinel; no application controls are present on this snapshot.",
+  "map": {},
+  "manual": [],
+  "absent": [],
+  "required": { "total": 0, "leftEmptyAfterFill": 0, "leftEmptyLabels": [] },
+  "submit": { "neverClick": ["a[data-qa=\"show-page-apply\"]"], "next": null }
+}

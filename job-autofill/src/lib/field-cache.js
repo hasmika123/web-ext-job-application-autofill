@@ -49,11 +49,20 @@
     return h.toString(36);
   }
 
+  // Generated ATS ids/names are not question identity. Remove those volatile
+  // suffixes before bucketing so the same visible question can carry over to a
+  // new posting while genuinely different questions remain separate.
+  function stableLabel(label) {
+    return String(label == null ? "" : label)
+      .replace(/\b(?:question|field|input|select|radio|checkbox)(?:[_-][a-z0-9]+|\d{1,})\b/gi, " ")
+      .replace(/\s+/g, " ").trim();
+  }
+
   // A given field can appear in many question contexts (a "Yes/No" combo asks
-  // different things). Bucket by host + the visible label so learned answers
-  // don't bleed across unrelated questions.
+  // different things). Bucket by host + the stable visible label so learned
+  // answers don't bleed across unrelated questions.
   function contextHash(host, label) {
-    return hash(slug(host) + "|" + slug(label));
+    return hash(slug(host) + "|" + slug(stableLabel(label)));
   }
 
   // Every answer is ALSO stored under a host-agnostic twin, so the same question
@@ -66,10 +75,10 @@
     return contextHash(GLOBAL_HOST, label);
   }
 
-  // The canonical field is the primary key; fall back to a slug of the label
-  // for free-form questions that have no canonical field.
+  // The canonical field is the primary key; fall back to a stable slug of the
+  // label for free-form questions that have no canonical field.
   function fieldKeyFor(item) {
-    return (item && (item.field || slug(item.label))) || "field";
+    return (item && (item.field || slug(stableLabel(item.label)))) || "field";
   }
 
   function storeKey(profileId, fieldKey, ctxHash) {
@@ -80,8 +89,34 @@
   function isPlaceholder(s) {
     return !s || /^(select one|select\.{2,}|select an?\b|choose|search|please select|--)/i.test(s);
   }
+  function rootOf(el) {
+    try { return el && typeof el.getRootNode === "function" ? el.getRootNode() : document; } catch (e) { return document; }
+  }
+  function choiceLabel(el) {
+    if (!el) return "";
+    const wrap = el.closest && el.closest("label");
+    if (wrap) return String(wrap.textContent || "").replace(/\s+/g, " ").trim();
+    if (el.id) {
+      const root = rootOf(el);
+      const label = Array.from(root.querySelectorAll ? root.querySelectorAll("label") : []).find((n) => n.getAttribute("for") === el.id);
+      if (label) return String(label.textContent || "").replace(/\s+/g, " ").trim();
+    }
+    return String(el.value || "").trim();
+  }
+  function radioGroup(el) {
+    const root = rootOf(el);
+    const name = el && String(el.name || "");
+    const form = el && el.form;
+    return Array.from(root.querySelectorAll ? root.querySelectorAll('input[type="radio"]') : [])
+      .filter((r) => (!name || r.name === name) && (!form || r.form === form));
+  }
   function committedValueOf(el) {
     if (!el) return "";
+    if (String(el.type || "").toLowerCase() === "radio") {
+      const picked = radioGroup(el).find((r) => r.checked);
+      return picked ? choiceLabel(picked) : "";
+    }
+    if (String(el.type || "").toLowerCase() === "checkbox") return el.checked ? choiceLabel(el) : "";
     if (el.tagName === "SELECT") {
       const o = el.options && el.options[el.selectedIndex];
       const t = o ? (o.text || o.value) : el.value;
@@ -92,7 +127,8 @@
       if (v) return v;
       // combobox triggers carry their chosen label in surrounding text
       const cont = el.closest && (el.closest('[class*="__control"]') || el.closest('[class*="control"],[class*="select"],[role="combobox"]')); // react-select: see base.js committedValue
-      const ct = cont ? String(cont.innerText || cont.textContent || "").trim() : "";
+      const chosen = cont && cont.querySelector && cont.querySelector('[class*="single-value"],[class*="singleValue"],[role="option"][aria-selected="true"],[data-automation-id="selectedItem"]');
+      const ct = chosen ? String(chosen.innerText || chosen.textContent || "").trim() : cont ? String(cont.innerText || cont.textContent || "").trim() : "";
       return isPlaceholder(ct) ? "" : ct;
     }
     const t = String(el.innerText || el.textContent || "").trim();
@@ -100,13 +136,14 @@
   }
 
   // ---- store backends ----------------------------------------------------
-  // Contract: { get(key)->Promise<entry|null>, put(key,entry)->Promise, all()->Promise<entry[]> }
+  // Contract: { get(key)->Promise<entry|null>, put(key,entry)->Promise, remove(key)->Promise, all()->Promise<entry[]> }
 
   function memoryStore(backing) {
     const map = backing || new Map();
     return {
       get: (k) => Promise.resolve(map.has(k) ? map.get(k) : null),
       put: (k, v) => { map.set(k, v); return Promise.resolve(); },
+      remove: (k) => { map.delete(k); return Promise.resolve(); },
       all: () => Promise.resolve(Array.from(map.values())),
       _map: map,
     };
@@ -139,6 +176,7 @@
     return {
       get: (k) => tx("readonly", (os) => os.get(k)).then((v) => v || null).catch(() => null),
       put: (k, v) => tx("readwrite", (os) => os.put(v, k)).then(() => undefined).catch(() => undefined),
+      remove: (k) => tx("readwrite", (os) => os.delete(k)).then(() => undefined).catch(() => undefined),
       all: () =>
         tx("readonly", (os) => os.getAll && os.getAll()).then((v) => v || []).catch(() => []),
     };
@@ -178,6 +216,7 @@
     return {
       get: (k) => readAll().then((m) => m[k] || null).catch(() => null),
       put: (k, v) => mutate((m) => { m[k] = v; }),
+      remove: (k) => mutate((m) => { delete m[k]; }),
       all: () => readAll().then((m) => Object.keys(m).map((k) => m[k])).catch(() => []),
       _readAll: readAll,
     };
@@ -293,6 +332,16 @@
       return true;
     }
 
+    // An unchecked checkbox is a deliberate correction too: remove both the
+    // host-scoped answer and its cross-site twin instead of leaving the old
+    // affirmative answer to reappear on the next form.
+    async function forget(item) {
+      if (!item || typeof store.remove !== "function") return false;
+      await store.remove(keyOf(item));
+      await store.remove(globalKeyOf(item));
+      return true;
+    }
+
     // Read path: override item values with learned answers before the overlay
     // shows them, so the cached choice is what the user reviews and fills.
     async function preferCached(items) {
@@ -331,20 +380,24 @@
       const el = item && item.el;
       if (!el || !el.addEventListener) return;
       if (opts && hooks) hooks.set(el, { baseline: String(opts.baseline == null ? "" : opts.baseline), onCorrected: opts.onCorrected, fired: false });
-      if (bound.has(el)) return;
-      bound.add(el);
+      const targets = String(el.type || "").toLowerCase() === "radio" ? radioGroup(el) : [el];
       const onChange = () => {
         const v = committedValueOf(el);
         if (v) remember(item, v);
+        else forget(item);
         const h = hooks && hooks.get(el);
         if (h && !h.fired && typeof h.onCorrected === "function" && v !== h.baseline) {
           h.fired = true;
           try { h.onCorrected(); } catch (e) { /* telemetry must never break filling */ }
         }
       };
-      el.addEventListener("change", onChange, true);
-      // custom dropdowns commit on blur without a reliable 'change'
-      el.addEventListener("blur", onChange, true);
+      for (const target of targets) {
+        if (!target || bound.has(target)) continue;
+        bound.add(target);
+        target.addEventListener("change", onChange, true);
+        // custom dropdowns commit on blur without a reliable 'change'
+        target.addEventListener("blur", onChange, true);
+      }
     }
 
     // ---- Phase 4 cloud sync ------------------------------------------------
@@ -379,7 +432,7 @@
     }
 
     return {
-      get, lookup, remember, preferCached, watch, setProfile, keyOf, globalKeyOf,
+      get, lookup, remember, forget, preferCached, watch, setProfile, keyOf, globalKeyOf,
       committedValueOf, contextHash, fieldKeyFor, exportAll, importEntries, _store: store,
     };
   }
@@ -388,6 +441,7 @@
   api.create = create;
   api.slug = slug;
   api.hash = hash;
+  api.stableLabel = stableLabel;
   api.contextHash = contextHash;
   api.globalContextHash = globalContextHash;
   api.fieldKeyFor = fieldKeyFor;

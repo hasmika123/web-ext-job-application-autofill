@@ -81,6 +81,14 @@ describe("GET /api/resumes/:id/export?format=pdf&cached=1", () => {
     expect(recorded).toHaveLength(0);
   });
 
+  it("reports the persisted fit rung when serving a current cached PDF", async () => {
+    currentDto = { theme: { fit: { mode: "auto", target: 1, step: 2 } } };
+    const res = await get();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-resume-fit-step")).toBe("2");
+    expect(exportResumePdf).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["STALE", { status: "READY", hash: "old".padEnd(64, "0") }],
     ["PENDING", { status: "PENDING", hash: null }],
@@ -170,5 +178,27 @@ describe("POST /api/resumes/:id/export", () => {
     expect(res.status).toBe(200);
     expect(exportResumePdf).toHaveBeenCalledTimes(1);
     expect(recorded).toEqual([{ hash: RENDER }]);
+  });
+
+  it("records the effective fit rung and exposes its final render hash", async () => {
+    currentDto = { theme: { fit: { mode: "auto", target: 1, step: 0 } } };
+    exportResumePdf.mockResolvedValue({
+      pdf: Buffer.from("%PDF-1.4 /Type /Page fresh"),
+      pages: 1,
+      step: 2,
+      startStep: 0,
+      target: 1,
+      fits: true,
+    });
+
+    const res = await POST(
+      new Request("http://web/api/resumes/7/export", { method: "POST", body: JSON.stringify({ format: "pdf" }) }),
+      ctx,
+    );
+
+    expect(res.status).toBe(200);
+    expect(recorded).toEqual([{ hash: expect.not.stringMatching(/^r{64}$/), sourceHash: RENDER, fitStep: 2 }]);
+    expect(res.headers.get("x-resume-fit-step")).toBe("2");
+    expect(res.headers.get("x-resume-render-hash")).not.toBe(RENDER);
   });
 });

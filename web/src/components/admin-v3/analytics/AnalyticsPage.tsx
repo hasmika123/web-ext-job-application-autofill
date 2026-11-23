@@ -55,6 +55,15 @@ export interface FillQuality {
   correctionRatePct: number;
   genericPct: number;
   fieldsFailed: number;
+  attachmentsFailed: number;
+}
+export interface FillQualityAlert {
+  ats: string;
+  fills7: number;
+  rate7Bp: number;
+  baseline28Bp: number;
+  dropBp: number;
+  fixturePath: string;
 }
 export interface Analytics {
   totalUsers: number;
@@ -70,6 +79,7 @@ export interface Analytics {
   applicationsByStatus: Record<string, number>;
   billing: Billing;
   fillQuality: FillQuality[];
+  fillQualityAlerts: FillQualityAlert[];
 }
 
 const ATS_NAMES: Record<string, string> = {
@@ -277,11 +287,24 @@ export default function AnalyticsPage({ a }: { a: Analytics | null }) {
           title="Fill quality by ATS"
           description="Last 30 days, worst first. Counts only, never field values."
         >
+          {(a.fillQualityAlerts ?? []).length > 0 && (
+            <div className="mb-4 space-y-2" role="alert">
+              {(a.fillQualityAlerts ?? []).map((alert) => (
+                <div key={alert.ats} className="rounded-xl border border-v2-coral/40 bg-v2-coral/10 px-3.5 py-3 text-[13px] text-ink">
+                  <div className="font-semibold">ADAPTER_ROT · {ATS_NAMES[alert.ats] ?? alert.ats}</div>
+                  <div className="mt-0.5 text-ink-soft">
+                    Seven-day fill rate {Math.round(alert.rate7Bp / 100)}% vs {Math.round(alert.baseline28Bp / 100)}% baseline
+                    ({Math.round(alert.dropBp / 100)} points lower). Replay {alert.fixturePath} before changing the adapter.
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {(a.fillQuality ?? []).length === 0 ? (
             <p className="py-6 text-center text-[13px] text-ink-soft">No fills recorded yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[420px] text-[13px]">
+              <table className="w-full min-w-[520px] text-[13px]">
                 <thead>
                   <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-v2-muted">
                     <th className="pb-2 pr-3 font-semibold">ATS</th>
@@ -289,6 +312,7 @@ export default function AnalyticsPage({ a }: { a: Analytics | null }) {
                     <th className="pb-2 pr-3 text-right font-semibold" title="Fills that left at least one required field empty">Gaps</th>
                     <th className="pb-2 pr-3 text-right font-semibold" title="Of the fields found, how many were filled">Filled</th>
                     <th className="pb-2 pr-3 text-right font-semibold" title="Of the fields filled, how many the user changed afterwards">Fixed</th>
+                    <th className="pb-2 pr-3 text-right font-semibold" title="Offered resumes that the ATS did not accept">Attach fails</th>
                     <th className="pb-2 text-right font-semibold" title="Fills handled by the generic scanner (no dedicated adapter)">Generic</th>
                   </tr>
                 </thead>
@@ -300,6 +324,7 @@ export default function AnalyticsPage({ a }: { a: Analytics | null }) {
                       <td className={cn("py-2 pr-3 text-right tabular-nums", q.gapRatePct >= 50 ? "font-semibold text-v2-coral-ink" : "text-ink")}>{q.gapRatePct}%</td>
                       <td className="py-2 pr-3 text-right tabular-nums text-ink">{q.fillRatePct}%</td>
                       <td className="py-2 pr-3 text-right tabular-nums text-ink">{q.correctionRatePct}%</td>
+                      <td className={cn("py-2 pr-3 text-right tabular-nums", (q.attachmentsFailed ?? 0) > 0 ? "font-semibold text-v2-coral-ink" : "text-ink")}>{q.attachmentsFailed ?? 0}</td>
                       <td className="py-2 text-right tabular-nums text-ink-soft">{q.genericPct}%</td>
                     </tr>
                   ))}

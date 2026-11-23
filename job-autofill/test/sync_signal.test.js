@@ -261,14 +261,14 @@ const signedOut = { type: "KIWIPLY_SYNC", event: "signedOut" };
 
   /* ---- Phase 10.1: fill telemetry is forwarded, honouring the analytics opt-out ---- */
   {
-    const stats = { id: "0f8fad5b-d9cb-469f-a165-70867728950e", ats: "icims", adapter: "generic", fieldsFound: 9, fieldsFilled: 6, fieldsFailed: 1, requiredLeftEmpty: 2 };
+    const stats = { id: "0f8fad5b-d9cb-469f-a165-70867728950e", ats: "icims", adapter: "generic", fieldsFound: 9, fieldsFilled: 6, fieldsFailed: 1, requiredLeftEmpty: 2, attachmentsFailed: 1 };
     const page = { tab: { id: 7 }, url: "https://careers-acme.icims.com/jobs/1" };
     {
       const { internal, calls, store } = boot();
       store.settings = { apiBaseUrl: "https://api.kiwiply.com" };
       const r = await sendRelayed(internal, page, { type: "JAF_FILL_STATS", stats });
       ok("telemetry: forwarded", r && r.ok === true && calls.fills.length === 1, JSON.stringify(r));
-      ok("telemetry: counts pass through", calls.fills[0] && calls.fills[0].ats === "icims" && calls.fills[0].requiredLeftEmpty === 2);
+      ok("telemetry: counts pass through", calls.fills[0] && calls.fills[0].ats === "icims" && calls.fills[0].requiredLeftEmpty === 2 && calls.fills[0].attachmentsFailed === 1);
       await sendRelayed(internal, page, { type: "JAF_FILL_CORRECTED", id: stats.id });
       ok("telemetry: a correction is forwarded against its fill", calls.corrections.length === 1 && calls.corrections[0] === stats.id);
     }

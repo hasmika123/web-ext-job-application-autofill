@@ -27,6 +27,7 @@ import {
 import { BrandLogo } from "../../lib/Brand";
 import { closePanel } from "../../lib/panel-frame";
 import { extensionAlive } from "../../lib/ext-context";
+import { WEB_ORIGIN } from "../../lib/hosts";
 import {
   loadData,
   refreshMirror,
@@ -54,7 +55,8 @@ import {
 } from "./workspace-actions";
 import type { Handoff } from "./services";
 
-const WEB = "https://kiwiply.com";
+// kiwiply.com in a store build; a dev build may point elsewhere (lib/hosts.ts).
+const WEB = WEB_ORIGIN;
 
 type Status = { msg: string; kind: "ok" | "err" | "neutral" };
 const NEUTRAL: Status = { msg: "", kind: "neutral" };

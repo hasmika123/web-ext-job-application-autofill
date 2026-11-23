@@ -24,10 +24,10 @@ import com.dossier.api.service.ai.AiResult;
 import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.service.dto.ApplicationDTO;
 import com.dossier.api.service.jobs.JobBoardProperties;
+import com.dossier.api.service.jobs.JobMatchPrompt;
 import com.dossier.api.service.jobs.JobPrefilter;
+import com.dossier.api.service.jobs.JobScoreParser;
 import com.dossier.api.service.jobs.MatchPreferences;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -42,9 +42,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -81,7 +78,7 @@ public class JobMatchService {
     /** Matches at or above this are shown; the rest are kept only so they're never scored again. */
     public static final int SHOW_SCORE = 60;
     static final Duration MIN_GAP = Duration.ofHours(20);
-    static final int EXCERPT_CHARS = 600;
+    static final int EXCERPT_CHARS = JobMatchPrompt.EXCERPT_CHARS;
     static final int MAX_REASON_CHARS = 160;
 
     public record SettingView(boolean enabled, Instant lastRunAt, String lastStatus, Integer lastCandidates, Integer lastMatched) {}
@@ -124,7 +121,6 @@ public class JobMatchService {
     private final ApplicationEventPublisher events;
     private final ApplicationSyncService applicationSync;
     private final boolean aiEnabled;
-    private final ObjectMapper om = new ObjectMapper();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicReference<RunSummary> lastRun = new AtomicReference<>();
 
@@ -449,62 +445,25 @@ public class JobMatchService {
     }
 
     String buildPrompt(MatchPreferences p, Resume resume, List<JobPrefilter.Candidate> candidates) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Score how well each job below fits this candidate as a job to apply to now. Return scores: one entry per job id, ");
-        sb.append("with score 0-100 (85+ a strong fit worth applying to today; 70-84 good; 50-69 a stretch; below 50 poor) ");
-        sb.append("and why: at most 15 words, the main reason for the score. Judge the role and seniority, the skills the job asks ");
-        sb.append("for against the resume, and the location or remote setup against the candidate's preferences. ");
-        sb.append("If the candidate needs visa sponsorship and a job says it cannot sponsor, score it below 30.\n\n");
-        sb.append("Candidate:\n");
-        sb.append(AiInputs.resumeDigest(resume.getParsedJson(), AiInputs.BRIEF));
-        if (p.years() > 0) sb.append("Years of experience: about ").append(p.years()).append('\n');
-        String where = String.join(", ", Stream.of(p.city(), p.state(), p.country()).filter(x -> x != null && !x.isBlank()).toList());
-        if (!where.isEmpty()) sb.append("Based in: ").append(AiInputs.cap(where, 80)).append('\n');
-        if (p.workPreference() != null) sb.append("Prefers: ").append(p.workPreference().toLowerCase(Locale.ROOT)).append(" work\n");
-        sb.append("Willing to relocate: ").append(p.relocate() ? "yes" : "no").append('\n');
-        if (p.needsSponsorship()) sb.append("Needs visa sponsorship: yes\n");
-        sb.append("\nJobs:\n");
+        List<JobMatchPrompt.Job> jobs = new java.util.ArrayList<>();
         for (int i = 0; i < candidates.size(); i++) {
             JobPosting j = candidates.get(i).posting();
-            sb.append('[').append(ref(i)).append("] ").append(AiInputs.cap(j.getTitle(), 120)).append(" — ").append(AiInputs.cap(j.getCompany(), 60));
-            if (j.getLocation() != null) sb.append(" | ").append(AiInputs.cap(j.getLocation(), 100));
-            if (j.getWorkplaceType() != null) sb.append(" | ").append(j.getWorkplaceType().toLowerCase(Locale.ROOT));
-            sb.append('\n').append(excerpt(j.getDescriptionText())).append("\n\n");
+            jobs.add(new JobMatchPrompt.Job(ref(i), j.getTitle(), j.getCompany(), j.getLocation(), j.getWorkplaceType(), j.getDescriptionText()));
         }
-        return sb.toString();
+        return JobMatchPrompt.build(p, resume, jobs);
     }
 
-    private static final Pattern REQUIREMENTS = Pattern.compile(
-        "(?i)(qualifications|requirements|what you('| wi)ll need|what you bring|you have|about you|who you are|what we're looking for|you might be a fit|minimum)"
-    );
-
-    /** The part of a description that says what the job wants — requirements over company blurb. */
     static String excerpt(String description) {
-        if (description == null || description.isBlank()) return "(no description)";
-        String d = description;
-        Matcher m = REQUIREMENTS.matcher(d);
-        if (m.find() && m.start() > 0) d = d.substring(m.start());
-        return AiInputs.cap(d.replaceAll("\\s+", " ").trim(), EXCERPT_CHARS);
+        return JobMatchPrompt.excerpt(description);
     }
 
     record Scored(int score, String why) {}
 
     Map<String, Scored> parseScores(String text) {
         Map<String, Scored> out = new HashMap<>();
-        try {
-            String t = text == null ? "" : text.trim();
-            int start = t.indexOf('{');
-            JsonNode root = start < 0 ? null : om.readTree(t.substring(start));
-            if (root == null) return out;
-            for (JsonNode n : root.path("scores")) {
-                String id = n.path("id").asText("").trim().toLowerCase(Locale.ROOT).replaceAll("[\\[\\]]", "");
-                if (id.isEmpty() || !n.path("score").isNumber()) continue;
-                int score = (int) Math.max(0, Math.min(100, Math.round(n.path("score").asDouble())));
-                out.putIfAbsent(id, new Scored(score, AiInputs.cap(n.path("why").asText("").trim(), MAX_REASON_CHARS)));
-            }
-        } catch (Exception e) {
-            // unusable reply: nothing scored
-        }
+        Set<String> allowed = new HashSet<>();
+        for (int i = 0; i < 50; i++) allowed.add(ref(i));
+        JobScoreParser.parse(text, allowed, MAX_REASON_CHARS).forEach((id, score) -> out.put(id, new Scored(score.score(), score.why())));
         return out;
     }
 

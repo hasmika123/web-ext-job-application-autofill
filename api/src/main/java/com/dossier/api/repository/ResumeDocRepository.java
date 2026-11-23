@@ -120,6 +120,27 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
     @Query("update ResumeDoc d set d.exportedAt = :at, d.exportedHash = :hash where d.resumeId = :resumeId")
     int recordExport(@Param("resumeId") Long resumeId, @Param("hash") String hash, @Param("at") java.time.Instant at);
 
+    /**
+     * Atomically records a synchronous export that changed only the automatic fit rung. The source
+     * content/template/theme predicates prevent a late Chromium result from overwriting a newer edit;
+     * the bulk update deliberately leaves {@code doc_version} alone.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(
+        "update ResumeDoc d set d.themeJson = :theme, d.exportedAt = :at, d.exportedHash = :hash, " +
+        "d.pdfStatus = 'READY', d.pdfAttempts = 0, d.pdfError = null, d.pdfLeaseUntil = null, d.pdfWorker = null " +
+        "where d.resumeId = :resumeId and d.contentHash = :contentHash and d.templateId = :templateId and d.themeJson = :sourceTheme"
+    )
+    int recordExportWithFit(
+        @Param("resumeId") Long resumeId,
+        @Param("contentHash") String contentHash,
+        @Param("templateId") String templateId,
+        @Param("sourceTheme") String sourceTheme,
+        @Param("theme") String theme,
+        @Param("hash") String hash,
+        @Param("at") java.time.Instant at
+    );
+
     /** The documents derived from a master (tailored copies and the like), by the master's resume id. */
     List<ResumeDoc> findByUserIdAndParentResumeId(Long userId, Long parentResumeId);
 

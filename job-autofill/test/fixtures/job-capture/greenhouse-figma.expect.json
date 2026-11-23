@@ -1,0 +1,12 @@
+{
+  "url": "https://job-boards.greenhouse.io/figma/jobs/6102379004",
+  "adapter": "greenhouse",
+  "capturedAt": "2026-10-19",
+  "step": "posting",
+  "notes": "Scrubbed public Greenhouse posting sentinel; no application controls are present on this snapshot.",
+  "map": {},
+  "manual": [],
+  "absent": [],
+  "required": { "total": 0, "leftEmptyAfterFill": 0, "leftEmptyLabels": [] },
+  "submit": { "neverClick": ["button[aria-label=\"Apply\"]"], "next": null }
+}

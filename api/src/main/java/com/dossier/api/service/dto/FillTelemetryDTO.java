@@ -13,5 +13,20 @@ public record FillTelemetryDTO(
     Integer fieldsFilled,
     Integer fieldsFailed,
     Integer requiredLeftEmpty,
-    String extVersion
-) {}
+    String extVersion,
+    Integer attachmentsFailed
+) {
+    /** Backward-compatible constructor for older extension payload tests/clients. */
+    public FillTelemetryDTO(
+        String id,
+        String ats,
+        String adapter,
+        Integer fieldsFound,
+        Integer fieldsFilled,
+        Integer fieldsFailed,
+        Integer requiredLeftEmpty,
+        String extVersion
+    ) {
+        this(id, ats, adapter, fieldsFound, fieldsFilled, fieldsFailed, requiredLeftEmpty, extVersion, 0);
+    }
+}

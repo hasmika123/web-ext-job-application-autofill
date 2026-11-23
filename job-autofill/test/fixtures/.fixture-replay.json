@@ -1,0 +1,8 @@
+{
+  "fixtures": [
+    "job-capture/greenhouse-figma.html",
+    "job-capture/lever-rover-apply.html",
+    "job-capture/lever-rover.html",
+    "job-capture/smartrecruiters-servicenow.html"
+  ]
+}

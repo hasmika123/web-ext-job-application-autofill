@@ -91,6 +91,9 @@ public class FillTelemetryService {
         e.setFieldsFilled(Math.min(clamp(dto.fieldsFilled()), found));
         e.setFieldsFailed(Math.min(clamp(dto.fieldsFailed()), found));
         e.setRequiredLeftEmpty(clamp(dto.requiredLeftEmpty()));
+        // One offered resume is counted at most once per fill. The server clamps independently
+        // because telemetry is untrusted input even though the extension already bounds it.
+        e.setAttachmentsFailed(Math.min(clamp(dto.attachmentsFailed()), 1));
         e.setExtVersion(dto.extVersion() != null && VERSION.matcher(dto.extVersion()).matches() ? dto.extVersion() : null);
         e.setCreatedAt(Instant.now());
         try {

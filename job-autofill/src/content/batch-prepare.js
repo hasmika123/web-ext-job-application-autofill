@@ -274,7 +274,15 @@
       if (!moved) return "stuck";
       await pause(900); // the next step draws its fields
       step++;
-      const carry = { outcomes: r.outcomes, fileStatus: r.fileStatus, file: r.file, filled: r.filled, failed: r.failed, steps: step };
+      const carry = {
+        outcomes: r.outcomes,
+        fileStatus: r.fileStatus,
+        file: r.file,
+        filled: r.filled,
+        failed: r.failed,
+        attachmentFailed: r.attachmentFailed,
+        steps: step,
+      };
       setTimeout(() => { run(carry); }, 0);
       return true;
     }

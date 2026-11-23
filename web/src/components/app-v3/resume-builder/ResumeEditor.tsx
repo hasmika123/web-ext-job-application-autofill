@@ -81,6 +81,11 @@ function isEmptyDoc(doc: ResumeDocDTO["doc"]): boolean {
   return doc.sections.every((s) => s.items.length === 0);
 }
 
+/** The server may persist a Chromium-selected fit rung without bumping the editor ETag. */
+function themeAtFitStep(theme: ResumeDocDTO["theme"], step: number): ResumeDocDTO["theme"] {
+  return { ...(theme ?? {}), fit: { ...(theme?.fit ?? {}), step } as NonNullable<ResumeDocDTO["theme"]>["fit"] };
+}
+
 const PHONE_TABS: ReadonlyArray<{ value: PhoneTab; label: string }> = [
   { value: "edit", label: "Edit" },
   { value: "layout", label: "Layout" },
@@ -242,6 +247,14 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
     dispatch(a);
   }, [flashPanel]);
   const presentation = usePresentation({ resumeId, autosave, templateId: state.templateId, theme: state.theme, doc, config, dispatch: presentationDispatch });
+
+  const adoptExportFitStep = useCallback(
+    (fitStep?: number) => {
+      if (fitStep === undefined || sanitizeTheme(state.theme).fit.step === fitStep) return;
+      dispatch({ type: "presentation/set", theme: themeAtFitStep(state.theme, fitStep) });
+    },
+    [state.theme],
+  );
 
   /* ── the profile photo (R7.4): server-owned, so it bypasses the document's undo and the autosave PUT ─────── */
   const photoSettings = photoSettingsOf(config);
@@ -644,6 +657,7 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
         toast({ title: "Couldn't make the PDF", description: res.message, variant: "error" });
         return;
       }
+      adoptExportFitStep(res.fitStep);
       saveBlob(res.blob, res.fileName);
       track("resume_download", { format: "pdf", cached: res.cached });
       if (res.stored) void refreshPdf();
@@ -1040,6 +1054,7 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
                 pdfInfo={pdf}
                 autoRefresh={pdfSettings.viewAutoRefresh}
                 disabled={state.phase === "conflict"}
+                onFitStep={adoptExportFitStep}
                 onStored={() => void refreshPdf()}
               />
             )}

@@ -53,12 +53,22 @@ const adapter = (w, id) => w.JAF.adapters.find((a) => a.id === id);
   root.innerHTML = '<label>First Name<input name="first-name-input"></label>' +
     '<label>Email<input type="email" name="email-input"></label>' +
     '<label>Confirm Email<input type="email" name="confirm-email-input"></label>' +
-    '<input type="file" name="file-input">';
+    '<input type="file" name="file-input">' +
+    '<label for="field-one">Last Name</label><input id="field-one" name="value-a">' +
+    '<span id="label-two">City</span><input id="field-two" name="value-b" aria-labelledby="label-two">';
   const shItems = scan(sh);
   ok("BUG5 firstName found inside open shadow root", (fieldOf(shItems, "firstName") || {}).el === root.querySelector('[name="first-name-input"]'));
   ok("BUG5 email found inside open shadow root", !!fieldOf(shItems, "email"));
   ok("BUG5 confirm-email still negated (not email)", fieldOf(shItems, "email").el.name === "email-input");
   ok("BUG5 fileInput pierces shadow", adapter(sh, "generic").fileInput() === root.querySelector('input[type="file"]'));
+  const firstNameItem = fieldOf(shItems, "firstName");
+  ok("BUG5 firstName fills inside open shadow root",
+    sh.JAF.adapterBase.applyItem(firstNameItem, "Ada") === true &&
+      root.querySelector('[name="first-name-input"]').value === "Ada");
+  ok("BUG5 label[for] resolves inside open shadow root",
+    /last name/i.test(sh.JAF.adapterBase.labelText(root.querySelector("#field-one"))));
+  ok("BUG5 aria-labelledby resolves inside open shadow root",
+    /city/i.test(sh.JAF.adapterBase.labelText(root.querySelector("#field-two"))));
 
   /* ---- BUG-1: EEO fields fill (no more SENSITIVE hard-skip) ---- */
   const eeo = win('<label for="g">Gender</label><select id="g" name="gender"><option>Select</option><option>Male</option><option>Female</option></select>' +

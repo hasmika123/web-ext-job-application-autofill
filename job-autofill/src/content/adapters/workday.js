@@ -338,7 +338,13 @@
       return items;
     },
 
-    fileInput() { return document.querySelector('input[type="file"]'); },
+    fileInput() {
+      // Workday hides the real input in its file-upload drop zone. Use the shared shadow-aware
+      // query so the adapter does not report "no field" on web-component tenants.
+      const inputs = B.deepQueryAll(document, 'input[type="file"]').filter((i) => !i.disabled && !i.readOnly);
+      return inputs.find((i) => i.getAttribute("data-automation-id") === "file-upload-input-ref") ||
+        inputs.find((i) => /resume|cv/i.test(B.labelText(i))) || inputs[0] || null;
+    },
 
     // <tenant>.<dc>.myworkdayjobs.com/<lang>/<site>/job/<loc>/<Title>_<JR-id> — the
     // requisition id is the token after the final underscore of the last path segment.

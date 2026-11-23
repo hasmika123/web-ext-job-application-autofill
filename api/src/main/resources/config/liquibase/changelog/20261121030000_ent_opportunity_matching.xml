@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Canonical organization opportunity/match seam (enterprise-v2 31 sections 3-4).
+        This is additive: the existing requirement_match and mkt_opportunity tables remain the compatibility path
+        until their consumers migrate. posting_id is a pointer to the global job_posting pool and intentionally has
+        no foreign key; requirement_id and member pointers use tenant composite keys.
+    -->
+    <changeSet id="ent-opportunity-matching-1-job-opportunity" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="job_opportunity"/></not></preConditions>
+        <createTable tableName="job_opportunity">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="posting_id" type="bigint"/>
+            <column name="requirement_id" type="bigint"/>
+            <column name="title" type="varchar(300)"><constraints nullable="false"/></column>
+            <column name="company" type="varchar(200)"/>
+            <column name="location" type="varchar(300)"/>
+            <column name="url" type="varchar(1000)"/>
+            <column name="apply_url" type="varchar(1000)"/>
+            <column name="source_label" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="description_text" type="varchar(4000)"/>
+            <column name="skills_json" type="varchar(4000)"/>
+            <column name="status" type="varchar(20)" defaultValue="NEW"><constraints nullable="false"/></column>
+            <column name="priority" type="varchar(10)" defaultValue="NORMAL"><constraints nullable="false"/></column>
+            <column name="closes_at" type="${datetimeType}"/>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="updated_by_member_id" type="bigint"/>
+            <column name="assignment_id" type="bigint"/>
+            <column name="bank_id" type="bigint"/>
+            <column name="dedupe_key" type="varchar(64)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="job_opportunity" baseColumnNames="org_id" constraintName="fk_job_opportunity_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="job_opportunity" baseColumnNames="org_id, requirement_id" constraintName="fk_job_opportunity_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="job_opportunity" baseColumnNames="org_id, created_by_member_id" constraintName="fk_job_opportunity_created_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="job_opportunity" columnNames="org_id, id" constraintName="uk_job_opportunity_org_id"/>
+        <createIndex tableName="job_opportunity" indexName="ix_job_opportunity_status"><column name="org_id"/><column name="status"/><column name="updated_at"/></createIndex>
+        <createIndex tableName="job_opportunity" indexName="ix_job_opportunity_source"><column name="org_id"/><column name="source_label"/><column name="updated_at"/></createIndex>
+        <createIndex tableName="job_opportunity" indexName="ix_job_opportunity_bank"><column name="org_id"/><column name="bank_id"/><column name="status"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-opportunity-matching-2-job-opportunity-posting-live-key" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="job_opportunity" columnName="posting_live_key"/></not></preConditions>
+        <sql dbms="mysql">ALTER TABLE job_opportunity ADD COLUMN posting_live_key BIGINT GENERATED ALWAYS AS (IF(status &lt;&gt; 'CLOSED', posting_id, NULL)) STORED</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-opportunity-matching-3-job-opportunity-posting-live-unique" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="job_opportunity" indexName="uk_job_opportunity_posting_live"/></not></preConditions>
+        <createIndex tableName="job_opportunity" indexName="uk_job_opportunity_posting_live" unique="true"><column name="org_id"/><column name="posting_live_key"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-opportunity-matching-4-job-opportunity-requirement-live-key" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="job_opportunity" columnName="requirement_live_key"/></not></preConditions>
+        <sql dbms="mysql">ALTER TABLE job_opportunity ADD COLUMN requirement_live_key BIGINT GENERATED ALWAYS AS (IF(status &lt;&gt; 'CLOSED', requirement_id, NULL)) STORED</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-opportunity-matching-5-job-opportunity-requirement-live-unique" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="job_opportunity" indexName="uk_job_opportunity_requirement_live"/></not></preConditions>
+        <createIndex tableName="job_opportunity" indexName="uk_job_opportunity_requirement_live" unique="true"><column name="org_id"/><column name="requirement_live_key"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-opportunity-matching-6-job-opportunity-dedupe-live-key" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="job_opportunity" columnName="dedupe_live_key"/></not></preConditions>
+        <sql dbms="mysql">ALTER TABLE job_opportunity ADD COLUMN dedupe_live_key VARCHAR(64) GENERATED ALWAYS AS (IF(status &lt;&gt; 'CLOSED' AND dedupe_key IS NOT NULL, dedupe_key, NULL)) STORED</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-opportunity-matching-7-job-opportunity-dedupe-live-unique" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="job_opportunity" indexName="uk_job_opportunity_dedupe_live"/></not></preConditions>
+        <createIndex tableName="job_opportunity" indexName="uk_job_opportunity_dedupe_live" unique="true"><column name="org_id"/><column name="dedupe_live_key"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-opportunity-matching-8-job-opportunity-source-check" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema = DATABASE() AND table_name = 'job_opportunity' AND constraint_name = 'ck_job_opportunity_source_kind'</sqlCheck>
+        </preConditions>
+        <sql dbms="mysql">ALTER TABLE job_opportunity ADD CONSTRAINT ck_job_opportunity_source_kind CHECK ((kind = 'JOB_POSTING' AND posting_id IS NOT NULL AND requirement_id IS NULL) OR (kind = 'CLIENT_REQUIREMENT' AND posting_id IS NULL AND requirement_id IS NOT NULL))</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-opportunity-matching-9-opportunity-match" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="opportunity_match"/></not></preConditions>
+        <createTable tableName="opportunity_match">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="opportunity_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="score" type="smallint"/>
+            <column name="reason" type="varchar(300)"/>
+            <column name="model" type="varchar(80)"/>
+            <column name="source" type="varchar(20)" defaultValue="MANUAL"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="SUGGESTED"><constraints nullable="false"/></column>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="updated_by_member_id" type="bigint"/>
+            <column name="assigned_by_member_id" type="bigint"/>
+            <column name="assignment_id" type="bigint"/>
+            <column name="assigned_at" type="${datetimeType}"/>
+            <column name="note_to_consultant" type="varchar(500)"/>
+            <column name="resume_id" type="bigint"/>
+            <column name="resume_version_no" type="smallint"/>
+            <column name="consultant_decided_at" type="${datetimeType}"/>
+            <column name="decline_reason" type="varchar(40)"/>
+            <column name="decline_note" type="varchar(200)"/>
+            <column name="authorization" type="varchar(20)" defaultValue="NOT_NEEDED"><constraints nullable="false"/></column>
+            <column name="authorized_at" type="${datetimeType}"/>
+            <column name="authorization_scope" type="varchar(20)"/>
+            <column name="approval_required" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="approved_by_member_id" type="bigint"/>
+            <column name="approved_at" type="${datetimeType}"/>
+            <column name="application_id" type="bigint"/>
+            <column name="submission_id" type="bigint"/>
+            <column name="withdrawn_reason" type="varchar(40)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="opportunity_match" baseColumnNames="org_id" constraintName="fk_opportunity_match_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="opportunity_match" baseColumnNames="org_id, opportunity_id" constraintName="fk_opportunity_match_opportunity" referencedTableName="job_opportunity" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="opportunity_match" baseColumnNames="org_id, consultant_member_id" constraintName="fk_opportunity_match_consultant" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="opportunity_match" baseColumnNames="org_id, assigned_by_member_id" constraintName="fk_opportunity_match_assigned_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="opportunity_match" baseColumnNames="org_id, approved_by_member_id" constraintName="fk_opportunity_match_approved_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="opportunity_match" columnNames="org_id, id" constraintName="uk_opportunity_match_org_id"/>
+        <addUniqueConstraint tableName="opportunity_match" columnNames="org_id, opportunity_id, consultant_member_id" constraintName="uk_opportunity_match_pair"/>
+        <createIndex tableName="opportunity_match" indexName="ix_opportunity_match_consultant"><column name="org_id"/><column name="consultant_member_id"/><column name="status"/></createIndex>
+        <createIndex tableName="opportunity_match" indexName="ix_opportunity_match_status"><column name="org_id"/><column name="status"/><column name="assigned_at"/></createIndex>
+        <createIndex tableName="opportunity_match" indexName="ix_opportunity_match_opportunity"><column name="org_id"/><column name="opportunity_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

@@ -148,9 +148,10 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     const tabs = over.tabs || (() => {
       let n = 100;
       const t = {
-        created: [], gone: new Set(),
+        created: [], activated: [], gone: new Set(),
         create: async (o) => { if (t.failCreate) throw new Error("no"); time.log.push("create"); const id = ++n; t.created.push({ id, url: o.url, active: o.active }); return { id }; },
         get: async (id) => { if (t.gone.has(id)) throw new Error("No tab"); return { id }; },
+        activate: async (id) => { if (t.gone.has(id)) throw new Error("No tab"); t.activated.push(id); },
       };
       return t;
     })();
@@ -305,6 +306,38 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     eq("overview counts", [s.counts.total, s.counts.submitted, s.counts.closed, s.counts.waiting, s.done], [8, 1, 1, 6, false]);
   }
   {
+    const r = rig();
+    await r.ctl.start(batchOf(2), { userId: 42 });
+    await r.ctl.idle();
+    eq("review focuses an existing job tab", await r.ctl.focusJob(2), { ok: true });
+    eq("review activates only the requested tab", r.tabs.activated, [102]);
+    eq("review refuses an unknown job", await r.ctl.focusJob(999), { ok: false, reason: "unknown-job" });
+    await r.ctl.onTabRemoved(101);
+    eq("review reports a closed job tab", await r.ctl.focusJob(1), { ok: false, reason: "tab-closed" });
+  }
+  {
+    const r = rig();
+    await r.ctl.start(batchOf(1), { userId: 42 });
+    await r.ctl.idle();
+    r.tabs.review = async () => ({
+      ok: true,
+      answers: [{ label: "Email", value: "cora@acme.test", status: "ok" }],
+      missing: ["Referral code"],
+      fileName: "cora_mills_resume.pdf",
+      fileStatus: "ok",
+      steps: 2,
+    });
+    const s = await r.ctl.status();
+    eq("review status includes the tab's transient answer snapshot", s.jobs[0].review, {
+      answers: [{ label: "Email", value: "cora@acme.test", status: "ok" }],
+      missing: ["Referral code"],
+      fileName: "cora_mills_resume.pdf",
+      fileStatus: "ok",
+      steps: 2,
+    });
+    ok("review answer snapshots are not persisted in batch state", !JSON.stringify(r.storage.data).includes("cora@acme.test"));
+  }
+  {
     // "Open next": below the cap it opens the next queued job immediately (e.g. after a worker restart
     // cut the pacing short); at the cap it refuses.
     const r = rig();
@@ -364,8 +397,10 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     eq("progress for another session is ignored", (await states(r))[0], "OPENED");
     await r.ctl.onProgress(101, { batch: b, phase: "filled", filled: 9, failed: 0, gaps: 2 });
     eq("filled with 2 required fields left -> NEEDS_INPUT", (await states(r))[0], "NEEDS_INPUT");
+    eq("review exposes only the missing-field count", (await r.ctl.status()).jobs[0].missingCount, 2);
     await r.ctl.onProgress(101, { batch: b, phase: "gaps", gaps: 0 });
     eq("the consultant completes them -> PREFILLED", (await states(r))[0], "PREFILLED");
+    eq("review clears the missing-field count after completion", (await r.ctl.status()).jobs[0].missingCount, 0);
     await r.ctl.onProgress(102, { batch: { sessionId: "sess_abc123", matchId: 2 }, phase: "filled", gaps: 0 });
     eq("filled with nothing left -> PREFILLED", (await states(r))[1], "PREFILLED");
     await r.ctl.idle();

@@ -141,6 +141,24 @@
     return ids.map(humanize).join(" ");
   }
 
+  // Associated labels live in the same tree as the field. A document-level
+  // lookup cannot see IDs or labels inside an open shadow root.
+  function elementRoot(el) {
+    try {
+      const root = el && el.getRootNode && el.getRootNode();
+      return root && root.querySelector ? root : document;
+    } catch (e) { return document; }
+  }
+  function rootElementById(el, id) {
+    const root = elementRoot(el);
+    try {
+      return root.getElementById ? root.getElementById(id) : root.querySelector("#" + cssEscape(id));
+    } catch (e) { return null; }
+  }
+  function rootQuerySelector(el, selector) {
+    try { return elementRoot(el).querySelector(selector); } catch (e) { return null; }
+  }
+
   // querySelectorAll that pierces OPEN shadow roots. Some ATS (e.g. SmartRecruiters
   // "oneclick-ui") render the entire form inside web components, so a plain
   // document.querySelectorAll finds ZERO fields. Recurses into every element's
@@ -196,7 +214,7 @@
         if (gal && gal.trim().length > 2) return gal;
         const glb = p.getAttribute && p.getAttribute("aria-labelledby");
         if (glb) {
-          const t = glb.split(/\s+/).map((id) => { const n = document.getElementById(id); return n ? n.textContent : ""; }).join(" ").replace(/\s+/g, " ").trim();
+          const t = glb.split(/\s+/).map((id) => { const n = rootElementById(p, id); return n ? n.textContent : ""; }).join(" ").replace(/\s+/g, " ").trim();
           if (t.length > 2) return t;
         }
         const lab = p.querySelector && p.querySelector('legend,[class*="question" i],[class*="label" i],label[id],h1,h2,h3,h4,[role="heading"]');
@@ -233,11 +251,11 @@
     if (el.getAttribute) {
       push(el.getAttribute("aria-label"), TIER.LABEL);
       const lb = el.getAttribute("aria-labelledby");
-      if (lb) lb.split(/\s+/).forEach((id) => { const n = document.getElementById(id); if (n) push(n.textContent, TIER.LABEL); });
+      if (lb) lb.split(/\s+/).forEach((id) => { const n = rootElementById(el, id); if (n) push(n.textContent, TIER.LABEL); });
     }
     // 3) Associated <label for=…>.
     if (el.id) {
-      const forLbl = document.querySelector('label[for="' + cssEscape(el.id) + '"]');
+      const forLbl = rootQuerySelector(el, 'label[for="' + cssEscape(el.id) + '"]');
       if (forLbl) push(forLbl.textContent, TIER.LABEL);
     }
     // 4) Wrapping <label>.
@@ -388,10 +406,17 @@
     return "text";
   }
 
+  // `document.contains()` excludes elements inside a shadow tree even when the
+  // host is connected to the page. Shadow-DOM ATS fields are valid fill targets
+  // as long as their node is still connected to the document.
+  function isAttached(el) {
+    return !!el && (el.isConnected === true || document.contains(el));
+  }
+
   // A planned element the page has since re-rendered (React forms remount their inputs while the
   // plan waits for AI drafts): find its replacement by id or name, else keep the stale node.
   function reattach(el) {
-    if (!el || document.contains(el)) return el;
+    if (isAttached(el)) return el;
     let r = null;
     try {
       if (el.id) r = document.getElementById(el.id);
@@ -403,7 +428,7 @@
   // Apply one planned fill item. Returns true on success.
   function applyItem(item, value) {
     const el = item.el = reattach(item.el);
-    if (!el || !document.contains(el)) return false;
+    if (!isAttached(el)) return false;
     const kind = item.kind || elKind(el);
     try {
       if (kind === "select") return selectOption(el, value);
@@ -431,16 +456,127 @@
     } catch (e) { return false; }
   }
 
-  async function attachFile(inputEl, blob, fileName) {
+  function attachmentParent(el) {
+    if (!el) return null;
+    if (el.parentElement) return el.parentElement;
+    try {
+      const root = el.getRootNode && el.getRootNode();
+      return root && root.host ? root.host : null;
+    } catch (e) { return null; }
+  }
+
+  function isDisplayNone(el) {
+    if (!el) return false;
+    try {
+      if (el.hidden) return true;
+      const inline = el.getAttribute && (el.getAttribute("style") || "");
+      if (/\bdisplay\s*:\s*none\b|\bvisibility\s*:\s*hidden\b/i.test(inline)) return true;
+      const css = window.getComputedStyle && window.getComputedStyle(el);
+      return !!css && (css.display === "none" || css.visibility === "hidden");
+    } catch (e) { return false; }
+  }
+
+  // ATS file widgets put the real input behind a visible drop zone. Keep this deliberately
+  // structural: it covers the common data attributes without depending on a tenant's generated
+  // class names, and it also works when the input lives in an open shadow root.
+  function fileDropTarget(inputEl) {
+    let node = inputEl;
+    for (let hops = 0; node && hops < 12; hops++) {
+      try {
+        if (node.matches && node.matches(
+          '[data-automation-id="file-upload-drop-zone"], [data-wd-file], [data-sr-file], ' +
+          '[data-file-drop-zone], [data-testid*="drop" i], [class*="drop-zone" i], [class*="dropzone" i]'
+        )) return node;
+      } catch (e) {}
+      node = attachmentParent(node);
+    }
+    return null;
+  }
+
+  function fileWidgetContainer(inputEl) {
+    let node = inputEl;
+    for (let hops = 0; node && hops < 12; hops++) {
+      try {
+        if (node.matches && node.matches('[data-wd-file], [data-sr-file], [data-file-upload-widget]')) return node;
+      } catch (e) {}
+      node = attachmentParent(node);
+    }
+    return null;
+  }
+
+  function fileListHas(fileList, expected) {
+    if (!fileList || !fileList.length || !expected) return false;
+    for (const actual of Array.from(fileList)) {
+      if (actual && actual.name === expected.name && Number(actual.size) === Number(expected.size)) return true;
+    }
+    return false;
+  }
+
+  function dispatchDrop(target, dataTransfer, type) {
+    if (!target) return false;
+    try {
+      let event;
+      if (typeof DragEvent === "function") {
+        event = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer });
+      } else {
+        event = new Event(type, { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "dataTransfer", { configurable: true, value: dataTransfer });
+      }
+      target.dispatchEvent(event);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  async function attachFileDetailed(inputEl, blob, fileName) {
+    if (!inputEl || String(inputEl.type || "").toLowerCase() !== "file") return { ok: false, reason: "no-file-input" };
+    if (!blob) return { ok: false, reason: "no-file-data" };
     try {
       const file = new File([blob], fileName || "resume.pdf", { type: blob.type || "application/pdf" });
       const dt = new DataTransfer();
       dt.items.add(file);
-      inputEl.files = dt.files;
-      fire(inputEl, "input");
-      fire(inputEl, "change");
-      return true;
-    } catch (e) { return false; }
+      const hidden = isDisplayNone(inputEl);
+      const target = hidden ? (fileDropTarget(inputEl) || inputEl) : null;
+      const widget = fileWidgetContainer(inputEl);
+      let assigned = false;
+      try {
+        inputEl.files = dt.files;
+        assigned = fileListHas(inputEl.files, file);
+      } catch (e) {}
+
+      // A hidden input is only the storage/control node. Drop the same payload on the visible
+      // widget as well, because some ATS implementations listen exclusively to drag events.
+      let dropped = false;
+      if (target) {
+        dispatchDrop(target, dt, "dragenter");
+        dispatchDrop(target, dt, "dragover");
+        dropped = dispatchDrop(target, dt, "drop");
+      }
+      try { fire(inputEl, "input"); fire(inputEl, "change"); } catch (e) {}
+      // Let synchronous framework listeners commit their state before verification. This is still
+      // one task turn and avoids claiming success before a React/Workday listener has run.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (fileListHas(inputEl.files, file)) return { ok: true, method: target ? "drop" : "input" };
+
+      // A few widgets replace the input's FileList and expose the accepted filename only in their
+      // upload row. Accept that explicit UI evidence, but never accept assignment alone.
+      if ([target, widget].some((node) => node && node.textContent && node.textContent.includes(file.name))) {
+        return { ok: true, method: "drop-ui" };
+      }
+      return {
+        ok: false,
+        reason: assigned || dropped ? "widget-rejected-file" : "file-assignment-failed",
+        method: target ? "drop" : "input",
+      };
+    } catch (e) {
+      return { ok: false, reason: "file-attach-error" };
+    }
+  }
+
+  // Keep the original boolean seam for callers and third-party adapters; richer diagnostics stay
+  // available to the filler and tests without leaking file metadata into telemetry.
+  async function attachFile(inputEl, blob, fileName) {
+    const result = await attachFileDetailed(inputEl, blob, fileName);
+    return !!(result && result.ok);
   }
 
   function isVisible(el) {
@@ -629,7 +765,7 @@
     // matched against the page's own option list — never free text).
     if (item.kind === "choice") {
       const el = item.el = reattach(item.el);
-      if (!el || !document.contains(el)) return false;
+      if (!isAttached(el)) return false;
       realClick(el);
       if (!el.checked) { try { el.checked = true; fire(el, "input"); fire(el, "change"); } catch (e) {} }
       return el.checked === true;
@@ -651,7 +787,7 @@
 
   JAF.adapterBase = {
     setNativeValue, fire, fillText, selectOption, setBooleanGroup, setChoiceGroup, numericValue, isoDate, labelText, labelParts, groupPrompt,
-    cssEscape, isFillable, scanGeneric, deepQueryAll, blockText, elKind, applyItem, applyItemAsync, attachFile, humanize,
+    cssEscape, isFillable, scanGeneric, deepQueryAll, blockText, elKind, applyItem, applyItemAsync, attachFile, attachFileDetailed, humanize,
     isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
     // exposed for unit tests (dropdown option scoping + matching + autocomplete)
     openListbox, visibleOptions, bestOption, autocompleteField, autocompleteTrusted,

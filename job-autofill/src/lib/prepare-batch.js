@@ -424,7 +424,7 @@
           v: 1, sessionId: batch.sessionId, orgId: batch.orgId, userId: (who && who.userId) || null,
           originTabId: (who && who.originTabId) || null,
           createdAt: now(), stopped: false, lastOpenAt: 0, seq: 0, outbox: [],
-          jobs: batch.jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company, ...(j.resumeId ? { resumeId: j.resumeId } : {}), state: "QUEUED", tabId: null, attempts: 0, reason: "" })),
+          jobs: batch.jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company, ...(j.resumeId ? { resumeId: j.resumeId } : {}), state: "QUEUED", tabId: null, attempts: 0, reason: "", missingCount: 0 })),
         };
         await save(st);
         await deps.index.set({ orgId: st.orgId });
@@ -488,6 +488,7 @@
         if (info.phase === "gaps" && !job.filled) return; // before any fill there is nothing to compare
         if (info.phase === "filled") job.filled = true;
         const gaps = Math.max(0, Math.min(999, Math.floor(Number(info.gaps) || 0)));
+        job.missingCount = gaps;
         if (gaps > 0) transition(st, job, "NEEDS_INPUT", gaps + " required field" + (gaps === 1 ? "" : "s") + " need your input");
         else transition(st, job, "PREFILLED", "Filled; waiting for your review");
         await save(st);
@@ -582,6 +583,24 @@
       return res;
     }
 
+    // Focus a tab that already belongs to this batch. This never opens a duplicate tab.
+    async function focusJob(matchId) {
+      return serial(async () => {
+        const st = await loadOwned();
+        if (!st) return { ok: false, reason: "no-batch" };
+        const job = st.jobs.find((j) => String(j.matchId) === String(matchId));
+        if (!job) return { ok: false, reason: "unknown-job" };
+        if (job.tabId == null || !deps.tabs.activate) return { ok: false, reason: "tab-closed" };
+        try {
+          if (deps.tabs.get) await deps.tabs.get(job.tabId);
+          await deps.tabs.activate(job.tabId);
+          return { ok: true };
+        } catch (e) {
+          return { ok: false, reason: "tab-closed" };
+        }
+      });
+    }
+
     // Stop managing the batch: nothing more is opened, queued jobs are dropped, tabs the consultant
     // has open are left exactly as they are (closing them could lose typed answers). The state stays
     // (so the drawer can say "Stopped" and unsent events can still go out) until dismissed.
@@ -658,9 +677,31 @@
     }
 
     // What the drawer shows.
+    function cleanReview(r) {
+      if (!r || r.ok !== true) return null;
+      const status = (s) => s === "ok" || s === "failed" || s === "skipped" ? s : "failed";
+      return {
+        answers: Array.isArray(r.answers) ? r.answers.slice(0, 200).map((a) => ({
+          label: text(a && a.label, 160), value: text(a && a.value, 500), status: status(a && a.status),
+        })) : [],
+        missing: Array.isArray(r.missing) ? r.missing.slice(0, 100).map((m) => text(m, 160)).filter(Boolean) : [],
+        fileName: text(r.fileName, 200),
+        fileStatus: text(r.fileStatus, 20),
+        steps: Math.max(0, Math.min(20, Math.floor(Number(r.steps) || 0))),
+      };
+    }
+    async function readReview(job) {
+      if (!deps.tabs.review || job.tabId == null) return null;
+      try { return cleanReview(await deps.tabs.review(job.tabId)); } catch (e) { return null; }
+    }
     async function status() {
       const st = await serial(() => loadOwned());
-      return st ? summarize(st) : null;
+      if (!st) return null;
+      const summary = summarize(st);
+      if (!deps.tabs.review) return summary;
+      const reviews = await Promise.all(st.jobs.map(readReview));
+      summary.jobs = summary.jobs.map((job, i) => Object.assign(job, { review: reviews[i] }));
+      return summary;
     }
 
     // Resolves when every started open/flush has settled (tests; also handy for "wait for quiet").
@@ -668,7 +709,7 @@
       for (let i = 0; i < 5; i++) { await pumpP; await flushP; await chain; }
     }
 
-    return { start, onTabUpdated, onProgress, onSubmitDetected, onSuccessNavigation, onTabRemoved, reconcile, openNext, stop, dismiss, flush, status, pump, idle };
+    return { start, onTabUpdated, onProgress, onSubmitDetected, onSuccessNavigation, onTabRemoved, reconcile, openNext, focusJob, stop, dismiss, flush, status, pump, idle };
   }
 
   // Counts for the overview: waiting (queued or opened and not yet filled) / filled / needs input /
@@ -677,6 +718,7 @@
     const jobs = (st.jobs || []).map((j) => ({
       matchId: j.matchId, title: j.title, company: j.company, state: j.state, reason: j.reason || "",
       help: REASON_HELP[j.reason] || "", tabOpen: j.tabId != null,
+      missingCount: Number.isInteger(j.missingCount) && j.missingCount > 0 ? j.missingCount : 0,
     }));
     const n = (f) => jobs.filter(f).length;
     return {

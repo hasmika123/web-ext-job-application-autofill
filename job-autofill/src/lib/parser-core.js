@@ -609,6 +609,41 @@
     return bio;
   }
 
+  // DOCX headers are separate XML parts, not part of word/document.xml. Extract the
+  // visible Word text from one header part without pulling a DOM or ZIP dependency into
+  // this shared, pure module. The caller is responsible for opening the DOCX ZIP.
+  function extractWordXmlText(xml) {
+    const source = String(xml == null ? "" : xml);
+    if (!source) return "";
+    const codePoint = (value) => {
+      const n = parseInt(value, 16);
+      return Number.isInteger(n) && n >= 0 && n <= 0x10FFFF ? String.fromCodePoint(n) : "";
+    };
+    const decode = (value) => String(value)
+      .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'").replace(/&amp;/g, "&")
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex) => codePoint(hex))
+      .replace(/&#(\d+);/g, (_, digits) => codePoint(parseInt(digits, 10).toString(16)));
+    const lines = [], current = [];
+    const tokens = /<w:\/?p(?:\s[^>]*)?\/?>|<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab(?:\s[^>]*)?\/?\s*>|<w:(?:br|cr)(?:\s[^>]*)?\/?\s*>/gi;
+    const flush = () => {
+      const line = current.join("").replace(/[ \r\n]+/g, " ").trim();
+      if (line) lines.push(line);
+      current.length = 0;
+    };
+    let match;
+    while ((match = tokens.exec(source))) {
+      const token = match[0];
+      if (/^<w:\/p/i.test(token)) flush();
+      else if (/^<w:p/i.test(token)) { if (current.length) flush(); }
+      else if (match[1] !== undefined) current.push(decode(match[1]));
+      else if (/w:tab/i.test(token)) current.push("\t");
+      else current.push("\n");
+    }
+    flush();
+    return lines.join("\n");
+  }
+
   // --- PDF layout reconstruction (column-aware) ----------------------------
   // Turn positioned PDF text items into reading-order plain text. The naive approach
   // (group every item by its y row, left-to-right) shreds TWO-COLUMN resumes: a skills
@@ -799,5 +834,5 @@
     return words < 30; // too little real prose to be a resume
   }
 
-  return { heuristicStructure, parseBio, splitSkills, reconstructPdfText, cleanForLlm, looksGarbled };
+  return { heuristicStructure, parseBio, splitSkills, extractWordXmlText, reconstructPdfText, cleanForLlm, looksGarbled };
 });

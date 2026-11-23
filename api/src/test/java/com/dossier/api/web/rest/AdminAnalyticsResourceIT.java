@@ -1,5 +1,6 @@
 package com.dossier.api.web.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -7,11 +8,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.FillEvent;
 import com.dossier.api.domain.Subscription;
-import com.dossier.api.repository.FillEventRepository;
 import com.dossier.api.domain.User;
+import com.dossier.api.repository.FillEventRepository;
+import com.dossier.api.repository.FillQualityDailyRepository;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.AuthoritiesConstants;
+import com.dossier.api.service.FillQualityWatch;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +52,12 @@ class AdminAnalyticsResourceIT {
 
     @Autowired
     private FillEventRepository fillEventRepository;
+
+    @Autowired
+    private FillQualityDailyRepository fillQualityDailyRepository;
+
+    @Autowired
+    private FillQualityWatch fillQualityWatch;
 
     @BeforeEach
     void clearSubscriptions() {
@@ -90,6 +99,7 @@ class AdminAnalyticsResourceIT {
             .andExpect(jsonPath("$.funnel.applied").isNumber())
             .andExpect(jsonPath("$.applicationsByStatus.DRAFT").isNumber())
             .andExpect(jsonPath("$.applicationsByStatus.APPLIED").isNumber())
+            .andExpect(jsonPath("$.fillQualityAlerts").isArray())
             .andExpect(jsonPath("$.billing.mrr").isNumber())
             .andExpect(jsonPath("$.billing.activePro").isNumber());
     }
@@ -225,5 +235,39 @@ class AdminAnalyticsResourceIT {
     void noFillsIsAnEmptyListNotAnError() throws Exception {
         fillEventRepository.deleteAllInBatch();
         mockMvc.perform(get("/api/admin/analytics")).andExpect(status().isOk()).andExpect(jsonPath("$.fillQuality.length()").value(0));
+    }
+
+    @Test
+    @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
+    void fillQualityWatchRollsUpThePreviousUtcDayIdempotently() {
+        fillEventRepository.deleteAllInBatch();
+        fillQualityDailyRepository.deleteAllInBatch();
+
+        FillEvent event = new FillEvent();
+        event.setId("quality-watch-it-1");
+        event.setAts("lever");
+        event.setAdapter("lever");
+        event.setFieldsFound(10);
+        event.setFieldsFilled(8);
+        event.setFieldsFailed(0);
+        event.setRequiredLeftEmpty(1);
+        event.setUserCorrected(0);
+        event.setExtVersion("0.75.2");
+        event.setCreatedAt(Instant.parse("2026-11-19T12:00:00Z"));
+        fillEventRepository.saveAndFlush(event);
+
+        Instant now = Instant.parse("2026-11-20T04:00:00Z");
+        fillQualityWatch.run(now);
+        fillQualityWatch.run(now);
+
+        assertThat(fillQualityDailyRepository.findAll()).singleElement().satisfies(row -> {
+            assertThat(row.getDay()).isEqualTo(java.time.LocalDate.of(2026, 11, 19));
+            assertThat(row.getFills()).isEqualTo(1);
+            assertThat(row.getFieldsFound()).isEqualTo(10);
+            assertThat(row.getFieldsFilled()).isEqualTo(8);
+            assertThat(row.getFillsWithRequiredGaps()).isEqualTo(1);
+            assertThat(row.getFillRateBp()).isEqualTo(8_000);
+            assertThat(row.getGapRateBp()).isEqualTo(10_000);
+        });
     }
 }

@@ -39,6 +39,8 @@ RUN rm -f web/.npmrc
 # The web prebuild (sync-parser-core.mjs) reads ../../job-autofill/src/lib/parser-core.js
 # relative to /repo/web/scripts → /repo/job-autofill/src/lib/parser-core.js in the image.
 COPY job-autofill/src/lib/parser-core.js ./job-autofill/src/lib/parser-core.js
+# The web prebuild also prepares OCR assets from the root workspace script.
+COPY scripts/prepare-ocr-assets.mjs ./scripts/prepare-ocr-assets.mjs
 # Public analytics config — NEXT_PUBLIC_* is inlined into the client bundle at BUILD time, so
 # it must be present here (not the runtime env). Empty/false by default, so a plain
 # `docker build` produces an analytics-free image; CI passes real values via --build-arg.
@@ -63,6 +65,9 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 COPY --from=build --chown=nextjs:nodejs /repo/web/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /repo/web/.next/static ./web/.next/static
 COPY --from=build /repo/web/public ./web/public
+# Next's standalone tracer omits this Playwright metadata file, but the externalized runtime
+# package loads it even when connecting to the Chromium sidecar over CDP.
+COPY --from=build --chown=nextjs:nodejs /repo/node_modules/playwright-core/browsers.json ./node_modules/playwright-core/browsers.json
 USER nextjs
 EXPOSE 3000
 CMD ["node", "web/server.js"]

@@ -4,9 +4,12 @@
  * status + bug report. Profile/resumes/board are managed on the web (not here). (W4.2)
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { API_ORIGIN, WEB_ORIGIN } from "../../lib/hosts";
+
 const JAF = () => window.JAF;
-export const WEB = "https://kiwiply.com";
-const API_FALLBACK = "https://api.kiwiply.com";
+// kiwiply.com in a store build; a dev build may point elsewhere (lib/hosts.ts).
+export const WEB = WEB_ORIGIN;
+const API_FALLBACK = API_ORIGIN;
 
 export type Settings = {
   llm: boolean;

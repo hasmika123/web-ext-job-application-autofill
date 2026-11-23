@@ -33,6 +33,21 @@ Then sign in at **kiwiply.com** and open **kiwiply.com/connect** once: the web a
 separate extension session and hands it over. Add a resume on the web (or upload one straight from
 the drawer) and you're ready.
 
+**Testing against another deployment (a local stack or a hosted test environment).** Never edit the
+kiwiply.com hosts in the source: a store build would ship the change (`test/build_hosts.test.js`
+fails on any host it doesn't know). Make a **development** build with the origins in env vars instead;
+a store build (`npm run build`, mode=production) ignores them.
+
+```powershell
+cd job-autofill
+$env:WXT_DEV_WEB_ORIGINS = "https://test.example.com"        # links + /connect sign-in handoff
+$env:WXT_DEV_API_ORIGINS = "https://api-test.example.com"    # the API a fresh install talks to
+$env:WXT_DEV_TENANT_ORIGINS = "https://*.example.com"        # tenant pages that may send Prepare
+npm run build -- --mode development                          # -> .output/chrome-mv3-dev
+```
+
+The first origin in each list is the one the extension uses (`lib/hosts.ts`).
+
 ## How to use it
 
 1. Open a job application page.

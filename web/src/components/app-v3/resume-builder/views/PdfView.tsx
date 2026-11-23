@@ -57,6 +57,8 @@ export interface PdfViewProps {
   disabled?: boolean;
   /** A render stored a new PDF on the resume: look at its status once. */
   onStored?: () => void;
+  /** The server's effective fit rung, including when the PDF came from the cache. */
+  onFitStep?: (fitStep: number) => void;
 }
 
 /**
@@ -78,6 +80,7 @@ export default function PdfView({
   autoRefresh = false,
   disabled = false,
   onStored,
+  onFitStep,
 }: PdfViewProps) {
   const [view, setView] = useState<View>(() => ({ status: pdfInfo?.status === "READY" ? "loading" : "generating" }));
   const [tab, setTab] = useState<"pdf" | "ats">("pdf");
@@ -93,11 +96,11 @@ export default function PdfView({
   const seq = useRef(0);
   const urlRef = useRef<string | null>(null);
   const latest = useRef<Snapshot>({ doc, theme, templateId });
-  const hooks = useRef({ prepare, pdfInfo, onStored });
+  const hooks = useRef({ prepare, pdfInfo, onStored, onFitStep });
   useEffect(() => {
     latest.current = { doc, theme, templateId };
-    hooks.current = { prepare, pdfInfo, onStored };
-  });
+    hooks.current = { prepare, pdfInfo, onStored, onFitStep };
+  }, [doc, theme, templateId, prepare, pdfInfo, onStored, onFitStep]);
 
   const run = useCallback(async () => {
     const token = ++seq.current;
@@ -131,6 +134,7 @@ export default function PdfView({
       generatedAt: res.cached ? (Number.isFinite(stamp) ? stamp : null) : Date.now(),
       snap,
     });
+    if (res.fitStep !== undefined) hooks.current.onFitStep?.(res.fitStep);
     if (!res.cached && res.stored) hooks.current.onStored?.();
   }, [resumeId]);
 
