@@ -702,6 +702,16 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/mkt/matches/{id}", Case.mktRead()),
         Map.entry("POST /api/orgs/{orgId}/mkt/matches/{id}/assign", Case.mkt(200, "MKT_MATCH_ASSIGN", w -> null, World::approveResume)),
         Map.entry("POST /api/orgs/{orgId}/mkt/matches/{id}/dismiss", Case.mkt(200, "MKT_MATCH_DISMISS", w -> null, null)),
+        // phase 8 organization matching (canonical opportunity_match): the world's SUGGESTED match of its consultant member ({id} -> canonicalMatchId, see uri())
+        Map.entry("GET /api/orgs/{orgId}/mkt/matches/canonical", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/matches/canonical/{id}", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/matches/canonical/{id}/assign", Case.mkt(200, "PIPELINE_MATCH_ASSIGN", w -> null, null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/matches/canonical/{id}/dismiss", Case.mkt(200, "PIPELINE_MATCH_DISMISS", w -> null, null)),
+        Map.entry("GET /api/orgs/{orgId}/matches", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/matches/{id}/assign", Case.write(null, 200, "PIPELINE_MATCH_ASSIGN")),
+        Map.entry("POST /api/orgs/{orgId}/matches/{id}/dismiss", Case.write(null, 200, "PIPELINE_MATCH_DISMISS")),
+        // the owner's consultant profile holds no matching licence here, so a legitimate run falls back to the rule scorer: 200, and it writes no audit row
+        Map.entry("POST /api/orgs/{orgId}/consultants/{memberId}/matches/run", Case.write(null, 200, null)),
         Map.entry("GET /api/orgs/{orgId}/mkt/opportunities", Case.mktRead()),
         Map.entry("GET /api/orgs/{orgId}/mkt/opportunities/export", Case.mkt(200, "EXPORT", w -> null, null)),
         Map.entry("GET /api/orgs/{orgId}/mkt/opportunities/options", Case.mktRead()),
@@ -922,6 +932,7 @@ class OrgIsolationIT {
         String domainHost;
         /** The second set of consultant pages: an ASSIGNED match, a SCHEDULED and a COMPLETED interview, a prep session, a PENDING_APPROVAL submission, an application. */
         Long consultantId, clientId, assignedRequirementId, assignedMatchId, scheduledInterviewId, completedInterviewId, prepSessionId, submissionId, applicationId;
+        Long canonicalMatchId; // phase 8: a SUGGESTED opportunity_match of the owner's consultant profile, on an open canonical opportunity
         /** The last eight pages: a task, a calendar entry, a PENDING_REVIEW offer with a future deadline, a checklist item of an ACTIVE placement, a notification. */
         Long taskId, availabilityBlockId, offerId, placementChecklistId, notificationId;
         /** Consultants board: one consultant (with its ETag), one OPEN job, and marketer capacity for the member. */
@@ -1250,6 +1261,29 @@ class OrgIsolationIT {
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
             ConsultantIsolationFixture.Rows talent = ConsultantIsolationFixture.create(em, org.getId(), prefix, member.getId());
+            // Phase 8 organization matching: an open canonical opportunity and a SUGGESTED match of the owner, the one seat with a consultant profile here
+            // (the canonical match services find the consultant by seat; the talent fixture's profile above has none).
+            com.dossier.api.domain.ent.pipeline.JobOpportunity canonicalOpp = new com.dossier.api.domain.ent.pipeline.JobOpportunity();
+            canonicalOpp.setOrgId(org.getId());
+            canonicalOpp.setKind("JOB_POSTING");
+            canonicalOpp.setPostingId(Math.abs((long) prefix.hashCode()) + 1L);
+            canonicalOpp.setTitle(prefix + " canonical opportunity");
+            canonicalOpp.setCompany("Isolation Co");
+            canonicalOpp.setSourceLabel("BOARD_API");
+            canonicalOpp.setDedupeKey(prefix + "-canonical");
+            em.persist(canonicalOpp);
+            em.flush();
+            com.dossier.api.domain.ent.pipeline.OpportunityMatch canonicalMatch = new com.dossier.api.domain.ent.pipeline.OpportunityMatch();
+            canonicalMatch.setOrgId(org.getId());
+            canonicalMatch.setOpportunityId(canonicalOpp.getId());
+            canonicalMatch.setConsultantMemberId(owner.getId());
+            canonicalMatch.setScore(80);
+            canonicalMatch.setReason("Skills align with this role.");
+            canonicalMatch.setSource("SUGGESTED_RULE");
+            canonicalMatch.setStatus("SUGGESTED");
+            em.persist(canonicalMatch);
+            em.flush();
+            canonicalMatchId = canonicalMatch.getId();
             consultantId = talent.consultantId();
             // Licence quotes: an ENDED licence of this consultant with one applied change, and an OPEN quote priced against another state
             com.dossier.api.domain.ent.billing.ConsultantLicense lic = new com.dossier.api.domain.ent.billing.ConsultantLicense();
@@ -1816,6 +1850,8 @@ class OrgIsolationIT {
             ids.put("mktFollowupId", String.valueOf(mktFollowupId));
             ids.put("mktActivityId", String.valueOf(mktActivityId));
             ids.put("mktMatchId", String.valueOf(mktMatchId)); // {id} of mkt/matches and mkt/opportunities: the match is the opportunity
+            ids.put("canonicalMatchId", String.valueOf(canonicalMatchId)); // {id} of /matches and /mkt/matches/canonical (phase 8, see uri())
+            ids.put("canonicalConsultantMemberId", String.valueOf(owner.getId())); // {memberId} of consultants/{memberId}/matches/run: the seat with a consultant profile
             ids.put("mktSubmissionId", String.valueOf(mktSubmissionId));
             ids.put("mktSubmissionViewId", String.valueOf(mktSubmissionViewId));
             ids.put("mktTalentViewId", String.valueOf(mktTalentViewId));
@@ -1874,6 +1910,9 @@ class OrgIsolationIT {
             .replace("/prep/{itemId}", "/prep/{mktPrepItemId}")
             .replace("/mkt/activity/{id}", "/mkt/activity/{mktActivityId}")
             .replace("/mkt/followups/{id}", "/mkt/followups/{mktFollowupId}")
+            .replace("/mkt/matches/canonical/{id}", "/mkt/matches/canonical/{canonicalMatchId}") // phase 8: the canonical opportunity_match, not the marketing board's requirement_match
+            .replace("/orgs/{orgId}/matches/{id}", "/orgs/{orgId}/matches/{canonicalMatchId}")
+            .replace("/consultants/{memberId}/matches/run", "/consultants/{canonicalConsultantMemberId}/matches/run")
             .replace("/mkt/matches/{id}", "/mkt/matches/{mktMatchId}")
             .replace("/mkt/opportunities/{id}", "/mkt/opportunities/{mktMatchId}")
             .replace("/mkt/resumes/consultants/{consultantId}", "/mkt/resumes/consultants/{mktBuilderConsultantId}") // before the generic {id} rename below: the consultant whose account is the world's owner

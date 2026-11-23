@@ -127,9 +127,12 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
      */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(
-        "update ResumeDoc d set d.themeJson = :theme, d.exportedAt = :at, d.exportedHash = :hash, " +
-        "d.pdfStatus = 'READY', d.pdfAttempts = 0, d.pdfError = null, d.pdfLeaseUntil = null, d.pdfWorker = null " +
-        "where d.resumeId = :resumeId and d.contentHash = :contentHash and d.templateId = :templateId and d.themeJson = :sourceTheme"
+        // Native: theme_json is a MySQL JSON column, and MySQL never finds a JSON value equal to a plain string parameter, so the JPQL
+        // "d.themeJson = :sourceTheme" matched no row and every fit export answered 409. CAST(... AS JSON) compares the two as JSON.
+        value = "update resume_doc set theme_json = CAST(:theme AS JSON), exported_at = :at, exported_hash = :hash, " +
+        "pdf_status = 'READY', pdf_attempts = 0, pdf_error = null, pdf_lease_until = null, pdf_worker = null " +
+        "where resume_id = :resumeId and content_hash = :contentHash and template_id = :templateId and theme_json = CAST(:sourceTheme AS JSON)",
+        nativeQuery = true
     )
     int recordExportWithFit(
         @Param("resumeId") Long resumeId,

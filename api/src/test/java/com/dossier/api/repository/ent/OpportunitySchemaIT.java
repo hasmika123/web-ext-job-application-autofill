@@ -25,6 +25,7 @@ import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -102,13 +103,17 @@ class OpportunitySchemaIT {
 
     @Test
     void aJobOpportunityCannotHaveBothOrNeitherSource() {
+        // MySQL refuses the row with error 3819 (a CHECK constraint), which Hibernate reports as a JpaSystemException rather than a
+        // DataIntegrityViolationException: assert the refusal itself, by the constraint's name.
         JobOpportunity both = publicOpportunity(acme, 7002L, "both-source");
         both.setRequirementId(acmeRequirement.getId());
-        assertThatThrownBy(() -> opportunities.saveAndFlush(both)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> opportunities.saveAndFlush(both)).isInstanceOf(DataAccessException.class).hasMessageContaining("ck_job_opportunity_source_kind");
+        entityManager.clear(); // a failed insert leaves the entity in the session without an id: never flush that session again
 
         JobOpportunity neither = publicOpportunity(acme, 7003L, "neither-source");
         neither.setPostingId(null);
-        assertThatThrownBy(() -> opportunities.saveAndFlush(neither)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> opportunities.saveAndFlush(neither)).isInstanceOf(DataAccessException.class).hasMessageContaining("ck_job_opportunity_source_kind");
+        entityManager.clear();
     }
 
     @Test
@@ -116,7 +121,9 @@ class OpportunitySchemaIT {
         JobOpportunity first = opportunities.saveAndFlush(publicOpportunity(acme, 7004L, "duplicate-one"));
         JobOpportunity duplicate = publicOpportunity(acme, 7004L, "duplicate-two");
         assertThatThrownBy(() -> opportunities.saveAndFlush(duplicate)).isInstanceOf(DataIntegrityViolationException.class);
+        entityManager.clear(); // the refused duplicate stays in the session without an id: start a clean one before the next flush
 
+        first = opportunities.findByOrgIdAndId(acme.getId(), first.getId()).orElseThrow();
         first.setStatus("CLOSED");
         opportunities.saveAndFlush(first);
         JobOpportunity reopened = opportunities.saveAndFlush(publicOpportunity(acme, 7004L, "duplicate-three"));

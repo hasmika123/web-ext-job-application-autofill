@@ -11,14 +11,14 @@ import static org.mockito.Mockito.when;
 import com.dossier.api.service.AiMeteringService;
 import com.dossier.api.service.ai.AiCallContext;
 import com.dossier.api.service.ai.AiResult;
-import com.dossier.api.service.ai.AiRouter;
+import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiTask;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class OpportunityAiScorerTest {
 
-    private final AiRouter router = mock(AiRouter.class);
+    private final AiProvider router = mock(AiProvider.class);
     private final AiMeteringService metering = mock(AiMeteringService.class);
     private final OpportunityAiScorer scorer = new OpportunityAiScorer(router, metering);
     private final AiCallContext context = AiCallContext.organization("actor", "beneficiary", 7L, "ai.job_matching", 11L);
