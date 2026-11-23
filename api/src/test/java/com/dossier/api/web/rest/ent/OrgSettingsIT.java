@@ -106,6 +106,27 @@ class OrgSettingsIT extends MemberItSupport {
         assertThat(back.path("security").path("sessionTimeoutMinutes").asInt()).isEqualTo(120);
     }
 
+    /** Gap D-2: the organization turns two-step sign-in on and off on the Security tab, with a reason, audited; the sign-in path reads it. */
+    @Test
+    void twoStepSignInIsSwitchedWithAReasonAndAudited() throws Exception {
+        JsonNode view = json(call(login("admin"), get(url(a))));
+        assertThat(view.path("security").path("twoStepRequired").asBoolean()).isFalse();
+        assertThat(view.path("security").path("twoStepRememberDays").asInt()).as("the platform's setting, read-only here").isEqualTo(30);
+        assertCode(call(login("admin"), put(url(a) + "/security"), "{\"twoStepRequired\":true}"), 400, "REASON_REQUIRED");
+        assertCode(call(login("admin"), put(url(a) + "/security"), "{\"twoStepRequired\":\"yes\",\"reason\":\"Customer security questionnaire\"}"), 422, "ORG_INVALID");
+        long before = auditCount(a, "ORG_SETTINGS");
+        JsonNode on = json(call(login("owner"), put(url(a) + "/security"), "{\"twoStepRequired\":true,\"reason\":\"Customer security questionnaire\"}"));
+        assertThat(on.path("security").path("twoStepRequired").asBoolean()).isTrue();
+        assertThat(auditCount(a, "ORG_SETTINGS")).isEqualTo(before + 1);
+        assertThat(newestAudit(a).getDetails()).contains("twoStepRequired old=false new=true").contains("reason=Customer security questionnaire");
+        em.flush();
+        em.clear();
+        assertThat(securityPolicy.twoStepRequired(a.getId())).isTrue();
+        assertThat(securityPolicy.twoStepRequired(b.getId())).as("another organization is untouched").isFalse();
+        JsonNode off = json(call(login("owner"), put(url(a) + "/security"), "{\"twoStepRequired\":false,\"reason\":\"Rolled back for now\"}"));
+        assertThat(off.path("security").path("twoStepRequired").asBoolean()).isFalse();
+    }
+
     @Test
     void unchangedSecurityValuesNeedNoReasonAndWriteNoAudit() throws Exception {
         long before = auditCount(a, "ORG_SETTINGS");

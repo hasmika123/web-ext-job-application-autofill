@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Dialog, ErrorState, Field, Input, Select, Skeleton, Textarea, useToast } from "@kiwiply/ui";
+import { Button, Dialog, ErrorState, Field, Input, Select, Skeleton, Switch, Textarea, useToast } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
 import { fetchOrgSettings, saveGeneral, saveSecurity, type OrgSettings, type SettingsResult } from "@/lib/ent/org-settings";
 
@@ -9,7 +9,8 @@ import { fetchOrgSettings, saveGeneral, saveSecurity, type OrgSettings, type Set
  * The General and Security sections of Organization Settings (X2.9). General: the legal name is shown but never editable; the display name, time zone
  * (IANA), default language and the contact e-mail (shown on the support page) are saved together with one button. Security: the idle-session timeout and
  * the password minimum, each inside the bounds the platform allows (shown beside the field), saved only with a REASON, and only after a confirm
- * dialog says what changes. The API checks every bound, the reason and the audit; this page draws what it answers.
+ * dialog says what changes. Gap D-2: two-step sign-in (an emailed code after the password, for everyone) is switched the same way, with a reason
+ * and a confirm. The API checks every bound, the reason and the audit; this page draws what it answers.
  */
 /** A language code as a person reads it ("en" is English); a code the browser cannot name stays as it is. */
 export function languageLabel(code: string): string {
@@ -35,6 +36,7 @@ export default function GeneralSecuritySettings({ orgId, section }: { orgId: num
 
   const [timeout, setTimeoutText] = useState("");
   const [minLen, setMinLen] = useState("");
+  const [twoStep, setTwoStep] = useState(false);
   const [reason, setReason] = useState("");
   const [securityError, setSecurityError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
@@ -48,6 +50,7 @@ export default function GeneralSecuritySettings({ orgId, section }: { orgId: num
     setContact(s.general.contactEmail ?? "");
     setTimeoutText(s.security.sessionTimeoutMinutes === null ? "" : String(s.security.sessionTimeoutMinutes));
     setMinLen(s.security.passwordMinLength === null ? "" : String(s.security.passwordMinLength));
+    setTwoStep(s.security.twoStepRequired);
     setReason("");
   }, []);
 
@@ -112,7 +115,9 @@ export default function GeneralSecuritySettings({ orgId, section }: { orgId: num
   };
   const tOut = parsed(timeout);
   const mOut = parsed(minLen);
-  const securityChanged = tOut !== "bad" && mOut !== "bad" && (tOut !== data.security.sessionTimeoutMinutes || mOut !== data.security.passwordMinLength);
+  const securityChanged = tOut !== "bad" && mOut !== "bad" && (tOut !== data.security.sessionTimeoutMinutes || mOut !== data.security.passwordMinLength || twoStep !== data.security.twoStepRequired);
+  const twoStepChanged = twoStep !== data.security.twoStepRequired;
+  const rememberDays = data.security.twoStepRememberDays;
   const reasonOk = reason.trim().length >= data.security.reasonMinChars;
 
   const review = () => {
@@ -126,7 +131,12 @@ export default function GeneralSecuritySettings({ orgId, section }: { orgId: num
   const submitSecurity = async () => {
     setConfirm(false);
     setSavingSecurity(true);
-    const r = await saveSecurity(orgId, { sessionTimeoutMinutes: tOut === "bad" ? null : tOut, passwordMinLength: mOut === "bad" ? null : mOut, reason: reason.trim() });
+    const r = await saveSecurity(orgId, {
+      sessionTimeoutMinutes: tOut === "bad" ? null : tOut,
+      passwordMinLength: mOut === "bad" ? null : mOut,
+      ...(twoStepChanged ? { twoStepRequired: twoStep } : {}),
+      reason: reason.trim(),
+    });
     setSavingSecurity(false);
     outcome(r, setSecurityError, "Security settings saved");
   };
@@ -183,6 +193,16 @@ export default function GeneralSecuritySettings({ orgId, section }: { orgId: num
             <Input inputMode="numeric" value={minLen} placeholder="Platform default" onChange={(e) => setMinLen(e.target.value)} />
           </Field>
         </div>
+        <div className="mt-4" data-two-step>
+          <Switch
+            checked={twoStep}
+            onCheckedChange={setTwoStep}
+            label="Require two-step sign-in"
+            description={`Everyone gets a 6-digit code by email after their password, and signs in on your organization's own address. ${
+              rememberDays > 0 ? `They can skip the code on a browser they trust for ${rememberDays} ${rememberDays === 1 ? "day" : "days"}, or until their password changes.` : "The code is asked every time."
+            } Anyone without an email address on their account can't sign in until one is added.`}
+          />
+        </div>
         <div className="mt-4">
           <Field label="Reason for the change" required hint={`At least ${data.security.reasonMinChars} characters. It is kept in your audit log.`}>
             <Textarea rows={2} value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />
@@ -218,6 +238,13 @@ export default function GeneralSecuritySettings({ orgId, section }: { orgId: num
       >
         <div className="text-sm text-ink-soft" data-confirm-security-copy>
           <p>Idle sign-out becomes {describe(tOut, "minutes")}. Minimum password length becomes {describe(mOut, "characters")}.</p>
+          {twoStepChanged ? (
+            <p className="mt-2" data-confirm-two-step>
+              {twoStep
+                ? "Two-step sign-in turns on: from their next sign-in, everyone needs the code we email them, and signing in from the main site no longer opens your organization."
+                : "Two-step sign-in turns off: a password alone signs people in again, and browsers remembered for the code are no longer asked."}
+            </p>
+          ) : null}
           <p className="mt-2">People signed in now keep their session until it next renews. This change is recorded in your audit log with your reason.</p>
         </div>
       </Dialog>

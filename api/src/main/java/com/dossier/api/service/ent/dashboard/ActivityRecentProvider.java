@@ -240,6 +240,9 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
             case OrgAuditService.GROUP_MOVE -> "moved a team to another department";
             case OrgAuditService.GROUP_LEAD -> "changed a department or team lead";
             case OrgAuditService.LOGIN_DENIED_NOT_MEMBER -> "was refused sign-in (not a member)";
+            case OrgAuditService.LOGIN_TWO_STEP_CHALLENGED -> "was sent a sign-in code";
+            case OrgAuditService.LOGIN_TWO_STEP_PASSED -> "signed in with a code";
+            case OrgAuditService.LOGIN_TWO_STEP_FAILED -> "entered a wrong sign-in code";
             case OrgAuditService.LOGIN_FOR_INVITE -> "signed in to accept an invitation";
             case OrgAuditService.BRANDING_PUBLISH -> "published the branding";
             case OrgAuditService.BRANDING_RESTORE -> "restored an earlier branding";

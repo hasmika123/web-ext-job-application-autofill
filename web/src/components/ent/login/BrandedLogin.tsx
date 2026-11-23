@@ -100,6 +100,9 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
   const [busy, setBusy] = useState(false);
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  // gap D-2: an organization that requires two-step sign-in lets a browser skip the code for this many days (0: never)
+  const [rememberDays, setRememberDays] = useState(0);
+  const [rememberDevice, setRememberDevice] = useState(false);
 
   // "Remember me" remembers the work email on this device (the session itself is the usual rolling one).
   useEffect(() => {
@@ -136,7 +139,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
     setError(null);
     try {
       const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; mfaRequired?: boolean; mfaToken?: string; passwordChangeRequired?: boolean };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; mfaRequired?: boolean; mfaToken?: string; rememberDays?: number; passwordChangeRequired?: boolean };
       return { res, data };
     } catch {
       setView("unavailable");
@@ -165,6 +168,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
     }
     if (data.mfaRequired && data.mfaToken) {
       setMfaToken(data.mfaToken);
+      setRememberDays(typeof data.rememberDays === "number" && data.rememberDays > 0 ? data.rememberDays : 0);
       setView("mfa");
       return;
     }
@@ -174,12 +178,18 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
   async function onVerify(e: FormEvent) {
     e.preventDefault();
     if (!code.trim()) return setError("Enter the code we emailed you.");
-    const r = await post("/api/auth/login/mfa", { mfaToken, code });
+    const r = await post("/api/auth/login/mfa", { mfaToken, code, remember: rememberDays > 0 && rememberDevice });
     if (!r) return;
     const { res, data } = r;
     if (res.status === 403 && data.code === "NOT_A_MEMBER") return setView("notMember");
     if (res.status >= 500) return setView("unavailable");
     if (!res.ok) return setError(data.error ?? "That code is incorrect or expired.");
+    if (data.passwordChangeRequired) {
+      // the code never skips choosing a new password after a temporary one
+      router.push("/change-password");
+      router.refresh();
+      return;
+    }
     finish();
   }
 
@@ -190,6 +200,8 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
     setError(null);
     setMfaToken(null);
     setCode("");
+    setRememberDays(0);
+    setRememberDevice(false);
     setUsername("");
     setTimeout(() => emailRef.current?.focus(), 0);
   }
@@ -246,6 +258,12 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
                     className={INPUT}
                   />
                 </Field>
+                {rememberDays > 0 && (
+                  <label className="mb-4 inline-flex min-h-[44px] cursor-pointer items-center gap-2.5 text-[15px] font-medium text-[var(--brand-800)]">
+                    <input type="checkbox" checked={rememberDevice} onChange={(e) => setRememberDevice(e.target.checked)} className="h-[22px] w-[22px] rounded-md border border-line accent-[var(--brand-solid)]" />
+                    {`Don't ask again on this browser for ${rememberDays} ${rememberDays === 1 ? "day" : "days"}`}
+                  </label>
+                )}
                 <ErrorLine id={errorId} message={error} />
                 <button type="submit" disabled={busy} aria-busy={busy} className={SIGNIN}>
                   {busy ? "Verifying..." : "Verify & sign in"}

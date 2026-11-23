@@ -87,6 +87,13 @@ public class AccountDeletionService {
     private final SalesInquiryRepository salesInquiryRepository;
     private final AiQuotaOverrideRepository aiQuotaOverrideRepository;
     private final AdminMfaChallengeRepository adminMfaChallengeRepository;
+
+    // Gap D-2. Field-injected and optional so the hand-built unit tests keep their constructor.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.repository.OrgTwoStepChallengeRepository orgTwoStepChallenges;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.repository.OrgTrustedDeviceRepository orgTrustedDevices;
     private final ErasureCensus census;
     private final AccountDeletionReportRepository reports;
     private final ObjectMapper json;
@@ -236,6 +243,9 @@ public class AccountDeletionService {
         salesInquiryRepository.deleteByUserLogin(login);
         aiQuotaOverrideRepository.deleteByLoginValue(login);
         if (userId != null) adminMfaChallengeRepository.deleteByUserIdValue(userId);
+        // gap D-2: organization sign-in codes and remembered browsers
+        if (userId != null && orgTwoStepChallenges != null) orgTwoStepChallenges.deleteByUserIdValue(userId);
+        if (userId != null && orgTrustedDevices != null) orgTrustedDevices.deleteByUserIdValue(userId);
     }
 
     /** Erase the current user's data and account. Idempotent per session: a second call

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Gap D-2: an organization can require two-step sign-in (user decisions 2026-11-19: an emailed code, for every member, the browser remembered
+        for org.security.two_step_remember_days, default 30). Additive. No foreign keys: rows are short-lived or swept, and account erasure deletes them
+        (AccountDeletionService), so a plain rollback drops the tables.
+          - org_two_step_challenge: a pending code for a sign-in on an organization's host. Bound to that organization and hostname (the code is only
+            accepted on the host it was asked for). The code is stored as a bcrypt hash; single use; attempt-limited; expires.
+          - org_trusted_device: a browser that passed the second step and asked to be remembered. Only a SHA-256 of the random device token is stored;
+            pw_tag is a SHA-256 of the account's password hash at that moment, so any password change ends every remembered browser.
+    -->
+    <changeSet id="org-two-step-1-challenge" author="ent">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_two_step_challenge"/></not></preConditions>
+        <createTable tableName="org_two_step_challenge">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="challenge_token" type="varchar(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_org_two_step_challenge_token"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="hostname_id" type="bigint"/>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="login" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="authorities" type="varchar(1000)"/>
+            <column name="code_hash" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="datetime(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="attempts" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="datetime(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="org_two_step_challenge" indexName="ix_org_two_step_challenge_user">
+            <column name="user_id"/>
+            <column name="created_at"/>
+        </createIndex>
+        <rollback><dropTable tableName="org_two_step_challenge"/></rollback>
+    </changeSet>
+
+    <changeSet id="org-two-step-2-trusted-device" author="ent">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="org_trusted_device"/></not></preConditions>
+        <createTable tableName="org_trusted_device">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token_hash" type="char(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_org_trusted_device_token"/>
+            </column>
+            <column name="pw_tag" type="char(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="datetime(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="datetime(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_used_at" type="datetime(6)"/>
+        </createTable>
+        <createIndex tableName="org_trusted_device" indexName="ix_org_trusted_device_org_user">
+            <column name="org_id"/>
+            <column name="user_id"/>
+        </createIndex>
+        <rollback><dropTable tableName="org_trusted_device"/></rollback>
+    </changeSet>
+</databaseChangeLog>

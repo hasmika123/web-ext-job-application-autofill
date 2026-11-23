@@ -13,6 +13,10 @@ describe("org settings client", () => {
   it("parses a well-formed answer and refuses a malformed one", () => {
     expect(parseSettings(good)?.security.sessionTimeoutMinutes).toBe(60);
     expect(parseSettings(good)?.security.passwordMinLength).toBeNull();
+    // gap D-2: an older answer without the two-step fields reads as off, never remembered
+    expect(parseSettings(good)?.security.twoStepRequired).toBe(false);
+    expect(parseSettings(good)?.security.twoStepRememberDays).toBe(0);
+    expect(parseSettings({ ...good, security: { ...good.security, twoStepRequired: true, twoStepRememberDays: 30 } })?.security).toMatchObject({ twoStepRequired: true, twoStepRememberDays: 30 });
     expect(parseSettings({ general: {}, security: {} })).toBeNull();
     expect(parseSettings(null)).toBeNull();
   });

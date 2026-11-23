@@ -1,6 +1,6 @@
 import { apiUrl } from "@/lib/config";
 import { authHostHeaders, isNotAMember, NOT_A_MEMBER_MESSAGE } from "@/lib/auth-host";
-import { setAuthCookies } from "@/lib/auth";
+import { deviceHeaders, setAuthCookies } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { passwordChangeRequired } from "@/lib/jwt-claims";
 
@@ -29,7 +29,8 @@ export async function POST(request: Request) {
   try {
     res = await fetch(apiUrl("/api/authenticate"), {
       method: "POST",
-      headers: { "content-type": "application/json", ...(await authHostHeaders()) },
+      // gap D-2: a browser this organization remembered after its code is not asked again
+      headers: { "content-type": "application/json", ...(await authHostHeaders()), ...(await deviceHeaders()) },
       body: JSON.stringify({ username, password }),
       cache: "no-store",
     });
@@ -43,16 +44,21 @@ export async function POST(request: Request) {
   if (res.status === 403 && ((await res.clone().json().catch(() => ({}))) as { code?: string }).code === "TEMP_PASSWORD_EXPIRED") {
     return Response.json({ error: "Your temporary password has expired. Ask your administrator for a new one.", code: "TEMP_PASSWORD_EXPIRED" }, { status: 403 });
   }
+  // gap D-2: the organization requires a code and the account has no email, or too many codes were sent: the API's own sentence
+  const refusal = res.status === 403 || res.status === 429 ? ((await res.clone().json().catch(() => ({}))) as { code?: string; title?: string; detail?: string }) : {};
+  if (refusal.code === "TWO_STEP_NO_EMAIL" || refusal.code === "TWO_STEP_TOO_MANY_CODES") {
+    return Response.json({ error: refusal.title || refusal.detail || "Couldn't send a sign-in code.", code: refusal.code }, { status: res.status });
+  }
   if (!res.ok) {
     return Response.json({ error: "Incorrect username or password." }, { status: 401 });
   }
 
-  const data = (await res.json()) as { accessToken?: string; refreshToken?: string; mfaRequired?: boolean; mfaToken?: string };
+  const data = (await res.json()) as { accessToken?: string; refreshToken?: string; mfaRequired?: boolean; mfaToken?: string; rememberDays?: number };
 
-  // Admin MFA (Phase 9.X.3): the server withheld tokens and emailed a code. Pass the handle to the
-  // client for the second step; do NOT set cookies yet.
+  // Admin MFA (Phase 9.X.3), or an organization that requires two-step sign-in (gap D-2): the server withheld tokens and emailed a
+  // code. Pass the handle to the client for the second step; do NOT set cookies yet.
   if (data.mfaRequired && data.mfaToken) {
-    return Response.json({ mfaRequired: true, mfaToken: data.mfaToken });
+    return Response.json({ mfaRequired: true, mfaToken: data.mfaToken, ...(typeof data.rememberDays === "number" ? { rememberDays: data.rememberDays } : {}) });
   }
 
   if (!data.accessToken) {

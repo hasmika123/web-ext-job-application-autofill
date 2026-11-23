@@ -14,6 +14,17 @@ public class MfaVM {
     @NotNull
     private String code;
 
+    /** Gap D-2: on an organization that requires two-step sign-in, remember this browser so it is not asked again for a while. */
+    private Boolean rememberDevice;
+
+    public Boolean getRememberDevice() {
+        return rememberDevice;
+    }
+
+    public void setRememberDevice(Boolean rememberDevice) {
+        this.rememberDevice = rememberDevice;
+    }
+
     public String getMfaToken() {
         return mfaToken;
     }
