@@ -697,7 +697,8 @@ class ResumePdfJobIT {
             .andExpect(status().isNoContent());
 
         ResumeDoc after = row(id);
-        assertThat(after.getThemeJson()).contains("\"step\":2");
+        // MySQL hands a JSON column back in its own spacing ({"fit": {"step": 2}}): read the value, not the text
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(after.getThemeJson()).path("fit").path("step").asInt()).isEqualTo(2);
         assertThat(ResumeDocService.renderHash(after)).isEqualTo(finalHash);
         assertThat(after.getExportedHash()).isEqualTo(finalHash);
         assertThat(after.getPdfStatus()).isEqualTo("READY");

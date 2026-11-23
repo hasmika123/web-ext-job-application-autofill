@@ -61,6 +61,16 @@ public interface AiProvider {
     }
 
     /**
+     * {@link #generate(AiTask, String, String, String)} on behalf of a caller ({@link AiCallContext}: personal or an organization), so the
+     * router's ledger rows keep that attribution. Only {@link AiRouter} (the one bean) uses the context; a provider without a ledger ignores
+     * it. On the interface so services depend on {@code AiProvider}, never on the router class (a test that replaces {@code AiProvider}
+     * with a mock must still start the application).
+     */
+    default AiResult generate(AiTask task, String model, String question, String context, AiCallContext callContext) throws AiProviderException {
+        return generate(task, model, question, context);
+    }
+
+    /**
      * {@link #generate(AiTask, String, String, String, int)} with a per-call HTTP timeout (the router's admin
      * probe uses 15 s). An adapter that cannot set a timeout per call ignores {@code timeoutMs}.
      */

@@ -108,6 +108,7 @@ public class AiRouter implements AiProvider {
     }
 
     /** Organization-aware overload; the provider boundary remains the same, but failure and success ledger rows retain attribution. */
+    @Override
     public AiResult generate(AiTask task, String model, String question, String context, AiCallContext callContext) throws AiProviderException {
         return generate(task, model, question, context, 0, callContext);
     }

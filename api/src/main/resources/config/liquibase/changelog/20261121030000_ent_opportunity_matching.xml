@@ -44,7 +44,10 @@
         <createIndex tableName="job_opportunity" indexName="ix_job_opportunity_status"><column name="org_id"/><column name="status"/><column name="updated_at"/></createIndex>
         <createIndex tableName="job_opportunity" indexName="ix_job_opportunity_source"><column name="org_id"/><column name="source_label"/><column name="updated_at"/></createIndex>
         <createIndex tableName="job_opportunity" indexName="ix_job_opportunity_bank"><column name="org_id"/><column name="bank_id"/><column name="status"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone (EntRolesMigrationIT rolls back everything after ent_authz). The table and its data stay, as in ent_talent. -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="job_opportunity" constraintName="fk_job_opportunity_created_by"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-opportunity-matching-2-job-opportunity-posting-live-key" author="enterprise" runInTransaction="false">
@@ -136,6 +139,11 @@
         <createIndex tableName="opportunity_match" indexName="ix_opportunity_match_consultant"><column name="org_id"/><column name="consultant_member_id"/><column name="status"/></createIndex>
         <createIndex tableName="opportunity_match" indexName="ix_opportunity_match_status"><column name="org_id"/><column name="status"/><column name="assigned_at"/></createIndex>
         <createIndex tableName="opportunity_match" indexName="ix_opportunity_match_opportunity"><column name="org_id"/><column name="opportunity_id"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone (EntRolesMigrationIT rolls back everything after ent_authz). The table and its data stay, as in ent_talent. -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="opportunity_match" constraintName="fk_opportunity_match_consultant"/>
+            <dropForeignKeyConstraint baseTableName="opportunity_match" constraintName="fk_opportunity_match_assigned_by"/>
+            <dropForeignKeyConstraint baseTableName="opportunity_match" constraintName="fk_opportunity_match_approved_by"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>

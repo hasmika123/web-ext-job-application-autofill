@@ -37,7 +37,11 @@
         <addUniqueConstraint tableName="usage_event" columnNames="org_id, idempotency_key" constraintName="uk_usage_event_idempotency"/>
         <createIndex tableName="usage_event" indexName="ix_usage_event_expiry"><column name="status"/><column name="expires_at"/></createIndex>
         <createIndex tableName="usage_event" indexName="ix_usage_event_member_period"><column name="org_id"/><column name="member_id"/><column name="period_key"/><column name="status"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone (EntRolesMigrationIT rolls back everything after ent_authz). The table and its data stay, as in ent_talent. -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="usage_event" constraintName="fk_usage_event_member"/>
+            <dropForeignKeyConstraint baseTableName="usage_event" constraintName="fk_usage_event_actor"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-matching-usage-period-key" author="enterprise" runInTransaction="false">

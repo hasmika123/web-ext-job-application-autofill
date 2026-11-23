@@ -3,7 +3,7 @@ package com.dossier.api.service.ent.pipeline;
 import com.dossier.api.service.AiMeteringService;
 import com.dossier.api.service.ai.AiCallContext;
 import com.dossier.api.service.ai.AiResult;
-import com.dossier.api.service.ai.AiRouter;
+import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.service.jobs.JobScoreParser;
 import java.util.Collection;
@@ -32,10 +32,12 @@ public class OpportunityAiScorer {
         }
     }
 
-    private final AiRouter router;
+    // The AiProvider interface, not the AiRouter class: the router is the one AiProvider bean in the application, and a test that
+    // replaces AiProvider with a mock would otherwise leave no bean to inject here and the whole context would fail to start.
+    private final AiProvider router;
     private final AiMeteringService metering;
 
-    public OpportunityAiScorer(AiRouter router, AiMeteringService metering) {
+    public OpportunityAiScorer(AiProvider router, AiMeteringService metering) {
         this.router = router;
         this.metering = metering;
     }
