@@ -15,6 +15,8 @@ const settings = (over: Record<string, unknown> = {}) => ({
     passwordMinLength: null,
     bounds: { sessionTimeoutMin: 15, sessionTimeoutMax: 43200, passwordMinFloor: 4, passwordMinCeiling: 32 },
     reasonMinChars: 10,
+    twoStepRequired: false,
+    twoStepRememberDays: 30,
   },
   locales: ["en", "en-GB"],
   ...over,
@@ -128,6 +130,31 @@ describe("Organization Settings: Security", () => {
     const put = calls.find((c) => c.method === "PUT");
     expect(put?.url).toBe("/api/orgs/7/org-settings/security");
     expect(put?.body).toEqual({ sessionTimeoutMinutes: 120, passwordMinLength: 12, reason: "Customer security questionnaire" });
+  });
+
+  it("gap D-2: two-step sign-in is switched on with a reason and a confirm that says what changes", async () => {
+    await mount();
+    expect(document.querySelector("[data-two-step]")?.textContent).toContain("for 30 days");
+    const toggle = screen.getByRole("switch", { name: /Require two-step sign-in/ });
+    fireEvent.click(toggle);
+    const review = screen.getByRole("button", { name: "Review and save" }) as HTMLButtonElement;
+    expect(review.disabled).toBe(true); // a reason first
+    fireEvent.change(screen.getByRole("textbox", { name: /Reason for the change/ }), { target: { value: "Client contract requires it" } });
+    fireEvent.click(review);
+    expect(document.querySelector("[data-confirm-two-step]")?.textContent).toContain("turns on");
+    fireEvent.click(document.querySelector("[data-confirm-security]") as HTMLElement);
+    await flush();
+    expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ sessionTimeoutMinutes: null, passwordMinLength: null, twoStepRequired: true, reason: "Client contract requires it" });
+  });
+
+  it("gap D-2: with no remembering on the platform, the switch says the code is asked every time", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(settings({ security: { ...settings().security, twoStepRequired: true, twoStepRememberDays: 0 } })), { status: 200 })),
+    );
+    await mount();
+    expect((screen.getByRole("switch", { name: /Require two-step sign-in/ }) as HTMLElement).getAttribute("aria-checked")).toBe("true");
+    expect(document.querySelector("[data-two-step]")?.textContent).toContain("asked every time");
   });
 
   it("an empty field means the platform default (null on the wire)", async () => {

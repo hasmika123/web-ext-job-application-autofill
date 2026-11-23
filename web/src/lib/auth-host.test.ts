@@ -9,7 +9,7 @@ vi.mock("next/headers", () => ({
   },
 }));
 const setAuthCookies = vi.hoisted(() => vi.fn(async () => {}));
-vi.mock("@/lib/auth", () => ({ setAuthCookies, getRefreshToken: async () => "r1" }));
+vi.mock("@/lib/auth", () => ({ setAuthCookies, getRefreshToken: async () => "r1", deviceHeaders: async () => ({}) }));
 
 import { authHostHeaders, isNotAMember } from "./auth-host";
 import { authHostHeader } from "./tenant-host";

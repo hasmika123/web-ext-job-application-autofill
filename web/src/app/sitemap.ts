@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
+import { headers } from "next/headers";
 import { SITE_URL } from "@/lib/site";
+import { SURFACE_HEADER } from "@/lib/tenant-host";
 
 /**
  * Serves /sitemap.xml (App Router convention file — same root-placement rule as
@@ -27,7 +29,9 @@ const PAGES: Array<{ path: string; lastModified: string; priority: number }> = [
   { path: "/legal/subprocessors", lastModified: "2026-10-17", priority: 0.2 },
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+/** Kiwiply's pages on Kiwiply's own hosts only: a tenant host (a consultancy's domain) gets an empty sitemap, since a tenant site never names Kiwiply. */
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  if ((await headers()).get(SURFACE_HEADER) !== "platform") return [];
   return PAGES.map(({ path, lastModified, priority }) => ({
     url: `${SITE_URL}${path}`,
     lastModified: new Date(lastModified),

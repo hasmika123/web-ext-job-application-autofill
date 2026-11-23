@@ -114,6 +114,17 @@ public final class EnterpriseSettingKeys {
      */
     public static final String ORG_SECURITY_SESSION_TIMEOUT_MINUTES = "org.security.session_timeout_minutes";
     public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH = "org.security.sign_in_min_length";
+    /**
+     * Gap D-2: the organization requires two-step sign-in (an emailed code after the password, for every member). An org-only key in
+     * org_setting ({@code "true"} = on), set by its Org Admin on the Security tab, never in the global registry. Absent = off.
+     */
+    public static final String ORG_SECURITY_TWO_STEP_REQUIRED = "org.security.two_step_required";
+    /** Gap D-2 (platform): days a browser stays remembered after the second step; 0 = never remember (a code on every sign-in). */
+    public static final String ORG_SECURITY_TWO_STEP_REMEMBER_DAYS = "org.security.two_step_remember_days";
+    /** Gap D-2 (platform): minutes an emailed sign-in code stays valid. */
+    public static final String ORG_SECURITY_TWO_STEP_CODE_MINUTES = "org.security.two_step_code_minutes";
+    /** Gap D-2 (platform): the most sign-in codes one person can be sent per hour (each wrong password never sends one). */
+    public static final String ORG_SECURITY_TWO_STEP_CODES_PER_HOUR = "org.security.two_step_codes_per_hour";
     public static final String ORG_SECURITY_SESSION_TIMEOUT_MIN_MINUTES = "org.security.session_timeout_min_minutes";
     public static final String ORG_SECURITY_SESSION_TIMEOUT_MAX_MINUTES = "org.security.session_timeout_max_minutes";
     public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR = "org.security.sign_in_min_length_floor";
@@ -314,6 +325,9 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_SECURITY_SESSION_TIMEOUT_MAX_MINUTES, 43200, 60, 525600, Risk.MEDIUM, "Organization Settings: the longest idle-session timeout (minutes) an Org Admin may set; 43200 is 30 days.");
         integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR, 4, 4, 32, Risk.HIGH, "Organization Settings: the lowest sign-in minimum length an Org Admin may set (never below the platform's own 4).");
         integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING, 32, 8, 100, Risk.MEDIUM, "Organization Settings: the highest sign-in minimum length an Org Admin may set.");
+        integer(k, ORG_SECURITY_TWO_STEP_REMEMBER_DAYS, 30, 0, 365, Risk.MEDIUM, "Two-step sign-in (organizations that require it): days a browser stays remembered after the emailed code, so the member is not asked again on it. 0 = never remember: a code on every sign-in. Changing the sign-in credentials always ends it.");
+        integer(k, ORG_SECURITY_TWO_STEP_CODE_MINUTES, 10, 2, 60, Risk.MEDIUM, "Two-step sign-in: minutes an emailed sign-in code stays valid.");
+        integer(k, ORG_SECURITY_TWO_STEP_CODES_PER_HOUR, 5, 1, 30, Risk.MEDIUM, "Two-step sign-in: the most sign-in codes one person can be sent per hour (each needs the correct first sign-in step).");
         integer(k, ORG_SETTINGS_REASON_MIN_CHARS, 10, 3, 200, Risk.LOW, "Organization Settings: the fewest characters of the reason an Org Admin must give for a Security change.");
         integer(k, ORG_AUDIT_EXPORT_MAX_ROWS, 5000, 100, 50000, Risk.LOW, "Audit log CSV export: the most rows (newest first) one export carries.");
         k.add(new Key(ORG_SETTINGS_LOCALES, Type.JSON, DEFAULT_LOCALES, null, null, null,

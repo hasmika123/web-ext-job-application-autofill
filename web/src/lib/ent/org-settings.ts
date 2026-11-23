@@ -16,6 +16,10 @@ export interface OrgSecurity {
   passwordMinLength: number | null;
   bounds: { sessionTimeoutMin: number; sessionTimeoutMax: number; passwordMinFloor: number; passwordMinCeiling: number };
   reasonMinChars: number;
+  /** Gap D-2: everyone gets an emailed code after the password, on this organization's own address. */
+  twoStepRequired: boolean;
+  /** How many days a browser can skip the code (the platform's setting, read-only here; 0 = never). */
+  twoStepRememberDays: number;
 }
 export interface OrgSettings {
   general: OrgGeneral;
@@ -54,6 +58,8 @@ export function parseSettings(json: unknown): OrgSettings | null {
       passwordMinLength: num(s.passwordMinLength),
       bounds: { sessionTimeoutMin: min, sessionTimeoutMax: max, passwordMinFloor: floor, passwordMinCeiling: ceil },
       reasonMinChars: num(s.reasonMinChars) ?? 10,
+      twoStepRequired: s.twoStepRequired === true,
+      twoStepRememberDays: num(s.twoStepRememberDays) ?? 0,
     },
     locales: Array.isArray(json.locales) ? json.locales.filter((x): x is string => typeof x === "string") : ["en"],
   };
@@ -100,7 +106,7 @@ async function put(orgId: number | string, section: "general" | "security", body
 export const saveGeneral = (orgId: number | string, body: Partial<Pick<OrgGeneral, "displayName" | "timeZone" | "locale">> & { contactEmail?: string | null }) => put(orgId, "general", body);
 
 /** `null` puts a value back to the platform behaviour. A reason is required by the API whenever something changes. */
-export const saveSecurity = (orgId: number | string, body: { sessionTimeoutMinutes?: number | null; passwordMinLength?: number | null; reason: string }) => put(orgId, "security", body);
+export const saveSecurity = (orgId: number | string, body: { sessionTimeoutMinutes?: number | null; passwordMinLength?: number | null; twoStepRequired?: boolean; reason: string }) => put(orgId, "security", body);
 
 /** The audit-log CSV link (the filters of the page, no paging). */
 export function auditExportHref(orgId: number | string, q: { action: string; from: string; to: string }): string {

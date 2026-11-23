@@ -105,6 +105,8 @@ public final class DataMap {
         add(e, new Entry("invoice_line", DataClass.USER_ANONYMISED, List.of(new Col("user_id", Key.USER_ID)), "AccountDeletionService.endBilling (InvoiceLineRepository.pseudonymise: the user id becomes 0, amounts and descriptions stay)", null, "lines of the mirrored Stripe invoice", null));
 
         // ---- short-lived security rows ----------------------------------------------------------------------------------------------------------
+        add(e, new Entry("org_two_step_challenge", DataClass.EPHEMERAL, List.of(new Col("user_id", Key.USER_ID), new Col("login", Key.LOGIN)), "AccountDeletionService (orgTwoStepChallenges.deleteByUserIdValue); expires in minutes, swept after an hour", null, "a pending organization sign-in code check (gap D-2)", null));
+        add(e, new Entry("org_trusted_device", DataClass.EPHEMERAL, List.of(new Col("user_id", Key.USER_ID)), "AccountDeletionService (orgTrustedDevices.deleteByUserIdValue); expires after the remember period", null, "a browser remembered after an organization's sign-in code (gap D-2): only a hash of its token", null));
         add(e, new Entry("admin_mfa_challenge", DataClass.EPHEMERAL, List.of(new Col("user_id", Key.USER_ID), new Col("login", Key.LOGIN)), "AccountDeletionService (adminMfaChallengeRepository.deleteByUserId); expires in minutes anyway", null, "a pending sign-in code check, expires in minutes", null));
 
         // ---- accountability trails keyed by an administrator's login ---------------------------------------------------------------------------

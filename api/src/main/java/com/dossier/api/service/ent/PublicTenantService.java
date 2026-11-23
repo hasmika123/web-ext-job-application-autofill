@@ -33,6 +33,10 @@ public class PublicTenantService {
     private final OrgBrandingRepository brandings;
     private final ObjectMapper mapper;
 
+    // Gap D-2: whether the organization requires two-step sign-in (the login says so). Optional: absent = never.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.settings.OrgSecurityPolicy orgSecurity;
+
     public PublicTenantService(OrganizationRepository organizations, OrgBrandingRepository brandings, ObjectMapper mapper) {
         this.organizations = organizations;
         this.brandings = brandings;
@@ -51,7 +55,8 @@ public class PublicTenantService {
             "TENANT",
             displayName,
             branding(published, org.getConfigVersion()),
-            new PublicTenantDTO.Login(true, false, false, false) // password only until an org enables Google / MFA (ADR-004)
+            // password only; mfaRequired = the organization requires two-step sign-in (gap D-2), so the login can say a code will follow
+            new PublicTenantDTO.Login(true, false, orgSecurity != null && orgSecurity.twoStepRequired(org.getId()), false)
         ));
     }
 

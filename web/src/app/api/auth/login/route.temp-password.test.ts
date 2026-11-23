@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const hostHeaders = vi.hoisted(() => ({ value: {} as Record<string, string> }));
 const setAuthCookies = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth-host", async (orig) => ({ ...(await orig<typeof import("@/lib/auth-host")>()), authHostHeaders: async () => hostHeaders.value }));
-vi.mock("@/lib/auth", () => ({ setAuthCookies }));
+vi.mock("@/lib/auth", () => ({ setAuthCookies, deviceHeaders: async () => ({}) }));
 
 import { POST } from "./route";
 
