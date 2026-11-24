@@ -12,6 +12,10 @@
 > **End-to-end builds (2026-10-12):** user + org dashboards → [`HANDOFF-APP-E2E.md`](HANDOFF-APP-E2E.md) (branch `app-e2e`);
 > platform admin area → [`HANDOFF-ADMIN-E2E.md`](HANDOFF-ADMIN-E2E.md) (branch `admin-e2e`, plan `ADMIN-E2E-PLAN.md`).
 
+> **▶ Building the remaining enterprise gaps (2026-11-23): start from [`HANDOFF-REMAINING-GAPS.md`](HANDOFF-REMAINING-GAPS.md)** — setup, the
+> rules, how the enterprise code fits together, and one card per open item (what exists, what to build, files to open, done-when, owner needs),
+> split into a web track and a platform track. Status list: `enterprise-v2/BUILD-OUT-GAPS.md`.
+
 # HANDOFF.md — start here in a new chat
 
 > **⚠️ Branch `version2` (landing/app redesign, 2026-10-10/11): start from
