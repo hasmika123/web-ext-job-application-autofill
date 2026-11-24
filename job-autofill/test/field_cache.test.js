@@ -262,6 +262,39 @@ const itemOf = (field, label, value) => ({ field, label: label || field, value, 
   ok("preferCached: a same-site hit is not flagged cross-site",
     ownItems[0].cached === true && !ownItems[0].cachedCrossSite);
 
+  /* ---- the REAL label path: labelText() turns name/id "question_<id>" into "question <id>" ---- */
+  // Greenhouse custom questions carry a per-posting id in the field's id and name; labelText joins the visible label with
+  // those (humanized), so the key must drop the spaced form too. Built through base.js, not a hand-written label.
+  {
+    const gw = makeWindow(
+      '<label for="question_7718204">How did you hear about this job?</label><input id="question_7718204" name="question_7718204" type="text">' +
+      '<label for="question_9918821">How did you hear about this job?</label><input id="question_9918821" name="question_9918821" type="text">' +
+      '<label for="question_5512090">Are you willing to relocate?</label><input id="question_5512090" name="question_5512090" type="text">' +
+      '<label for="sq1">Security question 1</label><input id="sq1" name="security_question_1" type="text">' +
+      '<label for="sq2">Security question 2</label><input id="sq2" name="security_question_2" type="text">'
+    );
+    ["src/config/rules.js", "src/lib/rules-store.js", "src/lib/schema.js", "src/content/adapters/base.js"].forEach((p) => load(gw, p));
+    const lt = (id) => gw.JAF.adapterBase.labelText(gw.document.getElementById(id));
+    const first = lt("question_7718204");
+    const next = lt("question_9918821");
+    ok("real labelText carries the posting id (the shape the cache sees)", /question 7718204/i.test(first), first);
+    ok("real labelText: same question on another posting has the same key",
+      FC.contextHash("boards.greenhouse.io", first) === FC.contextHash("boards.greenhouse.io", next), `${first} | ${next}`);
+    ok("real labelText: same question has the same any-site key", FC.globalContextHash(first) === FC.globalContextHash(next));
+    ok("real labelText: same question has the same free-form field key",
+      FC.fieldKeyFor({ label: first }) === FC.fieldKeyFor({ label: next }));
+    ok("real labelText: a different question keeps a different key",
+      FC.contextHash("boards.greenhouse.io", first) !== FC.contextHash("boards.greenhouse.io", lt("question_5512090")));
+    ok("real labelText: numbered questions (1 vs 2) stay apart",
+      FC.contextHash("h", lt("sq1")) !== FC.contextHash("h", lt("sq2")), `${lt("sq1")} | ${lt("sq2")}`);
+
+    // End to end through the cache: an answer corrected on one posting is offered on the next.
+    const carried = fresh("carried");
+    await carried.remember(itemOf("", first), "Employee referral");
+    ok("real labelText: a learned answer carries to the next posting",
+      (await carried.get(itemOf("", next))) === "Employee referral");
+  }
+
   console.log(`\n[field_cache] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
   console.log("[field_cache] All green.");

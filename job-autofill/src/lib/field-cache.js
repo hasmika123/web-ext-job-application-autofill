@@ -52,9 +52,13 @@
   // Generated ATS ids/names are not question identity. Remove those volatile
   // suffixes before bucketing so the same visible question can carry over to a
   // new posting while genuinely different questions remain separate.
+  // The label comes from labelText(), which has already turned a field's name or id
+  // "question_7718204" into "question 7718204" (base.js labelParts/humanize), so the
+  // spaced form is stripped too, but only with 3+ digits: "Security question 1" and
+  // "Security question 2" are different questions, a 7-digit ATS id is not.
   function stableLabel(label) {
     return String(label == null ? "" : label)
-      .replace(/\b(?:question|field|input|select|radio|checkbox)(?:[_-][a-z0-9]+|\d{1,})\b/gi, " ")
+      .replace(/\b(?:question|field|input|select|radio|checkbox)(?:[_-][a-z0-9]+|\s+\d{3,}|\d{1,})\b/gi, " ")
       .replace(/\s+/g, " ").trim();
   }
 
