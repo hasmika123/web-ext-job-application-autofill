@@ -135,7 +135,7 @@ Status: **done (My Information mapping ✅).**
 
 > **STATUS: all 5 fixed in v0.37.0** (2026-07-01) — regression tests in `test/qa_fixes.test.js` (17 cases, all green). BUG-3 & BUG-5 in `base.js` (`groupPrompt` + `deepQueryAll`); BUG-1 in `base.js` `scanGeneric` (dropped `SENSITIVE` skip) + `schema.js` `buildFillValues` (dropped `includeEEO` gate); BUG-4 in `ashby.js` (claim `_systemfield_name`→fullName first); BUG-2 in `lever.js` (`location`→city). Live re-verification on the affected sites is the remaining follow-up.
 
-Tested live: Greenhouse ✅, Lever ✅, Ashby ✅, Workable ✅, SmartRecruiters ❌, Workday ✅ (My Info). Structural: iCIMS (fine, gated). Not reached: Taleo, BambooHR, Jobvite, Indeed (gated / no public form found) — all generic-only except Indeed; expected to share the generic bugs below.
+Tested live: Greenhouse ✅, Lever ✅, Ashby ✅, Workable ✅, SmartRecruiters ⚠️ (shadow scan works; City/upload follow-up), Workday ✅ (My Info). Structural: iCIMS (fine, gated). Taleo is login-gated. BambooHR's public application tested here is Greenhouse-hosted, so it is covered by Greenhouse rather than a separate BambooHR adapter. Jobvite's generic core fill passed with conditional/manual fields. Indeed remains gated.
 
 **Fix these (priority order):**
 1. **BUG-3 — Y/N radio-group questions miss their question text (TOP).** Work-authorization + sponsorship (on most US apps) are missed on Lever & Workable because a radio/checkbox's `labelText` resolves to just "Yes/No …", not the question. **Fix:** in `base.js` `labelText`, for `radio`/`checkbox` inputs also pull the enclosing question block's text — nearest `fieldset legend`, `[role=radiogroup/group]` aria-label, or the field-wrapper heading/preceding label. Add fixtures: Lever `cards[uuid]`, Workable `QA_<id>`, and a plain `<fieldset><legend>` group.
@@ -145,3 +145,27 @@ Tested live: Greenhouse ✅, Lever ✅, Ashby ✅, Workable ✅, SmartRecruiters
 5. **BUG-2 — Lever "location" field missed.** No `location` keyword in the `city` matcher. **Fix:** add `location`/`current location` to `city` (or a location field); Lever location is an async autocomplete (combo-style apply). Add Lever fixture.
 
 **Verify during fixes:** VERIFY-1/2 combo/autocomplete stickiness (Greenhouse react-select country/city; Workable country) — the applier's `selectCustom` is unit-tested; confirm on the live combos when implementing.
+
+## 12. 2026-11-25 live follow-up — Jobvite and SmartRecruiters
+
+These are no-submit observations on public forms using the synthetic/demo profile. Candidate values, posting identifiers, and employer-private markup are intentionally omitted.
+
+**Jobvite — generic live spot check:** the public apply form was reachable without login or CAPTCHA. Generic matching filled the core name and city controls and the résumé attachment was accepted. The form's Canada-specific Province remained at its placeholder because the synthetic profile is India-based, and the Work Status question was left for manual completion rather than guessed. No final action was activated.
+
+**SmartRecruiters — generic live spot check:** the Easy Apply form rendered inside open shadow roots and Kiwiply detected 8 fields, confirming the shadow-piercing scan reaches the live controls. Text fields read back correctly. The résumé widget rejected the automated attachment, and the City typeahead displayed the typed value but did not verify a committed option; Kiwiply reported both gaps for manual completion. No final action was activated. Focused follow-up: `.scratch/autofill-autopilot/issues/08-smartrecruiters-shadow-upload-city.md`.
+
+## 13. 2026-11-25 live follow-up — iCIMS, Taleo, and BambooHR
+
+These are reachability and support-boundary observations only. No candidate profile was created, no login credentials were entered, and no application was submitted.
+
+**iCIMS — candidate-profile gate:** a public HERE iCIMS portal, job listing, and application entry were reachable. The application then showed `Enter Your Information` with an email field, an `I agree` candidate-privacy checkbox, and a disabled `Next` button. The page states that a candidate profile will be created. No data was entered. Follow-up: `.scratch/autofill-autopilot/issues/09-icims-account-gate.md`.
+
+**Taleo — login gate:** a public job detail exposed `Apply Online`; the flow then showed a privacy agreement and, after that step, a username/password login page. The personal-information form was not reached. Follow-up: `.scratch/autofill-autopilot/issues/10-taleo-login-gate.md`.
+
+**BambooHR — Greenhouse support boundary:** a public BambooHR application URL loaded a real Greenhouse job-application iframe. Kiwiply classified it as Greenhouse and presented 12 fields for review, including the résumé attachment. No fill or submit action was activated. No BambooHR-specific adapter is needed. Follow-up: `.scratch/autofill-autopilot/issues/11-bamboohr-fixture-gap.md`.
+
+**Jobvite — support boundary:** the public generic spot check filled core name/city controls and attached the résumé, while Work Status and an incompatible Canada-specific Province remained manual/conditional. Follow-up: `.scratch/autofill-autopilot/issues/12-jobvite-support-boundary.md`.
+
+## 14. 2026-11-25 SmartRecruiters City follow-up
+
+The shared combo helper now searches the trigger's open shadow root before falling back to the document. It also requires a post-selection signal—collapsed listbox, selected/active option, or closed option list—before an input-backed autocomplete is reported as successful. The regression suite covers both a committed shadow-root option and a typed-only value that must remain a reported gap. The résumé widget is unchanged pending a scrubbed capture of its accepted-file state and event contract; a fresh live no-submit recheck is still required.

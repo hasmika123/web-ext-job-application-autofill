@@ -16,7 +16,7 @@ const scan = (w) => w.JAF.adapterBase.scanGeneric(w.document);
 const fieldOf = (items, f) => items.find((i) => i.field === f);
 const adapter = (w, id) => w.JAF.adapters.find((a) => a.id === id);
 
-(function run() {
+(async function run() {
   /* ---- BUG-3: Y/N radio-group questions resolve their question text ---- */
   // Lever "cards" shape: a .application-question wrapper with the prompt in
   // .application-label and options whose radios aren't linked to it.
@@ -69,6 +69,37 @@ const adapter = (w, id) => w.JAF.adapters.find((a) => a.id === id);
     /last name/i.test(sh.JAF.adapterBase.labelText(root.querySelector("#field-one"))));
   ok("BUG5 aria-labelledby resolves inside open shadow root",
     /city/i.test(sh.JAF.adapterBase.labelText(root.querySelector("#field-two"))));
+
+  /* ---- BUG-5 follow-up: shadow-root combobox commits a real option ---- */
+  const combo = win("<div id='combo-host'></div>");
+  const comboRoot = combo.document.getElementById("combo-host").attachShadow({ mode: "open" });
+  comboRoot.innerHTML =
+    '<input id="city" role="combobox" aria-controls="city-options" aria-expanded="true" value="">' +
+    '<ul id="city-options" role="listbox"><li id="city-jalpaiguri" role="option">Jalpaiguri</li></ul>';
+  const city = comboRoot.querySelector("#city");
+  const cityOptions = comboRoot.querySelector("#city-options");
+  const cityOption = comboRoot.querySelector("#city-jalpaiguri");
+  city.addEventListener("input", () => { cityOptions.hidden = false; });
+  cityOption.addEventListener("click", () => {
+    city.value = "Jalpaiguri";
+    city.setAttribute("aria-expanded", "false");
+    cityOption.setAttribute("aria-selected", "true");
+    cityOptions.hidden = true;
+  });
+  ok("BUG5 shadow combobox finds its local listbox", combo.JAF.adapterBase.openListbox(city) === cityOptions);
+  ok("BUG5 shadow combobox commits the selected option",
+    await combo.JAF.adapterBase.selectCustom(city, "JALPAIGURI") === true && city.value === "Jalpaiguri");
+
+  const uncommitted = win("<div id='combo-host'></div>");
+  const uncommittedRoot = uncommitted.document.getElementById("combo-host").attachShadow({ mode: "open" });
+  uncommittedRoot.innerHTML =
+    '<input id="city" role="combobox" aria-controls="city-options" aria-expanded="true" value="">' +
+    '<ul id="city-options" role="listbox"><li role="option">Jalpaiguri</li></ul>';
+  const typedOnly = uncommittedRoot.querySelector("#city");
+  const typedOnlyList = uncommittedRoot.querySelector("#city-options");
+  typedOnly.addEventListener("input", () => { typedOnly.value = "Jalpaiguri"; });
+  ok("BUG5 typed-only shadow autocomplete is not treated as committed",
+    await uncommitted.JAF.adapterBase.selectCustom(typedOnly, "JALPAIGURI") === false && !typedOnlyList.hidden);
 
   /* ---- BUG-1: EEO fields fill (no more SENSITIVE hard-skip) ---- */
   const eeo = win('<label for="g">Gender</label><select id="g" name="gender"><option>Select</option><option>Male</option><option>Female</option></select>' +

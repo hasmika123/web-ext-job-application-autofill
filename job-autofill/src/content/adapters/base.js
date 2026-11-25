@@ -635,6 +635,18 @@
     }
   }
   const OPTION_SEL = '[role="option"],[data-automation-id="promptOption"],[data-automation-id="menuItem"],li[role="option"]';
+  function lookupRoots(trigger) {
+    const local = trigger ? elementRoot(trigger) : document;
+    return local === document ? [document] : [local, document];
+  }
+  function deepElementById(root, id) {
+    if (!root || !id) return null;
+    try {
+      const direct = root.getElementById && root.getElementById(id);
+      if (direct) return direct;
+    } catch (e) {}
+    return deepQueryAll(root, "*").find((el) => el.id === id) || null;
+  }
   // The popup actually opened by `trigger`. Workday triggers carry no aria-controls,
   // so we locate the open listbox structurally: the visible [role="listbox"] (or
   // Workday's option container) holding the MOST option nodes. Scoping to it keeps
@@ -642,26 +654,43 @@
   // selected "United States (+1)" pills) from polluting THIS dropdown's choices.
   function openListbox(trigger) {
     const id = trigger && (trigger.getAttribute("aria-controls") || trigger.getAttribute("aria-owns"));
-    if (id) { const el = document.getElementById(id); if (el && isVisible(el)) return el; }
-    const boxes = Array.from(document.querySelectorAll(
-      '[role="listbox"],[data-automation-id="activeListContainer"],ul[data-automation-id="list"]'
-    )).filter((b) => isVisible(b) && b.getAttribute("data-automation-id") !== "selectedItemList"); // chosen-item pills, not a popup
+    const roots = lookupRoots(trigger);
+    if (id) {
+      for (const root of roots) {
+        const el = deepElementById(root, id);
+        if (el && isVisible(el)) return el;
+      }
+    }
+    const boxes = [];
+    const seen = new Set();
+    for (const root of roots) {
+      for (const b of deepQueryAll(root,
+        '[role="listbox"],[data-automation-id="activeListContainer"],ul[data-automation-id="list"]')) {
+        if (seen.has(b) || !isVisible(b) || b.getAttribute("data-automation-id") === "selectedItemList") continue;
+        seen.add(b);
+        boxes.push(b);
+      }
+    }
     if (!boxes.length) return null;
     // Prefer the visible listbox with the most option descendants (the open menu).
     let best = null, bestN = -1;
     for (const b of boxes) {
-      const n = b.querySelectorAll(OPTION_SEL).length;
+      const n = deepQueryAll(b, OPTION_SEL).length;
       if (n > bestN) { best = b; bestN = n; }
     }
     return bestN > 0 ? best : null;
   }
   function visibleOptions(scope) {
     const root = scope || document;
-    return Array.from(root.querySelectorAll(OPTION_SEL)).filter((o) => isVisible(o) && (o.textContent || "").trim());
+    return deepQueryAll(root, OPTION_SEL).filter((o) => isVisible(o) && (o.textContent || "").trim());
   }
-  function findSearchBox() {
+  function findSearchBox(trigger) {
     const sel = 'input[data-automation-id="searchBox"],input[role="combobox"],[role="combobox"] input,input[type="search"],[role="dialog"] input';
-    return Array.from(document.querySelectorAll(sel)).find(isVisible) || null;
+    for (const root of lookupRoots(trigger)) {
+      const hit = deepQueryAll(root, sel).find(isVisible);
+      if (hit) return hit;
+    }
+    return null;
   }
   function bestOption(options, value) {
     const norm = (s) => String(s).toLowerCase().replace(/\s+/g, " ").trim();
@@ -725,6 +754,25 @@
   function isPlaceholder(s) { return !s || /^(select one|select\.{3}|select\.\.\.|select an?\b|choose|search|please select|--)/i.test(s); }
   function showsPlaceholder(trigger) { return isPlaceholder(committedValue(trigger)); }
 
+  function valueMatchesChoice(actual, wanted) {
+    const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+    const a = norm(actual), w = norm(wanted);
+    return !!a && !!w && (a === w || a.startsWith(w + ",") || a.startsWith(w + " -"));
+  }
+
+  // Typing into an autocomplete is not the same as selecting one of its options.
+  // Require a standard post-selection signal for input-backed combos: the listbox
+  // closed, the option became selected/active, or the control explicitly collapsed.
+  function committedChoice(trigger, wanted, option) {
+    if (trigger.tagName !== "INPUT") return !showsPlaceholder(trigger);
+    if (!valueMatchesChoice(committedValue(trigger), wanted)) return false;
+    if (trigger.getAttribute("aria-expanded") === "false") return true;
+    if (option && option.getAttribute("aria-selected") === "true") return true;
+    if (option && option.id && trigger.getAttribute("aria-activedescendant") === option.id) return true;
+    const box = openListbox(trigger);
+    return !box || visibleOptions(box).length === 0;
+  }
+
   async function selectCustom(trigger, value) {
     if (!trigger || value == null || value === "") return false;
     const want = String(value).trim();
@@ -736,7 +784,7 @@
       } else {
         realClick(trigger);
         await observeFor(() => visibleOptions(openListbox(trigger)).length > 0, 2500);
-        const search = findSearchBox();
+        const search = findSearchBox(trigger);
         if (search) { search.focus(); setNativeValue(search, want); fire(search, "input"); fire(search, "keyup"); }
       }
       // Scope option lookups to the listbox THIS trigger opened (see openListbox).
@@ -744,8 +792,7 @@
       const opt = bestOption(visibleOptions(openListbox(trigger)), want);
       if (!opt) { try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {} return false; }
       realClick(opt);
-      await observeFor(() => !showsPlaceholder(trigger) || visibleOptions().length === 0, 700);
-      return true;
+      return await observeFor(() => committedChoice(trigger, want, opt), 700);
     };
     // First attempt, then verify the control actually committed; retry once.
     let clicked = await openAndPick();
