@@ -27,7 +27,17 @@
         if (!field) return;
         const el = document.querySelector('input[name="' + name + '"], textarea[name="' + name + '"]');
         if (el && B.isFillable(el) && values[field] !== undefined)
-          items.push({ el, field, value: values[field], label: name, kind: B.elKind(el) });
+          items.push({
+            el,
+            field,
+            value: values[field],
+            label: name,
+            // Lever's location control is an autocomplete even when the input
+            // has no ARIA combobox attributes until it is opened. Force the
+            // existing async option picker so a typed city becomes a committed
+            // location rather than a value the ATS rejects as unselected.
+            kind: name === "location" ? "combo" : B.elKind(el),
+          });
       });
       return items;
     },

@@ -8,7 +8,7 @@
     "fullName": { "sel": "input[name=\"name\"]", "kind": "text" },
     "email": { "sel": "input[name=\"email\"]", "kind": "text" },
     "phone": { "sel": "input[name=\"phone\"]", "kind": "text" },
-    "city": { "sel": "input[name=\"location\"]", "kind": "text" },
+    "city": { "sel": "input[name=\"location\"]", "kind": "combo" },
     "linkedin": { "sel": "input[name=\"urls[LinkedIn]\"]", "kind": "text" },
     "github": { "sel": "input[name=\"urls[GitHub]\"]", "kind": "text" },
     "website": [

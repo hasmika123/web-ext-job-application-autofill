@@ -169,3 +169,18 @@ These are reachability and support-boundary observations only. No candidate prof
 ## 14. 2026-11-25 SmartRecruiters City follow-up
 
 The shared combo helper now searches the trigger's open shadow root before falling back to the document. It also requires a post-selection signal—collapsed listbox, selected/active option, or closed option list—before an input-backed autocomplete is reported as successful. The regression suite covers both a committed shadow-root option and a typed-only value that must remain a reported gap. The résumé widget is unchanged pending a scrubbed capture of its accepted-file state and event contract; a fresh live no-submit recheck is still required.
+
+## 15. 2026-11-25 live ATS matrix — no-submit retest
+
+Build: local RootCRM development build from `smartrecruiters-autofill-fix`, output `job-autofill/.output/chrome-mv3-dev`, loaded into Chrome after rebuild. All runs stopped before the employer's final action; no credentials, CAPTCHA, or application submission were used.
+
+| ATS | Reachable result | Remaining limitation |
+|---|---|---|
+| Greenhouse | Public form opened, but its `Autofill my application` control redirected to MyGreenhouse sign-in before Kiwiply could fill. | Sign-in/account gate; no fill claim. |
+| Workday | Adobe manual-apply flow reached all five step labels; step 1 profile fields were filled and read back. | Next stopped on two employer-specific required questions; later steps were not guessed through. |
+| Lever | Review detected 8 fields; rebuilt extension filled 7 and attached the résumé. | Current location remained unconfirmed because the page returned `No location found. Try entering a different location`; current company and employer questions remained manual. The option path is covered by scrubbed replay. |
+| Ashby | Review detected 5 fields; 5 were filled and the résumé was attached. | Country of residence and GitHub remained manual. |
+| iCIMS | Public job search and Apply Now were reachable. | Customer login page appeared before the personal-information form; account-gated and not bypassed. |
+| SmartRecruiters | Prior final no-submit recheck showed profile values surviving asynchronous résumé parsing, résumé/message accepted, and shadow fields reachable. | City and phone still require manual review/format correction. |
+
+This is evidence of the current support boundaries, not a claim that every ATS can be completed through its last page. The new Lever behavior is tracked in `.scratch/autofill-autopilot/issues/13-lever-location-autocomplete.md`.

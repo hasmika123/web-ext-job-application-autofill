@@ -253,6 +253,27 @@ const adapter = (w, id) => w.JAF.adapters.find((a) => a.id === id);
   const lv2Items = adapter(lv2, "lever").plan({ fullName: "Alex Taylor", email: "a@b.co", city: "San Francisco" });
   const locItem = lv2Items.find((i) => i.el.name === "location");
   ok("BUG2 Lever location → city", locItem && locItem.field === "city" && locItem.value === "San Francisco");
+  ok("BUG2 Lever location is applied as an autocomplete", locItem && locItem.kind === "combo");
+
+  // Live Lever inputs can omit combobox ARIA until the first interaction. The
+  // dedicated adapter must still use the option-commit path in that case.
+  const lvCombo = win('<form class="application-form"><input name="location"></form>');
+  const lvLocation = lvCombo.document.querySelector('input[name="location"]');
+  lvLocation.addEventListener("click", () => {
+    if (lvCombo.document.querySelector(".dropdown-results .location-result")) return;
+    lvCombo.document.body.insertAdjacentHTML("beforeend",
+      '<div class="dropdown-results"><div class="location-result">San Francisco</div></div>');
+    const option = lvCombo.document.querySelector(".dropdown-results .location-result");
+    option.addEventListener("click", () => {
+      lvLocation.value = "San Francisco";
+      option.parentElement.remove();
+    });
+  });
+  const liveLocationItem = adapter(lvCombo, "lever").plan({ city: "San Francisco" })
+    .find((i) => i.el === lvLocation);
+  const locationApplied = await lvCombo.JAF.adapterBase.applyItemAsync(liveLocationItem);
+  ok("BUG2 Lever location commits the matching autocomplete option",
+    locationApplied && lvLocation.value === "San Francisco" && !lvCombo.document.querySelector(".dropdown-results .location-result"));
 
   console.log(`\n[qa_fixes] ${pass} passed, ${fail} failed`);
   if (fails.length) { fails.forEach((f) => console.log("  x " + f)); process.exit(1); }

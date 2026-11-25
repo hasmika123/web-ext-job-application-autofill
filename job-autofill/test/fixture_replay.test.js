@@ -105,12 +105,35 @@ function itemMatches(item, spec) {
   return !!item && !!item.el && item.el.matches(spec.sel) && item.kind === spec.kind;
 }
 
+// The scrubbed Lever fixture contains the real empty results container but not
+// the runtime JavaScript that populates it. Recreate only that deterministic
+// interaction so the replay exercises the production autocomplete path without
+// putting executable content into the fixture itself.
+function installFixtureBehaviors(w, expected) {
+  if (expected.adapter !== "lever") return;
+  const input = w.document.querySelector('input[name="location"]');
+  const results = w.document.querySelector(".dropdown-results");
+  if (!input || !results) return;
+  input.addEventListener("click", () => {
+    if (results.querySelector(".fixture-location-result")) return;
+    const option = w.document.createElement("div");
+    option.className = "fixture-location-result";
+    option.textContent = PERSONA.city;
+    results.appendChild(option);
+    option.addEventListener("click", () => {
+      input.value = PERSONA.city;
+      results.remove();
+    });
+  });
+}
+
 async function replay(pair) {
   const expected = JSON.parse(fs.readFileSync(pair.expect, "utf8"));
   const html = fs.readFileSync(pair.html, "utf8");
   const w = makeWindow(html, { url: expected.url });
   loadCore(w);
   SRC.forEach((source) => load(w, source));
+  installFixtureBehaviors(w, expected);
   const values = w.JAF.schema.buildFillValues(PERSONA, RESUME, {});
   const plan = w.JAF.filler.buildPlan(values);
   const failures = [];

@@ -699,7 +699,8 @@
       try { el.dispatchEvent(new MouseEvent(t, o)); } catch (e) { if (t === "click" && el.click) el.click(); }
     }
   }
-  const OPTION_SEL = '[role="option"],[data-automation-id="promptOption"],[data-automation-id="menuItem"],li[role="option"]';
+  const OPTION_SEL = '[role="option"],[data-automation-id="promptOption"],[data-automation-id="menuItem"],li[role="option"],' +
+    '.dropdown-results > *:not(.dropdown-no-results):not(.dropdown-loading-results)';
   function lookupRoots(trigger) {
     const local = trigger ? elementRoot(trigger) : document;
     return local === document ? [document] : [local, document];
@@ -730,7 +731,7 @@
     const seen = new Set();
     for (const root of roots) {
       for (const b of deepQueryAll(root,
-        '[role="listbox"],[data-automation-id="activeListContainer"],ul[data-automation-id="list"]')) {
+        '[role="listbox"],[data-automation-id="activeListContainer"],ul[data-automation-id="list"],.dropdown-results')) {
         if (seen.has(b) || !isVisible(b) || b.getAttribute("data-automation-id") === "selectedItemList") continue;
         seen.add(b);
         boxes.push(b);
@@ -747,7 +748,8 @@
   }
   function visibleOptions(scope) {
     const root = scope || document;
-    return deepQueryAll(root, OPTION_SEL).filter((o) => isVisible(o) && (o.textContent || "").trim());
+    return deepQueryAll(root, OPTION_SEL).filter((o) => isVisible(o) && (o.textContent || "").trim() &&
+      !o.matches(".dropdown-no-results,.dropdown-loading-results"));
   }
   function findSearchBox(trigger) {
     const sel = 'input[data-automation-id="searchBox"],input[role="combobox"],[role="combobox"] input,input[type="search"],[role="dialog"] input';
