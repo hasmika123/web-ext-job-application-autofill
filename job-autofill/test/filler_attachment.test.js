@@ -55,7 +55,7 @@ async function run(accepted) {
     batch: true,
     autoFill: true,
   });
-  await new Promise((resolve) => setTimeout(resolve, 650));
+  await new Promise((resolve) => setTimeout(resolve, 2600));
   return { w, input, messages, review: w.JAF.filler.batchReviewSnapshot() };
 }
 

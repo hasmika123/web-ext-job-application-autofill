@@ -4,6 +4,7 @@ const { makeWindow, loadCore } = require("./harness");
 let pass = 0, fail = 0;
 const fails = [];
 const tag = "[attach_file]";
+const pending = [];
 function ok(name, condition, extra) {
   if (condition) pass++;
   else { fail++; fails.push(name + (extra ? "  ->  " + extra : "")); }
@@ -35,7 +36,7 @@ function blob(w, text) {
   return new w.Blob([text || "resume"], { type: "application/pdf" });
 }
 
-(async function nativeInput() {
+pending.push((async function nativeInput() {
   const w = makeWindow('<body><input id="resume" type="file"></body>');
   installDataTransfer(w);
   loadCore(w);
@@ -44,9 +45,9 @@ function blob(w, text) {
   ok("native input: verified success", result.ok === true, JSON.stringify(result));
   ok("native input: intended file remains selected", input.files.length === 1 && input.files[0].name === "tailored.pdf");
   ok("native input: no drop needed", result.method === "input", JSON.stringify(result));
-})();
+})());
 
-(async function workdayDropZone() {
+pending.push((async function workdayDropZone() {
   const w = makeWindow(`<body>
     <div data-automation-id="formField-resumeAttachments" data-wd-file="true">
       <div data-automation-id="file-upload-drop-zone" style="border:1px dashed">
@@ -77,9 +78,59 @@ function blob(w, text) {
   ok("Workday: drop event was delivered", drops === 1);
   ok("Workday: widget accepted the file", result.ok === true && result.method === "drop", JSON.stringify(result));
   ok("Workday: fixture shows the accepted filename", files.textContent === "workday-tailored.pdf");
-})();
+})());
 
-(async function rejectionIsNotSuccess() {
+pending.push((async function delayedSmartRecruitersDropZone() {
+  const w = makeWindow(`<body>
+    <div data-sr-file="true">
+      <div data-testid="resume-dropzone"><input data-testid="resume-input" type="file" style="display:none"></div>
+      <div data-testid="resume-file-list"></div>
+    </div>
+  </body>`);
+  installDataTransfer(w);
+  loadCore(w);
+  const input = fileInput(w);
+  const zone = w.document.querySelector('[data-testid="resume-dropzone"]');
+  const files = w.document.querySelector('[data-testid="resume-file-list"]');
+  let acceptedFiles = [];
+  Object.defineProperty(input, "files", { configurable: true, get() { return acceptedFiles; }, set() {} });
+  zone.addEventListener("drop", (event) => {
+    setTimeout(() => {
+      acceptedFiles = event.dataTransfer.files;
+      files.textContent = event.dataTransfer.files[0].name;
+    }, 400);
+  });
+  const result = await w.JAF.adapterBase.attachFileDetailed(input, blob(w, "smartrecruitters"), "smartrecruitters-tailored.pdf");
+  ok("SmartRecruitters: delayed drop acceptance is verified", result.ok === true, JSON.stringify(result));
+  ok("SmartRecruitters: delayed widget shows the accepted filename", files.textContent === "smartrecruitters-tailored.pdf");
+})());
+
+pending.push((async function shadowInputWithRemoteStatus() {
+  const w = makeWindow("<body><div id='remote-file-status-host'></div><div id='resume-host'></div></body>");
+  installDataTransfer(w);
+  loadCore(w);
+  const host = w.document.getElementById("resume-host");
+  host.setAttribute("data-sr-file", "true");
+  const root = host.attachShadow({ mode: "open" });
+  root.innerHTML = '<div data-testid="resume-dropzone"><input type="file" style="display:none"></div>';
+  const statusHost = w.document.getElementById("remote-file-status-host");
+  const statusRoot = statusHost.attachShadow({ mode: "open" });
+  statusRoot.innerHTML = '<div id="remote-file-status"></div>';
+  const input = root.querySelector('input[type="file"]');
+  const zone = root.querySelector('[data-testid="resume-dropzone"]');
+  const remoteStatus = statusRoot.querySelector("#remote-file-status");
+  let acceptedFiles = [];
+  Object.defineProperty(input, "files", { configurable: true, get() { return acceptedFiles; }, set() {} });
+  zone.addEventListener("drop", (event) => {
+    setTimeout(() => {
+      remoteStatus.textContent = event.dataTransfer.files[0].name;
+    }, 400);
+  });
+  const result = await w.JAF.adapterBase.attachFileDetailed(input, blob(w, "remote-status"), "remote-status-resume.pdf");
+  ok("SmartRecruitters: shadow input accepts remote filename evidence", result.ok === true, JSON.stringify(result));
+})());
+
+pending.push((async function rejectionIsNotSuccess() {
   const w = makeWindow(`<body><div data-testid="resume-dropzone"><input type="file" style="display:none"></div></body>`);
   installDataTransfer(w);
   loadCore(w);
@@ -89,7 +140,7 @@ function blob(w, text) {
   ok("rejection: assignment without acceptance is failure", result.ok === false, JSON.stringify(result));
   ok("rejection: failure has a stable reason", ["widget-rejected-file", "file-assignment-failed"].includes(result.reason), JSON.stringify(result));
   ok("boolean compatibility: failed detail becomes false", (await w.JAF.adapterBase.attachFile(input, blob(w, "rejected"), "rejected.pdf")) === false);
-})();
+})());
 
 function report() {
   console.log(`${tag} ${pass} passed, ${fail} failed`);
@@ -97,4 +148,8 @@ function report() {
   console.log(`${tag} All green.`);
 }
 
-Promise.resolve().then(() => setTimeout(report, 20));
+Promise.all(pending).then(report, (error) => {
+  fail++;
+  fails.push("test threw -> " + (error && error.stack || error));
+  report();
+});

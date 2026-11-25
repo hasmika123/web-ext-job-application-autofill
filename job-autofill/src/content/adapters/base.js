@@ -550,6 +550,33 @@
     return false;
   }
 
+  function fileUiHas(inputEl, fileName, target, widget) {
+    const nodes = [target, widget];
+    try { nodes.push(inputEl && inputEl.getRootNode && inputEl.getRootNode()); } catch (e) {}
+    let node = inputEl;
+    for (let hops = 0; node && hops < 8; hops++) {
+      nodes.push(node);
+      node = attachmentParent(node);
+    }
+    const ownUi = (candidate) => {
+      let node = candidate;
+      for (let hops = 0; node && hops < 12; hops++) {
+        if (node.id === "__jaf_host" || node.id === "__kiwiply_batch_banner") return true;
+        if (node.parentElement) node = node.parentElement;
+        else {
+          const root = node.getRootNode && node.getRootNode();
+          node = root && root.host ? root.host : null;
+        }
+      }
+      return false;
+    };
+    if (nodes.some((candidate) => candidate && !ownUi(candidate) && typeof candidate.textContent === "string" && candidate.textContent.includes(fileName))) return true;
+    try {
+      const all = deepQueryAll(inputEl.ownerDocument || document, "*");
+      return all.some((candidate) => !ownUi(candidate) && typeof candidate.textContent === "string" && candidate.textContent.includes(fileName));
+    } catch (e) { return false; }
+  }
+
   function dispatchDrop(target, dataTransfer, type) {
     if (!target) return false;
     try {
@@ -596,10 +623,10 @@
       if (fileListHas(inputEl.files, file)) return { ok: true, method: target ? "drop" : "input" };
 
       // A few widgets replace the input's FileList and expose the accepted filename only in their
-      // upload row. Accept that explicit UI evidence, but never accept assignment alone.
-      if ([target, widget].some((node) => node && node.textContent && node.textContent.includes(file.name))) {
-        return { ok: true, method: "drop-ui" };
-      }
+      // upload row. SmartRecruiters can render that row asynchronously, so wait for the explicit
+      // UI evidence instead of reporting a false failure immediately after the drop event.
+      const accepted = await observeFor(() => fileListHas(inputEl.files, file) || fileUiHas(inputEl, file.name, target, widget), 1200);
+      if (accepted) return { ok: true, method: fileListHas(inputEl.files, file) ? "drop" : "drop-ui" };
       return {
         ok: false,
         reason: assigned || dropped ? "widget-rejected-file" : "file-assignment-failed",

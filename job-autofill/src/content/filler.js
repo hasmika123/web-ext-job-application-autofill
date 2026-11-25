@@ -14,6 +14,17 @@
   }
   function safe(fn) { try { return fn(); } catch (e) { return false; } }
 
+  // Contact and identity answers come from the saved profile. Some ATS résumé
+  // uploaders (notably SmartRecruitters) parse the file asynchronously and write
+  // their own contact values back into the form after the upload event. These
+  // are the fields that must be reconciled after that parser has finished; the
+  // résumé-derived content fields should remain untouched.
+  const PROFILE_FIELDS = new Set([
+    "firstName", "lastName", "fullName", "preferredName", "email", "confirmEmail", "phone",
+    "addressLine1", "addressLine2", "city", "state", "cityState", "postalCode", "country",
+    "linkedin", "github", "website", "gender", "race", "ethnicity", "veteranStatus", "disabilityStatus",
+  ]);
+
   function buildPlan(values) {
     const adapter = pickAdapter();
     let items = safe(() => adapter.plan(values)) || [];
@@ -163,9 +174,11 @@
       let fileMsg = "";
       let fileStatus = ""; // "" (no file offered) | ok | failed | nofield
       const fchk = root.querySelector("#filechk");
+      let resumeInput = null;
       if (file && fchk && fchk.checked) {
         const input = adapter.fileInput && adapter.fileInput();
         if (input) {
+          resumeInput = input;
           const attach = B.attachFileDetailed
             ? await B.attachFileDetailed(input, b64ToBlob(file.base64, file.type), file.name)
             : { ok: await B.attachFile(input, b64ToBlob(file.base64, file.type), file.name) };
@@ -173,6 +186,25 @@
           fileMsg = ok ? " · résumé attached" : " · résumé attach failed (upload manually)";
           fileStatus = ok ? "ok" : "failed";
         } else { fileMsg = " · no file field found"; fileStatus = "nofield"; }
+      }
+      // A résumé upload can trigger a second, asynchronous form fill inside the
+      // ATS. Wait for that parser, then restore only profile-backed answers and
+      // verify them again. This keeps the résumé's summary/experience content
+      // separate while preventing the ATS's extracted contact data from winning.
+      if (file && fchk && fchk.checked && resumeInput) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        for (const outcome of outcomes) {
+          const item = outcome.item;
+          if (outcome.status === "skipped" || !PROFILE_FIELDS.has(item.field)) continue;
+          const applied = await B.applyItemAsync(item);
+          const expectedValues = [item.value].concat(item.alts || []).filter((value) => value != null && value !== "");
+          const verified = !B.verifyItem || expectedValues.some((value) => B.verifyItem(item, value));
+          outcome.status = applied && verified ? "ok" : "failed";
+        }
+        filled = outcomes.filter((outcome) => outcome.status === "ok").length;
+        failedCount = outcomes.filter((outcome) => outcome.status === "failed").length;
+        failed.length = 0;
+        outcomes.filter((outcome) => outcome.status === "failed").forEach((outcome) => failed.push(rowName(outcome.item)));
       }
       // Phase 10.3d: from here on, answers the user gives to PROFILE questions on this page are
       // reported as suggested profile values (the server keeps them as suggestions; the user

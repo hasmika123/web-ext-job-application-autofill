@@ -204,6 +204,41 @@ const adapter = (w, id) => w.JAF.adapters.find((a) => a.id === id);
     !!sourceHost && sourceHost.shadowRoot.textContent.includes("Contact fields come from your saved Kiwiply profile."));
   sourceHost && sourceHost.remove();
 
+  /* ---- BUG-6: résumé parsing must not overwrite profile contact fields ---- */
+  const resumeRace = win(
+    '<label for="race-first">First Name</label><input id="race-first">' +
+    '<label for="race-last">Last Name</label><input id="race-last">' +
+    '<label for="race-email">Email</label><input id="race-email" type="email">' +
+    '<label for="race-phone">Phone</label><input id="race-phone">' +
+    '<label>Resume<input type="file" name="resume"></label>'
+  );
+  const raceBase = resumeRace.JAF.adapterBase;
+  const originalAttach = raceBase.attachFileDetailed;
+  raceBase.attachFileDetailed = async () => {
+    // SmartRecruitters parses the uploaded résumé after the file event and can
+    // replace contact values that the extension already wrote.
+    setTimeout(() => {
+      resumeRace.document.getElementById("race-first").value = "Alex";
+      resumeRace.document.getElementById("race-last").value = "Morgan";
+      resumeRace.document.getElementById("race-email").value = "alex.morgan.test@example.com";
+      resumeRace.document.getElementById("race-phone").value = "+15550102026";
+    }, 400);
+    return { ok: true };
+  };
+  await resumeRace.JAF.filler.start({
+    firstName: "Mrinal", lastName: "Sarkar", email: "rs916545@gmail.com", phone: "0980 045 3709",
+  }, { base64: "eA==", type: "application/pdf", name: "resume.pdf" }, {
+    assist: false, mapFields: false, autoAddRows: false,
+  });
+  const raceHost = resumeRace.document.getElementById("__jaf_host");
+  raceHost.shadowRoot.querySelector("#fill").click();
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  ok("BUG6 résumé parser cannot overwrite profile first name", resumeRace.document.getElementById("race-first").value === "Mrinal");
+  ok("BUG6 résumé parser cannot overwrite profile last name", resumeRace.document.getElementById("race-last").value === "Sarkar");
+  ok("BUG6 résumé parser cannot overwrite profile email", resumeRace.document.getElementById("race-email").value === "rs916545@gmail.com");
+  ok("BUG6 résumé parser cannot overwrite profile phone", resumeRace.document.getElementById("race-phone").value === "0980 045 3709");
+  raceBase.attachFileDetailed = originalAttach;
+
   /* ---- BUG-4: Ashby single legal-name field maps to fullName, not lastName ---- */
   const ash = win('<form><input name="_systemfield_name" aria-label="Legal First and Last Name">' +
     '<input name="_systemfield_email" type="email" aria-label="Email"></form>');
