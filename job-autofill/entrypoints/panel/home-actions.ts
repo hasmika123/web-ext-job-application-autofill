@@ -10,6 +10,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const JAF = () => window.JAF;
+const FILL_SOURCE_NOTE = "Contact fields come from your saved Kiwiply profile. Résumé content supplies summary, skills, experience, and education.";
 
 // The content script is bundled into one self-contained file; inject THAT on pages the manifest
 // content_scripts don't already cover (activeTab).
@@ -225,7 +226,7 @@ export async function fillPage(
   const resumeRef = { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label };
   const resp = await sendTo(
     tab.id,
-    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef, salary, opportunity: opportunity || null } },
+    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef, salary, sourceNote: FILL_SOURCE_NOTE, opportunity: opportunity || null } },
     frameId,
   );
   if (resp && resp.ok) return { ok: true, adapter: resp.adapter };

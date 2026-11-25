@@ -10,6 +10,8 @@
 import type { ResumeUploadServices, SaveInput, StructuredResume } from "@kiwiply/ui";
 import { WEB_ORIGIN } from "../../lib/hosts";
 
+const FILL_SOURCE_NOTE = "Contact fields come from your saved Kiwiply profile. Résumé content supplies summary, skills, experience, and education.";
+
 export type Handoff = {
   label: string;
   fileName: string;
@@ -165,7 +167,7 @@ export function makeServices(handoff: Handoff): ResumeUploadServices {
             values,
             file: fileObj,
             // No resume link — attach mode uploads the PDF to the application instead.
-            options: { autoAdvance: !!settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: { serverId: null, label: input.label }, salary: capture.salary },
+            options: { autoAdvance: !!settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: { serverId: null, label: input.label }, salary: capture.salary, sourceNote: FILL_SOURCE_NOTE },
           },
           frameId,
         );

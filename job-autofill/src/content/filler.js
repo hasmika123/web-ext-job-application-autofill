@@ -96,6 +96,7 @@
           </button>
         </header>
         <div class="body">
+          ${opts.sourceNote ? `<div class="infonote source-note">${esc(opts.sourceNote)}</div>` : ""}
           ${fillable.length ? `<div class="group-title">Review &amp; uncheck anything you don't want</div>` : (manual.length || info.length ? "" : `<div class="empty">No matching fields found on this step. Try the next step, or this site may need a custom selector.</div>`)}
           <div class="rows">${fillable.map(rowHtml).join("")}</div>
           ${file ? `<label class="row file"><input type="checkbox" id="filechk" checked /><span class="field">Attach résumé file</span><span class="val" title="${esc(file.name)}">${esc(file.name)}</span></label>` : ""}
@@ -138,7 +139,12 @@
       for (const c of checks) {
         const item = fillable[Number(c.dataset.i)];
         if (!c.checked) { outcomes.push({ item, status: "skipped" }); continue; }
-        const ok = await B.applyItemAsync(item);
+        const applied = await B.applyItemAsync(item);
+        // A write can be accepted by a detached node and then discarded by the page framework.
+        // Count only the value that the current control actually committed.
+        const expectedValues = [item.value].concat(item.alts || []).filter((value) => value != null && value !== "");
+        const verified = !B.verifyItem || expectedValues.some((value) => B.verifyItem(item, value));
+        const ok = !!applied && verified;
         outcomes.push({ item, status: ok ? "ok" : "failed" });
         // Learn from any later user correction to this field (local cache) — and, for a field we
         // actually filled, count that correction against this fill.
@@ -151,7 +157,7 @@
         if (ok) filled++;
         else {
           failedCount++;
-          if (item.kind === "combo" || item.kind === "combo-multi") failed.push(L[item.field] || item.field);
+          failed.push(rowName(item));
         }
       }
       let fileMsg = "";
@@ -258,12 +264,12 @@
           });
         } catch (e) {}
       }
-      const failMsg = failed.length ? ` · couldn't auto-pick ${failed.length} dropdown${failed.length === 1 ? "" : "s"} (${truncate(failed.join(", "), 40)}) — set those by hand` : "";
+      const failMsg = failed.length ? ` · couldn't confirm ${failed.length} field${failed.length === 1 ? "" : "s"} (${truncate(failed.join(", "), 40)}) — check those by hand` : "";
       // Prepare batch: the tab stays on a review of what was filled and what is still the consultant's
       // (the panel turns non-modal, so the page can be checked and completed beside it).
       if (opts.batch) {
         const stuckMsg = stepResult === "stuck" ? " · the site did not move on to its next step: check the fields it marks, then press its Next yourself" : "";
-        showReview(host, root, { outcomes: allOutcomes, file: shownFile, fileStatus: allFileStatus, gaps, filled: allFilled, failMsg: failMsg + stuckMsg, steps: carry ? carry.steps + 1 : 1, close });
+        showReview(host, root, { outcomes: allOutcomes, file: shownFile, fileStatus: allFileStatus, gaps, filled: allFilled, failMsg: failMsg + stuckMsg, steps: carry ? carry.steps + 1 : 1, sourceNote: opts.sourceNote, close });
         return;
       }
       // Phase 10.2: required fields are still empty. Don't auto-advance — the page would refuse
@@ -520,10 +526,11 @@
     const body = root.querySelector(".body");
     body.innerHTML = `
       <div class="status" id="rvstatus" aria-live="polite"></div>
+      ${r.sourceNote ? `<div class="infonote source-note">${esc(r.sourceNote)}</div>` : ""}
       ${gaps.length ? `<div class="group-title warn">Still needs you</div>
         <ul class="glist">${gaps.map((g, i) => `<li><button type="button" class="gjump" data-g="${i}"><span class="gdot"></span><span class="gname">${esc(g.name)}</span><span class="ggo">Go →</span></button></li>`).join("")}</ul>` : ""}
       <div class="group-title">Filled for you</div>
-      <div class="rows">${rows.map((o) => `<div class="row done${o.status === "skipped" ? " low" : ""}">${mark(o.status)}<span class="field">${esc(rowName(o.item))}${o.item.assisted ? '<span class="badges"><span class="aibadge">AI</span></span>' : ""}</span><span class="val" title="${esc(String(o.item.value))}">${esc(truncate(String(o.item.value), 60))}</span></div>`).join("")}${fileLine}</div>
+      <div class="rows">${rows.map((o) => { const actual = liveValue(o.item); return `<div class="row done${o.status === "skipped" ? " low" : ""}">${mark(o.status)}<span class="field">${esc(rowName(o.item))}${o.item.assisted ? '<span class="badges"><span class="aibadge">AI</span></span>' : ""}</span><span class="val" title="${esc(String(actual))}">${esc(truncate(String(actual || "—"), 60))}</span></div>`; }).join("")}${fileLine}</div>
       ${r.failMsg ? `<div class="infonote">${esc(r.failMsg.replace(/^\s*·\s*/, ""))}</div>` : ""}`;
     const footer = root.querySelector("footer");
     footer.innerHTML = `<button class="primary" id="done">Done</button>`;

@@ -15,6 +15,7 @@
     fullName: "fullName",
     preferredName: "preferredName",
     email: "email",
+    confirmEmail: "confirmEmail",
     phone: "phone",
     addressLine1: "addressLine1",
     addressLine2: "addressLine2",
@@ -61,7 +62,7 @@
   // Human-readable labels for the confirm overlay.
   const LABELS = {
     firstName: "First name", lastName: "Last name", fullName: "Full name",
-    preferredName: "Preferred name", email: "Email", phone: "Phone",
+    preferredName: "Preferred name", email: "Email", confirmEmail: "Confirm email", phone: "Phone",
     addressLine1: "Address", addressLine2: "Address line 2", city: "City",
     state: "State / Province", cityState: "City, state", postalCode: "Postal code", country: "Country",
     linkedin: "LinkedIn", github: "GitHub", website: "Website",
@@ -110,7 +111,7 @@
     const map = {
       firstName: bio.firstName, lastName: bio.lastName, preferredName: bio.preferredName,
       fullName: [bio.firstName, bio.lastName].filter(Boolean).join(" "),
-      email: bio.email, phone: bio.phone,
+      email: bio.email, confirmEmail: bio.email, phone: bio.phone,
       addressLine1: bio.addressLine1, addressLine2: bio.addressLine2,
       city: bio.city, state: bio.state, postalCode: bio.postalCode, country: bio.country,
       cityState: bio.city ? [bio.city, bio.state].filter(Boolean).join(", ") : undefined,

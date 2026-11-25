@@ -18,8 +18,8 @@
   const JAF = (window.JAF = window.JAF || {});
 
   JAF.defaultRules = {
-    version: 7,
-    updatedAt: "2026-09-22",
+    version: 8,
+    updatedAt: "2026-11-25",
 
     // W3C `autocomplete` attribute handling. Valid field tokens (given-name, email,
     // postal-code, …) are a standardized, high-precision signal the generic scanner
@@ -31,6 +31,7 @@
     // Keyword matchers for the GENERIC (no dedicated adapter) label matcher.
     // Kept in the {field, any, neg} shape that scanGeneric consumes.
     generic: [
+      { field: "confirmEmail", any: ["confirm email", "confirmation email", "confirm e-mail", "re-enter email", "reenter email", "retype email", "verify email"] },
       { field: "email", any: ["e-mail", "email"], neg: ["confirm", "verify"] },
       { field: "phone", any: ["phone", "mobile", "telephone", "cell"], neg: ["country code", "phone code", "device", "type", "extension", "ext", "fax"] },
       { field: "linkedin", any: ["linkedin"] },

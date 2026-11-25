@@ -10,6 +10,8 @@ const SRC = [
   "src/config/rules.js", "src/lib/rules-store.js", "src/lib/schema.js",
   "src/content/adapters/base.js", "src/content/adapters/generic.js",
   "src/content/adapters/lever.js", "src/content/adapters/ashby.js",
+  "src/content/required-audit.js",
+  "src/content/filler.js",
 ];
 function win(html) { const w = makeWindow(html); SRC.forEach((p) => load(w, p)); return w; }
 const scan = (w) => w.JAF.adapterBase.scanGeneric(w.document);
@@ -59,7 +61,7 @@ const adapter = (w, id) => w.JAF.adapters.find((a) => a.id === id);
   const shItems = scan(sh);
   ok("BUG5 firstName found inside open shadow root", (fieldOf(shItems, "firstName") || {}).el === root.querySelector('[name="first-name-input"]'));
   ok("BUG5 email found inside open shadow root", !!fieldOf(shItems, "email"));
-  ok("BUG5 confirm-email still negated (not email)", fieldOf(shItems, "email").el.name === "email-input");
+  ok("BUG5 confirm-email gets its own field", fieldOf(shItems, "confirmEmail").el.name === "confirm-email-input");
   ok("BUG5 fileInput pierces shadow", adapter(sh, "generic").fileInput() === root.querySelector('input[type="file"]'));
   const firstNameItem = fieldOf(shItems, "firstName");
   ok("BUG5 firstName fills inside open shadow root",
@@ -101,6 +103,78 @@ const adapter = (w, id) => w.JAF.adapters.find((a) => a.id === id);
   ok("BUG5 typed-only shadow autocomplete is not treated as committed",
     await uncommitted.JAF.adapterBase.selectCustom(typedOnly, "JALPAIGURI") === false && !typedOnlyList.hidden);
 
+  /* ---- BUG-5 follow-up: SmartRecruitters replaces a shadow combo after selection ---- */
+  const replaced = win("<div id='combo-replace-host'></div>");
+  const replacedRoot = replaced.document.getElementById("combo-replace-host").attachShadow({ mode: "open" });
+  replacedRoot.innerHTML =
+    '<input id="city-old" role="combobox" aria-label="City" aria-controls="city-options" aria-expanded="true" value="">' +
+    '<ul id="city-options" role="listbox"><li role="option">Jalpaiguri</li></ul>';
+  const oldCity = replacedRoot.querySelector("#city-old");
+  const oldOptions = replacedRoot.querySelector("#city-options");
+  const oldOption = oldOptions.querySelector('[role="option"]');
+  let currentCity = oldCity;
+  oldOption.addEventListener("click", () => {
+    const fresh = replaced.document.createElement("input");
+    fresh.id = "city-new";
+    fresh.setAttribute("role", "combobox");
+    fresh.setAttribute("aria-label", "City");
+    fresh.setAttribute("aria-expanded", "false");
+    replacedRoot.replaceChildren(fresh);
+    currentCity = fresh;
+  });
+  const replacedItem = { el: oldCity, field: "city", label: "City", kind: "combo", value: "Jalpaiguri" };
+  ok("BUG5 replacement combo does not report stale success",
+    await replaced.JAF.adapterBase.applyItemAsync(replacedItem) === false && replacedItem.el === currentCity &&
+      !currentCity.getAttribute("aria-selected"));
+
+  const committedReplacement = win("<div id='combo-commit-host'></div>");
+  const committedRoot = committedReplacement.document.getElementById("combo-commit-host").attachShadow({ mode: "open" });
+  committedRoot.innerHTML =
+    '<input id="city-old" role="combobox" aria-label="City" aria-controls="city-options" aria-expanded="true" value="">' +
+    '<ul id="city-options" role="listbox"><li role="option">Jalpaiguri</li></ul>';
+  const oldCommittedCity = committedRoot.querySelector("#city-old");
+  const committedOption = committedRoot.querySelector('[role="option"]');
+  let committedCity = oldCommittedCity;
+  committedOption.addEventListener("click", () => {
+    const fresh = committedReplacement.document.createElement("input");
+    fresh.id = "city-new";
+    fresh.setAttribute("role", "combobox");
+    fresh.setAttribute("aria-label", "City");
+    fresh.setAttribute("aria-expanded", "false");
+    fresh.value = "Jalpaiguri";
+    committedRoot.replaceChildren(fresh);
+    committedCity = fresh;
+  });
+  const committedItem = { el: oldCommittedCity, field: "city", label: "City", kind: "combo", value: "Jalpaiguri" };
+  ok("BUG5 replacement combo succeeds only after current control commits",
+    await committedReplacement.JAF.adapterBase.applyItemAsync(committedItem) === true && committedItem.el === committedCity && committedCity.value === "Jalpaiguri");
+
+  /* ---- BUG-5 follow-up: required audit also pierces open shadow roots ---- */
+  const requiredShadow = win("<div id='required-host'></div>");
+  const requiredRoot = requiredShadow.document.getElementById("required-host").attachShadow({ mode: "open" });
+  requiredRoot.innerHTML = '<label>City *<input id="required-city" required></label>';
+  ok("BUG5 required audit finds an empty shadow control",
+    requiredShadow.JAF.requiredAudit.findRequiredEmpty(requiredShadow.document).length === 1);
+
+  const verifyShadow = win('<label for="verify-email">Email</label><input id="verify-email">');
+  const verifyInput = verifyShadow.document.getElementById("verify-email");
+  const verifyItem = { el: verifyInput, field: "email", label: "Email", kind: "text", value: "ada@example.com" };
+  let verifyCurrent = verifyInput;
+  verifyInput.addEventListener("input", () => {
+    const fresh = verifyShadow.document.createElement("input");
+    fresh.id = "verify-email-new";
+    fresh.setAttribute("aria-label", "Email");
+    verifyInput.replaceWith(fresh);
+    verifyCurrent = fresh;
+  });
+  verifyShadow.JAF.adapterBase.applyItem(verifyItem, verifyItem.value);
+  ok("BUG5 post-fill verification rejects a blank rerendered control",
+    verifyShadow.JAF.adapterBase.verifyItem(verifyItem, verifyItem.value) === false && verifyItem.el === verifyCurrent);
+  ok("BUG5 post-fill verification accepts the current committed value", (() => {
+    verifyShadow.JAF.adapterBase.fillText(verifyCurrent, verifyItem.value);
+    return verifyShadow.JAF.adapterBase.verifyItem(verifyItem, verifyItem.value) === true;
+  })());
+
   /* ---- BUG-1: EEO fields fill (no more SENSITIVE hard-skip) ---- */
   const eeo = win('<label for="g">Gender</label><select id="g" name="gender"><option>Select</option><option>Male</option><option>Female</option></select>' +
     '<label for="v">Veteran Status</label><select id="v" name="veteran"><option>Select</option><option>I am not a veteran</option></select>');
@@ -111,6 +185,24 @@ const adapter = (w, id) => w.JAF.adapters.find((a) => a.id === id);
   const v = eeo.JAF.schema.buildFillValues({ firstName: "Alex", lastName: "Taylor", gender: "Male", veteranStatus: "No" }, { skills: [] }, {});
   ok("BUG1 buildFillValues includes EEO without includeEEO flag", v.gender === "Male" && v.veteranStatus === "No");
   ok("BUG1 EEO absent when the user has none", eeo.JAF.schema.buildFillValues({ firstName: "Alex" }, { skills: [] }, {}).gender === undefined);
+
+  const confirm = win('<label for="email">Email</label><input id="email" type="email">' +
+    '<label for="confirm">Confirm Email</label><input id="confirm" type="email" autocomplete="email">');
+  const confirmItems = scan(confirm);
+  ok("BUG4 ordinary email keeps the email field", fieldOf(confirmItems, "email").el.id === "email");
+  ok("BUG4 confirmation email maps separately", fieldOf(confirmItems, "confirmEmail").el.id === "confirm");
+  const confirmValues = confirm.JAF.schema.buildFillValues({ email: "ada@example.com" }, { skills: [] }, {});
+  ok("BUG4 confirmation email uses the saved profile email", confirmValues.confirmEmail === "ada@example.com");
+
+  const sourceContract = win('<label for="source-email">Email</label><input id="source-email">');
+  await sourceContract.JAF.filler.start({ email: "ada@example.com" }, null, {
+    assist: false,
+    sourceNote: "Contact fields come from your saved Kiwiply profile.",
+  });
+  const sourceHost = sourceContract.document.getElementById("__jaf_host");
+  ok("BUG4 fill review explains the profile/résumé source contract",
+    !!sourceHost && sourceHost.shadowRoot.textContent.includes("Contact fields come from your saved Kiwiply profile."));
+  sourceHost && sourceHost.remove();
 
   /* ---- BUG-4: Ashby single legal-name field maps to fullName, not lastName ---- */
   const ash = win('<form><input name="_systemfield_name" aria-label="Legal First and Last Name">' +

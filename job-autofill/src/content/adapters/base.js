@@ -355,7 +355,14 @@
       let best = null;
       for (const m of M) {
         // neg words veto against the FULL combined label (any signal can disqualify).
-        if (m.neg && m.neg.some((n) => lbl.includes(n))) continue;
+        if (m.neg && m.neg.some((n) => {
+          // Confirm-email exclusion must be backed by a human label, not a generated
+          // id/name such as "verify-email" on an ordinary email control.
+          if (m.field === "email" && /^(confirm|verify)$/.test(n)) {
+            return parts.some((p) => p.tier >= TIER.LABEL && p.text.toLowerCase().includes(n));
+          }
+          return lbl.includes(n);
+        })) continue;
         // Positive hits are scored PER SIGNAL TIER: automation-id > label/aria > placeholder/name.
         for (const p of parts) {
           const pt = p.text.toLowerCase();
@@ -365,11 +372,18 @@
           if (!best || score > best.score) best = { field: m.field, score, tier: p.tier };
         }
       }
+      // Confirmation-email is too dangerous to infer from a generated id/name alone
+      // (for example, an ordinary email input whose id happens to contain "verify").
+      if (best && best.field === "confirmEmail" && best.tier < TIER.LABEL) best = null;
       // The autocomplete token outranks any keyword hit — EXCEPT when it says the
       // broad "website" and the label matched the more specific linkedin/github.
-      if (acField && !(acField === "website" && best && (best.field === "linkedin" || best.field === "github"))) {
+      const confirmEmailLabel = parts.some((p) => p.tier >= TIER.LABEL &&
+        /\b(confirm|confirmation|verify|re-?enter|retype)\b/.test(p.text.toLowerCase()) &&
+        /\b(e-?mail)\b/.test(p.text.toLowerCase()));
+      if (acField && !(confirmEmailLabel && acField === "email") && !(acField === "website" && best && (best.field === "linkedin" || best.field === "github"))) {
         best = { field: acField, score: TIER.AUTOCOMPLETE, tier: TIER.AUTOCOMPLETE };
       }
+      if (confirmEmailLabel && (!best || best.field === "email")) best = { field: "confirmEmail", score: TIER.LABEL + 20, tier: TIER.LABEL };
       // EEO/demographic fields are scanned like any other now (user decision: EEO is
       // always available, no opt-in). They only end up FILLED when the user actually
       // has that value (the adapter's plan gates on values[field]) and the user still
@@ -414,20 +428,44 @@
   }
 
   // A planned element the page has since re-rendered (React forms remount their inputs while the
-  // plan waits for AI drafts): find its replacement by id or name, else keep the stale node.
-  function reattach(el) {
+  // plan waits for AI drafts): find its replacement by id/name OR by the canonical field + label.
+  // The latter is required by SmartRecruitters: its shadow form changes generated ids on every
+  // validation pass, so an id-only lookup silently returns the detached node.
+  function reattach(el, hint) {
     if (isAttached(el)) return el;
-    let r = null;
-    try {
-      if (el.id) r = document.getElementById(el.id);
-      if (!r && el.name && el.tagName) r = document.querySelector(el.tagName.toLowerCase() + '[name="' + cssEscape(el.name) + '"]');
-    } catch (e) { r = null; }
-    return r && r.tagName === el.tagName ? r : el;
+    if (!el) return el;
+    const tag = String(el.tagName || "").toLowerCase();
+    const selector = tag || "*";
+    let candidates = [];
+    try { candidates = deepQueryAll(document, selector); } catch (e) {}
+    const sameTag = candidates.filter((candidate) => !tag || String(candidate.tagName || "").toLowerCase() === tag);
+    const byId = el.id && sameTag.find((candidate) => candidate.id === el.id);
+    if (byId) return byId;
+    const byName = el.name && sameTag.find((candidate) => candidate.name === el.name);
+    if (byName) return byName;
+
+    const field = hint && hint.field;
+    if (!field) return el;
+    const wantedLabel = String((hint && hint.label) || "").toLowerCase().replace(/\s+/g, " ").trim();
+    let mapped = [];
+    try { mapped = scanGeneric(document).filter((item) => item.field === field && sameTag.includes(item.el)); } catch (e) {}
+    if (!mapped.length) return el;
+    mapped.sort((a, b) => {
+      const score = (item) => {
+        const label = String(item.label || "").toLowerCase().replace(/\s+/g, " ").trim();
+        if (!wantedLabel || !label) return item.score || 0;
+        if (label === wantedLabel) return 10000 + (item.score || 0);
+        if (label.includes(wantedLabel) || wantedLabel.includes(label)) return 5000 + (item.score || 0);
+        return item.score || 0;
+      };
+      return score(b) - score(a);
+    });
+    return mapped[0].el || el;
   }
 
   // Apply one planned fill item. Returns true on success.
   function applyItem(item, value) {
-    const el = item.el = reattach(item.el);
+    const el = item.el = reattach(item.el, item);
     if (!isAttached(el)) return false;
     const kind = item.kind || elKind(el);
     try {
@@ -760,6 +798,73 @@
     return !!a && !!w && (a === w || a.startsWith(w + ",") || a.startsWith(w + " -"));
   }
 
+  function selectedRadioValue(el) {
+    const root = elementRoot(el);
+    const name = String(el && el.name || "");
+    const form = el && el.form;
+    const radios = deepQueryAll(root, 'input[type="radio"]').filter((r) =>
+      (!name || r.name === name) && (!form || r.form === form)
+    );
+    const picked = radios.find((r) => r.checked);
+    if (!picked) return "";
+    const wrap = picked.closest && picked.closest("label");
+    return String(picked.value || (wrap && wrap.textContent) || "").trim();
+  }
+
+  function readCommittedValue(el, item) {
+    if (!el) return "";
+    const type = String(el.getAttribute && el.getAttribute("type") || "").toLowerCase();
+    if (item && item.choices && Array.isArray(item.choices)) {
+      const picked = item.choices.find((choice) => choice && choice.el && choice.el.checked);
+      return picked ? String(picked.value || picked.text || "").trim() : "";
+    }
+    if (type === "radio") return selectedRadioValue(el);
+    if (type === "checkbox") return el.checked ? "true" : "false";
+    if (type === "file") return el.files && el.files.length ? String(el.files[0].name || "") : "";
+    if (el.tagName === "SELECT") {
+      const option = el.options && el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null;
+      return option ? String(option.text || option.value || "").trim() : String(el.value || "").trim();
+    }
+    if (item && (item.kind === "combo" || item.kind === "combo-multi") || el.getAttribute && el.getAttribute("role") === "combobox") {
+      return committedValue(el);
+    }
+    if (el.isContentEditable) return String(el.textContent || "").trim();
+    return typeof el.value === "string" ? el.value.trim() : String(el.textContent || "").trim();
+  }
+
+  function valuesMatch(actual, wanted, field) {
+    if (Array.isArray(wanted)) return wanted.length > 0 && wanted.every((v) => valuesMatch(actual, v, field));
+    const a = String(actual == null ? "" : actual).replace(/\s+/g, " ").trim().toLowerCase();
+    const w = String(wanted == null ? "" : wanted).replace(/\s+/g, " ").trim().toLowerCase();
+    if (!a || !w) return false;
+    if (field === "phone") {
+      const ad = a.replace(/\D/g, "");
+      const wd = w.replace(/\D/g, "");
+      return !!ad && !!wd && (ad === wd || ad.endsWith(wd) || wd.endsWith(ad));
+    }
+    if (/^(yes|true|1)$/.test(w)) return /^(yes|true|1)$/.test(a);
+    if (/^(no|false|0)$/.test(w)) return /^(no|false|0)$/.test(a);
+    return a === w || a.startsWith(w + ",") || a.startsWith(w + " -");
+  }
+
+  // Re-read the current page control after a fill. This is deliberately separate from the write
+  // path: frameworks are allowed to replace a node or reject a value after input/change events.
+  function verifyItem(item, wanted) {
+    if (!item) return false;
+    const el = item.el = reattach(item.el, item);
+    if (!isAttached(el)) return false;
+    try {
+      if (el.getAttribute("aria-invalid") === "true") return false;
+      if (el.validity && el.validity.valid === false) return false;
+    } catch (e) {}
+    const type = String(el.getAttribute && el.getAttribute("type") || "").toLowerCase();
+    if (type === "checkbox") {
+      const want = /^(yes|true|1)$/i.test(String(wanted));
+      return el.checked === want;
+    }
+    return valuesMatch(readCommittedValue(el, item), wanted, item.field);
+  }
+
   // Typing into an autocomplete is not the same as selecting one of its options.
   // Require a standard post-selection signal for input-backed combos: the listbox
   // closed, the option became selected/active, or the control explicitly collapsed.
@@ -773,36 +878,45 @@
     return !box || visibleOptions(box).length === 0;
   }
 
-  async function selectCustom(trigger, value) {
+  async function selectCustom(trigger, value, hint) {
     if (!trigger || value == null || value === "") return false;
     const want = String(value).trim();
+    let active = reattach(trigger, hint);
     const openAndPick = async () => {
-      try { trigger.scrollIntoView({ block: "center", inline: "nearest" }); } catch (e) {}
-      if (trigger.tagName === "INPUT") {
-        trigger.focus(); realClick(trigger);
-        setNativeValue(trigger, want); fire(trigger, "input");
+      active = reattach(active, hint);
+      try { active.scrollIntoView({ block: "center", inline: "nearest" }); } catch (e) {}
+      if (active.tagName === "INPUT") {
+        active.focus(); realClick(active);
+        setNativeValue(active, want); fire(active, "input");
       } else {
-        realClick(trigger);
-        await observeFor(() => visibleOptions(openListbox(trigger)).length > 0, 2500);
-        const search = findSearchBox(trigger);
+        realClick(active);
+        await observeFor(() => visibleOptions(openListbox(active)).length > 0, 2500);
+        const search = findSearchBox(active);
         if (search) { search.focus(); setNativeValue(search, want); fire(search, "input"); fire(search, "keyup"); }
       }
       // Scope option lookups to the listbox THIS trigger opened (see openListbox).
-      await observeFor(() => visibleOptions(openListbox(trigger)).length > 0, 900);
-      const opt = bestOption(visibleOptions(openListbox(trigger)), want);
+      await observeFor(() => visibleOptions(openListbox(active)).length > 0, 900);
+      const opt = bestOption(visibleOptions(openListbox(active)), want);
       if (!opt) { try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {} return false; }
       realClick(opt);
-      return await observeFor(() => committedChoice(trigger, want, opt), 700);
+      // The option click can synchronously replace the input. Reattach before reading the
+      // committed value; otherwise the detached input's old value makes a failed fill look good.
+      return await observeFor(() => {
+        const current = reattach(active, hint);
+        if (current) active = current;
+        const optionForCurrent = active === trigger ? opt : null;
+        return committedChoice(active, want, optionForCurrent);
+      }, 700);
     };
     // First attempt, then verify the control actually committed; retry once.
     let clicked = await openAndPick();
-    if (clicked && !showsPlaceholder(trigger)) return true;
-    if (!clicked && showsPlaceholder(trigger)) {
+    if (clicked && !showsPlaceholder(active)) return true;
+    if (!clicked && showsPlaceholder(active)) {
       // nothing landed at all — one retry
       clicked = await openAndPick();
     }
     // Success only if an option was chosen AND the trigger no longer shows a placeholder.
-    return clicked && !showsPlaceholder(trigger);
+    return clicked && !showsPlaceholder(active);
   }
 
   // Async apply: drives combos; everything else delegates to the sync applyItem.
@@ -811,22 +925,33 @@
     // "choice": click ONE specific radio/checkbox option (an AI pick that was
     // matched against the page's own option list — never free text).
     if (item.kind === "choice") {
-      const el = item.el = reattach(item.el);
+      const el = item.el = reattach(item.el, item);
       if (!isAttached(el)) return false;
       realClick(el);
       if (!el.checked) { try { el.checked = true; fire(el, "input"); fire(el, "change"); } catch (e) {} }
       return el.checked === true;
     }
     if (item.kind === "combo") {
-      item.el = reattach(item.el);
+      item.el = reattach(item.el, item);
       const cands = [item.value].concat(item.alts || []).filter((v) => v != null && v !== "");
-      for (const v of cands) { if (await selectCustom(item.el, v)) return true; }
+      for (const v of cands) {
+        if (await selectCustom(item.el, v, item)) {
+          item.el = reattach(item.el, item);
+          return true;
+        }
+        item.el = reattach(item.el, item);
+      }
       return false;
     }
     if (item.kind === "combo-multi") {
       const vals = Array.isArray(item.value) ? item.value : [item.value];
       let any = false;
-      for (const v of vals) { const ok = await selectCustom(item.el, v); any = any || ok; await delay(160); }
+      for (const v of vals) {
+        const ok = await selectCustom(item.el, v, item);
+        item.el = reattach(item.el, item);
+        any = any || ok;
+        await delay(160);
+      }
       return any;
     }
     return applyItem(item, item.value);
@@ -837,6 +962,6 @@
     cssEscape, isFillable, scanGeneric, deepQueryAll, blockText, elKind, applyItem, applyItemAsync, attachFile, attachFileDetailed, humanize,
     isVisible, findNextButton, isCustomDropdown, selectCustom, realClick, waitFor, delay,
     // exposed for unit tests (dropdown option scoping + matching + autocomplete)
-    openListbox, visibleOptions, bestOption, autocompleteField, autocompleteTrusted,
+    openListbox, visibleOptions, bestOption, autocompleteField, autocompleteTrusted, verifyItem,
   };
 })();

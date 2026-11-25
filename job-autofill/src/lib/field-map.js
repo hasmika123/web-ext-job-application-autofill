@@ -19,7 +19,7 @@
   // never LLM-mapped — the deterministic rules own those). Bundled copy because
   // the service worker doesn't load schema.js.
   const MAPPABLE = [
-    "firstName", "lastName", "fullName", "preferredName", "email", "phone",
+    "firstName", "lastName", "fullName", "preferredName", "email", "confirmEmail", "phone",
     "addressLine1", "addressLine2", "city", "state", "postalCode", "country",
     "linkedin", "github", "website", "authorizedToWork", "requireSponsorship",
     "desiredSalary", "noticePeriod", "earliestStartDate", "workPreference", "willingToRelocate", "referralSource",

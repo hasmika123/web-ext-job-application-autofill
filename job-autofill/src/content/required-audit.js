@@ -16,6 +16,16 @@
   const SKIP_TYPES = new Set(["hidden", "submit", "button", "reset", "image"]);
   const LABEL_TIER = 200; // adapterBase's TIER.LABEL — human-visible label text, not ids or names
 
+  function rootOf(el) {
+    try { return el && typeof el.getRootNode === "function" ? el.getRootNode() : document; } catch (e) { return document; }
+  }
+
+  function allControls(root, selector) {
+    const B = JAF.adapterBase;
+    if (B && B.deepQueryAll) return B.deepQueryAll(root || document, selector);
+    return Array.from((root || document).querySelectorAll ? (root || document).querySelectorAll(selector) : []);
+  }
+
   // Human-visible label texts for a control (aria-label, <label for>, wrapping label, a radio
   // group's question). Falls back to a minimal version when the adapter base isn't loaded.
   function labelTexts(el) {
@@ -24,7 +34,8 @@
     const out = [];
     if (el.getAttribute && el.getAttribute("aria-label")) out.push(el.getAttribute("aria-label"));
     if (el.id) {
-      const l = document.querySelector('label[for="' + String(el.id).replace(/"/g, '\\"') + '"]');
+      const root = rootOf(el);
+      const l = root.querySelector && Array.from(root.querySelectorAll("label")).find((label) => label.getAttribute("for") === el.id);
       if (l) out.push(l.textContent);
     }
     const wrap = el.closest && el.closest("label");
@@ -57,9 +68,9 @@
   }
 
   function radioGroup(el) {
-    const doc = el.ownerDocument || document;
+    const root = rootOf(el);
     if (!el.name) return [el];
-    return Array.from(doc.querySelectorAll('input[type="radio"]')).filter((r) => r.name === el.name && r.form === el.form);
+    return allControls(root, 'input[type="radio"]').filter((r) => r.name === el.name && r.form === el.form);
   }
 
   /** Is this required control still empty? For a radio, whether its whole group has no pick. */
@@ -85,7 +96,7 @@
 
   // A Workday dropdown is a button that names itself required ("Country Select One Required") and shows "Select One" until picked.
   function emptyRequiredPrompts(doc) {
-    return Array.from(doc.querySelectorAll('button[aria-haspopup="listbox"][aria-label$="Required"]')).filter((b) => {
+    return allControls(doc, 'button[aria-haspopup="listbox"][aria-label$="Required"]').filter((b) => {
       if (!visible(b)) return false;
       const shown = String(b.textContent || "").replace(/\s+/g, " ").trim();
       return !shown || /^select one$/i.test(shown);
@@ -97,15 +108,15 @@
     doc = doc || document;
     const out = emptyRequiredPrompts(doc);
     const groupsSeen = new Set();
-    for (const el of doc.querySelectorAll("input, select, textarea")) {
+    for (const el of allControls(doc, "input, select, textarea")) {
       const type = typeOf(el);
       if (SKIP_TYPES.has(type)) continue;
 
       if (type === "radio") {
         const group = radioGroup(el);
-        const key = el.name ? el.name + "|" + (el.form ? Array.prototype.indexOf.call(doc.forms, el.form) : -1) : null;
-        if (key && groupsSeen.has(key)) continue;
-        if (key) groupsSeen.add(key);
+        const key = group[0] || el;
+        if (groupsSeen.has(key)) continue;
+        groupsSeen.add(key);
         if (!group.some(isRequired) || !group.some(visible)) continue;
         if (isStillEmpty(el)) out.push(el);
         continue;
