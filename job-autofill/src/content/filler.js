@@ -587,6 +587,7 @@
     const close = () => {
       document.removeEventListener("input", recheck, true);
       document.removeEventListener("change", recheck, true);
+      document.removeEventListener("click", recheckAfterClick);
       closeOverlay();
     };
     const render = () => {
@@ -608,8 +609,12 @@
       }
       if (changed) render();
     }
+    // Greenhouse React-select can commit an option on click without dispatching input/change
+    // on its empty search input. Let the page's click handler settle before reading the control.
+    function recheckAfterClick() { setTimeout(recheck, 0); }
     document.addEventListener("input", recheck, true);
     document.addEventListener("change", recheck, true);
+    document.addEventListener("click", recheckAfterClick);
     card.querySelector(".gx").onclick = close;
     card.querySelectorAll(".gjump").forEach((b) => { b.onclick = () => jumpTo(items[Number(b.dataset.g)].el); });
     render();

@@ -986,6 +986,24 @@ const adapter = (w, id) => w.JAF.adapters.find((a) => a.id === id);
     return verifyShadow.JAF.adapterBase.verifyItem(verifyItem, verifyItem.value) === true;
   })());
 
+  /* ---- BUG-8: invalid legacy HTML pattern must not poison verification ---- */
+  // Lever/Rover ships an email pattern that is valid under the old regex mode
+  // but invalid under Chromium's HTML `pattern` v-mode because of its character
+  // class. Accessing input.validity on that element logs a browser warning.
+  const invalidPattern = win('<label>Email<input id="lever-pattern-email" type="email"></label>');
+  const invalidPatternEmail = invalidPattern.document.getElementById("lever-pattern-email");
+  invalidPatternEmail.setAttribute("pattern", "[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9.-]+");
+  invalidPatternEmail.value = "ada@example.com";
+  let validityReads = 0;
+  Object.defineProperty(invalidPatternEmail, "validity", {
+    configurable: true,
+    get() { validityReads++; throw new SyntaxError("invalid v-mode pattern"); },
+  });
+  const invalidPatternItem = { el: invalidPatternEmail, field: "email", kind: "text", value: invalidPatternEmail.value };
+  ok("BUG8 invalid Lever pattern is skipped without reading ValidityState",
+    invalidPattern.JAF.adapterBase.verifyItem(invalidPatternItem, invalidPatternItem.value) === true && validityReads === 0,
+    "validity reads: " + validityReads);
+
   /* ---- BUG-1: EEO fields fill (no more SENSITIVE hard-skip) ---- */
   const eeo = win('<label for="g">Gender</label><select id="g" name="gender"><option>Select</option><option>Male</option><option>Female</option></select>' +
     '<label for="v">Veteran Status</label><select id="v" name="veteran"><option>Select</option><option>I am not a veteran</option></select>');

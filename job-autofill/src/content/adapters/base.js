@@ -56,6 +56,13 @@
   // coerced to "No" — it either names one of the group's options or it doesn't fit.
   const YESNO_RE = /^(yes|no|true|false|1|0)$/i;
 
+  function stripDialCode(value) {
+    return String(value == null ? "" : value)
+      .replace(/^(?:\(\s*\+?\d[\d\s().-]*\)|\+\d[\d\s().-]*)\s+/, "")
+      .replace(/\s*(?:\(\s*\+?\d[\d\s().-]*\)|\+\d[\d\s().-]*)\s*$/, "")
+      .trim();
+  }
+
   // A radio group whose options are choices, not Yes/No: pick the option the value names.
   // Exact label first, then a prefix either way ("On-site" ↔ "On-site (5 days a week)"), with
   // a length floor so a two-letter answer can't match a long option by accident.
@@ -424,7 +431,11 @@
     if (el.tagName === "SELECT") return "select";
     // Explicit custom dropdowns (Workday prompts, react-select, listbox combos)
     // are driven by selectCustom rather than typed into.
-    if (el.matches && el.matches('[aria-haspopup="listbox"],[role="combobox"][aria-controls],[role="combobox"][aria-expanded]')) return "combo";
+    // Greenhouse/react-select mounts the empty input with only role=combobox;
+    // aria-controls/aria-expanded are added after the first interaction. Treat
+    // the role itself as authoritative or the fill path types into the input
+    // without committing one of the page's options.
+    if (el.matches && el.matches('[aria-haspopup="listbox"],[role="combobox"]')) return "combo";
     if (el.tagName === "TEXTAREA" || el.isContentEditable) return "textarea";
     if (el.type === "radio" || el.type === "checkbox") return "boolean";
     if (el.type === "file") return "file";
@@ -1066,7 +1077,33 @@
     }
     if (/^(yes|true|1)$/.test(w)) return /^(yes|true|1)$/.test(a);
     if (/^(no|false|0)$/.test(w)) return /^(no|false|0)$/.test(a);
+    // Greenhouse country controls commonly display the dial code beside the
+    // selected name while the profile stores only the country name.
+    if (field === "country") {
+      if (stripDialCode(a) === stripDialCode(w)) return true;
+    }
     return a === w || a.startsWith(w + ",") || a.startsWith(w + " -");
+  }
+
+  let supportsUnicodeSets = null;
+  function validHtmlPattern(el) {
+    let pattern = "";
+    try { pattern = el && el.getAttribute && el.getAttribute("pattern") || ""; } catch (e) {}
+    if (!pattern) return true;
+    if (supportsUnicodeSets == null) {
+      try { new RegExp("", "v"); supportsUnicodeSets = true; }
+      catch (e) { supportsUnicodeSets = false; }
+    }
+    try {
+      // HTML pattern constraints use Unicode Sets (`v`) in current Chromium.
+      // Test the page-authored expression before touching input.validity; a
+      // legacy pattern can otherwise make the browser log a SyntaxError while
+      // the extension is only verifying a value it just filled.
+      new RegExp("^(?:" + pattern + ")$", supportsUnicodeSets ? "v" : "");
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   // Re-read the current page control after a fill. This is deliberately separate from the write
