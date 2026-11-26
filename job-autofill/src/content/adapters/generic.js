@@ -13,9 +13,95 @@
     plan(values) {
       const found = B.scanGeneric(document);
       const items = [];
+      const PHONE_CODE_RE = /(?:\bcountry\s*[-_/ ]?\s*code\b|\bphone\s*(?:country\s*)?(?:dial|calling|country)?\s*code\b|\b(?:dial|calling)\s*code\b|\b(?:country|phone|dial|calling)code\b)/i;
+      const isSmartRecruitersPage = () => {
+        try { return /(^|\.)smartrecruiters\.com$/i.test(String(location.hostname || "")); } catch (e) { return false; }
+      };
+      const controlText = (el) => {
+        const attrs = ["aria-label", "title", "name", "id", "data-testid", "data-automation-id"]
+          .map((name) => { try { return el.getAttribute(name) || ""; } catch (e) { return ""; } });
+        return [B.labelText(el)].concat(attrs).join(" ").replace(/\s+/g, " ").trim();
+      };
+      const findPhoneCountryControl = (phoneEl) => {
+        if (!phoneEl) return null;
+        const selector = 'input,select,button,[role="combobox"],[aria-haspopup="listbox"],spl-select';
+        let node = phoneEl;
+        const composedParent = (el) => {
+          try {
+            if (el && el.parentElement) return el.parentElement;
+            const root = el && el.getRootNode && el.getRootNode();
+            return root && root.host || null;
+          } catch (e) { return null; }
+        };
+        const composedAncestors = (el) => {
+          const ancestors = [];
+          let current = el;
+          for (let hops = 0; current && hops < 8; hops++) {
+            ancestors.push(current);
+            current = composedParent(current);
+          }
+          return ancestors;
+        };
+        const sharesPhoneContainer = (candidate) => {
+          const phoneAncestors = composedAncestors(phoneEl);
+          const candidateAncestors = composedAncestors(candidate);
+          const phoneIndex = (node) => phoneAncestors.indexOf(node);
+          const common = candidateAncestors.find((node) => phoneIndex(node) >= 0);
+          return !!common && candidateAncestors.indexOf(common) <= 2 && phoneIndex(common) <= 4;
+        };
+        // SmartRecruiters keeps the code selector beside the phone input in a
+        // small wrapper. Climb only nearby containers and require the custom
+        // selector to share that phone container; an unrelated <spl-select>
+        // elsewhere on the page must not become the dial code.
+        for (let hops = 0; node && hops < 8; hops++) {
+          let controls = [];
+          try { controls = B.deepQueryAll(node, selector); } catch (e) {}
+          for (const candidate of controls) {
+            if (candidate === phoneEl || candidate.disabled || candidate.readOnly) continue;
+            if (String(candidate.tagName || "").toLowerCase() === "spl-select") {
+              if (isSmartRecruitersPage() && sharesPhoneContainer(candidate)) return candidate;
+              continue;
+            }
+            if (PHONE_CODE_RE.test(controlText(candidate))) return candidate;
+          }
+          // The actual phone input can live inside SPL-PHONE-FIELD's shadow
+          // root while SPL-SELECT is a sibling of that host. parentElement
+          // stops at the shadow root, so continue through its host.
+          node = composedParent(node);
+        }
+        return null;
+      };
+      const dropdownAlts = (field, value) => {
+        if (!JAF.schema || value == null || value === "") return [];
+        try {
+          const candidates = field === "country" && JAF.schema.countryCandidates
+            ? JAF.schema.countryCandidates(value)
+            : field === "state" && JAF.schema.stateCandidates
+              ? JAF.schema.stateCandidates(value)
+              : [];
+          return candidates.filter((candidate) => String(candidate) !== String(value));
+        } catch (e) { return []; }
+      };
       for (const c of found) {
         if (values[c.field] === undefined) continue;
-        items.push({ el: c.el, field: c.field, value: values[c.field], label: c.label || c.field, kind: c.kind, confidence: c.confidence });
+        const item = {
+          el: c.el,
+          field: c.field,
+          value: values[c.field],
+          label: c.label || c.field,
+          kind: c.kind,
+          confidence: c.confidence,
+          alts: dropdownAlts(c.field, values[c.field]),
+        };
+        if (c.field === "phone" && values.country) {
+          const phoneCountryControl = findPhoneCountryControl(c.el);
+          if (phoneCountryControl) {
+            item.phoneCountryControl = phoneCountryControl;
+            item.phoneCountry = values.country;
+            item.phoneCountryAlts = dropdownAlts("country", values.country);
+          }
+        }
+        items.push(item);
       }
       return items;
     },

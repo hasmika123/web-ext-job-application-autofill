@@ -15,7 +15,7 @@
   function safe(fn) { try { return fn(); } catch (e) { return false; } }
 
   // Contact and identity answers come from the saved profile. Some ATS résumé
-  // uploaders (notably SmartRecruitters) parse the file asynchronously and write
+  // uploaders (notably SmartRecruiters) parse the file asynchronously and write
   // their own contact values back into the form after the upload event. These
   // are the fields that must be reconciled after that parser has finished; the
   // résumé-derived content fields should remain untouched.
@@ -43,6 +43,149 @@
     const seen = new Set();
     items = items.filter((i) => { if (seen.has(i.el)) return false; seen.add(i.el); return true; });
     return { adapter, items };
+  }
+
+  // SmartRecruiters can mount or reset Country/Region and the phone code while
+  // its dependent City control commits. A single delay is not a lifecycle
+  // boundary: the page can replace the control after that delay. Reconcile
+  // against fresh plans while polling the current nodes and observing the DOM.
+  // This remains narrow and SmartRecruiters-only; other ATSs keep their normal
+  // one-scan contract.
+  const smartNodeIds = new WeakMap();
+  let smartNodeSequence = 0;
+  const isSmartRecruitersHost = () => {
+    const host = typeof location !== "undefined" ? String(location.hostname || "") : "";
+    return /(^|\.)smartrecruiters\.com$/i.test(host);
+  };
+  const pause = (ms) => B.delay
+    ? B.delay(ms)
+    : new Promise((resolve) => setTimeout(resolve, ms));
+  function smartNodeId(el) {
+    if (!el || (typeof el !== "object" && typeof el !== "function")) return "-";
+    if (!smartNodeIds.has(el)) smartNodeIds.set(el, String(++smartNodeSequence));
+    return smartNodeIds.get(el);
+  }
+  function smartControlSnapshot(el) {
+    if (!el) return "";
+    const attrs = ["value", "aria-expanded", "aria-activedescendant", "data-country-code", "data-country", "data-iso", "data-iso2"];
+    const values = [smartNodeId(el), String(el.textContent || ""), String(el.value || "")];
+    for (const attr of attrs) {
+      try { values.push(String(el.getAttribute(attr) || "")); } catch (e) { values.push(""); }
+    }
+    return values.join("|").replace(/\s+/g, " ").trim();
+  }
+  function smartRecruitersProfileItems(values, shouldReconcileField) {
+    const fresh = safe(() => JAF.genericAdapter && JAF.genericAdapter.plan(values)) || [];
+    return fresh
+      .filter((item) => item && (item.field === "country" || item.field === "phone") && item.el
+        && (!shouldReconcileField || shouldReconcileField(item.field)))
+      .sort((a, b) => (a.field === "country" ? 0 : 1) - (b.field === "country" ? 0 : 1));
+  }
+  function smartProfileSignature(items) {
+    return items.map((item) => [
+      item.field,
+      smartControlSnapshot(item.el),
+      smartControlSnapshot(item.phoneCountryControl),
+    ].join("~")).join("||");
+  }
+  function smartProfileReady(items, values, shouldReconcileField) {
+    const country = items.find((item) => item.field === "country");
+    const phone = items.find((item) => item.field === "phone");
+    const countryRequired = !shouldReconcileField || shouldReconcileField("country");
+    const phoneRequired = !shouldReconcileField || shouldReconcileField("phone");
+    if ((countryRequired && !country) || (phoneRequired && !phone)) return false;
+    const countryOk = !countryRequired || !B.verifyItem || B.verifyItem(country, values.country);
+    const phoneOk = !phoneRequired || !B.verifyItem || B.verifyItem(phone, values.phone);
+    let codeOk = true;
+    if (phoneRequired && phone && phone.phoneCountryControl && B.verifyItem) {
+      const control = phone.phoneCountryControl;
+      codeOk = B.verifyItem({
+        el: control,
+        field: "country",
+        kind: control.tagName === "SELECT" ? "select" : "phone-country",
+        value: values.country,
+        alts: phone.phoneCountryAlts || [],
+      }, values.country);
+    }
+    return countryOk && phoneOk && codeOk;
+  }
+  async function waitForSmartRecruitersProfileStable(values, settings, shouldReconcileField) {
+    settings = settings || {};
+    const timeoutMs = Number(settings.timeoutMs) || 5000;
+    const minObserveMs = Number(settings.minObserveMs) || 1000;
+    const quietMs = Number(settings.quietMs) || 350;
+    const started = Date.now();
+    let stableSince = started;
+    let lastMutationAt = started;
+    let lastSignature = "";
+    let latest = [];
+    const observers = [];
+    const observedRoots = new Set();
+    const onMutation = () => { lastMutationAt = Date.now(); };
+    const observeRoot = (root) => {
+      if (!root || observedRoots.has(root) || typeof MutationObserver === "undefined") return;
+      const target = root.nodeType === 9 ? root.documentElement : root;
+      if (!target) return;
+      try {
+        const observer = new MutationObserver(onMutation);
+        observer.observe(target, { childList: true, subtree: true, attributes: true, characterData: true });
+        observers.push(observer);
+        observedRoots.add(root);
+      } catch (e) {}
+    };
+    observeRoot(document);
+    try {
+      while (Date.now() - started < timeoutMs) {
+        latest = smartRecruitersProfileItems(values, shouldReconcileField);
+        for (const item of latest) {
+          try { observeRoot(item.el && item.el.getRootNode ? item.el.getRootNode() : null); } catch (e) {}
+          try { observeRoot(item.phoneCountryControl && item.phoneCountryControl.getRootNode ? item.phoneCountryControl.getRootNode() : null); } catch (e) {}
+        }
+        const signature = smartProfileSignature(latest);
+        if (signature !== lastSignature) {
+          lastSignature = signature;
+          stableSince = Date.now();
+        }
+        const quietSince = Math.max(stableSince, lastMutationAt);
+        const countryRequired = !shouldReconcileField || shouldReconcileField("country");
+        const phoneRequired = !shouldReconcileField || shouldReconcileField("phone");
+        const hasRequiredControls = (!countryRequired || latest.some((item) => item.field === "country"))
+          && (!phoneRequired || latest.some((item) => item.field === "phone"));
+        if (hasRequiredControls
+          && Date.now() - started >= minObserveMs
+          && Date.now() - quietSince >= quietMs) return latest;
+        await pause(80);
+      }
+    } finally {
+      observers.forEach((observer) => { try { observer.disconnect(); } catch (e) {} });
+    }
+    return latest;
+  }
+  async function reconcileSmartRecruitersProfile(values, fillOne, shouldReconcileField) {
+    if (!isSmartRecruitersHost() || !values || !values.country) return [];
+    if (shouldReconcileField
+      && !shouldReconcileField("country")
+      && !shouldReconcileField("phone")) return [];
+    let latest = [];
+    // Two passes cover the real sequence: City commits, the form remounts its
+    // location/phone controls, then the extension writes the current nodes. A
+    // pass is bounded, and the final check only succeeds when country, dial code,
+    // and phone all still match after the quiet window.
+    for (let pass = 0; pass < 2; pass++) {
+      latest = await waitForSmartRecruitersProfileStable(values, {
+        timeoutMs: 2600,
+        minObserveMs: pass === 0 ? 1000 : 500,
+        quietMs: 300,
+      }, shouldReconcileField);
+      for (const item of latest) await fillOne(item, { reconcile: true });
+      latest = await waitForSmartRecruitersProfileStable(values, {
+        timeoutMs: 1900,
+        minObserveMs: 500,
+        quietMs: 300,
+      }, shouldReconcileField);
+      if (smartProfileReady(latest, values, shouldReconcileField)) return latest;
+    }
+    return latest;
   }
 
   function b64ToBlob(b64, type) {
@@ -147,16 +290,43 @@
       let filled = 0;
       let failedCount = 0;
       const failed = [];
-      for (const c of checks) {
-        const item = fillable[Number(c.dataset.i)];
-        if (!c.checked) { outcomes.push({ item, status: "skipped" }); continue; }
-        const applied = await B.applyItemAsync(item);
+      const recount = () => {
+        filled = outcomes.filter((outcome) => outcome.status === "ok").length;
+        failedCount = outcomes.filter((outcome) => outcome.status === "failed").length;
+        failed.length = 0;
+        outcomes.filter((outcome) => outcome.status === "failed").forEach((outcome) => failed.push(rowName(outcome.item)));
+      };
+      const fillOne = async (item, fillOptions) => {
+        fillOptions = fillOptions || {};
+        // A fresh SmartRecruiters plan can point at the same country control
+        // after it has already committed. Avoid reopening that menu during a
+        // reconciliation pass; the phone item is always applied so its code
+        // control is checked as part of the phone transaction.
+        let countryMenuOpen = false;
+        if (item.field === "country") {
+          try {
+            countryMenuOpen = item.el.getAttribute("aria-expanded") === "true";
+            if (!countryMenuOpen && isSmartRecruitersHost() && B.openListbox && B.visibleOptions) {
+              const box = B.openListbox(item.el);
+              countryMenuOpen = !!(box && B.visibleOptions(box).length);
+            }
+          } catch (e) {}
+        }
+        const alreadyCountry = item.field === "country"
+          && !countryMenuOpen
+          && B.verifyItem && B.verifyItem(item, item.value);
+        const applied = alreadyCountry ? true : await B.applyItemAsync(item);
         // A write can be accepted by a detached node and then discarded by the page framework.
         // Count only the value that the current control actually committed.
         const expectedValues = [item.value].concat(item.alts || []).filter((value) => value != null && value !== "");
         const verified = !B.verifyItem || expectedValues.some((value) => B.verifyItem(item, value));
         const ok = !!applied && verified;
-        outcomes.push({ item, status: ok ? "ok" : "failed" });
+        const existing = fillOptions.reconcile
+          ? outcomes.findIndex((outcome) => outcome.item && outcome.item.field === item.field)
+          : -1;
+        const outcome = { item, status: ok ? "ok" : "failed" };
+        if (existing >= 0) outcomes[existing] = outcome;
+        else outcomes.push(outcome);
         // Learn from any later user correction to this field (local cache) — and, for a field we
         // actually filled, count that correction against this fill.
         try {
@@ -165,12 +335,24 @@
             JAF.fieldCache.watch(item, ok ? { baseline, onCorrected } : undefined);
           }
         } catch (e) {}
-        if (ok) filled++;
-        else {
-          failedCount++;
-          failed.push(rowName(item));
-        }
+        recount();
+        return ok;
+      };
+      const reviewedFields = new Set();
+      const selectedFields = new Set();
+      for (const c of checks) {
+        const item = fillable[Number(c.dataset.i)];
+        if (item) reviewedFields.add(item.field);
+        if (c.checked && item) selectedFields.add(item.field);
+        if (!c.checked) { outcomes.push({ item, status: "skipped" }); continue; }
+        await fillOne(item);
       }
+      const shouldReconcileField = (field) => !reviewedFields.has(field) || selectedFields.has(field);
+      // Some SmartRecruiters controls are dependent on an earlier autocomplete.
+      // Wait for the current controls to settle, then re-plan and reconcile the
+      // country, dial code, and phone together. This catches delayed mounts and
+      // resets instead of trusting a fixed post-fill delay.
+      await reconcileSmartRecruitersProfile(opts.profileValues, fillOne, shouldReconcileField);
       let fileMsg = "";
       let fileStatus = ""; // "" (no file offered) | ok | failed | nofield
       const fchk = root.querySelector("#filechk");
@@ -189,22 +371,31 @@
       }
       // A résumé upload can trigger a second, asynchronous form fill inside the
       // ATS. Wait for that parser, then restore only profile-backed answers and
-      // verify them again. This keeps the résumé's summary/experience content
-      // separate while preventing the ATS's extracted contact data from winning.
+      // verify them again. SmartRecruiters gets the same lifecycle-aware
+      // reconciliation because its location/phone controls can remount here.
       if (file && fchk && fchk.checked && resumeInput) {
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        for (const outcome of outcomes) {
-          const item = outcome.item;
-          if (outcome.status === "skipped" || !PROFILE_FIELDS.has(item.field)) continue;
-          const applied = await B.applyItemAsync(item);
-          const expectedValues = [item.value].concat(item.alts || []).filter((value) => value != null && value !== "");
-          const verified = !B.verifyItem || expectedValues.some((value) => B.verifyItem(item, value));
-          outcome.status = applied && verified ? "ok" : "failed";
+        if (isSmartRecruitersHost() && opts.profileValues && opts.profileValues.country) {
+          await waitForSmartRecruitersProfileStable(opts.profileValues, {
+            timeoutMs: 2600,
+            minObserveMs: 1000,
+            quietMs: 300,
+          }, shouldReconcileField);
+          const freshProfile = safe(() => JAF.genericAdapter && JAF.genericAdapter.plan(opts.profileValues)) || [];
+          for (const item of freshProfile) {
+            if (!PROFILE_FIELDS.has(item.field) || !shouldReconcileField(item.field)
+              || item.field === "country" || item.field === "phone") continue;
+            await fillOne(item, { reconcile: true });
+          }
+          await reconcileSmartRecruitersProfile(opts.profileValues, fillOne, shouldReconcileField);
+        } else {
+          await pause(800);
+          for (const outcome of outcomes.slice()) {
+            const item = outcome.item;
+            if (outcome.status === "skipped" || !PROFILE_FIELDS.has(item.field)) continue;
+            await fillOne(item, { reconcile: true });
+          }
         }
-        filled = outcomes.filter((outcome) => outcome.status === "ok").length;
-        failedCount = outcomes.filter((outcome) => outcome.status === "failed").length;
-        failed.length = 0;
-        outcomes.filter((outcome) => outcome.status === "failed").forEach((outcome) => failed.push(rowName(outcome.item)));
+        recount();
       }
       // Phase 10.3d: from here on, answers the user gives to PROFILE questions on this page are
       // reported as suggested profile values (the server keeps them as suggestions; the user
@@ -604,6 +795,7 @@
 
   async function start(values, file, options) {
     options = options || {};
+    options = Object.assign({}, options, { profileValues: values });
     // Optionally let the adapter create extra repeating rows (e.g. Workday
     // "Add Another" work-experience blocks) so every resume role can be filled.
     const adapter0 = pickAdapter();

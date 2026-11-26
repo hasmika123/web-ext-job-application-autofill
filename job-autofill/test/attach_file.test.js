@@ -100,9 +100,9 @@ pending.push((async function delayedSmartRecruitersDropZone() {
       files.textContent = event.dataTransfer.files[0].name;
     }, 400);
   });
-  const result = await w.JAF.adapterBase.attachFileDetailed(input, blob(w, "smartrecruitters"), "smartrecruitters-tailored.pdf");
-  ok("SmartRecruitters: delayed drop acceptance is verified", result.ok === true, JSON.stringify(result));
-  ok("SmartRecruitters: delayed widget shows the accepted filename", files.textContent === "smartrecruitters-tailored.pdf");
+  const result = await w.JAF.adapterBase.attachFileDetailed(input, blob(w, "smartrecruiters"), "smartrecruiters-tailored.pdf");
+  ok("SmartRecruiters: delayed drop acceptance is verified", result.ok === true, JSON.stringify(result));
+  ok("SmartRecruiters: delayed widget shows the accepted filename", files.textContent === "smartrecruiters-tailored.pdf");
 })());
 
 pending.push((async function shadowInputWithRemoteStatus() {
@@ -127,7 +127,7 @@ pending.push((async function shadowInputWithRemoteStatus() {
     }, 400);
   });
   const result = await w.JAF.adapterBase.attachFileDetailed(input, blob(w, "remote-status"), "remote-status-resume.pdf");
-  ok("SmartRecruitters: shadow input accepts remote filename evidence", result.ok === true, JSON.stringify(result));
+  ok("SmartRecruiters: shadow input accepts remote filename evidence", result.ok === true, JSON.stringify(result));
 })());
 
 pending.push((async function rejectionIsNotSuccess() {

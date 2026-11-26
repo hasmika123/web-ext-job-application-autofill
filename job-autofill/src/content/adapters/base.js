@@ -11,7 +11,14 @@
     else el.value = value;
   }
 
-  function fire(el, type) { el.dispatchEvent(new Event(type, { bubbles: true })); }
+  // Events dispatched from a shadow tree must be composed or listeners owned by
+  // the page's web-component host never see them. SmartRecruiters keeps the
+  // visible controls in shadow DOM and commits its React state at that host
+  // boundary; a non-composed synthetic input/click therefore looks filled to
+  // us while the page keeps its old value.
+  function fire(el, type) {
+    el.dispatchEvent(new Event(type, { bubbles: true, composed: true }));
+  }
 
   function fillText(el, value) {
     if (el.isContentEditable) {
@@ -168,6 +175,10 @@
     const seen = new Set();
     (function scan(node) {
       if (!node || !node.querySelectorAll) return;
+      // The starting node can itself be a custom-element host. Include its
+      // open root as well as the roots of descendants; callers such as the
+      // SmartRecruiters SPL-SELECT handler intentionally pass that host.
+      if (node.shadowRoot) scan(node.shadowRoot);
       for (const el of node.querySelectorAll(sel)) if (!seen.has(el)) { seen.add(el); out.push(el); }
       for (const host of node.querySelectorAll("*")) if (host.shadowRoot) scan(host.shadowRoot);
     })(root || document);
@@ -429,7 +440,7 @@
 
   // A planned element the page has since re-rendered (React forms remount their inputs while the
   // plan waits for AI drafts): find its replacement by id/name OR by the canonical field + label.
-  // The latter is required by SmartRecruitters: its shadow form changes generated ids on every
+  // The latter is required by SmartRecruiters: its shadow form changes generated ids on every
   // validation pass, so an id-only lookup silently returns the detached node.
   function reattach(el, hint) {
     if (isAttached(el)) return el;
@@ -693,14 +704,68 @@
     });
   }
   function realClick(el) {
-    const o = { bubbles: true, cancelable: true, view: window };
+    // Keep the synthetic click usable by listeners outside an open/closed
+    // component root. Native click events are composed; the synthetic events
+    // used here need that flag explicitly.
+    const o = { bubbles: true, cancelable: true, composed: true, view: window };
     try { el.focus && el.focus(); } catch (e) {}
-    for (const t of ["pointerdown", "mousedown", "mouseup", "click"]) {
+    for (const t of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
       try { el.dispatchEvent(new MouseEvent(t, o)); } catch (e) { if (t === "click" && el.click) el.click(); }
     }
   }
+  // Some SmartRecruiters rows expose [role=option] on a layout wrapper but
+  // handle selection on the rendered option child. Dispatching the event only
+  // at the wrapper leaves the typed value visible while the menu stays open.
+  // Prefer a visible action-bearing child and fall back to the row itself for
+  // ATSs whose handler is attached directly to the option node.
+  function optionClickTarget(option) {
+    if (!option || !option.querySelectorAll) return option;
+    const selectors = [
+      'button,a,[tabindex],[data-automation-id],[data-value],[data-option]',
+      '[class*="spl-autocomplete-option" i],[class*="spl-option" i]',
+      'spl-dropdown-item',
+    ];
+    const candidates = [];
+    for (const selector of selectors) {
+      try { candidates.push(...deepQueryAll(option, selector)); } catch (e) {}
+    }
+    try { candidates.push(...option.children); } catch (e) {}
+    const target = candidates.find((el) => el !== option && isVisible(el));
+    if (target) return target;
+
+    // A SmartRecruiters option can itself be the custom-element host
+    // (spl-select-option) with no rendered action child. It is already the
+    // action target; promoting it to the parent dropdown would skip the row
+    // handler.
+    const optionTag = String(option.tagName || "").toLowerCase();
+    if (optionTag.includes("-")) return option;
+    // SmartRecruiters renders the ARIA option inside nested web components
+    // (spl-select-option -> spl-dropdown-item). The component's selection
+    // contract is owned by the nearest custom-element host; dispatching only
+    // at its internal node can update the visible text without committing the
+    // component value or closing the menu.
+    try {
+      const root = option.getRootNode && option.getRootNode();
+      const host = root && root.host;
+      const tag = String(host && host.tagName || "").toLowerCase();
+      if (host && host !== option && tag.includes("-") && isVisible(host)) return host;
+    } catch (e) {}
+    return target || option;
+  }
+  // SmartRecruiters' SPL-SELECT host delegates opening to an internal
+  // button. Clicking the host itself is observable but does not toggle the
+  // component, leaving its options mounted but hidden and its value unchanged.
+  function dropdownTriggerClickTarget(trigger) {
+    const tag = String(trigger && trigger.tagName || "").toLowerCase();
+    if (tag !== "spl-select") return trigger;
+    try {
+      return deepQueryAll(trigger, 'button[role="combobox"],button,[role="combobox"],[tabindex]')
+        .find((el) => isVisible(el)) || trigger;
+    } catch (e) { return trigger; }
+  }
   const OPTION_SEL = '[role="option"],[data-automation-id="promptOption"],[data-automation-id="menuItem"],li[role="option"],' +
-    '.dropdown-results > *:not(.dropdown-no-results):not(.dropdown-loading-results)';
+    '.dropdown-results > *:not(.dropdown-no-results):not(.dropdown-loading-results),' +
+    'spl-select-option';
   function lookupRoots(trigger) {
     const local = trigger ? elementRoot(trigger) : document;
     return local === document ? [document] : [local, document];
@@ -751,28 +816,86 @@
     return deepQueryAll(root, OPTION_SEL).filter((o) => isVisible(o) && (o.textContent || "").trim() &&
       !o.matches(".dropdown-no-results,.dropdown-loading-results"));
   }
-  function findSearchBox(trigger) {
-    const sel = 'input[data-automation-id="searchBox"],input[role="combobox"],[role="combobox"] input,input[type="search"],[role="dialog"] input';
+  function findSearchBox(trigger, preferredScope, strictPreferred) {
+    const sel = 'input[data-automation-id="searchBox"],input[role="combobox"],[role="combobox"] input,input[type="search"],[role="dialog"] input,input[aria-label*="search" i],input[placeholder*="search" i]';
+    const candidate = (scope) => deepQueryAll(scope, sel).find((el) => el !== trigger && isVisible(el));
+    if (preferredScope) {
+      const preferred = candidate(preferredScope);
+      if (preferred) return preferred;
+      if (strictPreferred) {
+        // SmartRecruiters puts the search input in the popup wrapper beside
+        // the listbox. Walk only that wrapper's nearest ancestors so an
+        // unrelated page-wide combobox cannot be selected.
+        let scope = preferredScope;
+        for (let hops = 0; scope && hops < 4; hops++, scope = scope.parentElement) {
+          const nearby = candidate(scope);
+          if (nearby) return nearby;
+        }
+        return null;
+      }
+    }
+    if (strictPreferred) return null;
     for (const root of lookupRoots(trigger)) {
-      const hit = deepQueryAll(root, sel).find(isVisible);
+      const hit = candidate(root);
       if (hit) return hit;
     }
     return null;
+  }
+  const KEY_CODES = { End: 35, Enter: 13 };
+  function dispatchKey(el, key) {
+    if (!el || !el.dispatchEvent) return false;
+    const init = {
+      key,
+      code: key,
+      keyCode: KEY_CODES[key] || 0,
+      which: KEY_CODES[key] || 0,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    };
+    try { el.dispatchEvent(new KeyboardEvent("keydown", init)); } catch (e) { return false; }
+    try { el.dispatchEvent(new KeyboardEvent("keyup", init)); } catch (e) {}
+    return true;
+  }
+  function focusedKeyboardTarget() {
+    try {
+      const focused = document.activeElement;
+      if (focused && focused !== document.body && focused !== document.documentElement) return focused;
+    } catch (e) {}
+    return null;
+  }
+  function dispatchSearchText(el, text) {
+    if (!el) return false;
+    if (el.tagName === "INPUT") {
+      setNativeValue(el, text);
+      fire(el, "input");
+      fire(el, "keyup");
+      return true;
+    }
+    let sent = false;
+    for (const ch of String(text || "")) {
+      sent = dispatchKey(el, ch) || sent;
+    }
+    return sent;
   }
   function bestOption(options, value) {
     const norm = (s) => String(s).toLowerCase().replace(/\s+/g, " ").trim();
     // Drop a trailing parenthetical like "(+1)" so a country option
     // "United States of America (+1)" can still equal "United States of America".
     const stripParen = (s) => norm(s).replace(/\s*\([^)]*\)\s*$/, "").trim();
+    // Phone-country menus commonly append a bare dial code ("India +91")
+    // instead of parentheses. Treat the country name before that suffix as an
+    // exact identity; never let a longer name containing the same letters win.
     const w = norm(value);
     if (!w) return null;
-    let exactNoParen = null, starts = null, incl = null;
+    let exactBase = null, exactNoParen = null, starts = null, incl = null;
     const lenOf = (o) => norm(o.innerText || o.textContent).length;
     for (const o of options) {
       const raw = o.innerText || o.textContent;
       const t = norm(raw);
       if (!t) continue;
       if (t === w) return o;                                   // exact wins outright
+      if (!exactBase && stripDialCode(norm(raw)) === w) exactBase = o; // "India +91" is India
       if (!exactNoParen && stripParen(raw) === w) exactNoParen = o;
       // Among startsWith matches, keep the SHORTEST — so "United States" prefers
       // "United States of America" over "United States Minor Outlying Islands".
@@ -781,7 +904,7 @@
       // a long desired value via w.includes(t).
       if (!incl && (t.includes(w) || (w.includes(t) && t.length >= 4))) incl = o;
     }
-    return exactNoParen || starts || incl || null;
+    return exactBase || exactNoParen || starts || incl || null;
   }
   function isCustomDropdown(el) {
     if (!el) return false;
@@ -806,6 +929,38 @@
     });
   }
   // What value does a dropdown trigger currently display?
+  function countryNameFromControl(control) {
+    if (!control) return "";
+    const displayName = (code) => {
+      const iso = String(code || "").trim().toUpperCase();
+      if (!/^[A-Z]{2}$/.test(iso)) return "";
+      try {
+        if (typeof Intl !== "undefined" && Intl.DisplayNames) {
+          const name = new Intl.DisplayNames(["en"], { type: "region" }).of(iso);
+          if (name && name !== iso) return name;
+        }
+      } catch (e) {}
+      return ({ IN: "India", US: "United States", CA: "Canada", GB: "United Kingdom" })[iso] || "";
+    };
+    const nodes = [control];
+    try { if (control.querySelectorAll) nodes.push(...control.querySelectorAll("*")); } catch (e) {}
+    for (const node of nodes) {
+      const cls = String(node.className || "");
+      const classCode = cls.match(/(?:flag(?:-icon)?|country(?:-flag)?|iti__flag)[-_ ]([a-z]{2})(?:\b|$)/i);
+      if (classCode) {
+        const name = displayName(classCode[1]);
+        if (name) return name;
+      }
+      for (const attr of ["data-country-code", "data-country", "data-iso", "data-iso2"]) {
+        let value = "";
+        try { value = node.getAttribute && node.getAttribute(attr) || ""; } catch (e) {}
+        const name = displayName(value);
+        if (name) return name;
+      }
+    }
+    return "";
+  }
+  function isDialCodeOnly(value) { return /^\+\d[\d\s().-]*$/.test(String(value || "").trim()); }
   function committedValue(trigger) {
     if (trigger.tagName === "INPUT") {
       const v = (trigger.value || "").trim();
@@ -814,9 +969,46 @@
       // holds the empty input and made every successful pick look like a failure.
       const cont = trigger.closest('[class*="__control"]') || trigger.closest('[class*="control"],[class*="select"],[role="combobox"]') || trigger.parentElement;
       const ct = cont ? (cont.innerText || cont.textContent || "").trim() : "";
+      const selected = cont && cont.querySelector
+        ? cont.querySelector('[class*="single-value"],[class*="singleValue"],[role="option"][aria-selected="true"],[data-automation-id="selectedItem"]')
+        : null;
+      const selectedText = selected ? (selected.innerText || selected.textContent || "").trim() : "";
+      // Some Greenhouse country widgets leave the trigger input at the dial code
+      // (for example "+91") after choosing India. The visible selected option is
+      // the authoritative value; otherwise the code alone looks like a failed fill.
+      const countryHint = countryNameFromControl(cont);
+      if (countryHint && /^\+\d[\d\s().-]*$/.test(selectedText || v)) return countryHint;
+      if (selectedText) return selectedText;
       return v || ct;
     }
     return (trigger.innerText || trigger.textContent || "").trim();
+  }
+  function countryCommitSnapshot(trigger) {
+    if (!trigger) return "";
+    const values = [committedValue(trigger), countryNameFromControl(trigger)];
+    for (const attr of ["data-country-code", "data-country", "data-iso", "data-iso2", "aria-label"]) {
+      try { values.push(trigger.getAttribute(attr) || ""); } catch (e) {}
+    }
+    return values.join("|").replace(/\s+/g, " ").trim();
+  }
+  function rememberCountryCommit(trigger, wanted) {
+    if (!trigger || wanted == null || wanted === "") return;
+    try {
+      Object.defineProperty(trigger, "__jafCountryCommit", {
+        configurable: true,
+        value: { wanted: String(wanted), snapshot: countryCommitSnapshot(trigger) },
+      });
+    } catch (e) {
+      try { trigger.__jafCountryCommit = { wanted: String(wanted), snapshot: countryCommitSnapshot(trigger) }; } catch (e2) {}
+    }
+  }
+  function rememberedCountryMatches(trigger, wanted) {
+    try {
+      const marker = trigger && trigger.__jafCountryCommit;
+      return !!marker
+        && valueMatchesChoice(marker.wanted, wanted)
+        && marker.snapshot === countryCommitSnapshot(trigger);
+    } catch (e) { return false; }
   }
   function isPlaceholder(s) { return !s || /^(select one|select\.{3}|select\.\.\.|select an?\b|choose|search|please select|--)/i.test(s); }
   function showsPlaceholder(trigger) { return isPlaceholder(committedValue(trigger)); }
@@ -824,7 +1016,8 @@
   function valueMatchesChoice(actual, wanted) {
     const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
     const a = norm(actual), w = norm(wanted);
-    return !!a && !!w && (a === w || a.startsWith(w + ",") || a.startsWith(w + " -"));
+    const aBase = stripDialCode(a), wBase = stripDialCode(w);
+    return !!a && !!w && (a === w || aBase === wBase || a.startsWith(w + ",") || a.startsWith(w + " -"));
   }
 
   function selectedRadioValue(el) {
@@ -884,58 +1077,198 @@
     if (!isAttached(el)) return false;
     try {
       if (el.getAttribute("aria-invalid") === "true") return false;
-      if (el.validity && el.validity.valid === false) return false;
+      if (validHtmlPattern(el) && el.validity && el.validity.valid === false) return false;
     } catch (e) {}
     const type = String(el.getAttribute && el.getAttribute("type") || "").toLowerCase();
     if (type === "checkbox") {
       const want = /^(yes|true|1)$/i.test(String(wanted));
       return el.checked === want;
     }
+    // Greenhouse can commit a country option as only its dial code (for example
+    // +91) and remove the option's country name from the DOM. selectCustom marks
+    // that exact option-click path; do not treat an arbitrary dial code as proof.
+    if ((item.field === "country" || item.kind === "phone-country")
+      && ((item._committedCountry && valueMatchesChoice(item._committedCountry, wanted))
+        || rememberedCountryMatches(el, wanted))) return true;
     return valuesMatch(readCommittedValue(el, item), wanted, item.field);
   }
 
   // Typing into an autocomplete is not the same as selecting one of its options.
   // Require a standard post-selection signal for input-backed combos: the listbox
   // closed, the option became selected/active, or the control explicitly collapsed.
-  function committedChoice(trigger, wanted, option) {
-    if (trigger.tagName !== "INPUT") return !showsPlaceholder(trigger);
-    if (!valueMatchesChoice(committedValue(trigger), wanted)) return false;
-    if (trigger.getAttribute("aria-expanded") === "false") return true;
-    if (option && option.getAttribute("aria-selected") === "true") return true;
-    if (option && option.id && trigger.getAttribute("aria-activedescendant") === option.id) return true;
+  function committedChoice(trigger, wanted, option, hint) {
+    if (trigger.tagName !== "INPUT") {
+      // SmartRecruiters' phone country selector can display only the dial code
+      // after the option click. Require the trigger to reflect that same
+      // country/code before retaining the semantic commitment; an option node
+      // can be clicked while the host control is still on its old default.
+      if (hint && hint.kind === "phone-country" && option) {
+        const actual = committedValue(trigger);
+        const named = countryNameFromControl(trigger);
+        const optionText = String(option.innerText || option.textContent || "");
+        const dial = (text) => (String(text || "").match(/\+\d[\d\s().-]*/g) || [""])[0].replace(/\s+/g, "");
+        const reflectsChoice = valueMatchesChoice(actual, wanted)
+          || valueMatchesChoice(named, wanted)
+          || (isDialCodeOnly(actual) && dial(actual) && dial(actual) === dial(optionText));
+        if (reflectsChoice) {
+          hint._committedCountry = wanted;
+          rememberCountryCommit(trigger, wanted);
+        }
+        return reflectsChoice;
+      }
+      if (hint && hint.kind === "phone-country") {
+        const actual = committedValue(trigger);
+        const named = countryNameFromControl(trigger);
+        return valueMatchesChoice(actual, wanted) || valueMatchesChoice(named, wanted);
+      }
+      return !showsPlaceholder(trigger);
+    }
     const box = openListbox(trigger);
-    return !box || visibleOptions(box).length === 0;
+    const settled = trigger.getAttribute("aria-expanded") === "false"
+      || (option && option.getAttribute("aria-selected") === "true")
+      || (option && option.id && trigger.getAttribute("aria-activedescendant") === option.id)
+      || !box || visibleOptions(box).length === 0;
+    const actual = committedValue(trigger);
+    // The option was found by matching the requested country and clicked, but
+    // this widget leaves only the dial code in the trigger afterward.
+    if (hint && hint.field === "country" && isDialCodeOnly(actual) && settled) {
+      hint._committedCountry = wanted;
+      rememberCountryCommit(trigger, wanted);
+      return true;
+    }
+    if (!valueMatchesChoice(actual, wanted)) return false;
+    return settled;
+  }
+
+  function isSmartRecruitersPage() {
+    try {
+      return /(^|\.)smartrecruiters\.com$/i.test(String(location && location.hostname || ""));
+    } catch (e) { return false; }
+  }
+
+  // SmartRecruiters' `oneclick-ui` menus are inside a closed shadow root. The
+  // reachable trigger can remain aria-expanded=false even after the synthetic
+  // click because that state lives on the hidden internal control. Do not use
+  // that stale attribute as permission to abandon the keyboard path on this
+  // host; all other ATSs retain the strict expanded guard.
+  function canUseSmartRecruitersKeyboardFallback(trigger) {
+    if (!isSmartRecruitersPage() || !trigger) return false;
+    try {
+      return trigger.getAttribute("role") === "combobox"
+        || !!trigger.getAttribute("aria-controls")
+        || !!trigger.getAttribute("aria-owns")
+        || !!trigger.getAttribute("aria-autocomplete")
+        || /country\s*code|phone\s*(?:country|dial|calling)\s*code/i.test(
+          String(trigger.getAttribute("aria-label") || trigger.getAttribute("title") || "")
+        )
+        || /\bc-spl-input\b/i.test(String(trigger.className || ""))
+        || /spl-form-element/i.test(String(trigger.id || ""));
+    } catch (e) { return false; }
   }
 
   async function selectCustom(trigger, value, hint) {
     if (!trigger || value == null || value === "") return false;
     const want = String(value).trim();
+    const smartPage = isSmartRecruitersPage();
+    const openTimeout = smartPage ? 1400 : 2500;
+    const optionTimeout = smartPage ? 500 : 900;
+    const commitTimeout = smartPage ? 500 : 700;
     let active = reattach(trigger, hint);
     const openAndPick = async () => {
       active = reattach(active, hint);
+      let search = null;
       try { active.scrollIntoView({ block: "center", inline: "nearest" }); } catch (e) {}
       if (active.tagName === "INPUT") {
         active.focus(); realClick(active);
         setNativeValue(active, want); fire(active, "input");
       } else {
-        realClick(active);
-        await observeFor(() => visibleOptions(openListbox(active)).length > 0, 2500);
-        const search = findSearchBox(active);
+        realClick(dropdownTriggerClickTarget(active));
+        await observeFor(() => visibleOptions(openListbox(active)).length > 0, openTimeout);
+        search = findSearchBox(active, openListbox(active), hint && hint.kind === "phone-country");
         if (search) { search.focus(); setNativeValue(search, want); fire(search, "input"); fire(search, "keyup"); }
       }
       // Scope option lookups to the listbox THIS trigger opened (see openListbox).
-      await observeFor(() => visibleOptions(openListbox(active)).length > 0, 900);
+      await observeFor(() => visibleOptions(openListbox(active)).length > 0, optionTimeout);
       const opt = bestOption(visibleOptions(openListbox(active)), want);
-      if (!opt) { try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {} return false; }
-      realClick(opt);
+      if (!opt) {
+        const expanded = active && active.getAttribute && active.getAttribute("aria-expanded");
+        if (expanded !== "true" && !canUseSmartRecruitersKeyboardFallback(active)) {
+          try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {}
+          return false;
+        }
+        // SmartRecruiters puts the popup/search input in a closed shadow root.
+        // The trigger is still reachable, and the page's keyboard handler can
+        // commit an exact match, but no [role=option] can be queried here.
+        // Prefer the focused hidden search input; when the browser retargets
+        // focus to its shadow host, also send the sequence to the trigger.
+        const focused = focusedKeyboardTarget();
+        const targets = [];
+        if (search) targets.push(search);
+        if (focused && !targets.includes(focused)) targets.push(focused);
+        if (active && !targets.includes(active)) targets.push(active);
+        let keyboardCommitted = false;
+        for (const target of targets) {
+          if (!target) continue;
+          if (active.tagName !== "INPUT") dispatchSearchText(target, want);
+          dispatchKey(target, "End");
+          dispatchKey(target, "Enter");
+          const committed = await observeFor(() => {
+            const current = reattach(active, hint);
+            if (current) active = current;
+            return committedChoice(active, want, null, hint);
+          }, 700);
+          if (committed) { keyboardCommitted = true; break; }
+        }
+        if (keyboardCommitted) return true;
+        try { document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); } catch (e) {}
+        return false;
+      }
+      realClick(optionClickTarget(opt));
       // The option click can synchronously replace the input. Reattach before reading the
       // committed value; otherwise the detached input's old value makes a failed fill look good.
-      return await observeFor(() => {
+      let committed = await observeFor(() => {
         const current = reattach(active, hint);
         if (current) active = current;
         const optionForCurrent = active === trigger ? opt : null;
-        return committedChoice(active, want, optionForCurrent);
-      }, 700);
+        return committedChoice(active, want, optionForCurrent, hint);
+      }, commitTimeout);
+      // SmartRecruiters' input-backed Country/Region control can write the
+      // typed text and keep its list open after the option click. Its own
+      // keyboard commit closes the list and changes the real form state; give
+      // that control one Enter rather than declaring a false failure/retrying
+      // the whole menu.
+      if (!committed && smartPage && active && active.tagName === "INPUT"
+        && hint && (hint.field === "country" || hint.kind === "phone-country")) {
+        const targets = [];
+        const focused = focusedKeyboardTarget();
+        for (const target of [focused, search, active]) if (target && !targets.includes(target)) targets.push(target);
+        for (const target of targets) {
+          dispatchKey(target, "Enter");
+          committed = await observeFor(() => {
+            const current = reattach(active, hint);
+            if (current) active = current;
+            return committedChoice(active, want, null, hint);
+          }, commitTimeout);
+          if (committed) break;
+        }
+      } else if (!committed && smartPage && hint && hint.kind === "phone-country") {
+        // Button-backed phone-code controls can expose a separate search input
+        // in the popup. If the option click only changed the popup highlight,
+        // finish the same keyboard commit against the focused/search trigger.
+        const targets = [];
+        const focused = focusedKeyboardTarget();
+        for (const target of [focused, search, active]) if (target && !targets.includes(target)) targets.push(target);
+        for (const target of targets) {
+          dispatchKey(target, "Enter");
+          committed = await observeFor(() => {
+            const current = reattach(active, hint);
+            if (current) active = current;
+            return committedChoice(active, want, null, hint);
+          }, commitTimeout);
+          if (committed) break;
+        }
+      }
+      return committed;
     };
     // First attempt, then verify the control actually committed; retry once.
     let clicked = await openAndPick();
@@ -959,6 +1292,34 @@
       realClick(el);
       if (!el.checked) { try { el.checked = true; fire(el, "input"); fire(el, "change"); } catch (e) {} }
       return el.checked === true;
+    }
+    if (item.phoneCountryControl && item.phoneCountry) {
+      const control = item.phoneCountryControl;
+      const codeItem = {
+        el: control,
+        field: "country",
+        kind: control.tagName === "SELECT" ? "select" : "phone-country",
+        value: item.phoneCountry,
+        alts: item.phoneCountryAlts || [],
+      };
+      // Do not reopen a code selector that is already on the requested country.
+      // This is important on React forms where opening the menu can remount the
+      // adjacent phone input.
+      if (!verifyItem(codeItem, item.phoneCountry)) {
+        let selected = false;
+        const candidates = [codeItem.value].concat(codeItem.alts || []).filter((v) => v != null && v !== "");
+        for (const candidate of candidates) {
+          codeItem.value = candidate;
+          if (control.tagName === "SELECT") {
+            selected = applyItem(codeItem, candidate) && verifyItem(codeItem, candidate);
+          } else {
+            selected = await selectCustom(control, candidate, codeItem) && verifyItem(codeItem, candidate);
+          }
+          if (selected) break;
+        }
+        if (!selected) return false;
+      }
+      item.phoneCountryControl = codeItem.el;
     }
     if (item.kind === "combo") {
       item.el = reattach(item.el, item);
