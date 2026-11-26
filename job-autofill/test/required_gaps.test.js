@@ -40,6 +40,39 @@ function page(html, url) {
     JSON.stringify(w.JAF.fieldCache.committedValueOf(w.document.getElementById("country"))));
 })();
 
+/* ------------------------------------------------ duplicate native inputs inside one custom control */
+(function duplicateComboboxInputs() {
+  const w = page(`<body><form>
+    <label id="auth-label">Are you authorized to work in the country for which you applied? *</label>
+    <div class="select__control" id="auth-control">
+      <input id="auth-search" role="combobox" aria-required="true" aria-labelledby="auth-label" value="">
+      <input aria-required="true" value="">
+    </div>
+  </form></body>`);
+  const gaps = w.JAF.requiredAudit.findRequiredEmpty(w.document);
+  ok("react-select: duplicate required inputs in one control count once", gaps.length === 1, gaps.map((el) => el.id || "(unnamed)").join(","));
+  ok("react-select: the labeled input remains the representative", /authorized to work/i.test(w.JAF.requiredAudit.describe(gaps[0])), w.JAF.requiredAudit.describe(gaps[0]));
+})();
+
+/* ------------------------------------------------ Greenhouse's required select sentinel */
+(function greenhouseRequiredSelectSentinel() {
+  // The live Greenhouse form keeps this required mirror outside .select__control.
+  // It is deliberately aria-hidden and untabbable; the visible combobox is the user-facing field.
+  const w = page(`<body><form>
+    <div class="field-wrapper"><div class="select"><div class="select__container">
+      <label id="auth-label" for="auth">Are you authorized to work in the country for which you applied? <span aria-hidden="true">*</span></label>
+      <div class="select-shell"><div><div class="select__control"><div class="select__value-container">
+        <div class="select__placeholder">Select...</div>
+        <div class="select__input-container"><input class="select__input" id="auth" type="text" role="combobox" aria-labelledby="auth-label" aria-required="true" value="" /></div>
+      </div></div></div></div>
+      <input required tabindex="-1" aria-hidden="true" class="remix-css-1a0ro4n-requiredInput" value="" />
+    </div></div></div>
+  </form></body>`);
+  const gaps = w.JAF.requiredAudit.findRequiredEmpty(w.document);
+  ok("greenhouse: required select sentinel is not a second gap", gaps.length === 1, gaps.map((el) => el.id || el.className || "(unnamed)").join(","));
+  ok("greenhouse: visible combobox remains the representative", gaps[0] && gaps[0].id === "auth", gaps[0] && (gaps[0].id || gaps[0].className));
+})();
+
 /* ------------------------------------------------ what counts as required */
 (function asterisks() {
   const w = page(`<body><form>
@@ -68,6 +101,14 @@ function page(html, url) {
   ok("describe: (*) is stripped too", A.describe($("b")) === "Portfolio URL", JSON.stringify(A.describe($("b"))));
   const radio = w.document.querySelector('input[name="auth"]');
   ok("describe: a radio group is named by its question", /authorised to work here\?$/.test(A.describe(radio)), JSON.stringify(A.describe(radio)));
+  const leverCertification = page(`<body><form>
+    <div class="application-question">
+      <div class="application-label">I certify that the information contained in my resume and application is true and accurate. I understand that if hired any misrepresentation of information may impact my employment with Rover. *</div>
+      <div class="application-answer"><label><input id="certify" type="checkbox" required name="cards[0][field1]" value="1">Yes</label></div>
+    </div>
+  </form></body>`, "https://jobs.lever.co/rover/861c2f1c-6586-40b6-87b8-4140c9379780/apply");
+  const certGap = leverCertification.JAF.requiredAudit.findRequiredEmpty(leverCertification.document)[0];
+  ok("describe: a Lever certification checkbox uses its question, not Yes", /^I certify that the information/i.test(leverCertification.JAF.requiredAudit.describe(certGap)), JSON.stringify(leverCertification.JAF.requiredAudit.describe(certGap)));
   const bare = w.document.createElement("input");
   bare.required = true;
   w.document.body.appendChild(bare);
@@ -147,6 +188,43 @@ function page(html, url) {
     w.document.getElementById("__jaf_host").shadowRoot.querySelector("#fill").click();
     await wait(1500);
     ok("auto-advance: still clicks Next when nothing is missing", clicks === 1, "clicks=" + clicks);
+  })
+  .then(async function customComboClickCompletesCard() {
+    // Greenhouse can commit a React-select choice on option click without emitting input/change
+    // on the empty search input. The review card must still notice the visible selected value.
+    const w = page(`<body><form>
+        <label for="em">Email</label><input id="em" required />
+        <div class="field-wrapper"><div class="select"><div class="select__container">
+          <label id="worked-label" for="worked">Have you ever worked for Figma before? <span aria-hidden="true">*</span></label>
+          <div class="select-shell"><div><div class="select__control"><div class="select__value-container">
+            <div class="select__placeholder">Select...</div>
+            <div class="select__input-container"><input class="select__input" id="worked" type="text" role="combobox" aria-labelledby="worked-label" aria-required="true" value="" /></div>
+          </div></div></div></div>
+          <input required tabindex="-1" aria-hidden="true" class="remix-css-1a0ro4n-requiredInput" value="" />
+        </div></div></div>
+        <div id="worked-options" role="listbox"><div id="worked-yes" role="option">Yes</div></div>
+      </form></body>`);
+    const input = w.document.getElementById("worked");
+    const option = w.document.getElementById("worked-yes");
+    option.addEventListener("click", () => {
+      const control = input.closest(".select__control");
+      control.querySelector(".select__placeholder")?.remove();
+      const chosen = w.document.createElement("div");
+      chosen.className = "select__single-value";
+      chosen.textContent = "Yes";
+      control.querySelector(".select__value-container").prepend(chosen);
+    });
+    await w.JAF.filler.start({ email: "ada@example.com" }, null, { assist: false, mapFields: false });
+    const host = w.document.getElementById("__jaf_host");
+    host.shadowRoot.querySelector("#fill").click();
+    await wait(700);
+    const R = host.shadowRoot;
+    ok("custom combo: card starts with the unanswered question", R.querySelector(".gtitle").textContent === "1 required field still needs you", R.querySelector(".gtitle").textContent);
+    option.click();
+    await wait(20);
+    ok("custom combo: option click marks the question complete", R.querySelector(".glist li").classList.contains("done"), R.querySelector(".glist li").outerHTML);
+    ok("custom combo: card reaches the all-filled state", R.querySelector(".gtitle").textContent === "All required fields are filled", R.querySelector(".gtitle").textContent);
+    R.querySelector(".gx").click();
   })
   .then(async function noGapsNoCard() {
     const w = page(`<body><form><label for="em">Email</label><input id="em" required /></form></body>`);

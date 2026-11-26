@@ -103,14 +103,53 @@
     });
   }
 
+  // React-select/Greenhouse can keep more than one required native input inside
+  // one visual control (the searchable combobox plus a form-value input). They
+  // represent one answer, so the audit must report one gap, not one per input.
+  function duplicateControlKey(el) {
+    if (!el || !el.closest) return null;
+    try {
+      const control = el.closest('[class*="__control"],[data-automation-id="select"],[data-uxi-widget-type="select"]');
+      if (control && control.querySelector && control.querySelector('[role="combobox"]')) return control;
+      const labelledBy = el.getAttribute && el.getAttribute("aria-labelledby");
+      if (labelledBy) return "aria-labelledby:" + labelledBy;
+    } catch (e) {}
+    return null;
+  }
+
+  // Greenhouse's React-select required mirror is a validation sentinel, not a second
+  // user-facing field. It is required, untabbable, aria-hidden, and sits beside the
+  // visible combobox rather than inside its .select__control.
+  function isSyntheticRequiredMirror(el) {
+    const type = typeOf(el);
+    if (!el || (type && type !== "text") || !el.closest) return false;
+    if (el.getAttribute("aria-hidden") !== "true" || el.getAttribute("tabindex") !== "-1") return false;
+    if (!/requiredInput/i.test(String(el.className || ""))) return false;
+    const select = el.closest(".select,.select__container");
+    return !!(select && select.querySelector && select.querySelector('[role="combobox"]'));
+  }
+
+  function representative(a, b) {
+    const score = (el) => {
+      const labels = labelTexts(el);
+      const named = labels.length ? 1000 : 0;
+      const combo = el.getAttribute && el.getAttribute("role") === "combobox" ? 100 : 0;
+      return named + combo + Math.min(200, labels.join(" ").length);
+    };
+    return score(b) > score(a) ? b : a;
+  }
+
   /** Required controls that are visible and still empty. A radio group counts once. */
   function findRequiredEmpty(doc) {
     doc = doc || document;
     const out = emptyRequiredPrompts(doc);
     const groupsSeen = new Set();
+    const controlEntries = [];
+    const controlGroups = new Map();
     for (const el of allControls(doc, "input, select, textarea")) {
       const type = typeOf(el);
       if (SKIP_TYPES.has(type)) continue;
+      if (isSyntheticRequiredMirror(el)) continue;
 
       if (type === "radio") {
         const group = radioGroup(el);
@@ -123,7 +162,22 @@
       }
 
       if (!visible(el) || !isRequired(el)) continue;
-      if (isStillEmpty(el)) out.push(el);
+      const key = duplicateControlKey(el);
+      if (key) {
+        let entry = controlGroups.get(key);
+        if (!entry) {
+          entry = { controls: [], representative: el };
+          controlGroups.set(key, entry);
+          controlEntries.push(entry);
+        }
+        entry.controls.push(el);
+        entry.representative = representative(entry.representative, el);
+      } else if (isStillEmpty(el)) {
+        controlEntries.push({ controls: [el], representative: el });
+      }
+    }
+    for (const entry of controlEntries) {
+      if (entry.controls.every(isStillEmpty)) out.push(entry.representative);
     }
     return out;
   }
@@ -131,10 +185,12 @@
   /** What to call the field in the list the user sees: its label, without the asterisk. */
   function describe(el) {
     const clean = (t) => String(t || "").replace(/\(?\s*\*+\s*\)?\s*$/, "").replace(/\s+/g, " ").trim();
-    // For a radio group the user needs the QUESTION ("Are you authorised to work here?"), not the
-    // option whose label happens to come first ("Yes").
+    // For a radio/checkbox group the user needs the QUESTION ("Are you authorised to work here?"),
+    // not the option whose label happens to come first ("Yes").
     const B = JAF.adapterBase;
-    const question = typeOf(el) === "radio" && B && B.groupPrompt ? clean(B.groupPrompt(el)) : "";
+    const question = (typeOf(el) === "radio" || typeOf(el) === "checkbox") && B && B.groupPrompt
+      ? clean(B.groupPrompt(el))
+      : "";
     const fromLabel = question || labelTexts(el).map(clean).find(Boolean);
     const text = fromLabel || clean(el.getAttribute && el.getAttribute("placeholder")) || "A required field";
     return text.length > 60 ? text.slice(0, 59) + "…" : text;
