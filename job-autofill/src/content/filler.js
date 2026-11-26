@@ -808,6 +808,11 @@
       try { await adapter0.ensureRows(values); } catch (e) {}
     }
     const plan = buildPlan(values);
+    // The optional assistant can reuse local answers for questions that have no
+    // deterministic profile value. Set the profile before either AI/cache path.
+    try {
+      if (JAF.fieldCache) JAF.fieldCache.setProfile(values.email || "default");
+    } catch (e) {}
     // Optional AI layer 1: map leftover labeled fields to canonical values (one
     // batched, cached call — silent no-op unless the user enabled AI).
     try {
@@ -823,13 +828,10 @@
         if (extra && extra.length) plan.items = plan.items.concat(extra);
       }
     } catch (e) {}
-    // Prefer the user's previously-learned answers for this profile (local cache).
-    try {
-      if (JAF.fieldCache) {
-        JAF.fieldCache.setProfile(values.email || "default");
-        await JAF.fieldCache.preferCached(plan.items);
-      }
-    } catch (e) {}
+    // Prefer the user's previously-learned answers for deterministic planned fields.
+    // Screening questions are handled by assist.run above so they can be materialized
+    // even when the profile has no canonical value for them.
+    try { if (JAF.fieldCache) await JAF.fieldCache.preferCached(plan.items); } catch (e) {}
     renderOverlay(plan, file, null, options);
     return { adapter: plan.adapter.id, candidates: plan.items.length };
   }

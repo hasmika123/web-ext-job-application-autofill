@@ -38,6 +38,63 @@
     return parts.join("\n");
   }
 
+  // Keep cached screeners on the same key as the deterministic scanner when a
+  // canonical rule exists (authorization/cover-letter), and fall back to the
+  // stable visible question for company-specific prompts.
+  function canonicalField(el) {
+    try {
+      const hit = B().scanGeneric(document).find((item) => item.el === el);
+      return hit && hit.field || "";
+    } catch (e) { return ""; }
+  }
+
+  async function cachedAnswer(question) {
+    const cache = JAF.fieldCache;
+    if (!cache || typeof cache.lookup !== "function") return null;
+    const item = { el: question.el, field: question.field || "", label: question.question, kind: question.kind };
+    try {
+      const hit = await cache.lookup(item);
+      if (!hit || hit.value == null || hit.value === "") return null;
+      if (question.options && JAF.fieldMap && typeof JAF.fieldMap.matchOption === "function") {
+        const answer = JAF.fieldMap.matchOption(hit.value, question.options);
+        if (!answer) return null; // stale cache: never force a value the page no longer offers
+        return { value: answer, scope: hit.scope };
+      }
+      return { value: String(hit.value), scope: hit.scope };
+    } catch (e) { return null; }
+  }
+
+  // If no source can answer a question today, remember a later user-entered
+  // value locally. This is deliberately the field-cache path, not profile
+  // learning: company-specific and free-form answers must not become profile
+  // suggestions or leave the page.
+  function watchManualAnswer(question) {
+    const cache = JAF.fieldCache;
+    const el = question && (question.el || (question.radios && question.radios[0] && question.radios[0].el));
+    if (!cache || typeof cache.watch !== "function" || !el) return;
+    try {
+      cache.watch({ el, field: question.field || "", label: question.question, kind: question.kind });
+    } catch (e) {}
+  }
+
+  // labelText intentionally combines fallback signals (including an input id),
+  // which is useful for matching but makes a poor cache key for open questions.
+  // Prefer the question's own labelled-by/for text so generated ids do not split
+  // the same saved answer into separate entries.
+  function questionLabel(el) {
+    try {
+      const ids = (el.getAttribute("aria-labelledby") || "").split(/\s+/).filter(Boolean);
+      const aria = ids.map((id) => document.getElementById(id)).filter(Boolean)
+        .map((node) => String(node.textContent || "")).join(" ").replace(/\s+/g, " ").trim();
+      if (aria) return aria;
+      if (el.id) {
+        const label = document.querySelector('label[for="' + B().cssEscape(el.id) + '"]');
+        if (label) return String(label.textContent || "").replace(/\s+/g, " ").trim();
+      }
+    } catch (e) {}
+    return (B().labelText(el) || "").trim();
+  }
+
   // Open-ended boxes (textareas, contenteditable) not already in the plan and
   // whose label reads like a question.
   function collectOpenQuestions(plannedEls) {
@@ -46,10 +103,10 @@
     const els = Array.from(document.querySelectorAll("textarea, [contenteditable=true]"));
     for (const el of els) {
       if (taken.has(el) || !B().isFillable(el)) continue;
-      const label = (B().labelText(el) || "").trim();
+      const label = questionLabel(el);
       if (!label || label.length > 240) continue;
       if (!(QUESTION_RE.test(label) || /\?\s*$/.test(label))) continue;
-      out.push({ el, question: label });
+      out.push({ el, question: label, field: canonicalField(el), kind: "textarea" });
     }
     return out;
   }
@@ -88,7 +145,7 @@
       if (!isScreener(label)) continue;
       const options = selectOptions(sel);
       if (options.length < 2 || options.length > 30) continue;
-      out.push({ el: sel, kind: "select", question: label, options });
+      out.push({ el: sel, kind: "select", question: label, field: canonicalField(sel), options });
     }
     // radio groups (grouped by name)
     const groups = {};
@@ -107,7 +164,7 @@
       if (!isScreener(question)) continue;
       const opts = radios.map((r) => ({ el: r, text: optionLabel(r) })).filter((o) => o.text && o.text.length <= 80);
       if (opts.length < 2) continue;
-      out.push({ kind: "radio", question, options: opts.map((o) => o.text), radios: opts });
+      out.push({ kind: "radio", question, field: canonicalField(radios[0]), options: opts.map((o) => o.text), radios: opts });
     }
     return out;
   }
@@ -147,7 +204,7 @@
       // Yes and No: the fill then types the AI's pick and selects it only if the menu really offers it (selectCustom).
       if (options.length < 2 && /^(are|do|did|have|has|will|would|is|was|were|can|could)\b/i.test(label) && /\?\s*([*✱]\s*)?$/.test(label)) options = ["Yes", "No"];
       if (options.length < 2 || options.length > 12) continue;
-      out.push({ el, kind: "combo", question: label, options });
+      out.push({ el, kind: "combo", question: label, field: canonicalField(el), options });
       if (out.length >= 4) break;
     }
     return out;
@@ -183,26 +240,49 @@
     // Gap D1: an organization's account without AI on its licence gets "ask your admin" instead of "upgrade".
     let notLicensed = false;
     for (const q of qs.slice(0, 6)) {
+      const cached = await cachedAnswer(q);
+      if (cached) {
+        items.push({ el: q.el, field: q.field || "", value: cached.value, kind: "textarea", label: q.question,
+          cached: true, cachedCrossSite: cached.scope === "global", question: q.question, context: ctx });
+        continue;
+      }
       const r = await draftViaSW(q.question, ctx);
       if (r && r.answer) {
         // Keep question + context on the item so the overlay can regenerate the draft.
-        items.push({ el: q.el, field: "AI: " + truncate(q.question, 40), value: r.answer, kind: "textarea", label: "AI draft · " + truncate(q.question, 38), assisted: true, question: q.question, context: ctx });
-      } else if (r && r.proRequired) { proRequired = true; if (r.notLicensed) notLicensed = true; }
-      else if (r && r.disabled) { disabled = true; }
+        items.push({ el: q.el, field: q.field || "", value: r.answer, kind: "textarea", label: q.question, assisted: true, question: q.question, context: ctx });
+      } else {
+        watchManualAnswer(q);
+        if (r && r.proRequired) { proRequired = true; if (r.notLicensed) notLicensed = true; }
+        else if (r && r.disabled) { disabled = true; }
+      }
     }
     // Constrained picks: the value is ALWAYS one of the page's own options.
     for (const q of cqs.slice(0, 6)) {
+      const cached = await cachedAnswer(q);
+      if (cached) {
+        if (q.kind === "radio") {
+          const hit = q.radios.find((o) => o.text === cached.value);
+          if (hit) items.push({ el: hit.el, kind: "choice", value: cached.value, choices: q.radios,
+            field: q.field || "", label: q.question, cached: true, cachedCrossSite: cached.scope === "global", question: q.question, context: ctx });
+          else watchManualAnswer(q);
+        } else {
+          items.push({ el: q.el, kind: q.kind, value: cached.value, field: q.field || "", label: q.question,
+            cached: true, cachedCrossSite: cached.scope === "global", question: q.question, options: q.options, context: ctx });
+        }
+        continue;
+      }
       const r = await pickViaSW(q.question, q.options, ctx);
-      if (r && r.proRequired) { proRequired = true; if (r.notLicensed) notLicensed = true; continue; }
-      if (r && r.disabled) { disabled = true; continue; }
-      if (!r || !r.answer) continue;
-      const common = { field: "AI: " + truncate(q.question, 40), label: "AI pick · " + truncate(q.question, 38), assisted: true, question: q.question, options: q.options, context: ctx };
+      if (r && r.proRequired) { watchManualAnswer(q); proRequired = true; if (r.notLicensed) notLicensed = true; continue; }
+      if (r && r.disabled) { watchManualAnswer(q); disabled = true; continue; }
+      if (!r || !r.answer) { watchManualAnswer(q); continue; }
+      const common = { field: q.field || "", label: q.question, assisted: true, question: q.question, options: q.options, context: ctx };
       if (q.kind === "select" || q.kind === "combo") {
         items.push(Object.assign({ el: q.el, kind: q.kind, value: r.answer }, common));
       } else {
         const hit = q.radios.find((o) => o.text === r.answer);
         // keep the option→element list so a regenerated pick can re-point `el`
         if (hit) items.push(Object.assign({ el: hit.el, kind: "choice", value: r.answer, choices: q.radios }, common));
+        else watchManualAnswer(q);
       }
     }
     if ((disabled || proRequired) && !items.length && qs.length) {
