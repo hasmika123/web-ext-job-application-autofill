@@ -29,13 +29,14 @@ public final class AutofillCoverage {
     public static final int EDUCATION_FIELDS_EACH = 4;
     public static final int EDUCATION_MAX_ITEMS = 2;
 
-    /** The 32 canonical keys of the extension's schema, in schema order. */
+    /** The 33 canonical keys of the extension's schema, in schema order. */
     public static final List<String> FIELD_KEYS = List.of(
         "firstName",
         "lastName",
         "fullName",
         "preferredName",
         "email",
+        "confirmEmail",
         "phone",
         "addressLine1",
         "addressLine2",
@@ -68,7 +69,7 @@ public final class AutofillCoverage {
     public static final List<String> GROUPS = List.of("contact", "links", "work", "education", "skills", "preferences", "eeo");
 
     private static final List<String> CONTACT = List.of(
-        "firstName", "lastName", "fullName", "preferredName", "email", "phone", "addressLine1", "addressLine2", "city", "state", "cityState", "postalCode", "country"
+        "firstName", "lastName", "fullName", "preferredName", "email", "confirmEmail", "phone", "addressLine1", "addressLine2", "city", "state", "cityState", "postalCode", "country"
     );
     private static final List<String> LINKS = List.of("linkedin", "github", "website");
     private static final List<String> PREFERENCES = List.of(
@@ -107,7 +108,13 @@ public final class AutofillCoverage {
     private static int present(JsonNode bio, List<String> keys) {
         int n = 0;
         for (String k : keys) {
-            if (k.equals("fullName") ? filled(bio, "firstName") && filled(bio, "lastName") : k.equals("cityState") ? filled(bio, "city") : filled(bio, k)) n++;
+            if (
+                k.equals("fullName")
+                    ? filled(bio, "firstName") && filled(bio, "lastName")
+                    : k.equals("confirmEmail")
+                        ? filled(bio, "email")
+                        : k.equals("cityState") ? filled(bio, "city") : filled(bio, k)
+            ) n++;
         }
         return n;
     }

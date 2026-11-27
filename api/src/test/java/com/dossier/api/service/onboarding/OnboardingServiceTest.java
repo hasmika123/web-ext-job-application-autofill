@@ -499,8 +499,8 @@ class OnboardingServiceTest {
 
         assertThat(f.finishedAt()).isEqualTo(clock.now);
         assertThat(f.completeness().score()).isEqualTo(55);
-        assertThat(f.coverage().fields()).as("firstName, lastName, fullName, email + one job").isEqualTo(4 + 5);
-        assertThat(f.coverage().groups()).containsEntry("contact", 4).containsEntry("work", 5);
+        assertThat(f.coverage().fields()).as("firstName, lastName, fullName, email, confirmEmail + one job").isEqualTo(5 + 5);
+        assertThat(f.coverage().groups()).containsEntry("contact", 5).containsEntry("work", 5);
         assertThat(draftRow).isNull();
         JsonNode payload = json(bioRow.getPayload());
         assertThat(payload.path("onboardedAt").asText()).isEqualTo(clock.now.toString());

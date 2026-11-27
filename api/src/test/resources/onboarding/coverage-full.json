@@ -1,6 +1,6 @@
 {
   "name": "full",
-  "note": "Every direct key but the cover letter and the bio-side skills text, five experiences (capped at 3 x 5), three educations (capped at 2 x 4) and skills (1). contact 12 = 11 keys + fullName; work 16 = summary 1 + 3 x 5; preferences 8; eeo 5 (answered).",
+  "note": "Every direct key but the cover letter and the bio-side skills text, five experiences (capped at 3 x 5), three educations (capped at 2 x 4) and skills (1). contact 14 includes the derived confirmation email and cityState; work 16 = summary 1 + 3 x 5; preferences 8; eeo 5 (answered).",
   "bio": {
     "firstName": "Priya",
     "lastName": "Sharma",
@@ -33,7 +33,7 @@
   },
   "counts": { "experience": 5, "education": 3, "skills": 12 },
   "expected": {
-    "fields": 54,
-    "groups": { "contact": 13, "links": 3, "work": 16, "education": 8, "skills": 1, "preferences": 8, "eeo": 5 }
+    "fields": 55,
+    "groups": { "contact": 14, "links": 3, "work": 16, "education": 8, "skills": 1, "preferences": 8, "eeo": 5 }
   }
 }

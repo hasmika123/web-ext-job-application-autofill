@@ -58,6 +58,12 @@ class AutofillCoverageTest {
     }
 
     @Test
+    void confirmationEmailUsesTheProfileEmail() throws IOException {
+        assertThat(AutofillCoverage.compute(om.readTree("{\"email\":\"a@example.com\"}"), null).fields()).isEqualTo(2);
+        assertThat(AutofillCoverage.compute(om.readTree("{\"confirmEmail\":\"a@example.com\"}"), null).fields()).isZero();
+    }
+
+    @Test
     void experienceAndEducationCapsAndTheSingleSkillsField() {
         assertThat(AutofillCoverage.compute(null, new Counts(1, 0, 0)).fields()).isEqualTo(5);
         assertThat(AutofillCoverage.compute(null, new Counts(3, 0, 0)).fields()).isEqualTo(15);
@@ -80,11 +86,11 @@ class AutofillCoverageTest {
 
     @Test
     void everySchemaKeyBelongsToExactlyOneGroup() {
-        // The group lists partition the 32 keys: a bio with every key set (and no items) counts each key exactly once.
-        assertThat(AutofillCoverage.FIELD_KEYS).hasSize(32).doesNotHaveDuplicates();
+        // The group lists partition the 33 keys: a bio with every key set (and no items) counts each key exactly once.
+        assertThat(AutofillCoverage.FIELD_KEYS).hasSize(33).doesNotHaveDuplicates();
         var everything = om.createObjectNode();
         for (String k : AutofillCoverage.FIELD_KEYS) everything.put(k, "x");
-        assertThat(AutofillCoverage.compute(everything, new Counts(0, 0, 0)).fields()).isEqualTo(32);
+        assertThat(AutofillCoverage.compute(everything, new Counts(0, 0, 0)).fields()).isEqualTo(33);
     }
 
     /** The key list is exactly {@code FIELDS} of the extension's schema, so a schema change fails here, not in the user's number. */

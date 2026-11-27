@@ -41,6 +41,11 @@ describe("autofillCoverage rules", () => {
     expect(autofillCoverage({ firstName: "Jo", lastName: "Li" }).groups.contact).toBe(3);
   });
 
+  it("confirmation email uses the profile email", () => {
+    expect(autofillCoverage({ email: "a@example.com" }).groups.contact).toBe(2);
+    expect(autofillCoverage({ confirmEmail: "a@example.com" }).groups.contact).toBe(0);
+  });
+
   it("blank and whitespace-only values count for nothing; numbers and booleans do count", () => {
     expect(autofillCoverage({ email: "  ", phone: "", city: null, state: undefined }).fields).toBe(0);
     expect(autofillCoverage({ willingToRelocate: true, desiredSalary: 90000 }).groups.preferences).toBe(2);
@@ -69,8 +74,8 @@ describe("autofillCoverage rules", () => {
 });
 
 describe("the key list", () => {
-  it("is 32 keys with no duplicates, and every counted key is one of them", () => {
-    expect(AUTOFILL_FIELD_KEYS).toHaveLength(32);
-    expect(new Set(AUTOFILL_FIELD_KEYS).size).toBe(32);
+  it("is 33 keys with no duplicates, and every counted key is one of them", () => {
+    expect(AUTOFILL_FIELD_KEYS).toHaveLength(33);
+    expect(new Set(AUTOFILL_FIELD_KEYS).size).toBe(33);
   });
 });
