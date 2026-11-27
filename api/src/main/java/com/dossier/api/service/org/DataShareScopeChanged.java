@@ -17,4 +17,13 @@ public record DataShareScopeChanged(Long orgId, Long memberId, Long userId, Shar
             && toScope.atLeast(ShareScope.SUMMARY)
             && (fromScope == null || toScope.compareTo(fromScope) > 0);
     }
+
+    /** Resume documents are org-visible only after the consultant grants the named person FULL access. */
+    public boolean replaysResumes() {
+        return orgId != null
+            && memberId != null
+            && userId != null
+            && toScope == ShareScope.FULL
+            && (fromScope == null || toScope.compareTo(fromScope) > 0);
+    }
 }

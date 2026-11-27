@@ -7,6 +7,7 @@ import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.OrgResumeExperience;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.repository.ResumeDocRepository;
 import com.dossier.api.repository.ResumeRepository;
@@ -18,6 +19,7 @@ import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.domain.enumeration.NotificationKind;
 import com.dossier.api.service.NotificationService;
 import com.dossier.api.service.ResumeDocVersionService;
+import com.dossier.api.service.org.DataShareService;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.resume.ResumeActAs;
 import com.dossier.api.service.resume.ResumeDocEvent;
@@ -88,6 +90,10 @@ public class OrgResumeLinkService {
 
     @Autowired(required = false)
     private NotificationService notifications;
+
+    /** Consent is required for a consultant's personal link; marketer act-for creation is already gated by its org write path. */
+    @Autowired(required = false)
+    private DataShareService shares;
 
     public static final String AUDIT_STALE = "RESUME_STALE";
 
@@ -162,6 +168,8 @@ public class OrgResumeLinkService {
         OrgMember actor = acting.flatMap(a -> seatOf(orgId, a.actorUserId())).orElse(null);
         // a marketer who is also this consultant is simply making their own resume
         boolean madeForThem = acting.isPresent() && actor != null && !actor.getId().equals(seat.get().getId());
+        if (!madeForThem && Boolean.FALSE.equals(resume.getShareWithOrg())) return Optional.empty();
+        if (!madeForThem && shares != null && shares.scopeOf(orgId, seat.get().getId()) != ShareScope.FULL) return Optional.empty();
 
         OrgResume row = new OrgResume();
         row.setOrgId(orgId);

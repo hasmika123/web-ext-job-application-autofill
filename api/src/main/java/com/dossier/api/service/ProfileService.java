@@ -24,6 +24,7 @@ import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.mapper.BioMapper;
 import com.dossier.api.service.mapper.ResumeMapper;
 import com.dossier.api.service.resume.ResumeActAs;
+import com.dossier.api.service.resume.ResumeDocEvent;
 import com.dossier.api.service.resume.ResumeLifecycle;
 import com.dossier.api.service.resume.ResumePdfState;
 import com.dossier.api.service.resume.ResumeRenderHash;
@@ -102,6 +103,10 @@ public class ProfileService {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.dossier.api.service.ent.resumes.OrgResumePolicy orgResumePolicy;
+
+    /** Lets the organization resume directory observe uploaded-resume lifecycle changes without changing hand-wired tests. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher events;
 
     public ProfileService(
         BioRepository bioRepository,
@@ -298,6 +303,7 @@ public class ProfileService {
         Resume saved = resumeRepository.save(resume);
         // A user whose resumes are all archived has no primary: the new live one becomes it (exactly one).
         ensurePrimary(user.getId());
+        if (kind == ResumeKind.UPLOADED) publish(ResumeDocEvent.Type.CREATED, saved);
         return enrich(List.of(resumeMapper.toDto(saved))).get(0);
     }
 
@@ -464,6 +470,8 @@ public class ProfileService {
             // Archiving the primary promotes another; clearing the only primary is undone: exactly one.
             ensurePrimary(saved.getUser().getId());
         }
+        if (dto.getParsedJson() != null) publish(ResumeDocEvent.Type.CONTENT_CHANGED, saved);
+        else if (dto.getLabel() != null) publish(ResumeDocEvent.Type.RENAMED, saved);
         return enrich(List.of(resumeMapper.toDto(saved))).get(0);
     }
 
@@ -527,5 +535,10 @@ public class ProfileService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume not found");
         }
         return resume;
+    }
+
+    private void publish(ResumeDocEvent.Type type, Resume resume) {
+        if (events == null || type == null || resume == null || resume.getId() == null || resume.getUser() == null || resume.getUser().getId() == null) return;
+        events.publishEvent(new ResumeDocEvent(type, resume.getId(), resume.getUser().getId(), ResumeActAs.authorOr(resume.getUser().getLogin())));
     }
 }
