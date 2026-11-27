@@ -4,6 +4,7 @@ import com.dossier.api.domain.ent.mkt.MktOpportunity;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.MarketerAssignmentRepository;
@@ -84,14 +85,14 @@ public class MktEscalationsService {
         switch (type) {
             case "MKT_OPPORTUNITY" -> {
                 RequirementMatch m = matches.findByOrgIdAndId(orgId, subjectId).orElseThrow(OrgNotFoundException::new);
-                scope.require(view, m.getConsultantId());
+                scope.requireConsent(view, m.getConsultantId(), ShareScope.FULL);
                 MktOpportunity opp = assignment.ensureOpportunity(view, m.getId(), me.memberId());
                 consultantId = m.getConsultantId();
                 storedSubject = opp.getId();
                 about = requirements.findByOrgIdAndId(orgId, m.getRequirementId()).map(ClientRequirement::getTitle).orElse(null);
             }
             case "CONSULTANT" -> {
-                scope.require(view, subjectId);
+                scope.requireConsent(view, subjectId, ShareScope.FULL);
                 consultantId = subjectId;
                 storedSubject = subjectId;
                 about = null;

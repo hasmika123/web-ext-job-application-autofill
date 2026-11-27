@@ -5,6 +5,7 @@ import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.ConsultantSkill;
 import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.OrgResumeExperience;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.ent.mkt.MktResumeEventRepository;
 import com.dossier.api.repository.ent.mkt.MktResumeRepository;
 import com.dossier.api.service.ent.authz.AuthorizationService;
@@ -302,7 +303,7 @@ public class MktResumesService {
         List<Item> out = new ArrayList<>();
         for (OrgResume r : rows) {
             ConsultantProfile c = consultants.get(r.getConsultantId());
-            if (c == null || !view.sees(r.getConsultantId())) continue; // a resume whose consultant is not visible never shows
+            if (c == null || !view.sees(r.getConsultantId()) || !view.consentScope(r.getConsultantId()).atLeast(ShareScope.FULL)) continue; // resumes require FULL consent
             List<MktResumeEvent> evs = byResume.getOrDefault(r.getId(), List.of());
             out.add(new Item(r, c, skillsOf(skills.getOrDefault(c.getId(), List.of())), evs, approvalOf(r, evs)));
         }
@@ -312,7 +313,7 @@ public class MktResumesService {
     /** One resume the caller may see; anything else (missing, another tenant's, an unassigned consultant's) is the same 404. */
     private Item one(MktScope.View view, Long id) {
         OrgResume r = resumes.byId(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, r.getConsultantId());
+        scope.requireConsent(view, r.getConsultantId(), ShareScope.FULL);
         ConsultantProfile c = resumes.consultants(view.orgId(), List.of(r.getConsultantId())).stream().findFirst().orElseThrow(OrgNotFoundException::new);
         List<MktResumeEvent> evs = events.forResumes(view.orgId(), List.of(r.getId()));
         return new Item(r, c, skillsOf(resumes.skills(view.orgId(), List.of(c.getId()))), evs, approvalOf(r, evs));

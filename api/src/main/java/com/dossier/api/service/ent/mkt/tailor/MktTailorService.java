@@ -4,6 +4,7 @@ import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.RequirementSkill;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
@@ -149,7 +150,7 @@ public class MktTailorService {
         scope.resolve(me, MktOpportunitiesService.PERMISSION); // the job board's own key: a marketer who can't manage opportunities gets the generic 404 here
         Long orgId = me.orgId();
         MktOpportunityRow row = opportunities.findRow(orgId, matchId).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, row.consultantId());
+        scope.requireConsent(view, row.consultantId(), ShareScope.FULL);
         if (row.oppId() == null || !"ASSIGNED".equals(row.matchStatus())) throw OrgException.coded(409, "NOT_ASSIGNED", "Tailor a resume once the job is assigned.", Map.of());
         ConsultantProfile c = consultants.findByOrgIdAndId(orgId, row.consultantId()).filter(x -> "ACTIVE".equals(x.getStatus())).orElseThrow(OrgNotFoundException::new);
         User owner = accountOf(orgId, c).orElseThrow(() -> OrgException.coded(409, "CONSULTANT_HAS_NO_ACCOUNT", "This consultant needs an organization account, so they can approve a resume made for them.", Map.of()));

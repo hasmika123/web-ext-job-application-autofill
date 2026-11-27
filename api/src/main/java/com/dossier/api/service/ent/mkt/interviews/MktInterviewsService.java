@@ -1,5 +1,6 @@
 package com.dossier.api.service.ent.mkt.interviews;
 
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.domain.ent.mkt.MktInterviewEvent;
 import com.dossier.api.domain.ent.mkt.MktInterviewFeedback;
 import com.dossier.api.domain.ent.mkt.MktInterviewMeta;
@@ -346,7 +347,8 @@ public class MktInterviewsService {
     private Opened open(OrgMembership me, Long interviewId) {
         MktScope.View view = scope.resolve(me, PERMISSION);
         TalentInterview i = interviews.findByOrgIdAndId(view.orgId(), interviewId).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, i.getConsultantId());
+        if (!view.inScope(i.getConsultantId())) throw new OrgNotFoundException();
+        scope.requireConsent(view, i.getConsultantId(), ShareScope.FULL);
         return new Opened(me, view, i);
     }
 
@@ -405,7 +407,7 @@ public class MktInterviewsService {
 
     private static List<TalentInterview> visible(MktScope.View view, List<TalentInterview> rows) {
         List<TalentInterview> out = new ArrayList<>();
-        for (TalentInterview i : rows) if (view.sees(i.getConsultantId())) out.add(i);
+        for (TalentInterview i : rows) if (view.sees(i.getConsultantId()) && view.consentScope(i.getConsultantId()).atLeast(ShareScope.FULL)) out.add(i);
         return out;
     }
 

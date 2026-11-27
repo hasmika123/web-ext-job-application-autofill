@@ -238,7 +238,7 @@ public class MktActivityService {
     public ActionResult create(OrgMembership me, CreateRequest req) {
         MktScope.View v = scope.resolve(me, WRITE_PERMISSION);
         Long orgId = v.orgId();
-        scope.require(v, req.consultantId());
+        requireFull(v, req.consultantId());
         ConsultantProfile consultant = consultants.findByOrgIdAndIdIn(orgId, List.of(req.consultantId())).stream().findFirst().orElseThrow(OrgNotFoundException::new);
         ClientAccount client = req.clientAccountId() == null ? null : clients.findByOrgIdAndId(orgId, req.clientAccountId()).orElseThrow(OrgNotFoundException::new);
         Type type = Type.parse(req.type()).filter(t -> t.manual).orElseThrow(() -> OrgException.invalid("type", "must be one of " + Type.manualTypes().stream().map(Enum::name).collect(Collectors.joining(", "))));
@@ -274,7 +274,7 @@ public class MktActivityService {
     public ActionResult updateStatus(OrgMembership me, Long id, String status) {
         MktScope.View v = scope.resolve(me, WRITE_PERMISSION);
         MktActivity a = manual.findByOrgIdAndId(v.orgId(), id).orElseThrow(OrgNotFoundException::new);
-        scope.require(v, a.getConsultantId());
+        requireFull(v, a.getConsultantId());
         String next = oneOf("status", status, MktActivity.STATUSES);
         if (!next.equals(a.getStatus())) {
             String prev = a.getStatus();
@@ -392,6 +392,11 @@ public class MktActivityService {
             }
         }
         return out;
+    }
+
+    private void requireFull(MktScope.View view, Long consultantId) {
+        if (!view.inScope(consultantId)) throw new OrgNotFoundException();
+        scope.requireConsent(view, consultantId, ShareScope.FULL);
     }
 
     // ---- filters, ordering ---------------------------------------------------------------------------------------------------

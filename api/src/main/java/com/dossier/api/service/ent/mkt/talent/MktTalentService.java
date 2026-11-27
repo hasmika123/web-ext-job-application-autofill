@@ -7,6 +7,7 @@ import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.ConsultantSkill;
 import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.domain.ent.talent.TalentApplication;
 import com.dossier.api.domain.ent.talent.TalentInterview;
 import com.dossier.api.repository.ent.mkt.MktSavedViewRepository;
@@ -150,9 +151,9 @@ public class MktTalentService {
     }
 
     private List<ConsultantProfile> visibleConsultants(MktScope.View view) {
-        if (view.all()) return consultants.findActiveForOrg(view.orgId());
+        if (view.all()) return consultants.findActiveForOrg(view.orgId()).stream().filter(c -> view.sees(c.getId())).toList();
         if (view.consultantIds().isEmpty()) return List.of();
-        return consultants.findActiveByIds(view.orgId(), view.consultantIds());
+        return consultants.findActiveByIds(view.orgId(), view.consultantIds()).stream().filter(c -> view.sees(c.getId())).toList();
     }
 
     /** Builds every consultant's facts from a handful of batch queries (no per-row query). */
@@ -379,39 +380,15 @@ public class MktTalentService {
     @Transactional(readOnly = true)
     Detail detail(OrgMembership me, Long consultantId, Instant now) {
         MktScope.View view = scope.resolve(me, PERM_VIEW);
-        scope.require(view, consultantId);
+        scope.requireConsent(view, consultantId, ShareScope.SUMMARY);
         Long orgId = view.orgId();
         ConsultantProfile c = consultants.findActiveById(orgId, consultantId).orElseThrow(OrgNotFoundException::new);
         Fact fact = buildFacts(orgId, List.of(c), now).get(0);
 
-        List<TalentApplication> apps = applications.findForConsultant(orgId, consultantId).stream().filter(a -> !"CLOSED".equals(a.getStage())).limit(8).toList();
-        List<TalentInterview> ivs = interviews.findUpcomingForConsultant(orgId, consultantId, now).stream().limit(5).toList();
-        List<RequirementMatch> assigned = matches.findAssignedForConsultant(orgId, consultantId).stream().limit(8).toList();
-
-        Set<Long> jobIds = new LinkedHashSet<>();
-        apps.forEach(a -> jobIds.add(a.getRequirementId()));
-        assigned.forEach(m -> jobIds.add(m.getRequirementId()));
-        Map<Long, ClientRequirement> jobById = jobIds.isEmpty() ? Map.of() : jobs.findByIds(orgId, jobIds).stream().collect(Collectors.toMap(ClientRequirement::getId, j -> j));
-        Set<Long> clientIds = new HashSet<>();
-        apps.forEach(a -> clientIds.add(a.getClientId()));
-        ivs.forEach(i -> clientIds.add(i.getClientId()));
-        jobById.values().forEach(j -> clientIds.add(j.getClientId()));
-        Map<Long, String> clientName = clientIds.isEmpty() ? Map.of() : clients.findByIds(orgId, clientIds).stream().collect(Collectors.toMap(ClientAccount::getId, ClientAccount::getName));
-
-        List<DetailResume> rs = resumes.findForConsultant(orgId, consultantId).stream().limit(6)
-            .map(r -> new DetailResume(r.getId(), r.getName(), r.getVersionNo(), r.isPrimaryForOrg(), r.getApprovalStatus(), r.getUpdatedAt())).toList();
-        List<DetailApplication> da = apps.stream().map(a -> new DetailApplication(
-            a.getCode(), jobById.containsKey(a.getRequirementId()) ? jobById.get(a.getRequirementId()).getTitle() : "", clientName.getOrDefault(a.getClientId(), ""), a.getStage(), a.getNextAction())).toList();
-        List<DetailInterview> di = ivs.stream().map(i -> new DetailInterview(i.getScheduledAt(), i.getRoundLabel(), clientName.getOrDefault(i.getClientId(), ""), i.getDurationMinutes())).toList();
-        List<DetailJob> dj = assigned.stream().map(m -> {
-            ClientRequirement j = jobById.get(m.getRequirementId());
-            return new DetailJob(m.getRequirementId(), j == null ? "" : j.getTitle(), j == null ? "" : clientName.getOrDefault(j.getClientId(), ""), m.getScore());
-        }).toList();
-
-        // Consent level SUMMARY: the summary fields only. No e-mail, phone, birth date or document number is ever returned.
+        // The drawer is the summary route. Employer names, application details, interview calendar entries, job assignments and resume metadata are FULL-only.
         return new Detail(
             c.getId(), c.getDisplayName(), null, c.getJobTitle(), c.getHeadline(), c.getYearsExperience(), c.getLocationLabel(), c.getWorkMode(),
-            fact.row().availability(), fact.row().resume(), c.getProfileCompleteness() == null ? 0 : c.getProfileCompleteness(), fact.skills(), rs, da, di, dj, "SUMMARY"
+            fact.row().availability(), fact.row().resume(), c.getProfileCompleteness() == null ? 0 : c.getProfileCompleteness(), fact.skills(), List.of(), List.of(), List.of(), List.of(), "SUMMARY"
         );
     }
 

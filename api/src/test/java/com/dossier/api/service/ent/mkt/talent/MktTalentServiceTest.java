@@ -335,7 +335,7 @@ class MktTalentServiceTest {
         assertThat(d.name()).isEqualTo("Alex Morgan");
         assertThat(d.consent()).isEqualTo("SUMMARY");
         assertThat(d.skills()).containsExactly("Java", "Spring", "SQL");
-        assertThat(d.resumes()).hasSize(1);
+        assertThat(d.resumes()).isEmpty();
         assertThat(d.profileCompleteness()).isEqualTo(80);
         // no e-mail, phone or id numbers exist on the wire type
         assertThat(Detail.class.getRecordComponents()).extracting(c -> c.getName()).noneMatch(n -> n.toLowerCase().contains("email") || n.toLowerCase().contains("phone"));

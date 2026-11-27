@@ -5,6 +5,7 @@ import com.dossier.api.domain.ent.mkt.MktFollowupEvent;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.TalentApplication;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.ent.mkt.MktConsultantLookupRepository;
 import com.dossier.api.repository.ent.mkt.MktFollowupEventRepository;
 import com.dossier.api.repository.ent.mkt.MktFollowupRepository;
@@ -203,7 +204,7 @@ public class MktFollowupService {
     public ActionResult create(OrgMembership me, CreateRequest req) {
         MktScope.View v = scope.resolve(me, PERMISSION);
         Long orgId = v.orgId();
-        scope.require(v, req.consultantId());
+        requireFull(v, req.consultantId());
         ConsultantProfile consultant = consultants.findByOrgIdAndIdIn(orgId, List.of(req.consultantId())).stream().findFirst().orElseThrow(OrgNotFoundException::new);
         String title = text("title", req.title(), 160, true);
         String detail = text("detail", req.detail(), 200, false);
@@ -317,30 +318,35 @@ public class MktFollowupService {
 
     private MktFollowup visible(MktScope.View v, Long id) {
         MktFollowup f = followups.findByOrgIdAndId(v.orgId(), id).orElseThrow(OrgNotFoundException::new);
-        scope.require(v, f.getConsultantId());
+        requireFull(v, f.getConsultantId());
         return f;
+    }
+
+    private void requireFull(MktScope.View view, Long consultantId) {
+        if (!view.inScope(consultantId)) throw new OrgNotFoundException();
+        scope.requireConsent(view, consultantId, ShareScope.FULL);
     }
 
     // ---- window queries (entity level) ---------------------------------------------------------------------------------
 
     private List<MktFollowup> todayItems(MktScope.View v, Instant now) {
-        return followups.findOpenDueBetween(v.orgId(), v.all(), ids(v), now, endOfDay(now));
+        return followups.findOpenDueBetween(v.orgId(), v.all(), ids(v), now, endOfDay(now)).stream().filter(f -> v.sees(f.getConsultantId()) && v.consentScope(f.getConsultantId()).atLeast(ShareScope.FULL)).toList();
     }
 
     private List<MktFollowup> overdueItems(MktScope.View v, Instant now) {
-        return followups.findOverdue(v.orgId(), v.all(), ids(v), now);
+        return followups.findOverdue(v.orgId(), v.all(), ids(v), now).stream().filter(f -> v.sees(f.getConsultantId()) && v.consentScope(f.getConsultantId()).atLeast(ShareScope.FULL)).toList();
     }
 
     private List<MktFollowup> upcomingItems(MktScope.View v, Instant now) {
-        return followups.findOpenDueBetween(v.orgId(), v.all(), ids(v), endOfDay(now), Instant.parse("9999-01-01T00:00:00Z"));
+        return followups.findOpenDueBetween(v.orgId(), v.all(), ids(v), endOfDay(now), Instant.parse("9999-01-01T00:00:00Z")).stream().filter(f -> v.sees(f.getConsultantId()) && v.consentScope(f.getConsultantId()).atLeast(ShareScope.FULL)).toList();
     }
 
     private List<MktFollowup> completedTodayItems(MktScope.View v, Instant now) {
-        return followups.findCompletedBetween(v.orgId(), v.all(), ids(v), startOfDay(now), endOfDay(now));
+        return followups.findCompletedBetween(v.orgId(), v.all(), ids(v), startOfDay(now), endOfDay(now)).stream().filter(f -> v.sees(f.getConsultantId()) && v.consentScope(f.getConsultantId()).atLeast(ShareScope.FULL)).toList();
     }
 
     private List<MktFollowup> waitingItems(MktScope.View v) {
-        return followups.findWaiting(v.orgId(), v.all(), ids(v));
+        return followups.findWaiting(v.orgId(), v.all(), ids(v)).stream().filter(f -> v.sees(f.getConsultantId()) && v.consentScope(f.getConsultantId()).atLeast(ShareScope.FULL)).toList();
     }
 
     // ---- KPIs and insights ---------------------------------------------------------------------------------------------

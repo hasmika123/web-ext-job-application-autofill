@@ -8,6 +8,7 @@ import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import com.dossier.api.domain.ent.talent.RequirementSkill;
 import com.dossier.api.domain.ent.talent.TalentApplication;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.ent.mkt.MktMatchApplicationRepository;
 import com.dossier.api.repository.ent.mkt.MktMatchClientRepository;
 import com.dossier.api.repository.ent.mkt.MktMatchConsultantRepository;
@@ -147,7 +148,9 @@ public class MktMatchesService {
         View view = scope.resolve(me, PAGE_KEY);
         Instant now = clock.instant();
         Long orgId = me.orgId();
-        List<RequirementMatch> live = matches.findLive(orgId, LIVE).stream().filter(m -> view.sees(m.getConsultantId())).toList();
+        List<RequirementMatch> live = matches.findLive(orgId, LIVE).stream()
+            .filter(m -> view.sees(m.getConsultantId()) && view.consentScope(m.getConsultantId()).atLeast(ShareScope.FULL))
+            .toList();
         Ctx ctx = load(orgId, live);
         Map<Long, RequirementMatch> byId = new HashMap<>();
         List<Row> all = new ArrayList<>();
@@ -190,7 +193,7 @@ public class MktMatchesService {
 
     private Detail detailOf(Long orgId, View view, Long matchId) {
         RequirementMatch m = matches.findByOrgIdAndId(orgId, matchId).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, m.getConsultantId());
+        scope.requireConsent(view, m.getConsultantId(), ShareScope.FULL);
         Ctx ctx = load(orgId, List.of(m));
         Instant now = clock.instant();
         Row r = row(m, ctx, now);
@@ -215,8 +218,8 @@ public class MktMatchesService {
         View page = scope.resolve(me, PAGE_KEY);
         View write = scope.resolve(me, ASSIGN_KEY);
         RequirementMatch m = matches.findByOrgIdAndId(me.orgId(), matchId).orElseThrow(OrgNotFoundException::new);
-        scope.require(page, m.getConsultantId());
-        scope.require(write, m.getConsultantId());
+        scope.requireConsent(page, m.getConsultantId(), ShareScope.FULL);
+        scope.requireConsent(write, m.getConsultantId(), ShareScope.FULL);
         if (!"ASSIGNED".equals(m.getStatus()) && !"SUGGESTED".equals(m.getStatus())) throw conflict("MATCH_STATE", "Only a suggested match can be assigned", m.getStatus());
         if ("SUGGESTED".equals(m.getStatus())) {
             ClientRequirement req = requirements.findByOrgIdAndId(me.orgId(), m.getRequirementId()).orElseThrow(OrgNotFoundException::new);
@@ -236,7 +239,7 @@ public class MktMatchesService {
     public Row dismiss(OrgMembership me, Long matchId) {
         View page = scope.resolve(me, PAGE_KEY);
         RequirementMatch m = matches.findByOrgIdAndId(me.orgId(), matchId).orElseThrow(OrgNotFoundException::new);
-        scope.require(page, m.getConsultantId());
+        scope.requireConsent(page, m.getConsultantId(), ShareScope.FULL);
         if ("DISMISSED".equals(m.getStatus())) return rowOf(me.orgId(), m);
         if (!"SUGGESTED".equals(m.getStatus())) throw conflict("MATCH_STATE", "Only a suggested match can be dismissed", m.getStatus());
         m.setStatus("DISMISSED");

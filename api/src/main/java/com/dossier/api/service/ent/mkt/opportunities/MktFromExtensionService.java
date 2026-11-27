@@ -2,6 +2,7 @@ package com.dossier.api.service.ent.mkt.opportunities;
 
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.domain.ent.talent.RequirementSkill;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
 import com.dossier.api.service.ent.IdempotencyService.Outcome;
@@ -212,7 +213,7 @@ public class MktFromExtensionService {
     }
 
     private ConsultantResult assignOne(MktScope.View view, OrgMembership me, ClientRequirement job, Long consultantId, Clean c) {
-        if (!view.sees(consultantId)) return new ConsultantResult(consultantId, null, false, REASON_NOT_IN_SCOPE);
+        if (!view.sees(consultantId) || !view.consentScope(consultantId).atLeast(ShareScope.FULL)) return new ConsultantResult(consultantId, null, false, REASON_NOT_IN_SCOPE);
         OpportunityAssignmentService.Options options = OpportunityAssignmentService.Options.none()
             .withNewMatch(null, "Saved by a marketer from the browser extension", "MANUAL")
             .withOpportunity(c.keyInfo(), c.priority(), c.dueOn());

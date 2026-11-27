@@ -8,6 +8,7 @@ import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.ConsultantSkill;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import com.dossier.api.domain.ent.talent.RequirementSkill;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.ent.mkt.MktJobMatchRepository;
 import com.dossier.api.repository.ent.mkt.MktJobMetaRepository;
 import com.dossier.api.repository.ent.mkt.MktSavedSearchRepository;
@@ -207,7 +208,7 @@ public class MktJobsService {
         List<MatchRow> rows = new ArrayList<>();
         for (RequirementMatch m : matches.findByOrgIdAndRequirementIdOrderByScoreDesc(orgId, jobId)) {
             ConsultantProfile c = people.get(m.getConsultantId());
-            if (c == null || !view.sees(m.getConsultantId()) || "DISMISSED".equals(m.getStatus())) continue;
+            if (c == null || !view.sees(m.getConsultantId()) || !view.consentScope(m.getConsultantId()).atLeast(ShareScope.FULL) || "DISMISSED".equals(m.getStatus())) continue;
             rows.add(new MatchRow(c.getId(), c.getDisplayName(), m.getScore(), m.getStatus()));
             if (rows.size() == 5) break;
         }
@@ -235,7 +236,7 @@ public class MktJobsService {
         String needle = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
         List<Candidate> out = new ArrayList<>();
         for (ConsultantProfile c : consultants.findByOrgId(orgId)) {
-            if (!"ACTIVE".equals(c.getStatus()) || !view.sees(c.getId())) continue;
+            if (!"ACTIVE".equals(c.getStatus()) || !view.sees(c.getId()) || !view.consentScope(c.getId()).atLeast(ShareScope.FULL)) continue;
             String hay = (c.getDisplayName() + " " + (c.getJobTitle() == null ? "" : c.getJobTitle())).toLowerCase(Locale.ROOT);
             if (!needle.isEmpty() && !hay.contains(needle)) continue;
             RequirementMatch m = byConsultant.get(c.getId());
@@ -260,7 +261,7 @@ public class MktJobsService {
         MktScope.View view = scope.resolve(me, KEY_ASSIGN);
         Long orgId = me.orgId();
         if (consultantId == null) throw invalid("consultantId", "Choose a consultant.");
-        scope.require(view, consultantId);
+        scope.requireConsent(view, consultantId, ShareScope.FULL);
         // The gates and the pair rules (open job, active consultant, approved resume, reopening, the opportunity overlay) live in one place.
         OpportunityAssignmentService.Result assigned = assignment.assign(view, me, jobId, consultantId,
             OpportunityAssignmentService.Options.none()
@@ -398,7 +399,7 @@ public class MktJobsService {
         for (JobView v : open) openById.put(v.r().getId(), v);
         Set<Long> high = new HashSet<>();
         for (RequirementMatch m : matches.findByOrgIdAndScoreGreaterThanEqual(me(view), HIGH_MATCH_SCORE)) {
-            if (!"DISMISSED".equals(m.getStatus()) && view.sees(m.getConsultantId()) && openById.containsKey(m.getRequirementId())) high.add(m.getRequirementId());
+            if (!"DISMISSED".equals(m.getStatus()) && view.sees(m.getConsultantId()) && view.consentScope(m.getConsultantId()).atLeast(ShareScope.FULL) && openById.containsKey(m.getRequirementId())) high.add(m.getRequirementId());
         }
         List<Instant> highPosted = high.stream().map(id -> openById.get(id).r().getPostedAt()).toList();
         long highPrev = highPosted.stream().filter(t -> t != null && !t.isAfter(now.minusSeconds(WEEK))).count();
@@ -408,7 +409,7 @@ public class MktJobsService {
         Set<Long> jobIds = d.all.stream().map(ClientRequirement::getId).collect(Collectors.toSet());
         List<Instant> assignedAt = new ArrayList<>();
         for (RequirementMatch m : matches.findByOrgIdAndStatus(me(view), "ASSIGNED")) {
-            if (view.sees(m.getConsultantId()) && jobIds.contains(m.getRequirementId())) assignedAt.add(m.getAssignedAt() != null ? m.getAssignedAt() : m.getCreatedAt());
+            if (view.sees(m.getConsultantId()) && view.consentScope(m.getConsultantId()).atLeast(ShareScope.FULL) && jobIds.contains(m.getRequirementId())) assignedAt.add(m.getAssignedAt() != null ? m.getAssignedAt() : m.getCreatedAt());
         }
         long assignedNow = assignedAt.size();
         long assignedPrev = assignedAt.stream().filter(t -> t != null && !t.isAfter(now.minusSeconds(WEEK))).count();

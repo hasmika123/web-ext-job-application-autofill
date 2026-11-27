@@ -1,5 +1,6 @@
 package com.dossier.api.service.ent.mkt.submissions;
 
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.domain.ent.mkt.MktSubmission;
 import com.dossier.api.domain.ent.mkt.MktSubmissionEvent;
 import com.dossier.api.domain.ent.mkt.MktSubmissionView;
@@ -153,9 +154,9 @@ public class MktSubmissionsService {
         MktScope.View view = scope.resolve(me, KEY);
         Long orgId = view.orgId();
         List<ConsultantProfile> consultants;
-        if (view.all()) consultants = submissions.findActiveConsultants(orgId);
+        if (view.all()) consultants = submissions.findActiveConsultants(orgId).stream().filter(c -> view.sees(c.getId())).filter(c -> view.consentScope(c.getId()).atLeast(ShareScope.FULL)).toList();
         else if (view.consultantIds().isEmpty()) consultants = List.of();
-        else consultants = submissions.findConsultants(orgId, view.consultantIds()).stream().filter(c -> "ACTIVE".equals(c.getStatus())).sorted(Comparator.comparing(c -> low(c.getDisplayName()))).toList();
+        else consultants = submissions.findConsultants(orgId, view.consultantIds()).stream().filter(c -> "ACTIVE".equals(c.getStatus())).filter(c -> view.sees(c.getId())).filter(c -> view.consentScope(c.getId()).atLeast(ShareScope.FULL)).sorted(Comparator.comparing(c -> low(c.getDisplayName()))).toList();
         List<ClientRequirement> jobs = submissions.findOpenRequirements(orgId);
         Map<Long, String> clientNames = new HashMap<>();
         if (!jobs.isEmpty()) submissions.findClients(orgId, jobs.stream().map(ClientRequirement::getClientId).collect(java.util.stream.Collectors.toSet())).forEach(a -> clientNames.put(a.getId(), a.getName()));
@@ -183,7 +184,7 @@ public class MktSubmissionsService {
         String note = cleanText("note", req.note(), 300);
         Long orgId = view.orgId();
         ConsultantProfile consultant = submissions.findConsultant(orgId, req.consultantId()).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, consultant.getId());
+        scope.requireConsent(view, consultant.getId(), ShareScope.FULL);
         ClientRequirement job = submissions.findRequirement(orgId, req.requirementId()).orElseThrow(OrgNotFoundException::new);
         OrgResume resume = null;
         if (req.resumeId() != null) {
@@ -344,14 +345,14 @@ public class MktSubmissionsService {
     private MktSubmission live(MktScope.View view, Long id) {
         MktSubmission s = submissions.findByOrgIdAndId(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
         if (s.getArchivedAt() != null) throw new OrgNotFoundException();
-        scope.require(view, s.getConsultantId());
+        scope.requireConsent(view, s.getConsultantId(), ShareScope.FULL);
         return s;
     }
 
     private List<MktSubmission> visible(MktScope.View view) {
-        if (view.all()) return submissions.findByOrgIdAndArchivedAtIsNull(view.orgId());
+        if (view.all()) return submissions.findByOrgIdAndArchivedAtIsNull(view.orgId()).stream().filter(s -> view.sees(s.getConsultantId())).filter(s -> view.consentScope(s.getConsultantId()).atLeast(ShareScope.FULL)).toList();
         if (view.consultantIds().isEmpty()) return List.of();
-        return submissions.findByOrgIdAndConsultantIdInAndArchivedAtIsNull(view.orgId(), view.consultantIds());
+        return submissions.findByOrgIdAndConsultantIdInAndArchivedAtIsNull(view.orgId(), view.consultantIds()).stream().filter(s -> view.sees(s.getConsultantId())).filter(s -> view.consentScope(s.getConsultantId()).atLeast(ShareScope.FULL)).toList();
     }
 
     private Map<Long, List<MktSubmissionEvent>> eventsOf(Long orgId, List<MktSubmission> rows) {

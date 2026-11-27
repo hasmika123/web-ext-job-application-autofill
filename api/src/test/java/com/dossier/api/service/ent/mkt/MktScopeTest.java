@@ -6,15 +6,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.dossier.api.domain.ent.talent.MarketerAssignment;
+import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.enumeration.OrgStatus;
 import com.dossier.api.domain.enumeration.PermissionScope;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.ent.talent.MarketerAssignmentRepository;
+import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.ent.TenantModule;
 import com.dossier.api.service.ent.TenantModules;
 import com.dossier.api.service.ent.authz.AuthorizationService;
+import com.dossier.api.service.org.DataShareService;
+import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
 import java.util.List;
@@ -34,6 +39,8 @@ class MktScopeTest {
     AuthorizationService authorization = mock(AuthorizationService.class);
     MarketerAssignmentRepository assignments = mock(MarketerAssignmentRepository.class);
     MktScope scope = new MktScope(roles, modules, authorization, assignments);
+    ConsultantProfileRepository consultants = mock(ConsultantProfileRepository.class);
+    DataShareService shares = mock(DataShareService.class);
 
     @BeforeEach
     void on() {
@@ -98,5 +105,34 @@ class MktScopeTest {
         when(modules.isOn(TenantModule.MARKETING, ORG)).thenReturn(true);
         assertThatThrownBy(() -> scope.resolve(member(null), KEY)).as("the permission key is not held").isInstanceOf(OrgNotFoundException.class);
         assertThatThrownBy(() -> scope.resolve(null, KEY)).isInstanceOf(OrgNotFoundException.class);
+    }
+
+    @Test
+    void consentRemovesNoneAndRequiresFullForFullDetail() {
+        ConsultantProfile profile = new ConsultantProfile();
+        profile.setId(10L);
+        profile.setOrgId(ORG);
+        profile.setStatus("ACTIVE");
+        profile.setMemberId(70L);
+        when(consultants.findByOrgId(ORG)).thenReturn(List.of(profile));
+        when(shares.scopeOf(ORG, 70L)).thenReturn(ShareScope.SUMMARY);
+
+        MktScope consentAware = new MktScope(roles, modules, authorization, assignments, consultants, shares);
+        MktScope.View view = consentAware.resolve(member(PermissionScope.ORG), KEY);
+
+        assertThat(view.sees(10L)).isTrue();
+        consentAware.requireConsent(view, 10L, ShareScope.SUMMARY);
+        assertThatThrownBy(() -> consentAware.requireConsent(view, 10L, ShareScope.FULL))
+            .isInstanceOf(OrgException.class)
+            .satisfies(e -> {
+                OrgException error = (OrgException) e;
+                assertThat(error.getStatus()).isEqualTo(403);
+                assertThat(error.getCode()).isEqualTo("CONSENT_REQUIRED");
+            });
+
+        when(shares.scopeOf(ORG, 70L)).thenReturn(ShareScope.NONE);
+        MktScope.View noneView = consentAware.resolve(member(PermissionScope.ORG), KEY);
+        assertThat(noneView.sees(10L)).isFalse();
+        assertThatThrownBy(() -> consentAware.require(noneView, 10L)).isInstanceOf(OrgNotFoundException.class);
     }
 }

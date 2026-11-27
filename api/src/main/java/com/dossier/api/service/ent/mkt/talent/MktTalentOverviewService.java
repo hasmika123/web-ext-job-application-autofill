@@ -7,6 +7,7 @@ import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.TalentApplication;
 import com.dossier.api.domain.ent.talent.TalentInterview;
 import com.dossier.api.domain.ent.talent.TalentPlacement;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.ent.mkt.MktTalentApplicationRepository;
 import com.dossier.api.repository.ent.mkt.MktTalentClientRepository;
 import com.dossier.api.repository.ent.mkt.MktTalentConsultantRepository;
@@ -89,6 +90,7 @@ public class MktTalentOverviewService {
     @Transactional(readOnly = true)
     Overview overview(OrgMembership me, Long consultantId, Instant now) {
         MktScope.View view = scope.resolve(me, MktTalentService.PERM_VIEW);
+        scope.requireConsent(view, consultantId, ShareScope.FULL);
         access.require(view, consultantId, Area.PROFILE);
         Long orgId = view.orgId();
         ConsultantProfile c = consultants.findActiveById(orgId, consultantId).orElseThrow(OrgNotFoundException::new);

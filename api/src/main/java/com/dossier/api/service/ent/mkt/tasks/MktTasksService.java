@@ -5,6 +5,7 @@ import com.dossier.api.domain.ent.mkt.MktTask;
 import com.dossier.api.domain.ent.mkt.MktTaskEvent;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.domain.ent.talent.MarketerAssignment;
 import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.repository.UserRepository;
@@ -159,6 +160,7 @@ public class MktTasksService {
         Instant to = ym.plusMonths(1).atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
         Map<LocalDate, List<MktTask>> byDay = new TreeMap<>();
         for (MktTask t : tasks.findVisibleDueBetween(v.orgId(), v.all(), ids(v), v.memberId(), from, to)) {
+            if (t.getConsultantId() != null && (!v.sees(t.getConsultantId()) || !v.consentScope(t.getConsultantId()).atLeast(ShareScope.FULL))) continue;
             byDay.computeIfAbsent(LocalDate.ofInstant(t.getDueAt(), ZoneOffset.UTC), d -> new ArrayList<>()).add(t);
         }
         List<CalendarDay> days = new ArrayList<>();
@@ -194,7 +196,7 @@ public class MktTasksService {
         String status = oneOf("status", req.status(), MktTask.STATUSES, MktTask.NOT_STARTED);
         ConsultantProfile consultant = null;
         if (req.consultantId() != null) {
-            scope.require(v, req.consultantId());
+            requireFull(v, req.consultantId());
             consultant = consultants.findByOrgIdAndIdIn(orgId, List.of(req.consultantId())).stream().findFirst().orElseThrow(OrgNotFoundException::new);
         }
         ClientAccount client = null;
@@ -345,8 +347,13 @@ public class MktTasksService {
     private MktTask visible(MktScope.View v, Long id) {
         MktTask t = tasks.findByOrgIdAndId(v.orgId(), id).orElseThrow(OrgNotFoundException::new);
         if (!v.all() && !t.getOwnerMemberId().equals(v.memberId())) throw new OrgNotFoundException();
-        if (t.getConsultantId() != null) scope.require(v, t.getConsultantId());
+        if (t.getConsultantId() != null) requireFull(v, t.getConsultantId());
         return t;
+    }
+
+    private void requireFull(MktScope.View view, Long consultantId) {
+        if (!view.inScope(consultantId)) throw new OrgNotFoundException();
+        scope.requireConsent(view, consultantId, ShareScope.FULL);
     }
 
     /** Members a task about {@code consultantId} may be given to: that consultant's marketer and backup; for no consultant, every marketer that has assignments. */
@@ -364,7 +371,9 @@ public class MktTasksService {
     }
 
     private List<MktTask> load(MktScope.View v, Instant now) {
-        return tasks.findVisibleOpenOrCompletedSince(v.orgId(), v.all(), ids(v), v.memberId(), now.minus(30, ChronoUnit.DAYS));
+        return tasks.findVisibleOpenOrCompletedSince(v.orgId(), v.all(), ids(v), v.memberId(), now.minus(30, ChronoUnit.DAYS)).stream()
+            .filter(t -> t.getConsultantId() == null || (v.sees(t.getConsultantId()) && v.consentScope(t.getConsultantId()).atLeast(ShareScope.FULL)))
+            .toList();
     }
 
     private static Collection<Long> ids(MktScope.View v) {
@@ -476,6 +485,7 @@ public class MktTasksService {
     private Options options(MktScope.View v, List<MktTask> all, Map<Long, String> ownerNames) {
         List<ConsultantProfile> list = v.all() ? consultants.findTop200ByOrgIdOrderByDisplayNameAsc(v.orgId())
             : v.consultantIds().isEmpty() ? List.of() : consultants.findByOrgIdAndIdIn(v.orgId(), v.consultantIds());
+        list = list.stream().filter(c -> v.sees(c.getId()) && v.consentScope(c.getId()).atLeast(ShareScope.FULL)).toList();
         List<Option> cons = list.stream().limit(200).map(c -> new Option(c.getId(), c.getDisplayName())).toList();
         List<Option> cl = clientNames(v.orgId()).entrySet().stream().map(e -> new Option(e.getKey(), e.getValue()))
             .sorted(Comparator.comparing(Option::name, String.CASE_INSENSITIVE_ORDER)).toList();

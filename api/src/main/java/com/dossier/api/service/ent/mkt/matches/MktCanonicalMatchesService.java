@@ -2,6 +2,7 @@ package com.dossier.api.service.ent.mkt.matches;
 
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.ConsultantSkill;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.service.ent.mkt.MktScope;
@@ -45,43 +46,44 @@ public class MktCanonicalMatchesService {
 
     @Transactional(readOnly = true)
     public MktCanonicalMatchesDto.Response list(OrgMembership actor, OrgMatchViews.Query query) {
-        scope.resolve(actor, MktMatchesService.PAGE_KEY);
+        MktScope.View view = scope.resolve(actor, MktMatchesService.PAGE_KEY);
         OrgMatchViews.Response response = canonical.list(actor, query == null ? new OrgMatchViews.Query(null, null) : query);
-        List<MktCanonicalMatchesDto.Item> items = response.items().stream().map(row -> itemOrNull(actor, row)).filter(java.util.Objects::nonNull).toList();
+        List<MktCanonicalMatchesDto.Item> items = response.items().stream().map(row -> itemOrNull(actor, view, row)).filter(java.util.Objects::nonNull).toList();
         return new MktCanonicalMatchesDto.Response(MktCanonicalMatchesDto.SOURCE, items, items.size());
     }
 
     @Transactional(readOnly = true)
     public MktCanonicalMatchesDto.Item detail(OrgMembership actor, Long matchId) {
-        scope.resolve(actor, MktMatchesService.PAGE_KEY);
-        return item(actor, canonical.get(actor, matchId));
+        MktScope.View view = scope.resolve(actor, MktMatchesService.PAGE_KEY);
+        return item(actor, view, canonical.get(actor, matchId));
     }
 
     @Transactional
     public MktCanonicalMatchesDto.Item assign(OrgMembership actor, Long matchId) {
-        scope.resolve(actor, MktMatchesService.PAGE_KEY);
-        item(actor, canonical.get(actor, matchId));
-        return item(actor, canonical.row(lifecycle.assign(actor, matchId)));
+        MktScope.View view = scope.resolve(actor, MktMatchesService.PAGE_KEY);
+        item(actor, view, canonical.get(actor, matchId));
+        return item(actor, view, canonical.row(lifecycle.assign(actor, matchId)));
     }
 
     @Transactional
     public MktCanonicalMatchesDto.Item dismiss(OrgMembership actor, Long matchId) {
-        scope.resolve(actor, MktMatchesService.PAGE_KEY);
-        item(actor, canonical.get(actor, matchId));
-        return item(actor, canonical.row(lifecycle.dismiss(actor, matchId)));
+        MktScope.View view = scope.resolve(actor, MktMatchesService.PAGE_KEY);
+        item(actor, view, canonical.get(actor, matchId));
+        return item(actor, view, canonical.row(lifecycle.dismiss(actor, matchId)));
     }
 
-    private MktCanonicalMatchesDto.Item item(OrgMembership actor, OrgMatchViews.Row row) {
-        MktCanonicalMatchesDto.Item item = itemOrNull(actor, row);
+    private MktCanonicalMatchesDto.Item item(OrgMembership actor, MktScope.View view, OrgMatchViews.Row row) {
+        MktCanonicalMatchesDto.Item item = itemOrNull(actor, view, row);
         if (item == null) throw new OrgNotFoundException();
         return item;
     }
 
-    private MktCanonicalMatchesDto.Item itemOrNull(OrgMembership actor, OrgMatchViews.Row row) {
+    private MktCanonicalMatchesDto.Item itemOrNull(OrgMembership actor, MktScope.View view, OrgMatchViews.Row row) {
         if (row == null || row.consultantMemberId() == null) return null;
         Optional<ConsultantProfile> profile = consultants.findByOrgIdAndMemberId(actor.orgId(), row.consultantMemberId());
         if (profile.isEmpty()) return null;
         ConsultantProfile c = profile.get();
+        if (view != null && (!view.sees(c.getId()) || !view.consentScope(c.getId()).atLeast(ShareScope.FULL))) return null;
         List<ConsultantSkill> consultantSkills = skills.findByOrgIdAndConsultantIdOrderBySortOrderAsc(actor.orgId(), c.getId());
         String primarySkill = consultantSkills.stream()
             .sorted(Comparator.comparing((ConsultantSkill s) -> !s.isPrimarySkill()).thenComparing(s -> s.getSortOrder() == null ? 0 : s.getSortOrder()))

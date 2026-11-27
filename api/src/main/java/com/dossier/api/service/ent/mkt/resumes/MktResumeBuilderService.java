@@ -4,6 +4,7 @@ import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.ProfileItem;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.ProfileSection;
@@ -121,7 +122,7 @@ public class MktResumeBuilderService {
             : view.consultantIds().isEmpty() ? List.of() : mktResumes.consultants(me.orgId(), view.consultantIds());
         return all
             .stream()
-            .filter(c -> view.sees(c.getId()) && "ACTIVE".equals(c.getStatus()))
+            .filter(c -> view.sees(c.getId()) && view.consentScope(c.getId()).atLeast(ShareScope.FULL) && "ACTIVE".equals(c.getStatus()))
             .sorted(Comparator.comparing((ConsultantProfile c) -> c.getDisplayName() == null ? "" : c.getDisplayName().toLowerCase(Locale.ROOT)))
             .map(c -> new NewResumeConsultant(c.getId(), c.getDisplayName(), c.getJobTitle(), accountOf(me.orgId(), c).isPresent()))
             .toList();
@@ -225,7 +226,7 @@ public class MktResumeBuilderService {
 
     private ConsultantProfile consultant(MktScope.View view, Long orgId, Long consultantId) {
         if (consultantId == null) throw new OrgNotFoundException();
-        scope.require(view, consultantId);
+        scope.requireConsent(view, consultantId, ShareScope.FULL);
         ConsultantProfile c = consultants.findByOrgIdAndId(orgId, consultantId).orElseThrow(OrgNotFoundException::new);
         if (!"ACTIVE".equals(c.getStatus())) throw new OrgNotFoundException();
         return c;

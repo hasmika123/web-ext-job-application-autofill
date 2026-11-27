@@ -10,6 +10,7 @@ import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.ConsultantSkill;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import com.dossier.api.domain.ent.talent.RequirementSkill;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.ent.mkt.MktEventRow;
 import com.dossier.api.repository.ent.mkt.MktOpportunityEventRepository;
@@ -159,7 +160,7 @@ public class MktOpportunitiesService {
         Instant now = clock.instant();
         List<Row> all = model(view, now);
         List<Row> open = all.stream().filter(Row::open).toList();
-        if (q.consultantId() != null) scope.require(view, q.consultantId());
+        if (q.consultantId() != null) requireFull(view, q.consultantId());
 
         List<Row> filtered = filter(open, q, now);
         filtered = sort(filtered, q);
@@ -209,7 +210,7 @@ public class MktOpportunitiesService {
         MktScope.View view = scope.resolve(me, PERMISSION);
         String needle = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
         List<ConsultantOption> people = consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(view.orgId(), "ACTIVE").stream()
-            .filter(c -> view.sees(c.getId()))
+            .filter(c -> view.sees(c.getId()) && view.consentScope(c.getId()).atLeast(ShareScope.FULL))
             .filter(c -> needle.isEmpty() || c.getDisplayName().toLowerCase(Locale.ROOT).contains(needle))
             .limit(100)
             .map(c -> new ConsultantOption(c.getId(), c.getDisplayName(), OpportunityAssignmentService.pausedReason(c)))
@@ -230,7 +231,7 @@ public class MktOpportunitiesService {
         MktScope.View view = scope.resolve(me, PERMISSION);
         Query q = sanitize(query);
         Instant now = clock.instant();
-        if (q.consultantId() != null) scope.require(view, q.consultantId());
+        if (q.consultantId() != null) requireFull(view, q.consultantId());
         List<Row> rows = sort(filter(model(view, now).stream().filter(Row::open).toList(), q, now), q);
         Set<Long> ids = new HashSet<>();
         rows.forEach(r -> ids.add(r.ownerId()));
@@ -254,7 +255,7 @@ public class MktOpportunitiesService {
     public ActionResult create(OrgMembership me, Long consultantId, Long requirementId) {
         MktScope.View view = scope.resolve(me, PERMISSION);
         if (consultantId == null || requirementId == null) throw OrgException.coded(400, "VALIDATION", "Choose a consultant and a job.", Map.of());
-        scope.require(view, consultantId);
+        requireFull(view, consultantId);
         Instant now = clock.instant();
         OpportunityAssignmentService.Options options = OpportunityAssignmentService.Options.none()
             .withNewMatch(() -> overlapScore(view.orgId(), consultantId, requirementId), "Added by a marketer", "MANUAL")
@@ -405,7 +406,7 @@ public class MktOpportunitiesService {
         SensitiveContent.check("reason", "reason", text);
         Instant now = clock.instant();
         MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, raw.consultantId());
+        requireFull(view, raw.consultantId());
         if (raw.oppId() == null || !"ASSIGNED".equals(raw.matchStatus())) throw OrgException.coded(409, "NOT_ASSIGNED", "Only an assigned opportunity can be withdrawn.", Map.of());
         assignment.withdraw(view, me, raw.oppId(), text); // writes the one MARKETER_OPPORTUNITY_WITHDRAW audit row (with the reason) and the CLOSED event
         if (notifier != null) {
@@ -434,9 +435,9 @@ public class MktOpportunitiesService {
         if (toConsultantId == null) throw OrgException.coded(400, "VALIDATION", "Choose a consultant.", Map.of("field", "consultantId"));
         Instant now = clock.instant();
         MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, raw.consultantId());
+        requireFull(view, raw.consultantId());
         if (toConsultantId.equals(raw.consultantId())) throw OrgException.coded(400, "VALIDATION", "Choose a different consultant.", Map.of("field", "consultantId"));
-        scope.require(view, toConsultantId);
+        requireFull(view, toConsultantId);
         MktOpportunity opp = raw.oppId() == null ? null : repo.findByOrgIdAndId(view.orgId(), raw.oppId()).orElse(null);
         boolean declined = opp != null && "DECLINED".equals(opp.getState());
         boolean withdrawn = opp != null && "CLOSED".equals(opp.getState()) && OpportunityAssignmentService.CLOSED_WITHDRAWN.equals(opp.getClosedReason());
@@ -516,7 +517,7 @@ public class MktOpportunitiesService {
         SensitiveContent.check("answer", "answer", text);
         Instant now = clock.instant();
         MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, raw.consultantId());
+        requireFull(view, raw.consultantId());
         MktOpportunity opp = raw.oppId() == null ? null : repo.lockByOrgIdAndId(view.orgId(), raw.oppId()).orElse(null);
         if (opp == null || !"ASSIGNED".equals(raw.matchStatus()) || !"NEEDS_INFO".equals(opp.getState()) || opp.getInfoRequest() == null || opp.getInfoRequest().isBlank()) {
             throw OrgException.coded(409, "NO_OPEN_INFO_REQUEST", "The consultant has not asked a question that is waiting for an answer.", Map.of());
@@ -548,7 +549,7 @@ public class MktOpportunitiesService {
         MktScope.View view = scope.resolve(me, PERMISSION);
         Instant now = clock.instant();
         MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, raw.consultantId());
+        requireFull(view, raw.consultantId());
         MktOpportunity opp = raw.oppId() == null ? null : repo.lockByOrgIdAndId(view.orgId(), raw.oppId()).orElse(null);
         if (opp == null || !"ASSIGNED".equals(raw.matchStatus())) throw OrgException.coded(409, "NOT_ASSIGNED", "Choose a resume once the job is assigned.", Map.of());
         com.dossier.api.domain.ent.talent.OrgResume chosen = null;
@@ -628,17 +629,22 @@ public class MktOpportunitiesService {
      */
     private Row require(MktScope.View view, Long id, Instant now, boolean justCreated) {
         MktOpportunityRow raw = (justCreated ? repo.findRow(view.orgId(), id).or(() -> assignment.readRowFresh(view.orgId(), id)) : repo.findRow(view.orgId(), id)).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, raw.consultantId());
+        requireFull(view, raw.consultantId());
         Row row = enrich(raw, resumeInfo(view.orgId(), now), now);
         if (!row.open()) throw new OrgNotFoundException();
         return row;
+    }
+
+    private void requireFull(MktScope.View view, Long consultantId) {
+        if (!view.inScope(consultantId)) throw new OrgNotFoundException();
+        scope.requireConsent(view, consultantId, ShareScope.FULL);
     }
 
     private List<Row> model(MktScope.View view, Instant now) {
         Map<Long, boolean[]> resumes = resumeInfo(view.orgId(), now);
         List<Row> out = new ArrayList<>();
         for (MktOpportunityRow r : repo.findRows(view.orgId())) {
-            if (view.sees(r.consultantId())) out.add(enrich(r, resumes, now));
+            if (view.sees(r.consultantId()) && view.consentScope(r.consultantId()).atLeast(ShareScope.FULL)) out.add(enrich(r, resumes, now));
         }
         return out;
     }
@@ -825,9 +831,15 @@ public class MktOpportunitiesService {
     }
 
     private List<MktEventRow> recentFeed(MktScope.View view, int limit) {
-        if (view.all()) return events.recent(view.orgId(), PageRequest.of(0, limit));
+        if (view.all()) {
+            return events.recent(view.orgId(), PageRequest.of(0, limit)).stream()
+                .filter(e -> view.sees(e.consultantId()) && view.consentScope(e.consultantId()).atLeast(ShareScope.FULL))
+                .toList();
+        }
         if (view.consultantIds().isEmpty()) return List.of();
-        return events.recentForConsultants(view.orgId(), view.consultantIds(), PageRequest.of(0, limit));
+        return events.recentForConsultants(view.orgId(), view.consultantIds(), PageRequest.of(0, limit)).stream()
+            .filter(e -> view.sees(e.consultantId()) && view.consentScope(e.consultantId()).atLeast(ShareScope.FULL))
+            .toList();
     }
 
     private List<Activity> activity(List<MktEventRow> rows) {

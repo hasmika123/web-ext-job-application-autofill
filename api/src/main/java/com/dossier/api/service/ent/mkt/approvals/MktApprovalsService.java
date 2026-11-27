@@ -6,6 +6,7 @@ import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
@@ -98,7 +99,7 @@ public class MktApprovalsService {
     private ApprovalRequestDTO openAssign(OrgMembership me, MktScope.View view, Long matchId, String note) {
         Long orgId = me.orgId();
         RequirementMatch m = matches.findByOrgIdAndId(orgId, matchId).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, m.getConsultantId());
+        scope.requireConsent(view, m.getConsultantId(), ShareScope.FULL);
         if (!"SUGGESTED".equals(m.getStatus())) throw OrgException.coded(409, "NOT_SUGGESTED", "Only a suggested opportunity can be sent for approval.", Map.of("status", m.getStatus()));
         ClientRequirement job = requirements.findByOrgIdAndId(orgId, m.getRequirementId()).orElseThrow(OrgNotFoundException::new);
         MktOpportunity opp = assignment.ensureOpportunity(view, matchId, me.memberId());
@@ -124,7 +125,7 @@ public class MktApprovalsService {
         Long orgId = me.orgId();
         scope.resolve(me, "resumes.edit_for"); // the page of the resume's own key as well
         OrgResume r = resumes.findByOrgIdAndId(orgId, resumeId).orElseThrow(OrgNotFoundException::new);
-        scope.require(view, r.getConsultantId());
+        scope.requireConsent(view, r.getConsultantId(), ShareScope.FULL);
         ConsultantProfile consultant = consultants.findByOrgIdAndId(orgId, r.getConsultantId()).orElseThrow(OrgNotFoundException::new);
         ObjectNode payload = json.createObjectNode();
         payload.put("resumeId", r.getId());

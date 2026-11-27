@@ -2,6 +2,7 @@ package com.dossier.api.service.ent.mkt.resumes;
 
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
+import com.dossier.api.domain.enumeration.ShareScope;
 import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.repository.UserRepository;
@@ -121,7 +122,7 @@ public class ActForBuilderGate {
         authorization.require(AuthzRequest.of(orgId, List.of(MktResumesService.EDIT_KEY), Beneficiary.NONE, null, AuthzOperation.WRITE).withActor(me));
         OrgResume link = orgResumes.findByOrgIdAndId(orgId, linkId).orElseThrow(OrgNotFoundException::new);
         if (link.getResumeId() == null) throw new OrgNotFoundException();
-        scope.require(view, link.getConsultantId());
+        scope.requireConsent(view, link.getConsultantId(), ShareScope.FULL);
         ConsultantProfile c = consultants.findByOrgIdAndId(orgId, link.getConsultantId()).orElseThrow(OrgNotFoundException::new);
         if (c.getMemberId() == null || !"ACTIVE".equals(c.getStatus())) throw new OrgNotFoundException();
         User owner = members
