@@ -15,6 +15,7 @@ import com.dossier.api.repository.ent.talent.MarketerAssignmentRepository;
 import com.dossier.api.repository.ent.talent.TalentApplicationEventRepository;
 import com.dossier.api.repository.ent.talent.TalentApplicationRepository;
 import com.dossier.api.service.dto.ent.ConsultantDTO;
+import com.dossier.api.service.org.ConsultantProfileLinked;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -97,6 +99,7 @@ public class ConsultantWriteService {
     private final ConsultantAccess access;
     private final OrgAuditService audit;
     private final Clock clock;
+    private final ApplicationEventPublisher publisher;
 
     @PersistenceContext
     private EntityManager em;
@@ -110,7 +113,8 @@ public class ConsultantWriteService {
         TalentApplicationEventRepository eventRepo,
         ConsultantQueryService query,
         ConsultantAccess access,
-        OrgAuditService audit
+        OrgAuditService audit,
+        ApplicationEventPublisher publisher
     ) {
         this.profiles = profiles;
         this.skillRepo = skillRepo;
@@ -121,6 +125,7 @@ public class ConsultantWriteService {
         this.access = access;
         this.audit = audit;
         this.clock = Clock.systemUTC();
+        this.publisher = publisher;
     }
 
     /** Now, cut to the microseconds the DATETIME(6) columns keep, so a version computed before a reload equals the one after. */
@@ -207,6 +212,7 @@ public class ConsultantWriteService {
         }
         skillRepo.flush();
         audit.record(me, A_CREATE, TARGET, null, String.valueOf(c.getId()), c.getMemberId() == null ? "added a consultant" : "added a consultant linked to an organization account");
+        publishProfileLinked(c);
         return query.detail(me, c.getId());
     }
 
@@ -282,7 +288,12 @@ public class ConsultantWriteService {
         c.setUpdatedAt(now());
         profiles.saveAndFlush(c);
         audit.record(me, A_UPDATE, TARGET, null, String.valueOf(c.getId()), "linked an organization account");
+        publishProfileLinked(c);
         return query.detail(me, c.getId());
+    }
+
+    private void publishProfileLinked(ConsultantProfile profile) {
+        if (profile.getMemberId() != null) publisher.publishEvent(new ConsultantProfileLinked(profile.getOrgId(), profile.getMemberId()));
     }
 
     static int completeness(boolean hasSkills) {

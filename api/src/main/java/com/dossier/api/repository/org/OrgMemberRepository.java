@@ -22,6 +22,13 @@ public interface OrgMemberRepository extends Repository<OrgMember, Long> {
 
     List<OrgMember> findByOrgIdAndInviteEmailAndStatusIn(Long orgId, String inviteEmail, Collection<OrgMemberStatus> statuses);
 
+    /** Whether a seat has a live system Consultant role or an organization role cloned from that template. */
+    @Query(
+        "select count(mr) from OrgMemberRole mr, OrgRoleDefinition r where mr.orgId = :orgId and mr.memberId = :memberId and mr.endsAt is null " +
+        "and r.id = mr.roleId and ((r.orgId = :orgId and r.templateKey = 'CONSULTANT') or (r.orgId is null and r.system = true and r.roleKey = 'CONSULTANT'))"
+    )
+    long countLiveConsultantRoles(@Param("orgId") Long orgId, @Param("memberId") Long memberId);
+
     long countByOrgIdAndStatus(Long orgId, OrgMemberStatus status);
 
     /** The people holding one of {@code roles} in the organization with the given seat status (who is told when a policy is decided). */

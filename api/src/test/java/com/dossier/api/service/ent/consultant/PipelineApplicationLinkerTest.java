@@ -25,6 +25,8 @@ import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.service.ApplicationEventRecorded;
 import com.dossier.api.service.ent.EnterpriseFeatureFlag;
 import com.dossier.api.service.ent.jobs.UrlKeys;
+import com.dossier.api.service.org.ConsultantProfileLinked;
+import com.dossier.api.service.org.DataShareScopeChanged;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import java.time.Instant;
@@ -59,6 +61,10 @@ class PipelineApplicationLinkerTest {
         work = new PipelineApplicationLinkWork(profiles, flags, w.shares, w.repo, w.opportunities, w.events, w.links, w.projection, w.audit, w.clock);
         linker = new PipelineApplicationLinker(applications, members, work);
         when(members.findMine(ConWorld.USER)).thenReturn(List.of(seat(ConWorld.ORG, ConWorld.MEMBER, OrgMemberStatus.ACTIVE)));
+        OrgMember active = seat(ConWorld.ORG, ConWorld.MEMBER, OrgMemberStatus.ACTIVE);
+        active.setUserId(ConWorld.USER);
+        when(members.findByOrgIdAndId(ConWorld.ORG, ConWorld.MEMBER)).thenReturn(Optional.of(active));
+        when(members.countLiveConsultantRoles(anyLong(), anyLong())).thenReturn(1L);
     }
 
     static ConsultantProfile profile(String status) {
@@ -95,6 +101,19 @@ class PipelineApplicationLinkerTest {
 
     private void applied(String url, String ats, String ext) {
         applicationEvent(ApplicationStatus.APPLIED, "Some Co", "Some Role", url, ats, ext);
+    }
+
+    private Application replayApplication(ApplicationStatus status) {
+        Application a = new Application();
+        a.setId(APP_ID);
+        a.setStatus(status);
+        a.setCompany("Some Co");
+        a.setRoleTitle("Some Role");
+        a.setJobUrl("https://boards.greenhouse.io/acme/jobs/101");
+        a.setAtsPlatform("greenhouse");
+        a.setExternalJobId("101");
+        a.setAppliedAt(Instant.parse("2026-10-12T08:00:00Z"));
+        return a;
     }
 
     // ---- matching ---------------------------------------------------------------------------------------------------------------
@@ -221,6 +240,95 @@ class PipelineApplicationLinkerTest {
         applied("https://boards.greenhouse.io/acme/jobs/101", "greenhouse", "101");
         assertThat(w.linkStore.get(0).getTalentApplicationId()).isEqualTo(900L);
         verify(w.projection).upsert(eq(ConWorld.ORG), eq(1L), eq(101L), eq(ConWorld.CONSULTANT), eq(ConWorld.MARKETER), eq(APP_ID), any());
+    }
+
+    @Test
+    void grantingSummaryReplaysExistingAppliedApplicationsIntoTheMarketersOpportunityBoard() {
+        w.consent = ShareScope.SUMMARY;
+        w.opp(1, "ASSIGNED");
+        when(applications.findByUserId(ConWorld.USER)).thenReturn(List.of(replayApplication(ApplicationStatus.APPLIED)));
+
+        linker.onShareScopeChanged(new DataShareScopeChanged(ConWorld.ORG, ConWorld.MEMBER, ConWorld.USER, ShareScope.NONE, ShareScope.SUMMARY));
+
+        assertThat(w.opps.get(1L).o.getState()).isEqualTo("APPLIED");
+        assertThat(w.linkStore).hasSize(1);
+        verify(w.projection, never()).upsert(anyLong(), anyLong(), anyLong(), anyLong(), any(), anyLong(), any());
+    }
+
+    @Test
+    void grantingFullReplaysTheProjectionForAnExistingOpportunityLink() {
+        w.consent = ShareScope.FULL;
+        w.opp(1, "APPLIED");
+        var link = w.liveLink(1, APP_ID);
+        when(applications.findByUserId(ConWorld.USER)).thenReturn(List.of(replayApplication(ApplicationStatus.APPLIED)));
+
+        linker.onShareScopeChanged(new DataShareScopeChanged(ConWorld.ORG, ConWorld.MEMBER, ConWorld.USER, ShareScope.SUMMARY, ShareScope.FULL));
+
+        assertThat(link.getTalentApplicationId()).isEqualTo(900L);
+        verify(w.projection).upsert(eq(ConWorld.ORG), eq(1L), eq(101L), eq(ConWorld.CONSULTANT), eq(ConWorld.MARKETER), eq(APP_ID), any());
+    }
+
+    @Test
+    void replayFollowsAnApplicationThatAlreadyMovedPastApplied() {
+        w.consent = ShareScope.SUMMARY;
+        w.opp(1, "ASSIGNED");
+        when(applications.findByUserId(ConWorld.USER)).thenReturn(List.of(replayApplication(ApplicationStatus.REJECTED)));
+
+        linker.onShareScopeChanged(new DataShareScopeChanged(ConWorld.ORG, ConWorld.MEMBER, ConWorld.USER, ShareScope.NONE, ShareScope.SUMMARY));
+
+        assertThat(w.opps.get(1L).o.getState()).isEqualTo("CLOSED");
+        assertThat(w.linkStore).hasSize(1);
+        assertThat(w.eventKinds()).containsExactly("APPLIED", "CLOSED");
+    }
+
+    @Test
+    void replayDoesNotReadApplicationsWhenConsentIsNoneOrIsBeingReduced() {
+        linker.onShareScopeChanged(new DataShareScopeChanged(ConWorld.ORG, ConWorld.MEMBER, ConWorld.USER, ShareScope.NONE, ShareScope.NONE));
+        linker.onShareScopeChanged(new DataShareScopeChanged(ConWorld.ORG, ConWorld.MEMBER, ConWorld.USER, ShareScope.FULL, ShareScope.SUMMARY));
+
+        verify(applications, never()).findByUserId(anyLong());
+    }
+
+    @Test
+    void linkingAnActiveConsultantProfileReplaysApplicationsWhenConsentAlreadyExists() {
+        w.consent = ShareScope.SUMMARY;
+        w.opp(1, "ASSIGNED");
+        Application a = new Application();
+        a.setId(APP_ID);
+        a.setStatus(ApplicationStatus.APPLIED);
+        a.setJobUrl("https://boards.greenhouse.io/acme/jobs/101");
+        a.setAtsPlatform("greenhouse");
+        a.setExternalJobId("101");
+        when(applications.findByUserId(ConWorld.USER)).thenReturn(List.of(a));
+        OrgMember active = seat(ConWorld.ORG, ConWorld.MEMBER, OrgMemberStatus.ACTIVE);
+        active.setUserId(ConWorld.USER);
+        when(members.findByOrgIdAndId(ConWorld.ORG, ConWorld.MEMBER)).thenReturn(Optional.of(active));
+
+        linker.onConsultantProfileLinked(new ConsultantProfileLinked(ConWorld.ORG, ConWorld.MEMBER));
+
+        assertThat(w.opps.get(1L).o.getState()).isEqualTo("APPLIED");
+        assertThat(w.linkStore).hasSize(1);
+    }
+
+    @Test
+    void linkingAnInvitedOrSeatlessConsultantDoesNotReplayApplications() {
+        OrgMember invited = seat(ConWorld.ORG, ConWorld.MEMBER, OrgMemberStatus.INVITED);
+        invited.setUserId(null);
+        when(members.findByOrgIdAndId(ConWorld.ORG, ConWorld.MEMBER)).thenReturn(Optional.of(invited));
+
+        linker.onConsultantProfileLinked(new ConsultantProfileLinked(ConWorld.ORG, ConWorld.MEMBER));
+
+        verify(applications, never()).findByUserId(anyLong());
+    }
+
+    @Test
+    void aNonConsultantSeatDoesNotReplayApplications() {
+        when(members.countLiveConsultantRoles(ConWorld.ORG, ConWorld.MEMBER)).thenReturn(0L);
+        when(applications.findByUserId(ConWorld.USER)).thenReturn(List.of(new Application()));
+
+        linker.onShareScopeChanged(new DataShareScopeChanged(ConWorld.ORG, ConWorld.MEMBER, ConWorld.USER, ShareScope.NONE, ShareScope.SUMMARY));
+
+        verify(applications, never()).findByUserId(anyLong());
     }
 
     // ---- an application that was linked already ------------------------------------------------------------------------------
@@ -397,6 +505,12 @@ class PipelineApplicationLinkerTest {
         assertThat(l).isNotNull();
         assertThat(l.phase()).isEqualTo(TransactionPhase.AFTER_COMMIT);
         assertThat(l.condition()).isEqualTo("#event.relevant()");
+        TransactionalEventListener consentListener = PipelineApplicationLinker.class.getMethod("onShareScopeChanged", DataShareScopeChanged.class).getAnnotation(TransactionalEventListener.class);
+        assertThat(consentListener).isNotNull();
+        assertThat(consentListener.phase()).isEqualTo(TransactionPhase.AFTER_COMMIT);
+        TransactionalEventListener profileListener = PipelineApplicationLinker.class.getMethod("onConsultantProfileLinked", ConsultantProfileLinked.class).getAnnotation(TransactionalEventListener.class);
+        assertThat(profileListener).isNotNull();
+        assertThat(profileListener.phase()).isEqualTo(TransactionPhase.AFTER_COMMIT);
         assertThat(PipelineApplicationLinkWork.class.getMethod("process", Long.class, Long.class, PipelineApplicationLinkWork.Facts.class)
             .getAnnotation(org.springframework.transaction.annotation.Transactional.class).propagation()).isEqualTo(org.springframework.transaction.annotation.Propagation.REQUIRES_NEW);
     }

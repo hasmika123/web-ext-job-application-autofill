@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,6 +63,7 @@ public class DataShareService {
     private final UserRepository users;
     private final OrgAuditService audit;
     private final OrgShareConsent consent;
+    private final ApplicationEventPublisher publisher;
 
     public DataShareService(
         DataShareRepository shares,
@@ -70,7 +72,8 @@ public class DataShareService {
         OrganizationRepository orgs,
         UserRepository users,
         OrgAuditService audit,
-        OrgShareConsent consent
+        OrgShareConsent consent,
+        ApplicationEventPublisher publisher
     ) {
         this.shares = shares;
         this.events = events;
@@ -79,6 +82,7 @@ public class DataShareService {
         this.users = users;
         this.audit = audit;
         this.consent = consent;
+        this.publisher = publisher;
     }
 
     // ---- reads ---------------------------------------------------------------------------------------------------
@@ -152,6 +156,7 @@ public class DataShareService {
         String fullToLogin = fullTo.flatMap(m -> loginOf(m.getUserId())).orElse(null);
         record(me.orgId(), me.login(), from, scope, fullToLogin, DataShareEvent.ACTOR_MEMBER, existing.isEmpty() ? DataShareEvent.REASON_JOIN : DataShareEvent.REASON_MEMBER_CHANGE, version, ctx);
         audit.record(me, OrgAuditService.SHARE_SCOPE_CHANGED, OrgAuditService.TARGET_MEMBER, me.login(), String.valueOf(me.memberId()), from + " -> " + scope);
+        if (scope.atLeast(ShareScope.SUMMARY) && scope.compareTo(from) > 0) publisher.publishEvent(new DataShareScopeChanged(me.orgId(), me.memberId(), me.userId(), from, scope));
         return view(row);
     }
 

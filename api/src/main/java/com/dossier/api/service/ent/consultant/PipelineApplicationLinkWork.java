@@ -114,10 +114,9 @@ public class PipelineApplicationLinkWork {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void process(Long orgId, Long memberId, Facts f) {
         if (orgId == null || memberId == null || f == null || f.applicationId() == null || f.status() == null) return;
-        if (!flags.isEnabled(EnterpriseSettingKeys.FLAG_CONSULTANT_JOBS, orgId)) return;
-        List<ConsultantProfile> mine = profiles.findByOrgIdAndMemberId(orgId, memberId);
-        if (mine.size() != 1 || !"ACTIVE".equals(mine.get(0).getStatus()) || mine.get(0).getId() == null) return;
-        Long consultantId = mine.get(0).getId();
+        ConsultantProfile profile = activeProfile(orgId, memberId);
+        if (profile == null) return;
+        Long consultantId = profile.getId();
         ShareScope consent = shares.scopeOf(orgId, memberId);
         if (consent == null || !consent.atLeast(ShareScope.SUMMARY)) return; // NONE: no link, no projection, nothing the org can see
 
@@ -128,6 +127,19 @@ public class PipelineApplicationLinkWork {
             return;
         }
         if (f.status() == ApplicationStatus.APPLIED) link(orgId, consultantId, memberId, consent, f);
+    }
+
+    /** The replay listener uses the same feature/profile gate before it reads any personal applications. */
+    boolean replayEligible(Long orgId, Long memberId) {
+        return activeProfile(orgId, memberId) != null;
+    }
+
+    private ConsultantProfile activeProfile(Long orgId, Long memberId) {
+        if (orgId == null || memberId == null || !flags.isEnabled(EnterpriseSettingKeys.FLAG_CONSULTANT_JOBS, orgId)) return null;
+        List<ConsultantProfile> mine = profiles.findByOrgIdAndMemberId(orgId, memberId);
+        if (mine.size() != 1) return null;
+        ConsultantProfile profile = mine.get(0);
+        return profile != null && "ACTIVE".equals(profile.getStatus()) && profile.getId() != null ? profile : null;
     }
 
     // ---- an application the consultant already linked: follow it -----------------------------------------------------------------
@@ -148,7 +160,20 @@ public class PipelineApplicationLinkWork {
                 audit.record(orgId, OrgAuditService.SYSTEM_ACTOR, null, "LINKER_OPPORTUNITY_CLOSED", "OPPORTUNITY", null, String.valueOf(opp.getId()), APPLICATION_TERMINAL, null);
             }
         }
-        if (consent == ShareScope.FULL) projection.mirror(orgId, f.applicationId(), f.status(), f.source());
+        if (consent == ShareScope.FULL) {
+            for (MktPipelineApplicationLink l : live) {
+                ConOpportunityRow row = repo.findRow(orgId, consultantId, l.getOpportunityId()).orElse(null);
+                if (row == null || row.jobId() == null) continue;
+                Long projectionId = projection.upsert(
+                    orgId, l.getOpportunityId(), row.jobId(), consultantId, row.assignedByMemberId(), f.applicationId(), f.appliedAt()
+                );
+                if (projectionId != null && !projectionId.equals(l.getTalentApplicationId())) {
+                    l.setTalentApplicationId(projectionId);
+                    links.save(l);
+                }
+            }
+            projection.mirror(orgId, f.applicationId(), f.status(), f.source());
+        }
     }
 
     // ---- a new APPLIED application: find its opportunity ---------------------------------------------------------------------------
