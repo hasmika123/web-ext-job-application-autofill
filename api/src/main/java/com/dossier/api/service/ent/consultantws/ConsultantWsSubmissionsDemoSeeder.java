@@ -28,12 +28,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Demo STAND-IN rows for the Submissions and Approvals page, for the consultants who are real seats (Anika, Ben, Sam). In the product the
- * marketer creates a submission and the client side later reports back; neither role is built in this branch, so these rows play that part
- * and every one is flagged {@code sample_data = true} (the page shows a Sample mark on them). Per consultant: three submissions waiting for
- * approval (due in a few hours, in about a day, and later) and past ones in several statuses with client updates. Call it after
- * {@link ConsultantWsDemoSeeder} (it uses their matches, jobs and resumes). Idempotent: a consultant who already has any submission row is
- * skipped, and it never touches another table.
+ * Legacy compatibility rows for the Submissions and Approvals page, for the consultants who are real seats (Anika, Ben, Sam). The marketer's
+ * {@code mkt_submission} is now the live shared record; these rows remain sample stand-ins for installations and consultant surfaces that have
+ * not migrated yet. They are flagged {@code sample_data = true}, and the submissions service ignores them whenever canonical marketer rows exist.
+ * Per consultant: three submissions waiting for approval (due in a few hours, in about a day, and later) and past ones in several statuses with
+ * client updates. Call it after {@link ConsultantWsDemoSeeder} (it uses their matches, jobs and resumes). Idempotent: a consultant who already
+ * has any compatibility row is skipped, and it never touches another table.
  */
 @Service
 public class ConsultantWsSubmissionsDemoSeeder {

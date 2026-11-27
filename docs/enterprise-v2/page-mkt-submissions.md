@@ -37,6 +37,6 @@ Every write also passes the WRITE authorization (a past-due/closed org refuses),
 ## Known gaps
 
 - Donut colours use the nearest tenant/status tokens (no orange token exists: Interview Requested uses the coral token).
-- The consultant-side approval (a consultant approving in their own workspace) is not built; the marketer records the decision the consultant gave.
+- The consultant-side approval is now available from the consultant workspace and writes the same `mkt_submission` record; the marketer board still records the later client-side status separately.
 - The row checkboxes select rows but there is no bulk action on the board.
 - Client logos for clients other than the board's ten show a letter tile; photos are initials unless the API sends `avatarUrl`.

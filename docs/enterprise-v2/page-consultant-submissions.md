@@ -25,14 +25,15 @@ Each delta compares the value now with how many of those same rows were already 
 Each tile carries `vs` ("week"/"month") so the label is honest.
 
 ## Data
-New table `cws_submission` in `api/src/main/resources/config/liquibase/changelog/20261103100000_ent_cws_submissions.xml` (NOT registered in master.xml; the
-coordinator adds it). Composite tenant FKs to consultant_profile, client_requirement, org_resume, org_member; unique (org_id, consultant_id,
-requirement_id) = a job is submitted once per consultant; extra `sample_data` boolean marks demo stand-ins. Entity `CwsSubmission`, repo `CwsSubmissionRepository`.
+`mkt_submission` is the canonical record shared with the Marketing Submissions board. It is scoped to the organization and consultant,
+and the marketer's duplicate guard allows one live record per consultant and requirement. The consultant endpoint reads that record directly,
+so a package prepared by a marketer appears in the consultant's page without creating a second submission row. `MktSubmissionEvent` supplies
+the approval decision timestamp and reason for the consultant detail view.
 
-**Real vs sample.** Rows are created by the marketer in the real product and the client side later writes `submitted_on`, `client_update`,
-CLIENT_INTERVIEW / NOT_SELECTED. Neither role exists in this branch, so `ConsultantWsSubmissionsDemoSeeder.seed()` writes stand-in rows
-(`sample_data = true`) for Anika / Ben / Sam in demo-acme and demo-beta: 3 pending (due in 3 h, 22 h, 4 days) plus past rows in several statuses with
-client updates. The page shows a "Sample" mark whenever a shown row is a stand-in. Everything the consultant does (approve, decline, reading) is real.
+`cws_submission` remains a compatibility read source for installations that still have the original consultant-only rows. When a consultant has
+canonical marketer records, those legacy rows are ignored, so the page cannot show the same consultant/job twice. New marketer records are not
+marked as sample data. Everything the consultant does (approve, decline, reading) updates the canonical record; approving still only records the
+consultant's attestation and never submits anything to a client.
 Gap (documented): after APPROVED nothing in this product moves a row to SUBMITTED_TO_CLIENT; that is the marketer role's job.
 
 ## Web
@@ -48,7 +49,7 @@ No `packages/ui` change.
 
 ## OrgIsolationIT rows to add
 GET `/api/orgs/{orgId}/me-workspace/submissions`, GET `.../submissions/past`, GET `.../submissions/{id}`, POST `.../submissions/{id}/approve`,
-POST `.../submissions/{id}/decline` (body `{"reason":"not for me"}`). Table `cws_submission` org-first fixtures: any consultant row.
+POST `.../submissions/{id}/decline` (body `{"reason":"not for me"}`). Prefer `mkt_submission` org-first fixtures; retain a `cws_submission` fixture only when testing the compatibility fallback.
 
 ## Wiring for the coordinator
 1. master.xml: add the include of `20261103100000_ent_cws_submissions.xml` (end).

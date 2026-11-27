@@ -9,6 +9,7 @@ import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.ent.OrgMemberRole;
 import com.dossier.api.domain.ent.consultantws.CwsSubmission;
+import com.dossier.api.domain.ent.mkt.MktSubmission;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
@@ -23,6 +24,7 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.ent.OrgMemberRoleRepository;
 import com.dossier.api.repository.ent.OrgRoleRepository;
 import com.dossier.api.repository.ent.consultantws.CwsSubmissionRepository;
+import com.dossier.api.repository.ent.mkt.MktSubmissionRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
@@ -82,6 +84,7 @@ class ConsultantSubmissionsResourceIT {
     @Autowired private OrgResumeRepository resumes;
     @Autowired private TalentApplicationRepository applications;
     @Autowired private CwsSubmissionRepository submissions;
+    @Autowired private MktSubmissionRepository canonicalSubmissions;
     @Autowired private ConsultantWsSubmissionsDemoSeeder seeder;
 
     private OrgFixtures fx;
@@ -208,6 +211,21 @@ class ConsultantSubmissionsResourceIT {
         return sub(c, r, status, dueAt, now.minus(Duration.ofDays(1)));
     }
 
+    private MktSubmission canonicalSub(ConsultantProfile c, ClientRequirement r) {
+        MktSubmission s = new MktSubmission();
+        s.setOrgId(c.getOrgId());
+        s.setCode("MKT-" + System.nanoTime());
+        s.setConsultantId(c.getId());
+        s.setRequirementId(r.getId());
+        s.setClientId(r.getClientId());
+        s.setApprovalState(MktSubmission.AWAITING_APPROVAL);
+        s.setStatus(MktSubmission.DRAFT);
+        s.setNote("Canonical marketer note");
+        s.setCreatedAt(now.minus(Duration.ofHours(2)));
+        s.setUpdatedAt(s.getCreatedAt());
+        return canonicalSubmissions.save(s);
+    }
+
     private CwsSubmission pastSub(ConsultantProfile c, String title, String status, int submittedDaysAgo) {
         CwsSubmission s = sub(c, requirement(c.getOrgId().equals(a.getId()) ? a : b, acme, title), status, null, now.minus(Duration.ofDays(submittedDaysAgo + 2)));
         s.setDecidedAt(now.minus(Duration.ofDays(submittedDaysAgo + 1)));
@@ -325,6 +343,24 @@ class ConsultantSubmissionsResourceIT {
         assertThat(t.path("submitted").path("value").asLong()).isEqualTo(1);
         assertThat(t.path("attention").path("value").asLong()).as("due in 2h and past due; 30h is not attention").isEqualTo(2);
         for (String k : List.of("pending", "approved", "submitted", "attention")) assertThat(t.path(k).path("sparkline")).as(k).hasSize(6);
+    }
+
+    @Test
+    void marketerRecordIsTheSingleConsultantSubmissionAndLegacyStandInIsNotDuplicated() throws Exception {
+        ClientRequirement r = requirement(a, acme, "Canonical Submission Role");
+        CwsSubmission legacy = sub(c1, r, CwsSubmission.PENDING, now.plus(Duration.ofHours(2)));
+        MktSubmission canonical = canonicalSub(c1, r);
+
+        JsonNode p = page("cws-s-a-c1", a);
+        assertThat(texts(p.path("pending"), "title")).containsExactly("Canonical Submission Role");
+        assertThat(p.path("pending")).hasSize(1);
+        assertThat(p.path("pending").get(0).path("sample").asBoolean()).isFalse();
+
+        JsonNode done = ok(send(post(path(a.getId(), "/" + canonical.getId() + "/approve")), "cws-s-a-c1", null), "approve canonical submission");
+        assertThat(done.path("status").asText()).isEqualTo(CwsSubmission.APPROVED);
+        assertThat(canonicalSubmissions.findByOrgIdAndConsultantIdAndIdAndArchivedAtIsNull(a.getId(), c1.getId(), canonical.getId()).orElseThrow().getApprovalState())
+            .isEqualTo(MktSubmission.APPROVED);
+        assertThat(statusOf(legacy)).as("the old stand-in is not the row the consultant decided").isEqualTo(CwsSubmission.PENDING);
     }
 
     @Test

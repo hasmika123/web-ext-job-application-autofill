@@ -34,7 +34,7 @@ follow the boards (19 items in `workspaces.json`, section 5.4 of `16-ui-ux-page-
 |---|---|---|
 | My Marketer | replies badge, messages, shared action plan, collaboration notes; Send Message / Schedule Call open an honest "not connected" dialog | marketing workspace messaging and plan |
 | Assigned Opportunities | priority and due date are derived (score, assignment + 14 days) unless a `cws_opportunity_response` row stores them | marketer assignment |
-| Submissions & Approvals | the marketer-created rows, notes and client updates are seeded in `cws_submission` | marketer "prepare submission" writes the row; nothing moves a row to "submitted to client" yet |
+| Submissions & Approvals | legacy `cws_submission` rows remain compatibility fixtures; the consultant page now reads the marketer's canonical `mkt_submission` and hides duplicate stand-ins | marketer "prepare submission" and consultant approval share one record; nothing moves a row to "submitted to client" yet |
 | Offers | offers and their timeline are seeded in `cws_offer` / `cws_offer_event`; accepting does not create a placement | employer/ops offers; placement start |
 | My Placement | manager, project, schedule, milestones, meetings, checklist, activity are seeded (`cws_placement_*`); no bill rate is ever shown | employer/ops/HR side |
 | Tasks | "assigned by a marketer" label is a stand-in (`cws_task_detail`) | marketer tasks |
