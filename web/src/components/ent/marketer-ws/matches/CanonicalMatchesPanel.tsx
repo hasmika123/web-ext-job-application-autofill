@@ -8,7 +8,7 @@ import { Person, ScoreChip } from "./MatchParts";
 
 type PanelStatus = "loading" | "ready" | "failed" | "denied";
 
-/** Additive canonical suggestions panel. The legacy Matches table remains a separate source and action contract. */
+/** The canonical source and action contract for the marketer Matches tab. */
 export default function CanonicalMatchesPanel({ orgId }: { orgId: number }) {
   const [status, setStatus] = useState<PanelStatus>("loading");
   const [items, setItems] = useState<CanonicalMatchItem[]>([]);

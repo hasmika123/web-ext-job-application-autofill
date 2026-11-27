@@ -10,11 +10,15 @@ import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.ent.OrgAssignmentRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.ent.TenantScoped;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
+import com.dossier.api.service.privacy.JobLeaseService;
+import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import java.time.DateTimeException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -38,6 +42,8 @@ import org.springframework.stereotype.Component;
 public final class OrgMatchJob {
 
     private static final Logger LOG = LoggerFactory.getLogger(OrgMatchJob.class);
+    public static final String LEASE_NAME = "org-matching";
+    private static final Duration LEASE_TTL = Duration.ofMinutes(60);
     private static final Set<AssignmentKind> ACTING_KINDS = AssignmentKind.ACTING;
     private static final Set<String> EXPECTED_SKIP_CODES = Set.of("FEATURE_NOT_LICENSED", "CONSENT_REQUIRED", "FEATURE_ALLOWANCE_EXHAUSTED");
 
@@ -46,26 +52,31 @@ public final class OrgMatchJob {
     private final OrgAssignmentRepository assignments;
     private final OrgMatchService matcher;
     private final OrgMatchJobProperties properties;
+    private final ResumeBuilderSettings settings;
+    private final JobLeaseService leases;
 
     public OrgMatchJob(
         OrganizationRepository organizations,
         ConsultantProfileRepository consultants,
         OrgAssignmentRepository assignments,
         OrgMatchService matcher,
-        OrgMatchJobProperties properties
+        OrgMatchJobProperties properties,
+        ResumeBuilderSettings settings,
+        JobLeaseService leases
     ) {
         this.organizations = organizations;
         this.consultants = consultants;
         this.assignments = assignments;
         this.matcher = matcher;
         this.properties = properties;
+        this.settings = settings;
+        this.leases = leases;
     }
 
     public record OrgResult(Long orgId, int checked, int ran, int skipped, int failed, int written) {}
 
     @Scheduled(cron = "${dossier.ent.matching-cron:0 0 2 * * *}", zone = "UTC")
     public void scheduled() {
-        if (!properties.isEnabled()) return;
         try {
             List<OrgResult> results = runOnce(Instant.now());
             int ran = results.stream().mapToInt(OrgResult::ran).sum();
@@ -78,8 +89,13 @@ public final class OrgMatchJob {
 
     /** Runs one bounded pass. A failure in one organization or consultant never stops the remaining work. */
     public List<OrgResult> runOnce(Instant now) {
-        if (!properties.isEnabled()) return List.of();
+        if (!matchingEnabled()) return List.of();
         Instant reference = now == null ? Instant.now() : now;
+        return leases.withLease(LEASE_NAME, LEASE_TTL, reference, () -> runUnlocked(reference), OrgMatchJob::summarize)
+            .orElseGet(List::of);
+    }
+
+    private List<OrgResult> runUnlocked(Instant reference) {
         List<Long> orgIds = new ArrayList<>();
         TenantScoped.unscoped(() -> {
             List<Long> found = organizations.findAllOrgIds();
@@ -97,6 +113,22 @@ public final class OrgMatchJob {
             }
         }
         return List.copyOf(results);
+    }
+
+    private boolean matchingEnabled() {
+        try {
+            return settings.getBool(EnterpriseSettingKeys.MATCHING_ENABLED);
+        } catch (RuntimeException failure) {
+            LOG.warn("Nightly organization matching is disabled because its admin setting could not be read", failure);
+            return false;
+        }
+    }
+
+    private static String summarize(List<OrgResult> results) {
+        int checked = results.stream().mapToInt(OrgResult::checked).sum();
+        int ran = results.stream().mapToInt(OrgResult::ran).sum();
+        int written = results.stream().mapToInt(OrgResult::written).sum();
+        return "orgs=" + results.size() + " checked=" + checked + " ran=" + ran + " written=" + written;
     }
 
     private OrgResult runOrganization(Long orgId, Instant now) {

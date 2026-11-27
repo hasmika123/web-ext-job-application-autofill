@@ -3,6 +3,7 @@ package com.dossier.api.service.ent.pipeline;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,11 +16,17 @@ import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.ent.OrgAssignmentRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgMembership;
+import com.dossier.api.service.privacy.JobLeaseService;
+import com.dossier.api.service.settings.EnterpriseSettingKeys;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,15 +43,27 @@ class OrgMatchJobTest {
     @Mock ConsultantProfileRepository consultants;
     @Mock OrgAssignmentRepository assignments;
     @Mock OrgMatchService matcher;
+    @Mock ResumeBuilderSettings settings;
+    @Mock JobLeaseService leases;
 
     private final OrgMatchJobProperties properties = new OrgMatchJobProperties();
     private OrgMatchJob job;
 
     @BeforeEach
     void setUp() {
-        properties.setEnabled(true);
         properties.setChecksPerRun(100);
-        job = new OrgMatchJob(organizations, consultants, assignments, matcher, properties);
+        when(settings.getBool(EnterpriseSettingKeys.MATCHING_ENABLED)).thenReturn(true);
+        lenient().when(leases.<List<OrgMatchJob.OrgResult>>withLease(
+            eq(OrgMatchJob.LEASE_NAME),
+            any(Duration.class),
+            eq(NOW),
+            org.mockito.ArgumentMatchers.<Supplier<List<OrgMatchJob.OrgResult>>>any(),
+            org.mockito.ArgumentMatchers.<Function<List<OrgMatchJob.OrgResult>, String>>any()
+        )).thenAnswer(invocation -> {
+            Supplier<List<OrgMatchJob.OrgResult>> work = invocation.getArgument(3);
+            return Optional.of(work.get());
+        });
+        job = new OrgMatchJob(organizations, consultants, assignments, matcher, properties, settings, leases);
     }
 
     @Test
@@ -127,9 +146,23 @@ class OrgMatchJobTest {
 
     @Test
     void disabledJobDoesNotReadOrganizations() {
-        properties.setEnabled(false);
+        when(settings.getBool(EnterpriseSettingKeys.MATCHING_ENABLED)).thenReturn(false);
 
         assertThat(job.runOnce(NOW)).isEmpty();
+    }
+
+    @Test
+    void anotherInstanceHoldingTheLeaseDoesNotReadOrganizations() {
+        when(leases.<List<OrgMatchJob.OrgResult>>withLease(
+            eq(OrgMatchJob.LEASE_NAME),
+            any(Duration.class),
+            eq(NOW),
+            org.mockito.ArgumentMatchers.<Supplier<List<OrgMatchJob.OrgResult>>>any(),
+            org.mockito.ArgumentMatchers.<Function<List<OrgMatchJob.OrgResult>, String>>any()
+        )).thenReturn(Optional.empty());
+
+        assertThat(job.runOnce(NOW)).isEmpty();
+        verify(organizations, org.mockito.Mockito.never()).findAllOrgIds();
     }
 
     private static Organization organization(Long id, String timezone, OrgStatus status) {
