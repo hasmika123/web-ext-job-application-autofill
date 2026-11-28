@@ -157,6 +157,30 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     expect(container.querySelector("[data-shell-sidebar]")!.getAttribute("data-rail")).toBe("false");
   });
 
+  it("anchors an attention badge to its icon in the collapsed rail", () => {
+    const { container } = mount("owner@acme.com", {
+      edit: (me) => ({
+        ...me,
+        workspaces: me.workspaces.map((workspace) => ({
+          ...workspace,
+          nav: workspace.nav.map((item) => (item.key === "employees" ? { ...item, badge: "attention" as const } : item)),
+        })),
+      }),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+
+    const badge = container.querySelector('[data-nav-item="employees"] [data-nav-badge="attention"]') as HTMLElement;
+    expect(badge).toBeTruthy();
+    expect(badge.className).not.toContain("ml-auto");
+    expect(badge.className).toContain("absolute");
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    const expandedBadge = container.querySelector('[data-nav-item="employees"] [data-nav-badge="attention"]') as HTMLElement;
+    expect(expandedBadge.className).toContain("ml-auto");
+    expect(expandedBadge.className).not.toContain("absolute");
+  });
+
   it("a home page has no eyebrow and no handwritten note (D7)", () => {
     nav.pathname = "/w/admin";
     const { container } = mount("owner@acme.com");

@@ -8,8 +8,14 @@ import { NavIcon } from "./nav-icons";
 /** One menu row: sizes, colours and the light-blue active pill live in `.ent-nav-row` (packages/ui/styles/theme-tenant.css). */
 const ROW = "ent-nav-row group relative text-left";
 
-function Dot() {
-  return <span aria-label="needs attention" data-nav-badge="attention" className="ml-auto h-2 w-2 flex-none rounded-full bg-danger" />;
+function Dot({ collapsed }: { collapsed: boolean }) {
+  return (
+    <span
+      aria-label="needs attention"
+      data-nav-badge="attention"
+      className={cn(collapsed ? "absolute right-1 top-1.5" : "ml-auto", "h-2 w-2 flex-none rounded-full bg-danger")}
+    />
+  );
 }
 
 /**
@@ -74,7 +80,7 @@ export default function ShellNav({
       >
         <NavIcon size={20} name={item.icon} />
         {collapsed ? null : <span className="min-w-0 flex-1 truncate">{item.text}</span>}
-        {item.badge === "attention" ? <Dot /> : null}
+        {item.badge === "attention" ? <Dot collapsed={collapsed} /> : null}
       </Link>
     );
     return collapsed ? (
