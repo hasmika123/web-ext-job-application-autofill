@@ -1,46 +1,76 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, ErrorState, MemberAvatar, SideSheet, Skeleton, Sparkline, UsersIcon, useNarrow } from "@kiwiply/ui";
+import { Button, ErrorState, MemberAvatar, Select, SideSheet, Skeleton, Sparkline, UsersIcon, useNarrow } from "@kiwiply/ui";
 import PageHeader from "@/components/ent/shell/ShellContext";
-import { mgmtApi, type TeamMember, type TeamPage, type TeamRow } from "@/lib/ent/mgmt-ws/api";
+import TalentPagination from "@/components/ent/shell/TalentPagination";
+import { mgmtApi, type TeamMember, type TeamPage as TeamData, type TeamRow } from "@/lib/ent/mgmt-ws/api";
+import { parseTeamState, writeManagerSearch, type TeamState } from "@/lib/ent/mgmt-ws/state";
 import { Empty, EmptyManager, LoadMeter, Person, SOFT_CARD, StatusBadge, TABLE, TABLE_WRAP, TextInput, Toolbar } from "../parts";
 import type { MgmtPageProps } from "../parts";
 
-export default function TeamPage({ orgId }: MgmtPageProps) {
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ACTIVE");
-  const [sort, setSort] = useState("load");
-  const [page, setPage] = useState<TeamPage | null>(null);
+const STATUS_OPTIONS = [
+  { value: "ACTIVE", label: "Active" },
+  { value: "PAUSED", label: "Paused" },
+  { value: "ALL", label: "All statuses" },
+];
+
+const SORT_OPTIONS = [
+  { value: "load", label: "Load" },
+  { value: "name", label: "Name" },
+  { value: "approvals", label: "Approvals" },
+  { value: "escalations", label: "Escalations" },
+  { value: "activity", label: "Last active" },
+];
+
+export default function TeamPage({ orgId, initialSearch }: MgmtPageProps) {
+  const [filters, setFilters] = useState<TeamState>(() => parseTeamState(initialSearch));
+  const [page, setPage] = useState<TeamData | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "failed" | "denied">("loading");
   const [selected, setSelected] = useState<number | null>(null);
+
+  useEffect(() => {
+    writeManagerSearch({ q: filters.q || null, status: filters.status === "ACTIVE" ? null : filters.status, sort: filters.sort === "load" ? null : filters.sort, page: filters.page, size: filters.size === 20 ? null : filters.size });
+  }, [filters]);
+
   const load = useCallback(async () => {
     setState((current) => (current === "ready" ? current : "loading"));
-    const result = await mgmtApi.team(orgId, { q: query.length >= 2 ? query : undefined, status: statusFilter, sort });
+    const result = await mgmtApi.team(orgId, { q: filters.q.length >= 2 ? filters.q : undefined, status: filters.status, sort: filters.sort, page: filters.page, size: filters.size });
     if (result.kind === "OK") {
       setPage(result.data);
       setState("ready");
     } else if (result.kind === "DENIED") setState("denied");
     else setState("failed");
-  }, [orgId, query, sort, statusFilter]);
+  }, [filters, orgId]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
 
+  const change = (patch: Partial<TeamState>) => setFilters((current) => ({ ...current, ...patch, page: patch.page ?? 0 }));
   if (state === "denied") return <ErrorState what="the team" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
-  return <div data-mgmt-team data-status={state} className="ent-page flex flex-col gap-4 sm:gap-5">
-    <PageHeader title="Team" subtitle="See each marketer's load, open items, and recent activity." />
-    <Toolbar><div className="flex min-w-0 flex-1 flex-wrap gap-2"><TextInput label="Search team" value={query} onChange={setQuery} placeholder="Search name or title" /><label className="flex items-center gap-2 rounded-lg border border-line bg-paper px-3 text-[13px] text-muted"><span className="sr-only">Status</span><select aria-label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="bg-transparent py-2 text-ink outline-none"><option value="ACTIVE">Active</option><option value="PAUSED">Paused</option><option value="ALL">All statuses</option></select></label><label className="flex items-center gap-2 rounded-lg border border-line bg-paper px-3 text-[13px] text-muted"><span className="sr-only">Sort</span><select aria-label="Sort" value={sort} onChange={(event) => setSort(event.target.value)} className="bg-transparent py-2 text-ink outline-none"><option value="load">Load</option><option value="name">Name</option><option value="approvals">Approvals</option><option value="escalations">Escalations</option><option value="activity">Last active</option></select></label></div><Button type="button" variant="ghost" size="sm" onClick={() => void load()}>Refresh</Button></Toolbar>
-    {state === "failed" ? <ErrorState what="the team" description="The team didn't load. Nothing has changed." onRetry={() => void load()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" /> : null}
-    {state === "loading" && !page ? <Skeleton className="h-96 w-full rounded-[var(--radius-lg)]" /> : page && page.items.length === 0 ? <EmptyManager title="No marketers found" description={query ? "Try a different search or clear the filters." : "Add marketers to your organization before building the team."} /> : page ? <TeamTable rows={page.items} onSelect={setSelected} /> : null}
-    <TeamMemberSheet orgId={orgId} memberId={selected} onClose={() => setSelected(null)} onSaved={() => void load()} />
-  </div>;
+
+  return (
+    <div data-mgmt-team data-status={state} className="ent-page flex flex-col gap-4 sm:gap-5">
+      <PageHeader title="Team" subtitle="See each marketer's load, open items, and recent activity." />
+      <Toolbar>
+        <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+          <TextInput label="Search team" value={filters.q} onChange={(q) => change({ q })} placeholder="Search name or title" />
+          <div className="w-36"><Select aria-label="Status" value={filters.status} onChange={(status) => change({ status: status as TeamState["status"] })} options={STATUS_OPTIONS} /></div>
+          <div className="w-36"><Select aria-label="Sort" value={filters.sort} onChange={(sort) => change({ sort: sort as TeamState["sort"] })} options={SORT_OPTIONS} /></div>
+        </div>
+        <Button type="button" variant="ghost" size="sm" onClick={() => void load()}>Refresh</Button>
+      </Toolbar>
+      {state === "failed" ? <ErrorState what="the team" description="The team didn't load. Nothing has changed." onRetry={() => void load()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" /> : null}
+      {state === "loading" && !page ? <Skeleton className="h-96 w-full rounded-[var(--radius-lg)]" /> : page && page.items.length === 0 ? <EmptyManager title="No marketers found" description={filters.q ? "Try a different search or clear the filters." : "Add marketers to your organization before building the team."} /> : page ? <><TeamTable rows={page.items} total={page.total} onSelect={setSelected} /><TalentPagination page={page.page} size={page.size} total={page.total} sizes={[10, 20, 50]} showing={`Showing ${page.total === 0 ? 0 : page.page * page.size + 1}-${Math.min(page.total, (page.page + 1) * page.size)} of ${page.total} marketers`} onPage={(next) => setFilters((current) => ({ ...current, page: next }))} onSize={(size) => setFilters((current) => ({ ...current, page: 0, size }))} /></> : null}
+      <TeamMemberSheet key={selected ?? "none"} orgId={orgId} memberId={selected} onClose={() => setSelected(null)} onSaved={() => void load()} />
+    </div>
+  );
 }
 
-function TeamTable({ rows, onSelect }: { rows: TeamRow[]; onSelect: (id: number) => void }) {
-  return <section className={SOFT_CARD} aria-label="Marketing team"><div className="mb-3 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-[9px] bg-accent-soft text-accent-deep"><UsersIcon size={18} /></span><h2 className="text-[16.5px] font-bold text-ink">Marketing team <span className="font-semibold text-ink-soft">({rows.length})</span></h2></div><div className={TABLE_WRAP}><table className={TABLE}><thead><tr className="bg-paper-2 text-[12px] text-ink-soft"><th className="px-3 py-2.5">Marketer</th><th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5">Load</th><th className="px-3 py-2.5">Approvals</th><th className="px-3 py-2.5">Escalations</th><th className="px-3 py-2.5">Last active</th><th className="px-3 py-2.5"><span className="sr-only">Actions</span></th></tr></thead><tbody>{rows.map((row) => <tr key={row.memberId} className="border-b border-line last:border-0"><td className="px-3 py-3"><button type="button" onClick={() => onSelect(row.memberId)} className="text-left"><Person name={row.name} subtitle={row.title || null} /></button></td><td className="px-3"><StatusBadge value={row.status} /></td><td className="px-3"><LoadMeter assigned={row.assigned} capacity={row.capacity} percent={row.percent} overloaded={row.overloaded} label={`${row.name} workload`} /></td><td className="px-3 font-semibold text-ink">{row.openApprovals}</td><td className="px-3 font-semibold text-ink">{row.openEscalations}</td><td className="px-3 text-[12.5px] text-muted">{row.lastActiveAt ? new Date(row.lastActiveAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Never"}</td><td className="px-3 text-right"><Button type="button" size="sm" variant="ghost" onClick={() => onSelect(row.memberId)}>View</Button></td></tr>)}</tbody></table></div></section>;
+function TeamTable({ rows, total, onSelect }: { rows: TeamRow[]; total: number; onSelect: (id: number) => void }) {
+  return <section className={SOFT_CARD} aria-label="Marketing team"><div className="mb-3 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-[9px] bg-accent-soft text-accent-deep"><UsersIcon size={18} /></span><h2 className="text-[16.5px] font-bold text-ink">Marketing team <span className="font-semibold text-ink-soft">({total})</span></h2></div><div className={TABLE_WRAP}><table className={TABLE}><thead><tr className="bg-paper-2 text-[12px] text-ink-soft"><th className="px-3 py-2.5">Marketer</th><th className="px-3 py-2.5">Status</th><th className="px-3 py-2.5">Load</th><th className="px-3 py-2.5">Approvals</th><th className="px-3 py-2.5">Escalations</th><th className="px-3 py-2.5">Last active</th><th className="px-3 py-2.5"><span className="sr-only">Actions</span></th></tr></thead><tbody>{rows.map((row) => <tr key={row.memberId} className="border-b border-line last:border-0"><td className="px-3 py-3"><button type="button" onClick={() => onSelect(row.memberId)} className="text-left"><Person name={row.name} subtitle={row.title || null} /></button></td><td className="px-3"><StatusBadge value={row.status} /></td><td className="px-3"><LoadMeter assigned={row.assigned} capacity={row.capacity} percent={row.percent} overloaded={row.overloaded} label={`${row.name} workload`} /></td><td className="px-3 font-semibold text-ink">{row.openApprovals}</td><td className="px-3 font-semibold text-ink">{row.openEscalations}</td><td className="px-3 text-[12.5px] text-muted">{row.lastActiveAt ? new Date(row.lastActiveAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Never"}</td><td className="px-3 text-right"><Button type="button" size="sm" variant="ghost" onClick={() => onSelect(row.memberId)}>View</Button></td></tr>)}</tbody></table></div></section>;
 }
 
 function TeamMemberSheet({ orgId, memberId, onClose, onSaved }: { orgId: number; memberId: number | null; onClose: () => void; onSaved: () => void }) {

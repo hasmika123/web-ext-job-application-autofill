@@ -30,11 +30,12 @@ export async function generateMetadata({ params }: { params: Promise<{ workspace
   return { title: { absolute: page ? `${page} · ${org}` : org }, robots };
 }
 
-export default async function WorkspaceCatchAll({ params }: { params: Promise<{ workspace: string; slug?: string[] }> }) {
+export default async function WorkspaceCatchAll({ params, searchParams }: { params: Promise<{ workspace: string; slug?: string[] }>; searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const { workspace, slug } = await params;
   const session = await getTenantSession();
   if (session.kind !== "OK") return null; // the layout already showed the matching panel
   const { me } = session;
+  const initialSearch = workspace === "marketing-mgmt" && searchParams ? await searchParams : undefined;
   const hit = catchAllPage(me, workspace, slug ?? []);
   if (hit.kind === "page" && workspace === "admin" && (slug ?? []).length === 0 && can(me, "dashboard.view_org") && me.org.id) {
     const nav = me.workspaces.find((w) => w.key === "admin")?.nav ?? [];
@@ -70,7 +71,7 @@ export default async function WorkspaceCatchAll({ params }: { params: Promise<{ 
     if (page) return page;
   }
   if (hit.kind === "page" && workspace === "marketing-mgmt") {
-    const page = mgmtPageFor(me, slug ?? []);
+    const page = mgmtPageFor(me, slug ?? [], initialSearch);
     if (page) return page;
   }
   if (hit.kind === "page") return <ComingSoon title={hit.title} />;

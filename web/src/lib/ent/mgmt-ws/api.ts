@@ -206,6 +206,21 @@ export interface EscalationPage {
   hasMore: boolean;
 }
 
+export interface BulkRowResult {
+  consultantId: number;
+  ok: boolean;
+  reason: string | null;
+  previous: Record<string, unknown> | null;
+}
+
+export interface BulkResult {
+  action: string;
+  requested: number;
+  ok: number;
+  skipped: { consultantId: number; reason: string }[];
+  results: BulkRowResult[];
+}
+
 export type ApiResult<T> = { kind: "OK"; data: T } | { kind: "DENIED" } | { kind: "FAILED"; message: string };
 
 const person = (value: unknown): Person | null => {
@@ -322,6 +337,17 @@ export function parseEscalations(body: unknown): EscalationPage | null {
   return { items: list(body.items).map(parseEscalation), page: num(body.page), size: num(body.size), total: num(body.total), hasMore: bool(body.hasMore) };
 }
 
+export function parseBulkResult(body: unknown): BulkResult | null {
+  if (!isObj(body) || !Array.isArray(body.results)) return null;
+  return {
+    action: text(body.action),
+    requested: num(body.requested),
+    ok: num(body.ok),
+    skipped: list(body.skipped).map((row) => ({ consultantId: id(row.consultantId), reason: text(row.reason) })),
+    results: list(body.results).map((row) => ({ consultantId: id(row.consultantId), ok: bool(row.ok), reason: nullableText(row.reason), previous: isObj(row.previous) ? row.previous : null })),
+  };
+}
+
 async function call<T>(url: string, parse: (body: unknown) => T | null, init?: RequestInit): Promise<ApiResult<T>> {
   let response: Response;
   try {
@@ -351,9 +377,9 @@ export const mgmtApi = {
   teamMember: (orgId: number | string, memberId: number) => call(`${base(orgId)}/team/${memberId}`, parseTeamMember),
   updateTeam: (orgId: number | string, memberId: number, body: { capacity?: number; status?: string; title?: string }, key?: string) => call(`${base(orgId)}/team/${memberId}`, (value) => (isObj(value) ? parseTeamRow(value) : null), write("PATCH", body, key)),
   assignments: (orgId: number | string, query: Record<string, string | number | boolean | null | undefined> = {}) => call(`${base(orgId)}/assignments${pageQuery(query)}`, parseAssignments),
-  assignmentAction: (orgId: number | string, action: "assign" | "update" | "unassign" | "restore", body: unknown, key?: string) => call(`${base(orgId)}/assignments/${action}`, (value) => value as Record<string, unknown>, write("POST", body, key)),
+  assignmentAction: (orgId: number | string, action: "assign" | "update" | "unassign" | "restore", body: unknown, key?: string) => call(`${base(orgId)}/assignments/${action}`, parseBulkResult, write("POST", body, key)),
   workload: (orgId: number | string) => call(`${base(orgId)}/workload`, parseWorkload),
-  rebalance: (orgId: number | string, body: unknown, key?: string) => call(`${base(orgId)}/workload/rebalance`, (value) => value as Record<string, unknown>, write("POST", body, key)),
+  rebalance: (orgId: number | string, body: unknown, key?: string) => call(`${base(orgId)}/workload/rebalance`, parseBulkResult, write("POST", body, key)),
   pipeline: (orgId: number | string, query: Record<string, string | number | boolean | null | undefined> = {}) => call(`${base(orgId)}/pipeline${pageQuery(query)}`, parsePipeline),
   pipelineSummary: (orgId: number | string, range?: number) => call(`${base(orgId)}/pipeline/summary${pageQuery({ range })}`, parsePipelineSummary),
   approvals: (orgId: number | string, query: Record<string, string | number | null | undefined> = {}) => call(`${base(orgId)}/approvals${pageQuery(query)}`, parseApprovals),
@@ -362,4 +388,5 @@ export const mgmtApi = {
   escalations: (orgId: number | string, query: Record<string, string | number | null | undefined> = {}) => call(`${base(orgId)}/escalations${pageQuery(query)}`, parseEscalations),
   escalation: (orgId: number | string, escalationId: number) => call(`${base(orgId)}/escalations/${escalationId}`, parseEscalation),
   escalationAction: (orgId: number | string, escalationId: number, action: "acknowledge" | "assign" | "snooze" | "resolve" | "dismiss" | "reopen" | "comment", body: unknown = {}, key?: string) => call(`${base(orgId)}/escalations/${escalationId}/${action}`, parseEscalation, write("POST", body, key)),
+  raiseEscalation: (orgId: number | string, body: unknown, key?: string) => call(`/api/orgs/${orgId}/mkt/escalations`, parseEscalation, write("POST", body, key)),
 };

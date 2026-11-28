@@ -37,9 +37,9 @@ export function mgmtPage(slug: string[], props: MgmtPageProps): ReactNode | null
 }
 
 /** Build the one shared prop seam from the tenant session. Pages never read session cookies themselves. */
-export function mgmtPageFor(me: MeTenant, slug: string[]): ReactNode | null {
+export function mgmtPageFor(me: MeTenant, slug: string[], initialSearch?: Record<string, string | string[] | undefined>): ReactNode | null {
   if (!me.org.id) return null;
   const nav = me.workspaces.find((workspace) => workspace.key === "marketing-mgmt")?.nav ?? [];
   const hrefs: Record<string, string | null> = Object.fromEntries(nav.map((item) => [item.key, item.href]));
-  return mgmtPage(slug, { orgId: me.org.id, orgName: me.org.displayName, firstName: firstNameOf(me.person.name), hrefs });
+  return mgmtPage(slug, { orgId: me.org.id, orgName: me.org.displayName, firstName: firstNameOf(me.person.name), hrefs, initialSearch });
 }

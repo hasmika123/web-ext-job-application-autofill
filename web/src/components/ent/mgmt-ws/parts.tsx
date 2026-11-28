@@ -13,6 +13,7 @@ export interface MgmtPageProps {
   orgName: string;
   firstName: string;
   hrefs: Record<string, string | null>;
+  initialSearch?: Record<string, string | string[] | undefined>;
 }
 
 export const TABLE = "w-full min-w-[660px] border-collapse text-left text-[13px]";
