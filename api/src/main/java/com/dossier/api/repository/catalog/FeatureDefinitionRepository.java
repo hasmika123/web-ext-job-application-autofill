@@ -17,6 +17,7 @@ public interface FeatureDefinitionRepository extends Repository<FeatureDefinitio
     <S extends FeatureDefinition> S save(S entity);
     <S extends FeatureDefinition> List<S> saveAll(Iterable<S> entities);
     Optional<FeatureDefinition> findByFeatureKey(String featureKey);
+    List<FeatureDefinition> findByFeatureKeyIn(Collection<String> featureKeys);
     List<FeatureDefinition> findAllByOrderBySortOrderAsc();
     long count();
     List<FeatureDefinition> findByActiveTrueOrderBySortOrderAsc();

@@ -29,6 +29,7 @@ public interface UsageCounterRepository extends Repository<UsageCounter, Long> {
     List<UsageCounter> findByOrgIdAndPeriodKey(Long orgId, String periodKey);
     Page<UsageCounter> findByOrgIdAndPeriodKey(Long orgId, String periodKey, Pageable pageable);
     List<UsageCounter> findByOrgIdAndConsultantIdAndPeriodKey(Long orgId, Long consultantId, String periodKey);
+    List<UsageCounter> findByOrgIdAndConsultantIdInAndPeriodKey(Long orgId, Collection<Long> consultantIds, String periodKey);
     List<UsageCounter> findByOrgIdAndFeatureKeyAndPeriodKey(Long orgId, String featureKey, String periodKey);
     List<UsageCounter> findByOrgIdAndConsultantIdOrderByPeriodKeyAsc(Long orgId, Long consultantId);
     @Query("select coalesce(sum(c.used), 0) from UsageCounter c where c.orgId = :orgId and c.periodKey = :periodKey")

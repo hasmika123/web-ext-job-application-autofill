@@ -6,7 +6,9 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
 
 /** Org-scoped access to {@code talent_application}: every method takes the organization id first (TalentSchemaIT enforces it). */
 public interface TalentApplicationRepository extends Repository<TalentApplication, Long> {
@@ -29,6 +31,21 @@ public interface TalentApplicationRepository extends Repository<TalentApplicatio
     Optional<TalentApplication> findByOrgIdAndCode(Long orgId, String code);
 
     List<TalentApplication> findByOrgIdAndConsultantId(Long orgId, Long consultantId);
+
+    @Query("select a.consultantId, count(a) from TalentApplication a where a.orgId = :orgId and a.consultantId in :consultantIds and a.createdAt >= :from and a.createdAt < :to group by a.consultantId")
+    List<Object[]> countByOrgIdAndConsultantIdInAndCreatedAtBetween(
+        @Param("orgId") Long orgId,
+        @Param("consultantIds") Collection<Long> consultantIds,
+        @Param("from") Instant from,
+        @Param("to") Instant to
+    );
+
+    List<TalentApplication> findByOrgIdAndConsultantIdInAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+        Long orgId,
+        Collection<Long> consultantIds,
+        Instant from,
+        Instant to
+    );
 
     long countByOrgIdAndStage(Long orgId, String stage);
 

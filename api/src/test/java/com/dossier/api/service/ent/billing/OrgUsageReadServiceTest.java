@@ -1,6 +1,8 @@
 package com.dossier.api.service.ent.billing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -13,7 +15,6 @@ import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.billing.UsageCounter;
 import com.dossier.api.domain.ent.consultantws.CwsMatchView;
 import com.dossier.api.domain.ent.consultantws.CwsPrepSession;
-import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.TalentApplication;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgRole;
@@ -24,7 +25,6 @@ import com.dossier.api.repository.catalog.FeatureDefinitionRepository;
 import com.dossier.api.repository.ent.billing.UsageCounterRepository;
 import com.dossier.api.repository.ent.consultantws.CwsMatchViewRepository;
 import com.dossier.api.repository.ent.consultantws.CwsPrepSessionRepository;
-import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.TalentApplicationRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.service.AiBudgetService;
@@ -51,7 +51,6 @@ class OrgUsageReadServiceTest {
     OrgBillingReadService billing = mock(OrgBillingReadService.class);
     OrgLicenseService licenseRows = mock(OrgLicenseService.class);
     OrgLicenseGate gate = mock(OrgLicenseGate.class);
-    ConsultantProfileRepository consultants = mock(ConsultantProfileRepository.class);
     OrgMemberRepository members = mock(OrgMemberRepository.class);
     UserRepository users = mock(UserRepository.class);
     CwsMatchViewRepository views = mock(CwsMatchViewRepository.class);
@@ -60,7 +59,7 @@ class OrgUsageReadServiceTest {
     UsageCounterRepository counters = mock(UsageCounterRepository.class);
     FeatureDefinitionRepository definitions = mock(FeatureDefinitionRepository.class);
     AiBudgetService ai = mock(AiBudgetService.class);
-    OrgUsageReadService service = new OrgUsageReadService(billing, licenseRows, gate, consultants, members, users, views, prep, apps, counters, definitions, ai);
+    OrgUsageReadService service = new OrgUsageReadService(billing, licenseRows, gate, members, users, views, prep, apps, counters, definitions, ai);
     OrgMembership me = new OrgMembership(ORG, 5L, 2L, "felix", OrgRole.ADMIN, OrgMemberStatus.ACTIVE, OrgStatus.ACTIVE);
 
     @BeforeEach
@@ -70,22 +69,51 @@ class OrgUsageReadServiceTest {
             new Row(1L, "Ana", "ana@x.test", true, Status.ACTIVE, List.of("ai.resume_tailoring"), null, false, NOW, null, null, List.of()),
             new Row(2L, "Ben", "ben@x.test", true, Status.NONE, List.of(), null, false, null, null, null, List.of())
         ));
+        when(licenseRows.usageRows(ORG)).thenReturn(List.of(new OrgLicenseService.UsageRow(1L, "Ana", 55L)));
+        when(views.countByOrgIdAndConsultantIdInAndViewedAtBetween(eq(ORG), anyCollection(), any(Instant.class), any(Instant.class))).thenReturn(List.<Object[]>of(new Object[] { 1L, 2L }));
+        when(prep.countByOrgIdAndConsultantIdInAndOccurredAtBetween(eq(ORG), anyCollection(), any(Instant.class), any(Instant.class))).thenReturn(List.of());
+        when(apps.countByOrgIdAndConsultantIdInAndCreatedAtBetween(eq(ORG), anyCollection(), any(Instant.class), any(Instant.class))).thenReturn(List.<Object[]>of(new Object[] { 1L, 1L }));
+        when(counters.findByOrgIdAndConsultantIdInAndPeriodKey(eq(ORG), anyCollection(), anyString())).thenReturn(List.of());
+        when(views.findByOrgIdAndConsultantIdInAndViewedAtGreaterThanEqualAndViewedAtLessThan(eq(ORG), anyCollection(), any(Instant.class), any(Instant.class))).thenReturn(List.of(view("2026-11-02T09:00:00Z"), view("2026-11-10T09:00:00Z"), view("2026-10-20T09:00:00Z")));
+        when(prep.findByOrgIdAndConsultantIdInAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(eq(ORG), anyCollection(), any(Instant.class), any(Instant.class))).thenReturn(List.of(session("2026-10-05T09:00:00Z")));
+        when(apps.findByOrgIdAndConsultantIdInAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(eq(ORG), anyCollection(), any(Instant.class), any(Instant.class))).thenReturn(List.of(app("2026-11-03T09:00:00Z")));
         when(views.findByOrgIdAndConsultantId(ORG, 1L)).thenReturn(List.of(view("2026-11-02T09:00:00Z"), view("2026-11-10T09:00:00Z"), view("2026-10-20T09:00:00Z")));
         when(prep.findByOrgIdAndConsultantIdOrderByOccurredAtDesc(ORG, 1L)).thenReturn(List.of(session("2026-10-05T09:00:00Z")));
         when(apps.findByOrgIdAndConsultantId(ORG, 1L)).thenReturn(List.of(app("2026-11-03T09:00:00Z")));
         when(counters.findByOrgIdAndConsultantIdAndPeriodKey(eq(ORG), eq(1L), anyString())).thenReturn(List.of());
         when(definitions.findByFeatureKey(anyString())).thenReturn(Optional.empty());
         when(gate.aiBudgetCents(ORG, 1L)).thenReturn(300L);
-        ConsultantProfile cp = new ConsultantProfile();
-        cp.setMemberId(55L);
-        when(consultants.findByOrgIdAndId(ORG, 1L)).thenReturn(Optional.of(cp));
         OrgMember seat = new OrgMember();
+        seat.setId(55L);
         seat.setUserId(77L);
         when(members.findByOrgIdAndId(ORG, 55L)).thenReturn(Optional.of(seat));
+        when(members.findByOrgIdAndIdIn(eq(ORG), anyCollection())).thenReturn(List.of(seat));
         User u = new User();
+        u.setId(77L);
         u.setLogin("ent#7#ana");
         when(users.findById(77L)).thenReturn(Optional.of(u));
+        when(users.findAllById(anyCollection())).thenReturn(List.of(u));
         when(ai.usage("ent#7#ana")).thenReturn(new AiBudgetService.Usage("budget", 42, 100, NOW, false));
+    }
+
+    @Test
+    void featureUsageReadsConsultantsThroughBatchedSources() {
+        when(licenseRows.usageRows(ORG)).thenReturn(List.of(
+            new OrgLicenseService.UsageRow(1L, "Ana", 55L),
+            new OrgLicenseService.UsageRow(2L, "Ben", 56L),
+            new OrgLicenseService.UsageRow(3L, "Cia", 57L)
+        ));
+
+        service.usage(me, null);
+
+        verify(views).countByOrgIdAndConsultantIdInAndViewedAtBetween(eq(ORG), anyCollection(), any(Instant.class), any(Instant.class));
+        verify(prep).countByOrgIdAndConsultantIdInAndOccurredAtBetween(eq(ORG), anyCollection(), any(Instant.class), any(Instant.class));
+        verify(apps).countByOrgIdAndConsultantIdInAndCreatedAtBetween(eq(ORG), anyCollection(), any(Instant.class), any(Instant.class));
+        verify(counters).findByOrgIdAndConsultantIdInAndPeriodKey(eq(ORG), anyCollection(), eq("2026-11"));
+        verify(views, never()).findByOrgIdAndConsultantId(anyLong(), anyLong());
+        verify(prep, never()).findByOrgIdAndConsultantIdOrderByOccurredAtDesc(anyLong(), anyLong());
+        verify(apps, never()).findByOrgIdAndConsultantId(anyLong(), anyLong());
+        verify(counters, never()).findByOrgIdAndConsultantIdAndPeriodKey(anyLong(), anyLong(), anyString());
     }
 
     @Test
@@ -108,6 +136,10 @@ class OrgUsageReadServiceTest {
 
     @Test
     void anEarlierMonthHasItsOwnCountsAndNoAiPercent() {
+        when(views.countByOrgIdAndConsultantIdInAndViewedAtBetween(eq(ORG), anyCollection(), eq(Instant.parse("2026-10-01T00:00:00Z")), eq(Instant.parse("2026-11-01T00:00:00Z"))))
+            .thenReturn(List.<Object[]>of(new Object[] { 1L, 1L }));
+        when(prep.countByOrgIdAndConsultantIdInAndOccurredAtBetween(eq(ORG), anyCollection(), eq(Instant.parse("2026-10-01T00:00:00Z")), eq(Instant.parse("2026-11-01T00:00:00Z"))))
+            .thenReturn(List.<Object[]>of(new Object[] { 1L, 1L }));
         OrgUsageReadService.Usage u = service.usage(me, "2026-10");
         assertThat(u.current()).isFalse();
         assertThat(u.consultants().get(0).matchViews()).isEqualTo(1);
@@ -136,7 +168,7 @@ class OrgUsageReadServiceTest {
     void aPersonalLoginShowsNoAiPercent() {
         User personal = new User();
         personal.setLogin("ana");
-        when(users.findById(77L)).thenReturn(Optional.of(personal));
+        when(users.findAllById(anyCollection())).thenReturn(List.of(personal));
         assertThat(service.usage(me, null).consultants().get(0).aiBudgetPercent()).isNull();
         verify(ai, never()).usage("ana");
     }
@@ -150,10 +182,11 @@ class OrgUsageReadServiceTest {
     @Test
     void demoCountersAreListedWithTheirAllowance() {
         UsageCounter c = new UsageCounter();
+        c.setConsultantId(1L);
         c.setFeatureKey("ai.resume_tailoring");
         c.setUsed(12L);
         c.setAllowance(40L);
-        when(counters.findByOrgIdAndConsultantIdAndPeriodKey(ORG, 1L, "2026-11")).thenReturn(List.of(c));
+        when(counters.findByOrgIdAndConsultantIdInAndPeriodKey(eq(ORG), anyCollection(), eq("2026-11"))).thenReturn(List.of(c));
         OrgUsageReadService.Usage u = service.usage(me, "2026-11");
         assertThat(u.consultants().get(0).counters()).extracting(OrgUsageReadService.Counter::used, OrgUsageReadService.Counter::allowance).containsExactly(org.assertj.core.groups.Tuple.tuple(12L, 40L));
         assertThat(u.features()).anySatisfy(f -> {

@@ -98,6 +98,9 @@ public class OrgLicenseService {
         List<String> endingFeatures
     ) {}
 
+    /** The small license projection needed by read-only usage pages; unlike {@link #rowsFor(Long)} it does not load prices or feature rows per consultant. */
+    public record UsageRow(Long consultantId, String name, Long memberId) {}
+
     public record Change(String kind, String featureKey, String summary, Instant at, Long actorMemberId) {}
 
     /** A removal waiting for the end of the billing period; {@code changeId} undoes it ({@code DELETE /licenses/changes/{changeId}}). */
@@ -178,6 +181,24 @@ public class OrgLicenseService {
         Prices prices = prices(orgId);
         List<Row> out = new ArrayList<>();
         for (ConsultantProfile c : consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(orgId, "ACTIVE")) out.add(row(c, current(orgId, c.getId()), prices, now));
+        return out;
+    }
+
+    /**
+     * Usage pages only need the active consultants and the state of their current license. Keep this projection batch-shaped: the general license
+     * rows reader also loads prices and feature rows for every consultant, which is unnecessary work for a read-only usage response.
+     */
+    @Transactional(readOnly = true)
+    public List<UsageRow> usageRows(Long orgId) {
+        Map<Long, ConsultantLicense> current = new HashMap<>();
+        for (ConsultantLicense l : licenses.findByOrgIdAndStatusInOrderByStartsAtDesc(orgId, Set.of("ACTIVE", "SUSPENDED", "CANCEL_AT_PERIOD_END"))) {
+            current.putIfAbsent(l.getConsultantId(), l);
+        }
+        List<UsageRow> out = new ArrayList<>();
+        for (ConsultantProfile c : consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(orgId, "ACTIVE")) {
+            ConsultantLicense l = current.get(c.getId());
+            if (l != null) out.add(new UsageRow(c.getId(), c.getDisplayName(), c.getMemberId()));
+        }
         return out;
     }
 

@@ -40,6 +40,10 @@ public interface AiCallRepository extends JpaRepository<AiCall, Long> {
     @Query("select coalesce(sum(c.costMicros), 0) from AiCall c where c.login = :login and c.createdAt >= :since and c.success = true")
     long costSince(@Param("login") String login, @Param("since") Instant since);
 
+    /** Successful AI spend for several enterprise logins in one grouped read. */
+    @Query("select c.login, coalesce(sum(c.costMicros), 0) from AiCall c where c.login in :logins and c.createdAt >= :since and c.success = true group by c.login")
+    List<Object[]> costSinceByLogin(@Param("logins") Collection<String> logins, @Param("since") Instant since);
+
     /** Admin (13.1c): spend per user in [from, to), dearest first. A null login is deleted accounts. */
     @Query(
         "select new com.dossier.api.repository.AiSpendRow(c.login, count(c), coalesce(sum(c.costMicros), 0L)) " +

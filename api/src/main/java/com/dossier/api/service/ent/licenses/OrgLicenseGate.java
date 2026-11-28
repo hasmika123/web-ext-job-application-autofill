@@ -7,6 +7,7 @@ import com.dossier.api.repository.catalog.FeatureDefinitionRepository;
 import com.dossier.api.repository.ent.billing.ConsultantLicenseRepository;
 import com.dossier.api.repository.ent.billing.LicenseFeatureRepository;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -149,6 +150,38 @@ public class OrgLicenseGate {
             cents += (long) perUnit * Math.max(1, e.getValue());
         }
         return cents;
+    }
+
+    /** The same AI-budget calculation for an organization's consultants in one license/features/catalog pass. */
+    public Map<Long, Long> aiBudgetCents(Long orgId, Collection<Long> consultantIds, Instant now) {
+        Map<Long, Long> out = new HashMap<>();
+        if (consultantIds == null || consultantIds.isEmpty()) return out;
+        for (Long consultantId : consultantIds) if (consultantId != null) out.put(consultantId, 0L);
+        if (orgId == null || paused(orgId, now) || out.isEmpty()) return out;
+
+        Map<Long, ConsultantLicense> licenseByConsultant = new HashMap<>();
+        for (ConsultantLicense l : licenses.findByOrgIdAndStatusInOrderByStartsAtDesc(orgId, GRANTING)) {
+            if (grants(l, now)) licenseByConsultant.putIfAbsent(l.getConsultantId(), l);
+        }
+        if (licenseByConsultant.isEmpty()) return out;
+
+        Map<Long, Long> consultantByLicense = new HashMap<>();
+        for (Map.Entry<Long, ConsultantLicense> e : licenseByConsultant.entrySet()) consultantByLicense.put(e.getValue().getId(), e.getKey());
+        List<LicenseFeature> licenseFeatures = features.findByOrgIdAndLicenseIdIn(orgId, consultantByLicense.keySet());
+        Set<String> featureKeys = new HashSet<>();
+        for (LicenseFeature f : licenseFeatures) if (live(f, now)) featureKeys.add(f.getFeatureKey());
+        if (featureKeys.isEmpty()) return out;
+
+        Map<String, FeatureDefinition> definitionsByKey = new HashMap<>();
+        for (FeatureDefinition definition : definitions.findByFeatureKeyIn(featureKeys)) definitionsByKey.put(definition.getFeatureKey(), definition);
+        for (LicenseFeature f : licenseFeatures) {
+            if (!live(f, now)) continue;
+            FeatureDefinition definition = definitionsByKey.get(f.getFeatureKey());
+            if (definition == null || definition.getAiBudgetCents() == null || definition.getAiBudgetCents() <= 0) continue;
+            Long consultantId = consultantByLicense.get(f.getLicenseId());
+            if (consultantId != null) out.merge(consultantId, (long) definition.getAiBudgetCents() * quantity(f), Long::sum);
+        }
+        return out;
     }
 
     static boolean grants(ConsultantLicense l, Instant now) {

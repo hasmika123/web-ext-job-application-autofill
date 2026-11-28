@@ -4,14 +4,12 @@ import com.dossier.api.domain.ent.billing.FeatureDefinition;
 import com.dossier.api.domain.ent.billing.UsageCounter;
 import com.dossier.api.domain.ent.consultantws.CwsMatchView;
 import com.dossier.api.domain.ent.consultantws.CwsPrepSession;
-import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.TalentApplication;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.catalog.FeatureDefinitionRepository;
 import com.dossier.api.repository.ent.billing.UsageCounterRepository;
 import com.dossier.api.repository.ent.consultantws.CwsMatchViewRepository;
 import com.dossier.api.repository.ent.consultantws.CwsPrepSessionRepository;
-import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.TalentApplicationRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.service.AiBudgetService;
@@ -25,9 +23,13 @@ import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,7 +71,6 @@ public class OrgUsageReadService {
     private final OrgBillingReadService billing;
     private final OrgLicenseService licenseRows;
     private final OrgLicenseGate licenseGate;
-    private final ConsultantProfileRepository consultants;
     private final OrgMemberRepository members;
     private final UserRepository users;
     private final CwsMatchViewRepository matchViews;
@@ -84,7 +85,6 @@ public class OrgUsageReadService {
         OrgBillingReadService billing,
         OrgLicenseService licenseRows,
         OrgLicenseGate licenseGate,
-        ConsultantProfileRepository consultants,
         OrgMemberRepository members,
         UserRepository users,
         CwsMatchViewRepository matchViews,
@@ -97,7 +97,6 @@ public class OrgUsageReadService {
         this.billing = billing;
         this.licenseRows = licenseRows;
         this.licenseGate = licenseGate;
-        this.consultants = consultants;
         this.members = members;
         this.users = users;
         this.matchViews = matchViews;
@@ -132,18 +131,31 @@ public class OrgUsageReadService {
         Instant to = month.plusMonths(1).atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
         Map<String, String> labels = new LinkedHashMap<>();
 
-        List<ConsultantUsage> rows = new ArrayList<>();
-        for (OrgLicenseService.Row r : licenseRows.rowsFor(orgId)) {
-            if (r.status() != OrgLicenseService.Status.ACTIVE && r.status() != OrgLicenseService.Status.SUSPENDED && r.status() != OrgLicenseService.Status.ENDING) continue;
+        List<OrgLicenseService.UsageRow> licensed = licenseRows.usageRows(orgId);
+        List<Long> consultantIds = licensed.stream().map(OrgLicenseService.UsageRow::consultantId).toList();
+        Map<Long, Integer> viewCounts = currentCounts(consultantIds.isEmpty() ? List.of() : matchViews.countByOrgIdAndConsultantIdInAndViewedAtBetween(orgId, consultantIds, from, to));
+        Map<Long, Integer> prepCounts = currentCounts(consultantIds.isEmpty() ? List.of() : prepSessions.countByOrgIdAndConsultantIdInAndOccurredAtBetween(orgId, consultantIds, from, to));
+        Map<Long, Integer> applicationCounts = currentCounts(consultantIds.isEmpty() ? List.of() : applications.countByOrgIdAndConsultantIdInAndCreatedAtBetween(orgId, consultantIds, from, to));
+        Map<Long, List<UsageCounter>> countersByConsultant = new HashMap<>();
+        if (!consultantIds.isEmpty()) {
+            for (UsageCounter c : counters.findByOrgIdAndConsultantIdInAndPeriodKey(orgId, consultantIds, key(month))) {
+                countersByConsultant.computeIfAbsent(c.getConsultantId(), ignored -> new ArrayList<>()).add(c);
+            }
+        }
+        Instant nowInstant = Instant.now(clock);
+        Map<Long, Long> aiBudgets = aiBudgets(orgId, licensed, current, nowInstant);
+        Map<Long, String> logins = current ? enterpriseLogins(orgId, licensed) : Map.of();
+        Map<String, Long> aiSpend = current ? aiSpend(logins.values(), from) : Map.of();
+
+        List<ConsultantUsage> rows = new ArrayList<>(licensed.size());
+        for (OrgLicenseService.UsageRow r : licensed) {
             Long cid = r.consultantId();
-            int views = count(matchViews.findByOrgIdAndConsultantId(orgId, cid), CwsMatchView::getViewedAt, from, to);
-            int prep = count(prepSessions.findByOrgIdAndConsultantIdOrderByOccurredAtDesc(orgId, cid), CwsPrepSession::getOccurredAt, from, to);
-            int apps = count(applications.findByOrgIdAndConsultantId(orgId, cid), TalentApplication::getCreatedAt, from, to);
             List<Counter> cs = new ArrayList<>();
-            for (UsageCounter c : counters.findByOrgIdAndConsultantIdAndPeriodKey(orgId, cid, key(month))) {
+            for (UsageCounter c : countersByConsultant.getOrDefault(cid, List.of())) {
                 cs.add(new Counter(c.getFeatureKey(), label(c.getFeatureKey(), labels), c.getUsed() == null ? 0 : c.getUsed(), c.getAllowance()));
             }
-            rows.add(new ConsultantUsage(cid, r.name(), current ? aiPercent(orgId, cid) : null, views, prep, apps, cs));
+            Integer aiPercent = current ? aiPercent(r, aiBudgets, logins, aiSpend) : null;
+            rows.add(new ConsultantUsage(cid, r.name(), aiPercent, viewCounts.getOrDefault(cid, 0), prepCounts.getOrDefault(cid, 0), applicationCounts.getOrDefault(cid, 0), cs));
         }
 
         List<FeatureTotal> totals = new ArrayList<>();
@@ -163,14 +175,14 @@ public class OrgUsageReadService {
             }
         }
         byKey.forEach((k, t) -> totals.add(new FeatureTotal(k, labels.getOrDefault(k, k), t[0], t[3] == 1 ? t[1] : null, (int) t[2])));
-        return new Usage(key(month), current, month.plusMonths(1).atDay(1), rows, totals, current ? orgAiPercent(orgId, rows, from) : null);
+        return new Usage(key(month), current, month.plusMonths(1).atDay(1), rows, totals, current ? orgAiPercent(orgId, rows, aiBudgets, from) : null);
     }
 
     /** The organization's AI spend since {@code from} against the sum of its licensed consultants' AI budgets, in percent; null with no AI budget. */
-    private Integer orgAiPercent(Long orgId, List<ConsultantUsage> rows, Instant from) {
+    private Integer orgAiPercent(Long orgId, List<ConsultantUsage> rows, Map<Long, Long> aiBudgets, Instant from) {
         if (aiCalls == null) return null;
         long budgetCents = 0;
-        for (ConsultantUsage u : rows) budgetCents += Math.max(0, licenseGate.aiBudgetCents(orgId, u.consultantId()));
+        for (ConsultantUsage u : rows) budgetCents += Math.max(0, aiBudgets.getOrDefault(u.consultantId(), 0L));
         if (budgetCents <= 0) return null;
         long spentMicros = aiCalls.orgCostSince(orgId, from);
         return (int) Math.min(100, Math.round(spentMicros * 100.0 / (budgetCents * 10_000.0)));
@@ -186,12 +198,34 @@ public class OrgUsageReadService {
         YearMonth first = now.minusMonths(n - 1L);
         int[][] counts = new int[n][3];
         long[] counted = new long[n];
-        for (OrgLicenseService.Row r : licenseRows.rowsFor(orgId)) {
-            if (r.status() == OrgLicenseService.Status.NONE) continue;
-            Long cid = r.consultantId();
-            bucket(matchViews.findByOrgIdAndConsultantId(orgId, cid), CwsMatchView::getViewedAt, first, n, counts, 0);
-            bucket(prepSessions.findByOrgIdAndConsultantIdOrderByOccurredAtDesc(orgId, cid), CwsPrepSession::getOccurredAt, first, n, counts, 1);
-            bucket(applications.findByOrgIdAndConsultantId(orgId, cid), TalentApplication::getCreatedAt, first, n, counts, 2);
+        List<Long> consultantIds = licenseRows.usageRows(orgId).stream().map(OrgLicenseService.UsageRow::consultantId).toList();
+        Instant from = first.atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant to = now.plusMonths(1).atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+        if (!consultantIds.isEmpty()) {
+            bucket(
+                matchViews.findByOrgIdAndConsultantIdInAndViewedAtGreaterThanEqualAndViewedAtLessThan(orgId, consultantIds, from, to),
+                CwsMatchView::getViewedAt,
+                first,
+                n,
+                counts,
+                0
+            );
+            bucket(
+                prepSessions.findByOrgIdAndConsultantIdInAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(orgId, consultantIds, from, to),
+                CwsPrepSession::getOccurredAt,
+                first,
+                n,
+                counts,
+                1
+            );
+            bucket(
+                applications.findByOrgIdAndConsultantIdInAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(orgId, consultantIds, from, to),
+                TalentApplication::getCreatedAt,
+                first,
+                n,
+                counts,
+                2
+            );
         }
         for (Object[] t : counters.trend(orgId, key(first), key(now))) {
             int i = index(String.valueOf(t[0]), first, n);
@@ -204,15 +238,63 @@ public class OrgUsageReadService {
 
     // ---------------------------------------------------------------------------------------------- helpers
 
-    /** The consultant's AI budget used this month, in percent; null when their licence carries no AI (or their seat has no sign-in yet). */
-    private Integer aiPercent(Long orgId, Long consultantId) {
-        if (licenseGate.aiBudgetCents(orgId, consultantId) <= 0) return null;
-        ConsultantProfile c = consultants.findByOrgIdAndId(orgId, consultantId).orElse(null);
-        if (c == null || c.getMemberId() == null) return null;
-        String login = members.findByOrgIdAndId(orgId, c.getMemberId()).map(m -> m.getUserId()).flatMap(users::findById).map(u -> u.getLogin()).orElse(null);
-        if (login == null || !com.dossier.api.config.Constants.isEnterpriseLogin(login)) return null; // a personal login's AI is not the organization's
+    private Map<Long, Long> aiBudgets(Long orgId, List<OrgLicenseService.UsageRow> licensed, boolean current, Instant now) {
+        if (!current || licensed.isEmpty()) return Map.of();
+        List<Long> ids = licensed.stream().map(OrgLicenseService.UsageRow::consultantId).toList();
+        Map<Long, Long> budgets = licenseGate.aiBudgetCents(orgId, ids, now);
+        // Plain unit tests may use an older mock of the gate; retain a deterministic fallback while production uses the batch method.
+        if (budgets.size() < ids.size()) {
+            Map<Long, Long> complete = new HashMap<>(budgets);
+            for (Long id : ids) complete.putIfAbsent(id, Math.max(0, licenseGate.aiBudgetCents(orgId, id)));
+            return complete;
+        }
+        return budgets;
+    }
+
+    private Map<Long, String> enterpriseLogins(Long orgId, List<OrgLicenseService.UsageRow> licensed) {
+        Set<Long> memberIds = new HashSet<>();
+        for (OrgLicenseService.UsageRow row : licensed) if (row.memberId() != null) memberIds.add(row.memberId());
+        if (memberIds.isEmpty()) return Map.of();
+
+        Map<Long, Long> userByMember = new HashMap<>();
+        for (var member : members.findByOrgIdAndIdIn(orgId, memberIds)) userByMember.put(member.getId(), member.getUserId());
+        if (userByMember.isEmpty()) return Map.of();
+
+        Set<Long> userIds = new HashSet<>();
+        for (Long userId : userByMember.values()) if (userId != null) userIds.add(userId);
+        if (userIds.isEmpty()) return Map.of();
+        Map<Long, String> loginByUser = new HashMap<>();
+        for (var user : users.findAllById(userIds)) loginByUser.put(user.getId(), user.getLogin());
+        Map<Long, String> out = new HashMap<>();
+        for (OrgLicenseService.UsageRow row : licensed) {
+            Long userId = row.memberId() == null ? null : userByMember.get(row.memberId());
+            String login = userId == null ? null : loginByUser.get(userId);
+            if (login != null && com.dossier.api.config.Constants.isEnterpriseLogin(login)) out.put(row.consultantId(), login);
+        }
+        return out;
+    }
+
+    private Map<String, Long> aiSpend(Collection<String> logins, Instant from) {
+        if (aiCalls == null || logins.isEmpty()) return Map.of();
+        Map<String, Long> out = new HashMap<>();
+        for (Object[] row : aiCalls.costSinceByLogin(new HashSet<>(logins), from)) out.put(String.valueOf(row[0]), ((Number) row[1]).longValue());
+        return out;
+    }
+
+    /** The consultant's AI budget used this month, in percent; null when their licence carries no AI or the seat is not enterprise-linked. */
+    private Integer aiPercent(OrgLicenseService.UsageRow row, Map<Long, Long> budgets, Map<Long, String> logins, Map<String, Long> spend) {
+        long budgetCents = Math.max(0, budgets.getOrDefault(row.consultantId(), 0L));
+        String login = logins.get(row.consultantId());
+        if (budgetCents <= 0 || login == null) return null;
+        if (aiCalls != null) return percent(spend.getOrDefault(login, 0L), budgetCents);
         AiBudgetService.Usage u = aiBudget.usage(login);
         return "budget".equals(u.metered()) ? u.used() : null;
+    }
+
+    private static int percent(long spentMicros, long budgetCents) {
+        long budgetMicros = budgetCents * 10_000L;
+        if (budgetMicros <= 0) return 100;
+        return (int) Math.min(100L, Math.max(0L, spentMicros * 100L / budgetMicros));
     }
 
     private String label(String featureKey, Map<String, String> labels) {
@@ -228,6 +310,12 @@ public class OrgUsageReadService {
             if (v > 0) who++;
         }
         return new FeatureTotal(key, label, used, null, who);
+    }
+
+    private static Map<Long, Integer> currentCounts(List<Object[]> grouped) {
+        Map<Long, Integer> out = new HashMap<>();
+        for (Object[] row : grouped) out.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
+        return out;
     }
 
     /** A {@code YYYY-MM} period within the last {@link #MAX_MONTHS} months; anything else (blank, future, malformed) is the current month. */
@@ -254,15 +342,6 @@ public class OrgUsageReadService {
         } catch (DateTimeParseException e) {
             return -1;
         }
-    }
-
-    private static <T> int count(List<T> rows, Function<T, Instant> at, Instant from, Instant to) {
-        int n = 0;
-        for (T r : rows) {
-            Instant t = at.apply(r);
-            if (t != null && !t.isBefore(from) && t.isBefore(to)) n++;
-        }
-        return n;
     }
 
     private static <T> void bucket(List<T> rows, Function<T, Instant> at, YearMonth first, int n, int[][] counts, int col) {

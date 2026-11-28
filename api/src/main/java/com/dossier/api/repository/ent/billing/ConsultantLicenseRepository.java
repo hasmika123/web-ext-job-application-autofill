@@ -31,6 +31,7 @@ public interface ConsultantLicenseRepository extends Repository<ConsultantLicens
     long countByOrgIdAndStatusAndEndsAtBetween(Long orgId, String status, Instant from, Instant to);
     long countByOrgIdAndStartsAtGreaterThanEqual(Long orgId, Instant since);
     List<ConsultantLicense> findByOrgIdAndStatusIn(Long orgId, Collection<String> statuses);
+    List<ConsultantLicense> findByOrgIdAndStatusInOrderByStartsAtDesc(Long orgId, Collection<String> statuses);
     Page<ConsultantLicense> findByOrgIdAndStatusIn(Long orgId, Collection<String> statuses, Pageable pageable);
     Page<ConsultantLicense> findByOrgIdAndStatus(Long orgId, String status, Pageable pageable);
     Page<ConsultantLicense> findByOrgIdAndStatusNot(Long orgId, String status, Pageable pageable);
