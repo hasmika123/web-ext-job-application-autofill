@@ -29,7 +29,7 @@ const CARD = "ent-card min-w-0 px-[14px] pb-3.5 pt-3";
  * every number is the API's, an empty organization sees an honest empty state, and "Download CSV" writes the same tables the page shows (no formula
  * can run when the file is opened: see `csvCell`). A 7-day delta appears only where the API could compute one.
  */
-export default function ReportsPage({ orgId, orgName }: { orgId: number; orgName: string }) {
+export default function ReportsPage({ orgId, orgName, scope = "organization", basePath }: { orgId: number; orgName: string; scope?: "organization" | "team"; basePath?: string }) {
   const [range, setRange] = useState<RangeDays>(DEFAULT_RANGE);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "failed" | "denied">("loading");
@@ -37,7 +37,7 @@ export default function ReportsPage({ orgId, orgName }: { orgId: number; orgName
   const load = useCallback(
     async (days: RangeDays, signal?: AbortSignal) => {
       setStatus((s) => (s === "ready" ? s : "loading"));
-      const r = await fetchOverview(orgId, days, signal);
+      const r = await fetchOverview(orgId, days, signal, basePath);
       if (signal?.aborted) return;
       if (r.kind === "OK" && r.overview) {
         setOverview(r.overview);
@@ -45,7 +45,7 @@ export default function ReportsPage({ orgId, orgName }: { orgId: number; orgName
       } else if (r.kind === "DENIED") setStatus("denied");
       else setStatus((s) => (s === "ready" ? s : "failed")); // a failed refresh keeps what is on screen
     },
-    [orgId],
+    [basePath, orgId],
   );
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function ReportsPage({ orgId, orgName }: { orgId: number; orgName
 
   return (
     <div data-reports data-status={status} className="ent-page flex flex-col gap-4 sm:gap-[17px]">
-      <PageHeader title="Reports" subtitle={`How ${orgName} is doing: consultants, applications, interviews and placements.`} />
+      <PageHeader title="Reports" subtitle={scope === "team" ? `How the marketing team at ${orgName} is doing: consultants, applications, interviews and placements.` : `How ${orgName} is doing: consultants, applications, interviews and placements.`} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div role="group" aria-label="Date range" className="inline-flex rounded-[10px] border border-[var(--ent-control-border)] bg-paper p-0.5">

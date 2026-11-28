@@ -31,6 +31,7 @@ import { createPlansMock } from "./mock-plans.mjs";
 import { createBillingMock } from "./mock-billing.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
+import { createMgmtMock } from "./mock-mgmt.mjs";
 
 if (process.env.NODE_ENV === "production") {
   console.error("mock-api: refusing to run with NODE_ENV=production");
@@ -288,6 +289,7 @@ const handleResumes = createResumesMock({ json });
 const handleGroups = createGroupsMock({ json, withBody, subOf: bearerSub });
 /* ── Subscription customer mock (K5.1/K5.3/K5.5/K5.6: public catalog, quotes, checkout, confirm + undo, plan v3, invoices, entitlements; scripts/mock-billing.mjs) ── */
 const handleBilling = createBillingMock({ json, withBody });
+const handleMgmt = createMgmtMock({ json, withBody, hostOf });
 /* ── Roles & Permissions mock (X4.11: roles, catalog, diff, history, resync, member roles; scripts/mock-roles.mjs) ── */
 const handleRoles = createRolesMock({ json, withBody, hostOf });
 /* ── Plan builder mock (K4.7: plans, versions, preview, publish, compare, catalog, margin; scripts/mock-plans.mjs) ── */
@@ -2021,6 +2023,7 @@ const server = http.createServer((req, res) => {
   if (ENTERPRISE_ENABLED && handleInvitations(req, res, path, method)) return;
   if (handleDashboard(req, res, path, method)) return;
   if (handleMkt(req, res, path, method)) return;
+  if (ENTERPRISE_ENABLED && handleMgmt(req, res, path, method)) return;
   if (handleCon(req, res, path, method)) return;
   if (handleMembers(req, res, path, method)) return;
   if (handleResumes(req, res, path, method)) return;

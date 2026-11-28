@@ -4,6 +4,7 @@ import DashboardPage from "@/components/ent/dashboard/DashboardPage";
 import ReportsPage from "@/components/ent/reports/ReportsPage";
 import { accountsPageFor } from "@/components/ent/accounts-ws/registry";
 import { marketingPageFor, marketingRedirect } from "@/components/ent/marketer-ws/registry";
+import { mgmtPageFor } from "@/components/ent/mgmt-ws/registry";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
 import { getTenantSession } from "@/lib/ent/tenant-session";
 import { catchAllPage } from "@/lib/ent/shell";
@@ -66,6 +67,10 @@ export default async function WorkspaceCatchAll({ params }: { params: Promise<{ 
   if (hit.kind === "page" && workspace === "accounts") {
     // The Accounts workspace's real pages (Home, Contacts, Requirements); Submissions and Offers keep "on the way".
     const page = accountsPageFor(me, slug ?? []);
+    if (page) return page;
+  }
+  if (hit.kind === "page" && workspace === "marketing-mgmt") {
+    const page = mgmtPageFor(me, slug ?? []);
     if (page) return page;
   }
   if (hit.kind === "page") return <ComingSoon title={hit.title} />;

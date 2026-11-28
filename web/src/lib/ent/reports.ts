@@ -210,9 +210,9 @@ export interface OverviewFetch {
   overview?: Overview;
 }
 
-export async function fetchOverview(orgId: number | string, range: RangeDays, signal?: AbortSignal): Promise<OverviewFetch> {
+export async function fetchOverview(orgId: number | string, range: RangeDays, signal?: AbortSignal, endpoint?: string): Promise<OverviewFetch> {
   try {
-    const res = await fetch(`/api/orgs/${orgId}/reports/overview?range=${range}`, { headers: { accept: "application/json" }, cache: "no-store", signal });
+    const res = await fetch(`${endpoint ?? `/api/orgs/${orgId}/reports/overview`}?range=${range}`, { headers: { accept: "application/json" }, cache: "no-store", signal });
     if (res.status === 403 || res.status === 404) return { kind: "DENIED" };
     if (!res.ok) return { kind: "FAILED" };
     const overview = parseOverview(await res.json().catch(() => null));
