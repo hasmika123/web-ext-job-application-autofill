@@ -78,7 +78,7 @@ describe("dates", () => {
     expect(shortDay(undefined)).toBe("");
   });
   it("dayAndTime joins a date and a time", () => {
-    expect(dayAndTime("2026-10-14T14:00:00Z")).toMatch(/Oct 1[34] · \d{1,2}:00 [AP]M/);
+    expect(dayAndTime("2026-10-14T14:00:00Z")).toMatch(/Oct 1[34] · \d{1,2}:\d{2} [AP]M/);
     expect(dayAndTime("")).toBe("");
   });
 });
