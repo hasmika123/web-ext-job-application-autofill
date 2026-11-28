@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import Select, { MENU_GAP, MENU_MAX, menuPlacement } from "./Select";
+import Select, { MENU_GAP, MENU_MAX, menuHorizontalPlacement, menuPlacement } from "./Select";
 
 afterEach(() => {
   cleanup();
@@ -27,6 +27,16 @@ describe("menuPlacement", () => {
 
   it("never asks for more than the list's tallest height", () => {
     expect(menuPlacement({ top: 850, bottom: 890 }, 1000, 2000).maxHeight).toBe(MENU_MAX);
+  });
+});
+
+describe("menuHorizontalPlacement", () => {
+  it("keeps a menu aligned to the trigger on the left when there is room", () => {
+    expect(menuHorizontalPlacement({ left: 100, right: 220 }, 900)).toEqual({ left: 100 });
+  });
+
+  it("anchors the menu to the viewport edge when the trigger reaches the right edge", () => {
+    expect(menuHorizontalPlacement({ left: 780, right: 900 }, 900)).toEqual({ right: 8 });
   });
 });
 

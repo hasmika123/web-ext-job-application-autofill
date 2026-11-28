@@ -55,7 +55,7 @@ export default function TalentPagination({
             </button>
           </nav>
         )}
-        <div className="ent-perpage w-[100px]">
+        <div className="ent-perpage w-36 shrink-0">
           <Select aria-label="Rows per page" value={String(size)} onChange={(v) => onSize(Number(v))} options={sizes.map((n) => ({ value: String(n), label: `${n} per page` }))} />
         </div>
       </div>
