@@ -290,6 +290,7 @@ const itemOf = (field, label, value) => ({ field, label: label || field, value, 
     ok("real labelText: numbered questions stay separate",
       FC.contextHash("h", lt("sq1")) !== FC.contextHash("h", lt("sq2")), `${lt("sq1")} | ${lt("sq2")}`);
 
+    // End to end through the cache: an answer corrected on one posting is offered on the next.
     const carried = fresh("carried");
     await carried.remember(itemOf("", first), "Employee referral");
     ok("real labelText: learned answer carries to the next posting",
